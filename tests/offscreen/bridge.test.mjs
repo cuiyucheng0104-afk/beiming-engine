@@ -1,4 +1,4 @@
-// 几何与场景图桥（engine/offscreen/bridge.mjs）：engine/form 的造型与 src/kun_peng.js 的复杂角色（three r170）拷进 r187 后，
+// 几何与场景图桥（engine/offscreen/bridge.mjs）：engine/form 的造型与 films/beiming-10s/src/kun_peng.js 的复杂角色（three r170）拷进 r187 后，
 // 属性（含 InstancedBufferAttribute）、索引、包围盒、CPU 顶点形变、实例矩阵与手动矩阵（matrixAutoUpdate=false）同步不变。
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -8,8 +8,8 @@ import { spire, mesa } from '../../engine/form/rock.js';
 import { boatHull } from '../../engine/form/props.js';
 import { pineTree } from '../../engine/form/plants.js';
 import { mulberry } from '../../engine/core/math.js';
-import { createKun } from '../../src/kun_peng.js';
-import { PENG_DEFAULTS } from '../../src/toon_peng.js';
+import { createKun } from '../../films/beiming-10s/src/kun_peng.js';
+import { PENG_DEFAULTS } from '../../films/beiming-10s/src/toon_peng.js';
 
 test('spire / mesa / pineTree / boatHull：拷进 r187 后属性、索引与包围盒都不变', async t => {
   let THREE;
@@ -34,7 +34,7 @@ test('spire / mesa / pineTree / boatHull：拷进 r187 后属性、索引与包�
   }
 });
 
-test('mirrorObject：桥接 src/kun_peng.js 角色树（InstancedBufferAttribute、CPU 形变网格、实例矩阵、matrixAutoUpdate=false 眼丘）并按帧同步', async t => {
+test('mirrorObject：桥接 films/beiming-10s/src/kun_peng.js 角色树（InstancedBufferAttribute、CPU 形变网格、实例矩阵、matrixAutoUpdate=false 眼丘）并按帧同步', async t => {
   let gpu, createHost;
   try {
     gpu = await (await import('../../engine/offscreen/load.mjs')).loadGpu();

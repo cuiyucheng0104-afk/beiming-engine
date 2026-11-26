@@ -2,7 +2,7 @@
 
 将旧的页面作品接入帧源接口，按该接口交付帧产物。
 
-通过帧源接口契约接收输入和交付帧产物。旧页面对本组件保持零反向引用。跨组件通过契约交接，引用旧目录须命中白名单（这里只懒加载 `engine/render/page.mjs` 和 `tools/baseline/lib/png.mjs`）。
+按帧源接口契约接收输入和交付帧产物。浏览器兼容实现位于 `browser/`，调用时加载。旧页面仍可通过原入口运行。
 
 业务契约：[帧源接口](../../kernel/contracts/source/CONTRACT.md)（能力声明与合规档）、[每帧元数据](../../kernel/contracts/meta/CONTRACT.md)（本帧源可减免的字段）。
 

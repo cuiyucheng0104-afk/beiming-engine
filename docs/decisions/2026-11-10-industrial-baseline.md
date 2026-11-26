@@ -13,7 +13,7 @@
 | D05 | 《北冥》的认可版本 | 用户未指定。先查清公开成片（v1.0 发布与 media/ 中带红珊瑚的版本）为何不能由现有代码渲出：若是仓库改动造成的意外回归，修回到公开版；若是有意改动，以现代码版为准重渲 media 并另发 v1.0.1。两种情况都不覆盖 v1.0 已发布的附件。回归金标准一律用现代码渲染；认可参照单独存放。 | 集成者决定 |
 | D06 | 工程计划（work-plan）的角色 | 降级为「引擎工程待办」：命令改为 plan:check、plan:next，routes:* 别名保留一个版本。出片编排由作品描述 film.json 与作品目录下的审片记录承担。 | 集成者决定 |
 | D07 | 新作品的默认交付档位 | 默认 web-1080p24：1920×1080、24 fps、H.264 yuv420p、BT.709 限范围（tv）并完整标注、AAC 48 kHz 立体声、−14 LUFS（±1 LU）、真峰值不高于 −1.0 dBTP。另设 master-1080p24、uhd-2160p24、vertical-1080x1920-30、broadcast-1080p25（−23 LUFS）。《北冥》样片保留专用档 beiming-1040p24。 | 集成者决定 |
-| D08 | 创作闸门 | 三道闸：look（风格关键帧）→ animatic（动态预演）→ final（终渲）。终渲前必须通过 animatic，或有豁免记录。豁免必须引用用户原话并注明出处；agent 不得自己批准。「已交付」「用户已认可」只能由 accepted 状态生成。 | 集成者决定 |
+| D08 | 可选的人工交付模式 | R13 起默认自动终渲并保留机器 QA。选择 `--delivery-mode review` 时启用 look、animatic、final 三道创作闸。终渲前必须通过 animatic 或有引用用户原话与出处的豁免。agent 的评审用 `review note`。「已交付」「用户已认可」只能由 accepted 状态生成。 | 集成者决定，R13 修订 |
 | D09 | 运行时版本 | Node ≥ 22（.nvmrc 写 24）；Python 3.12（锁文件覆盖 macOS arm64、Windows x64、Linux x64）；FFmpeg ≥ 7（需带 libx264、aac、loudnorm、ebur128）；playwright-core 1.63.0 及其自带的 headless shell。 | 集成者决定 |
 | D10 | 存储分层 | 大于 5 MiB 的文件不进 git（现有的列入 LARGE-FILES.allow）。底板、采样、母版放 Release 或对象存储，仓库只存清单（地址、sha256、大小、许可、来源）。渲染产物永不入库。 | 集成者决定 |
 | D11 | AI 生成内容标识 | 显式标识：片尾或说明中写「含 AI 生成画面」。隐式标识：在 mp4 的 comment 元数据中写入。派生底板保留 C2PA 信息，或在 plates.json 中记录来源链。 | 集成者决定 |

@@ -101,7 +101,7 @@ test('film.json v2 ⇄ ProjectSpec：四条路线都能互相映射，映射结�
   const r = toProjectSpec(bm, { runtime: runtimes.a });
   assert.deepEqual(r.diagnostics, []);
   assert.equal(r.spec.output.outputDir, 'out/beiming/');
-  assert.equal(r.spec.entry, 'index.html');
+  assert.equal(r.spec.entry, 'films/beiming-10s/index.html');
   // 旧模版（route beiming / raea）也能转成 film.json 骨架
   assert.equal(fromProjectSpec(template('project-beiming.json')).film.route, 'a');
   assert.equal(fromProjectSpec(template('project-raea.json')).film.route, 'b');

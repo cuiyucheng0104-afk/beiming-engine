@@ -12,7 +12,7 @@ import { decodeTracks, encodeTracks } from '../../kernel/eval/tracks.mjs';
 import { findBlender } from './host.mjs';
 
 const exec = promisify(execFile);
-const pythonCli = fileURLToPath(new URL('../../../tools/env/py.mjs', import.meta.url));
+const pythonCli = fileURLToPath(new URL('../../jobs/python/py.mjs', import.meta.url));
 const choreo = fileURLToPath(new URL('./choreo.py', import.meta.url));
 const pythonPrelude = `
 import json

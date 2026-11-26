@@ -141,10 +141,10 @@ test('C 路线：模版作品出片（含声画拍点核对），竖屏 30 fps �
   }
   assert.equal(vr.technicalAcceptance.film, `${vr.runDir}/film.effective.json`);
   // 内部豁免不放行终渲；带用户原话的豁免放行；终渲的 run.json 记 kind = final 与放行依据
-  assert.equal(runCli(['build', w.rel, '--final', '--json'], opts(tmp)).code, 4);
+  assert.equal(runCli(['build', w.rel, '--final', '--delivery-mode', 'review', '--json'], opts(tmp)).code, 4);
   const uw = runCli(['review', 'waive', 'look,animatic', w.rel, '--reason', '用户说直接出', '--quote', '不用给我看预演了，直接出成片', '--source', '端到端测试会话 第 1 条', '--json'], opts(tmp));
   assert.equal(uw.code, 0, uw.stderr);
-  const fin = runCli(['build', w.rel, '--final', '--json'], opts(tmp));
+  const fin = runCli(['build', w.rel, '--final', '--delivery-mode', 'review', '--json'], opts(tmp));
   assert.equal(fin.code, 0, fin.stderr.slice(-1500));
   const fr = readRun(fin.json.runJson);
   assert.equal(fr.kind, 'final');
@@ -241,4 +241,18 @@ test('仓库卫生：端到端跑完，除了测试作品自己，工作区没�
   const st = gitStatus(works.map(w => w.rel));
   if (st === null) return;
   assert.deepEqual(st.filter(l => !statusBefore.has(l)), []);
+});
+
+test('automatic delivery: final succeeds without review records and still runs machine QA', { skip }, () => {
+  const w = makeWork('c'); works.push(w);
+  const r = runCli(['build', w.rel, '--final', '--json'], opts(sysTmp()));
+  assert.equal(r.code, 0, r.stderr.slice(-2000));
+  const run = readRun(r.json.runJson);
+  assert.equal(run.kind, 'final');
+  assert.equal(run.gates.mode, 'automatic');
+  assert.equal(run.gates.checked, false);
+  assert.equal(run.technicalAcceptance.status, 'passed');
+  assert.equal(run.creativeAcceptance.status, 'not-reviewed');
+  assert.notEqual(run.status, 'accepted');
+  assert.equal(fs.existsSync(path.join(w.dir, 'review')), false);
 });

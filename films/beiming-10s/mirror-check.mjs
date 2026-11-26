@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // 《北冥》10 秒样片镜像的一致性检查：films/beiming-10s/film.json 与冻结样片的源码、声音表必须描述同一条时间线。
-// 样片的镜头表写在 src/timeline.js（TIMELINE：镜头起点与片长；DESIGN：编排按它写的设计稿镜头表），
-// 再被 src/main.js（film.run 的 dur 与 shots、HUD_T 覆写）、src/girl.js（GIRL_SHOT）、src/shotC.js（C_START）、
-// src/hud.js（HUD_T，设计稿秒，随镜头 C 平移）读取；src/birds.js（鸽群起飞 T0）和 audio/cues.json（声音表）各自写全局秒，
+// 样片的镜头表写在 films/beiming-10s/src/timeline.js（TIMELINE：镜头起点与片长；DESIGN：编排按它写的设计稿镜头表），
+// 再被 films/beiming-10s/src/main.js（film.run 的 dur 与 shots、HUD_T 覆写）、films/beiming-10s/src/girl.js（GIRL_SHOT）、films/beiming-10s/src/shotC.js（C_START）、
+// films/beiming-10s/src/hud.js（HUD_T，设计稿秒，随镜头 C 平移）读取；films/beiming-10s/src/birds.js（鸽群起飞 T0）和 audio/cues.json（声音表）各自写全局秒，
 // 声音表不读 src/。这个检查只读这些文件（不改、不运行页面），按下面的规则推出"应该是多少帧"，与镜像逐项比对，任何漂移都失败。
 // 源码里的时间写成数字、TIMELINE.X / DESIGN.X、本文件里的 const 名字和加减，这里用一个只认这几种写法的小求值器读出秒数；
 // 写法超出它（例如函数调用）时报 mirror-parse，而不是猜。
@@ -23,14 +23,14 @@ import { CliError, defineCommand, isMain, runCli } from '../../tools/lib/cli.mjs
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_ROOT = resolve(HERE, '../..');
-export const SOURCE_FILES = Object.freeze(['src/timeline.js', 'src/main.js', 'src/girl.js', 'src/shotC.js', 'src/hud.js', 'src/birds.js', 'audio/cues.json']);
+export const SOURCE_FILES = Object.freeze(['films/beiming-10s/src/timeline.js', 'films/beiming-10s/src/main.js', 'films/beiming-10s/src/girl.js', 'films/beiming-10s/src/shotC.js', 'films/beiming-10s/src/hud.js', 'films/beiming-10s/src/birds.js', 'audio/cues.json']);
 
 /**
  * 画面事件：从哪个时间常量来、怎么换成帧、是否与某条声音 cue 同一时刻。
- * HUD_T 是设计稿秒（src/hud.js 的 drawHUD / drawTitle / textsAt 先减去 shiftOf('C') 再比较），成片全局秒 = HUD_T + shiftC。
+ * HUD_T 是设计稿秒（films/beiming-10s/src/hud.js 的 drawHUD / drawTitle / textsAt 先减去 shiftOf('C') 再比较），成片全局秒 = HUD_T + shiftC。
  */
 export const VISUAL_EVENTS = Object.freeze([
-  { id: 'girl.touch', rule: 'exact', at: v => v.girl.start + 0.5, from: 'GIRL_SHOT.start + 0.50（src/girl.js 注释：0.50 指腹贴上镜腿，一拍二）' },
+  { id: 'girl.touch', rule: 'exact', at: v => v.girl.start + 0.5, from: 'GIRL_SHOT.start + 0.50（films/beiming-10s/src/girl.js 注释：0.50 指腹贴上镜腿，一拍二）' },
   { id: 'hud.on', rule: 'ceil', at: v => v.hud.on + v.shiftC, from: 'HUD_T.on + shiftOf(C)' },
   { id: 'hud.remind', rule: 'ceil', at: v => v.hud.remindIn + v.shiftC, from: 'HUD_T.remindIn + shiftOf(C)' },
   { id: 'hud.scan', rule: 'ceil', at: v => v.hud.scan + v.shiftC, from: 'HUD_T.scan + shiftOf(C)', audio: 'ui_scan' },
@@ -39,9 +39,9 @@ export const VISUAL_EVENTS = Object.freeze([
   { id: 'hud.nav', rule: 'ceil', at: v => v.hud.navIn + v.shiftC, from: 'HUD_T.navIn + shiftOf(C)', audio: 'ui_nav' },
   { id: 'hud.nav-done', rule: 'ceil', at: v => v.hud.navDone + v.shiftC, from: 'HUD_T.navDone + shiftOf(C)' },
   { id: 'hud.off', rule: 'ceil', at: v => v.hud.off + v.shiftC, from: 'HUD_T.off + shiftOf(C)' },
-  { id: 'title.bei', rule: 'ceil', at: v => v.hud.titleA[0] + v.shiftC, from: 'HUD_T.titleA[0] + shiftOf(C)（src/main.js 覆写后）', audio: 'apex' },
-  { id: 'title.ming', rule: 'ceil', at: v => v.hud.titleB[0] + v.shiftC, from: 'HUD_T.titleB[0] + shiftOf(C)（src/main.js 覆写后）' },
-  { id: 'title.sub', rule: 'ceil', at: v => v.hud.subIn + v.shiftC, from: 'HUD_T.subIn + shiftOf(C)（src/main.js 覆写后）' },
+  { id: 'title.bei', rule: 'ceil', at: v => v.hud.titleA[0] + v.shiftC, from: 'HUD_T.titleA[0] + shiftOf(C)（films/beiming-10s/src/main.js 覆写后）', audio: 'apex' },
+  { id: 'title.ming', rule: 'ceil', at: v => v.hud.titleB[0] + v.shiftC, from: 'HUD_T.titleB[0] + shiftOf(C)（films/beiming-10s/src/main.js 覆写后）' },
+  { id: 'title.sub', rule: 'ceil', at: v => v.hud.subIn + v.shiftC, from: 'HUD_T.subIn + shiftOf(C)（films/beiming-10s/src/main.js 覆写后）' },
 ]);
 const SHOT_VARS = { shotA: 'A', shotB: 'B', shotC: 'C' };
 const EARLY_MS = 10;
@@ -181,32 +181,32 @@ function constAfter(src, name, scope) {
 export function parseSources(texts) {
   const diagnostics = [];
   const fail = (file, what) => diagnostics.push({ level: 'error', code: 'mirror-parse', path: file, message: `${file} 里读不出 ${what}`, hint: '样片源码的写法变了：src/ 是冻结基准，先确认这是有意改动，再同步 film.json 与本检查' });
-  const tl = texts['src/timeline.js'], main = texts['src/main.js'], girlSrc = texts['src/girl.js'], shotC = texts['src/shotC.js'], hudSrc = texts['src/hud.js'], birds = texts['src/birds.js'];
+  const tl = texts['films/beiming-10s/src/timeline.js'], main = texts['films/beiming-10s/src/main.js'], girlSrc = texts['films/beiming-10s/src/girl.js'], shotC = texts['films/beiming-10s/src/shotC.js'], hudSrc = texts['films/beiming-10s/src/hud.js'], birds = texts['films/beiming-10s/src/birds.js'];
   const v = {};
 
-  // 1. 镜头表：src/timeline.js 的 TIMELINE（成片）与 DESIGN（设计稿）
+  // 1. 镜头表：films/beiming-10s/src/timeline.js 的 TIMELINE（成片）与 DESIGN（设计稿）
   const timeline = objectAfter(tl ?? '', /export const TIMELINE\s*=\s*Object\.freeze\(\s*\{/);
   const design = objectAfter(tl ?? '', /export const DESIGN\s*=\s*Object\.freeze\(\s*\{/);
   const tlOk = o => o && ['A', 'B', 'C', 'end'].every(k => typeof o[k] === 'number');
-  if (!tlOk(timeline)) fail('src/timeline.js', 'export const TIMELINE = Object.freeze({ A, B, C, end })');
-  if (!tlOk(design)) fail('src/timeline.js', 'export const DESIGN = Object.freeze({ A, B, C, end })');
+  if (!tlOk(timeline)) fail('films/beiming-10s/src/timeline.js', 'export const TIMELINE = Object.freeze({ A, B, C, end })');
+  if (!tlOk(design)) fail('films/beiming-10s/src/timeline.js', 'export const DESIGN = Object.freeze({ A, B, C, end })');
   v.timeline = timeline; v.design = design;
   const scope = { TIMELINE: timeline ?? {}, DESIGN: design ?? {} };
   v.shiftC = tlOk(timeline) && tlOk(design) ? timeline.C - design.C : 0;
 
-  // 2. src/main.js：film.run 的 dur 与 shots（数字或 TIMELINE.X；dur 也可以是 const DUR = …）
+  // 2. films/beiming-10s/src/main.js：film.run 的 dur 与 shots（数字或 TIMELINE.X；dur 也可以是 const DUR = …）
   const mainText = stripComments(main ?? '');
   const runAt = mainText.search(/film\.run\(\s*\{/);
   const runOpen = runAt < 0 ? -1 : mainText.indexOf('{', runAt);
   const runClose = runOpen < 0 ? -1 : matching(mainText, runOpen, '{', '}');
-  if (runClose < 0) fail('src/main.js', 'film.run({ … }) 调用');
+  if (runClose < 0) fail('films/beiming-10s/src/main.js', 'film.run({ … }) 调用');
   else {
     const body = mainText.slice(runOpen + 1, runClose);
     const mainScope = { ...scope };
     const durConst = constAfter(main ?? '', 'DUR', scope);
     if (durConst !== undefined) mainScope.DUR = durConst;
     const entries = Object.fromEntries(splitTop(body).map(e => /^([A-Za-z_$][\w$]*)\s*(?::\s*([\s\S]*))?$/.exec(e)).filter(Boolean).map(m => [m[1], (m[2] ?? m[1]).trim()]));
-    try { v.dur = evalSeconds(entries.dur, mainScope); } catch { fail('src/main.js', `film.run 的 dur（写成 ${JSON.stringify(entries.dur ?? null)}）`); }
+    try { v.dur = evalSeconds(entries.dur, mainScope); } catch { fail('films/beiming-10s/src/main.js', `film.run 的 dur（写成 ${JSON.stringify(entries.dur ?? null)}）`); }
     const list = entries.shots?.startsWith('[') ? splitTop(entries.shots.slice(1, matching(entries.shots, 0, '[', ']'))) : [];
     const items = [];
     for (const it of list) {
@@ -214,32 +214,32 @@ export function parseSources(texts) {
       if (!m) { items.length = 0; break; }
       try { items.push({ at: evalSeconds(m[1], mainScope), shot: SHOT_VARS[m[2]] ?? m[2], expr: m[1] }); } catch { items.length = 0; break; }
     }
-    if (items.length) v.shots = items; else fail('src/main.js', 'film.run 的 shots: [{ at, shot }, …]（at 写成数字或 TIMELINE.X）');
+    if (items.length) v.shots = items; else fail('films/beiming-10s/src/main.js', 'film.run 的 shots: [{ at, shot }, …]（at 写成数字或 TIMELINE.X）');
     try { v.fps = entries.fps !== undefined ? evalSeconds(entries.fps, mainScope) : 24; }   // engine/stage/film.js 的 run() 默认 24
-    catch { fail('src/main.js', 'film.run 的 fps'); }
+    catch { fail('films/beiming-10s/src/main.js', 'film.run 的 fps'); }
   }
   const dh = /createFilm\(\{\s*designHeight:\s*(\d+)\s*\}\)/.exec(mainText);
-  if (dh) v.designHeight = Number(dh[1]); else fail('src/main.js', 'createFilm({ designHeight })');
+  if (dh) v.designHeight = Number(dh[1]); else fail('films/beiming-10s/src/main.js', 'createFilm({ designHeight })');
   const names = /const NAMES = \[([^\]]*)\]/.exec(mainText);
-  if (names) v.plates = [...names[1].matchAll(/'([^']+)'/g)].map(m => m[1]); else fail('src/main.js', '底板名单 NAMES');
+  if (names) v.plates = [...names[1].matchAll(/'([^']+)'/g)].map(m => m[1]); else fail('films/beiming-10s/src/main.js', '底板名单 NAMES');
   v.paper = /paperUrl:\s*'\.\/assets\/plates\/paper\.png'/.test(mainText);
 
   // 3. HUD_T（设计稿秒）与 main.js 的覆写
   const hud = objectAfter(hudSrc ?? '', /export const HUD_T\s*=\s*\{/, scope);
-  if (!hud || hud.unreadable.length) fail('src/hud.js', `export const HUD_T = { … }${hud?.unreadable.length ? `（读不出 ${hud.unreadable.join('、')}）` : ''}`);
+  if (!hud || hud.unreadable.length) fail('films/beiming-10s/src/hud.js', `export const HUD_T = { … }${hud?.unreadable.length ? `（读不出 ${hud.unreadable.join('、')}）` : ''}`);
   const override = objectAfter(main ?? '', /Object\.assign\(HUD_T,\s*\{/, scope);
-  if ((!override || override.unreadable.length) && /Object\.assign\(HUD_T/.test(mainText)) fail('src/main.js', 'Object.assign(HUD_T, { … }) 的覆写表');
+  if ((!override || override.unreadable.length) && /Object\.assign\(HUD_T/.test(mainText)) fail('films/beiming-10s/src/main.js', 'Object.assign(HUD_T, { … }) 的覆写表');
   v.hud = hud ? { ...hud, ...(override ?? {}) } : null;
   v.hudOverride = override ?? {};
 
   // 4. 人物镜头、镜头 C 起点、鸽群
   const gs = objectAfter(girlSrc ?? '', /export const GIRL_SHOT\s*=\s*\{/, scope);
-  if (!gs || typeof gs.start !== 'number' || typeof gs.dur !== 'number') fail('src/girl.js', 'GIRL_SHOT = { start, dur, … }');
+  if (!gs || typeof gs.start !== 'number' || typeof gs.dur !== 'number') fail('films/beiming-10s/src/girl.js', 'GIRL_SHOT = { start, dur, … }');
   else v.girl = gs;
   const cs = constAfter(shotC ?? '', 'C_START', scope);
-  if (cs !== undefined) v.cStart = cs; else fail('src/shotC.js', 'export const C_START = …;');
+  if (cs !== undefined) v.cStart = cs; else fail('films/beiming-10s/src/shotC.js', 'export const C_START = …;');
   const t0 = constAfter(birds ?? '', 'T0', scope);
-  if (t0 !== undefined) v.birdsT0 = t0; else fail('src/birds.js', '鸽群起飞时刻 const T0 = …;');
+  if (t0 !== undefined) v.birdsT0 = t0; else fail('films/beiming-10s/src/birds.js', '鸽群起飞时刻 const T0 = …;');
 
   try { v.cues = JSON.parse(texts['audio/cues.json']); } catch (e) { diagnostics.push({ level: 'error', code: 'mirror-parse', path: 'audio/cues.json', message: `audio/cues.json 不是合法 JSON（${e.message}）`, hint: '' }); }
   return { values: v, diagnostics };
@@ -252,7 +252,7 @@ export function expectedMirror(v) {
   const order = v.shots ?? [];
   order.forEach((s, i) => {
     const inF = toFrame(s.at, fps, 'exact'), endT = i + 1 < order.length ? order[i + 1].at : v.dur, outF = toFrame(endT, fps, 'exact');
-    if (inF === null || outF === null) diagnostics.push({ level: 'error', code: 'mirror-off-frame', path: 'src/main.js', message: `镜头 ${s.shot} 的起止 ${s.at}–${endT} 秒不落整帧（${fps} fps）`, hint: '切点要落在整帧上' });
+    if (inF === null || outF === null) diagnostics.push({ level: 'error', code: 'mirror-off-frame', path: 'films/beiming-10s/src/main.js', message: `镜头 ${s.shot} 的起止 ${s.at}–${endT} 秒不落整帧（${fps} fps）`, hint: '切点要落在整帧上' });
     shots.push({ id: s.shot, in: inF, out: outF });
   });
   const events = new Map();
@@ -291,25 +291,25 @@ export function checkMirror(film, texts, { root = DEFAULT_ROOT, assetRoot = root
   const fps = film.output.fps, n = film.output.frameCount;
 
   // 1. 总长、帧率、画幅
-  if (v.fps !== fps) d('mirror-fps', 'output.fps', `src/main.js 的 film.run 帧率是 ${v.fps}，镜像写 ${fps}`);
-  if (exp.frameCount !== n) d('mirror-duration', 'output.frameCount', `src/main.js 的 dur = ${v.dur} 秒 = ${exp.frameCount ?? '非整数'} 帧，镜像写 ${n} 帧`);
-  if (v.designHeight !== film.output.height) d('mirror-size', 'output.height', `src/main.js 按设计高 ${v.designHeight} 摆镜头，镜像的画幅高是 ${film.output.height}`);
+  if (v.fps !== fps) d('mirror-fps', 'output.fps', `films/beiming-10s/src/main.js 的 film.run 帧率是 ${v.fps}，镜像写 ${fps}`);
+  if (exp.frameCount !== n) d('mirror-duration', 'output.frameCount', `films/beiming-10s/src/main.js 的 dur = ${v.dur} 秒 = ${exp.frameCount ?? '非整数'} 帧，镜像写 ${n} 帧`);
+  if (v.designHeight !== film.output.height) d('mirror-size', 'output.height', `films/beiming-10s/src/main.js 按设计高 ${v.designHeight} 摆镜头，镜像的画幅高是 ${film.output.height}`);
 
   // 2. 镜头表：main.js 的 at、GIRL_SHOT、C_START、cues.json 的 shots
   const fs = film.shots.map(s => ({ id: s.id, in: s.in, out: s.out }));
-  if (exp.shots.length !== fs.length) d('mirror-shots', 'shots', `src/main.js 有 ${exp.shots.length} 个镜头，镜像有 ${fs.length} 个`);
+  if (exp.shots.length !== fs.length) d('mirror-shots', 'shots', `films/beiming-10s/src/main.js 有 ${exp.shots.length} 个镜头，镜像有 ${fs.length} 个`);
   exp.shots.forEach((s, i) => {
     const f = fs[i];
     if (!f) return;
-    if (f.id !== s.id) d('mirror-shots', `shots[${i}].id`, `第 ${i + 1} 镜在 src/main.js 是 ${s.id}，镜像写 ${f.id}`);
-    if (f.in !== s.in || f.out !== s.out) d('mirror-shots', `shots[${i}]`, `镜头 ${s.id}：src/main.js 推出 [${s.in}, ${s.out})，镜像写 [${f.in}, ${f.out})`, '改了样片的镜头起点？src/ 是冻结基准：确认有意后同步改镜像（film.js retime）');
+    if (f.id !== s.id) d('mirror-shots', `shots[${i}].id`, `第 ${i + 1} 镜在 films/beiming-10s/src/main.js 是 ${s.id}，镜像写 ${f.id}`);
+    if (f.in !== s.in || f.out !== s.out) d('mirror-shots', `shots[${i}]`, `镜头 ${s.id}：films/beiming-10s/src/main.js 推出 [${s.in}, ${s.out})，镜像写 [${f.in}, ${f.out})`, '改了样片的镜头起点？src/ 是冻结基准：确认有意后同步改镜像（film.js retime）');
   });
   const B = fs.find(s => s.id === 'B'), C = fs.find(s => s.id === 'C');
   if (B && v.girl) {
     const gi = toFrame(v.girl.start, fps, 'exact'), go = toFrame(v.girl.start + v.girl.dur, fps, 'exact');
-    if (gi !== B.in || go !== B.out) d('mirror-girl-shot', 'shots[B]', `src/girl.js GIRL_SHOT { start: ${v.girl.start}, dur: ${v.girl.dur} } = [${gi}, ${go})，镜头 B 是 [${B.in}, ${B.out})`, '人物的局部时间从 GIRL_SHOT.start 起算，必须与镜头 B 的入点一致');
+    if (gi !== B.in || go !== B.out) d('mirror-girl-shot', 'shots[B]', `films/beiming-10s/src/girl.js GIRL_SHOT { start: ${v.girl.start}, dur: ${v.girl.dur} } = [${gi}, ${go})，镜头 B 是 [${B.in}, ${B.out})`, '人物的局部时间从 GIRL_SHOT.start 起算，必须与镜头 B 的入点一致');
   }
-  if (C && v.cStart !== undefined && toFrame(v.cStart, fps, 'exact') !== C.in) d('mirror-c-start', 'shots[C]', `src/shotC.js C_START = ${v.cStart} 秒，镜头 C 的入点是第 ${C.in} 帧`);
+  if (C && v.cStart !== undefined && toFrame(v.cStart, fps, 'exact') !== C.in) d('mirror-c-start', 'shots[C]', `films/beiming-10s/src/shotC.js C_START = ${v.cStart} 秒，镜头 C 的入点是第 ${C.in} 帧`);
   const cues = v.cues ?? {};
   if (cues.fps !== fps) d('mirror-cues-fps', 'audio/cues.json', `cues.json 的 fps 是 ${cues.fps}，镜像是 ${fps}`);
   if (typeof cues.dur !== 'number' || Math.abs(cues.dur * fps - n) > 1e-6) d('mirror-cues-dur', 'audio/cues.json', `cues.json 的 dur = ${cues.dur} 秒，镜像整片 ${n} 帧（${n / fps} 秒）`);
@@ -349,19 +349,19 @@ export function checkMirror(film, texts, { root = DEFAULT_ROOT, assetRoot = root
     if (lateMs < -EARLY_MS - 1e-6 || lateMs > 1000 / fps + 1e-6) d('mirror-av-sync', `events.${e.id}`, `声音 ${e.audio} 相对结果帧 ${x.frame} ${lateMs < 0 ? `早 ${(-lateMs).toFixed(1)}` : `晚 ${lateMs.toFixed(1)}`} ms，超出同步容差（晚 ≤ 1 帧、早 ≤ ${EARLY_MS} ms）`, '见 routes/directing/craft/animation.md §5.7');
   }
   const pigeons = cueById.get('pigeons');
-  if (pigeons && v.birdsT0 !== undefined && Math.abs(pigeons.t - v.birdsT0) > 1e-9) d('mirror-av-split', 'src/birds.js', `鸽群起飞：画面 src/birds.js T0 = ${v.birdsT0} 秒，声音 pigeons = ${pigeons.t} 秒`);
+  if (pigeons && v.birdsT0 !== undefined && Math.abs(pigeons.t - v.birdsT0) > 1e-9) d('mirror-av-split', 'films/beiming-10s/src/birds.js', `鸽群起飞：画面 films/beiming-10s/src/birds.js T0 = ${v.birdsT0} 秒，声音 pigeons = ${pigeons.t} 秒`);
 
   // 5. 资产与声音目标
   const assets = new Set(film.assets ?? []);
   for (const name of [...(v.plates ?? []), ...(v.paper ? ['paper'] : [])]) {
-    if (!assets.has(`plate:${name}`)) d('mirror-asset-missing', 'assets', `src/main.js 加载底板 ${name}，镜像的 assets 没有 plate:${name}`);
+    if (!assets.has(`plate:${name}`)) d('mirror-asset-missing', 'assets', `films/beiming-10s/src/main.js 加载底板 ${name}，镜像的 assets 没有 plate:${name}`);
   }
   for (const a of assets) {
     const m = /^(plate|model|character):([^@]+)(@.*)?$/.exec(a);
     if (!m) continue;
-    const file = m[1] === 'plate' ? `assets/plates/${m[2]}.png` : `src/${m[2]}.js`;
+    const file = m[1] === 'plate' ? `assets/plates/${m[2]}.png` : `films/beiming-10s/src/${m[2]}.js`;
     if (!existsSync(join(assetRoot, file))) d('mirror-asset-file', `assets`, `资产 ${a} 对应的 ${file} 不存在`);
-    if (m[1] === 'plate' && m[2] !== 'paper' && !(v.plates ?? []).includes(m[2])) d('mirror-asset-extra', 'assets', `资产 ${a} 不在 src/main.js 的底板名单里`);
+    if (m[1] === 'plate' && m[2] !== 'paper' && !(v.plates ?? []).includes(m[2])) d('mirror-asset-extra', 'assets', `资产 ${a} 不在 films/beiming-10s/src/main.js 的底板名单里`);
   }
   const tgt = cues.target ?? {};
   if (film.audio?.targetLUFS !== undefined && film.audio.targetLUFS !== tgt.integrated_lufs) d('mirror-audio-target', 'audio.targetLUFS', `cues.json 的混音目标 ${tgt.integrated_lufs} LUFS，镜像写 ${film.audio.targetLUFS}`);

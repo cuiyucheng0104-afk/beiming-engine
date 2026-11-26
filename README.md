@@ -42,7 +42,7 @@ npm run fonts:subset -- films/my-film            # 只 A 路线要：按 film.js
 npm run film -- build films/my-film              # 出片（工作版），产物在 films/my-film/out/<run-id>/
 ```
 
-正式交付要过三道闸（look 风格关键帧 → animatic 动态预演 → final 终渲），每道都请用户看过、按原话记录，最后 `npm run film -- build films/my-film --final`：步骤见所选路线的手册与 [tools/film/README.md](tools/film/README.md)，选路线见 [routes/README.md](routes/README.md)。
+加 `--final` 可直接生成终渲成片并执行机器 QA。需要人工审片时，依次审阅风格关键帧和动态预演，再运行 `npm run film -- build films/my-film --final --delivery-mode review`，并记录用户对终渲的确认。操作见 [出片编排手册](tools/film/README.md)。
 
 ### 重建《北冥》样片
 
@@ -52,6 +52,8 @@ npm run beiming:build -- --4k      # 3840×2080 工作版：out/beiming_4k.mp4
 ```
 
 旧写法 `npm run build` 与 `sh build.sh` 是它的兼容壳，保留一个版本。
+
+样片源码与页面入口在 [films/beiming-10s](films/beiming-10s/README.md)。迁移后的像素对比和金标准登记步骤见[迁移记录](docs/migrations/R15-sample-relocation.md)。
 
 ### 在浏览器里看画面
 
@@ -165,7 +167,7 @@ routes/     三条路线：总指引、路线注册表 routes.json、三份手�
 films/      新作品，一部一个目录，由 npm run new 生成；films/<名字>/out/ 不提交
 site/       作品站源码：页面、样式、实时舞台（three.js）与 GSAP 编排，构建到 out/site/
 engine/     北冥引擎九层；production/ 是作品描述与创作闸门，native/ 是 B 路线的通用原生层
-src/        《北冥》样片：色板、六种鲲、渡船、人物、显示层、三个镜头
+films/beiming-10s/  《北冥》样片：页面、色板、六种鲲、渡船、人物、显示层、三个镜头
 lab/        模块自测页（?test=<名字>）
 audio/      《北冥》声音设计、配乐与混音
 assets/     绘画底板与纸纹

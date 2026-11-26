@@ -268,7 +268,7 @@ test('Cycles CPU 折翼装配：顺序、乱序、独立单帧的各层和 K9 �
 
 // 与 Blender 是否存在无关。按文件路径加载纯 Python 模块，-I -B 隔离路径且不写缓存。
 function python(body) {
-  const run = spawnSync(process.execPath, [join(import.meta.dirname, '../../../tools/env/py.mjs'), '-I', '-B', '-c', `
+  const run = spawnSync(process.execPath, [join(import.meta.dirname, '../../jobs/python/py.mjs'), '-I', '-B', '-c', `
 import importlib.util, json, sys
 from fractions import Fraction
 from types import SimpleNamespace as NS

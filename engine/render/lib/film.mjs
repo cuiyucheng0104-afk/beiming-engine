@@ -3,7 +3,7 @@
 // fps, frameCount }、shots[{ id, in, out, module }]，帧号含头不含尾）。不存在 film.json 时返回 null（例如《北冥》样片在仓库根）。
 //   readFilm(dir)  → null | { file, version, id, title, route, backend, output, shots, aigc }
 //   pickShot(film, id) / shotsByIds(film, ids)：按 id 取镜头；不认识的 id → usage.shot-unknown（列出可用 id）
-import fs from 'node:fs';
+import { readFilmDocument } from '../../../tools/lib/film-json.mjs';
 import path from 'node:path';
 import { RenderError } from './errors.mjs';
 
@@ -12,7 +12,7 @@ const int = v => (Number.isInteger(v) ? v : null);
 export function readFilm(dir, overrideFile = null) {
   const file = overrideFile || path.join(dir, 'film.json');
   let j;
-  try { j = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) {
+  try { j = readFilmDocument(file).value; } catch (e) {
     if (!overrideFile && e.code === 'ENOENT') return null;
     throw new RenderError('contract.film-json', `${file} 不是合法 JSON：${e.message}`, { hint: '先修好 film.json（node engine/production/film.js check 可逐项检查）' });
   }

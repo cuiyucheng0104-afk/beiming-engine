@@ -1,6 +1,6 @@
 // 北冥 QA · 作品描述读取：把 film.json（v2，附录 C6；或自动升级的 v1 {route,title,dur,fps,size}）读成 QA 需要的期望值。
 // 只读、宽容：字段的权威校验在 P05 的 engine/production/film.js（film check），这里遇到不一致只记 warning，不替它判定。
-// P05 合入后，normalizeFilm 改为先调用其升级函数，再取下面这些字段（见 docs/quality/QA-GATE.md「接口」）。
+// 旧外部输入仍按原始时间字段计算 QA 期望值。
 //
 //   findFilm({ film, input })          → film.json 的绝对路径或 null：显式参数优先；否则从成片所在目录往上找最近的 film.json
 //                                        （films/<名>/out/<run-id>/master.mp4 → films/<名>/film.json），找到仓库根为止；
@@ -10,6 +10,7 @@
 //   normalizeFilm(raw, file)           → { id, title, route, fps, width, height, frameCount, profile, shots, cuts, events, audioMode, aigc, native, qa, warnings }
 //   loadEvents(file, fps)              → 事件表（film.json / events.json 两种写法）规范成 [{ id, frame, t, needsSound, kind, soft }]
 //   runDirOf(input)                    → 成片所在的运行目录（films/<名>/out/<run-id>/ 或 out/beiming/<run-id>/），不在运行目录里返回 null
+import { readFilmDocument } from '../../lib/film-json.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { QaError, EXIT } from './cli-kit.mjs';
@@ -72,7 +73,7 @@ export function runDirOf(input) {
 
 export function loadFilm(file) {
   let raw;
-  try { raw = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) {
+  try { raw = readFilmDocument(file).value; } catch (e) {
     throw new QaError('input.film', `作品描述 ${file} 读不出来：${e.message}`, { hint: '先修好 JSON（node engine/production/film.js check 可定位问题）', exitCode: EXIT.USAGE });
   }
   return normalizeFilm(raw, file);

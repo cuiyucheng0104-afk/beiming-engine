@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import * as observe from '../index.mjs';
 import { clipHighlightRatio, noiseResidual, aliasEdge, colorPaletteDe00, shapeIou,
   ENERGY_METRICS, runEnergyMetric } from './index.mjs';
-import { deltaE00 } from '../../../tools/eval/lib/metrics.mjs';
+import { deltaE00 } from './perceptual.mjs';
 
 // 合成帧都照 beiming/calib 的校准场景搭：灰阶卡（probe-gray-chart）、静止背景上匀速平移的方块（probe-moving-cube）、
 // 斜细杆（probe-thin-geometry）。噪声用固定种子，同一份夹具每次生成逐位相同。

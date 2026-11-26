@@ -1,4 +1,4 @@
-// B8：跑题器（复用 tools/eval 会话隔离与过程观测，一条命令跑完一道题并落盘）+ 默认测试不再跑 eval 域
+// B8：跑题器（本组件提供会话隔离与过程观测，一条命令跑完一道题并落盘）+ 默认测试不再跑 eval 域
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
@@ -7,8 +7,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { EvalError, contractError, envError } from '../../tools/eval/lib/cli.mjs';
-import { hasFfmpeg } from '../../tools/eval/lib/synth.mjs';
+import { EvalError, contractError, envError } from './session/cli.mjs';
+import { hasFfmpeg } from './session/ffmpeg-available.mjs';
 import { CACHE_READ_TOKEN_WEIGHT, computeBilledTokens, computeRawTokens, projectPublicQuestion, runExamQuestion } from './index.mjs';
 import { solverEnv } from './runner.mjs';
 
@@ -203,7 +203,7 @@ console.log(JSON.stringify({ type: 'result', subtype: 'success', num_turns: 3, u
     const r = spawnSync(process.execPath, [link, 'run', '--question', qFile, '--root', root, '--solver-cmd', `"${process.execPath}" "${solverFile}" "${good}"`, '--json'], { encoding: 'utf8' });
     assert.deepEqual([r.status, JSON.parse(r.stdout).data.status], [0, 'pass'], r.stderr);
   }
-  assert.doesNotMatch(readFileSync(RUNNER, 'utf8'), /tools\/lib\//, '跑题器只引 tools/eval/');
+  assert.doesNotMatch(readFileSync(RUNNER, 'utf8'), /from ['"](?:\.\.\/)+tools\//, '跑题器使用本组件的会话模块');
 });
 
 test('token 计费纯函数：缺失字段、非有限数、权重边界与舍入', () => {
@@ -493,7 +493,7 @@ test('B8-12 环境缺失的退出码：回调没用 envError、直接抛 new Eva
   const sample = example('minimal.json');
   const files = (root, name) => (existsSync(root) ? readdirSync(root, { recursive: true }).filter((f) => f.endsWith(name)).length : 0);
   // 子进程里经 runCli 报出来：进程退出码就是异常的 exitCode
-  const viaRunCli = `import { EvalError, runCli } from './tools/eval/lib/cli.mjs';
+  const viaRunCli = `import { EvalError, runCli } from './beiming/bench/session/cli.mjs';
 import { runExamQuestion } from './beiming/bench/index.mjs';
 const [questionFile, evalRoot, who] = process.argv.slice(2);
 const gap = () => { throw new EvalError('env.media.probe-missing', '探针缺失'); };

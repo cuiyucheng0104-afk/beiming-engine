@@ -6,8 +6,8 @@
 // 可选参数：&lod=0.3 &noink=1 &pass=1 &view=side|top|far|eye|under|reveal|hero|hero_full|hero_low|front|tail &roll=-0.5 &look=1（玉眼看镜头）
 //   &dbg=pattern（不渲染 3D，直接看身体纹样展开图）&dbg=fins（看各类鳍的离缘距离场）
 import * as THREE from 'three';
-import { createKun } from '../src/kun_bronze.js';
-import { PALETTE, setToonGlobals } from '../src/toon.js';
+import { createKun } from '../films/beiming-10s/src/kun_bronze.js';
+import { PALETTE, setToonGlobals } from '../films/beiming-10s/src/toon.js';
 import { labRenderer, kunStats, keyLight, BASE_VIEWS, baseExtra, pickView, eyeCloseup, frameTimes, labPipeline, labPixelRatio } from './kun_bench.js';
 
 const q = new URLSearchParams(location.search);

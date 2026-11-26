@@ -5,7 +5,7 @@
 //   verify(ctx, bytes, assets) → 回读报告（GLTFLoader + AnimationMixer 采样导出后的真实顶点）；ctx.preview 时附预览图
 import * as T from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { createKun } from '../../../src/kun.js';
+import { createKun } from '../../../films/beiming-10s/src/kun.js';
 import { pitchWave } from '../../../engine/form/bend.js';
 import { autoBlink } from '../../../engine/form/eye.js';
 import { texturePBR } from '../../../engine/native/bridge/bake.mjs';
@@ -69,6 +69,7 @@ export async function build({ renderer }, { lod = 0.5 }) {
   kun.group.traverse(o=>{if(o.isMesh)sourceMeshes.push(o);});
   const wave=pitchWave('kun',{e0:.22,sMax:1.15}).js(kun.uniforms);
   const root=new T.Group();root.name='kun';
+  // GLB 中的来源标识沿用已登记资产的值。
   root.userData={source:'beiming-engine/src/kun.js createKun',lod,sourceScale:SCALE,lengthNominal:30,forward:'+X',up:'+Y',clip:'Swim',duration:10,loop:true,materialPolicy:'Keep embedded baseColorTexture and COLOR_0 when replacing with RAEA ToonMaterial'};
   const anchors=Array.from({length:41},(_,i)=>-300+i*SPACING);
   const {bones,skeleton}=spineRig(root,anchors,{prefix:'kun',scale:SCALE});
@@ -101,7 +102,7 @@ export async function build({ renderer }, { lod = 0.5 }) {
     socket.position.copy(eye.group.position).multiplyScalar(SCALE);socket.quaternion.copy(eye.group.quaternion);root.add(socket);
     if(!eyeMat)eyeMat=tex(eye.ball.geometry,eye.ball.material,'kun-eye-ball-PBR',1024,512);
     const ball=new T.Mesh(eye.ball.geometry.clone().scale(SCALE,SCALE,SCALE),eyeMat);ball.name='kun-eye-ball-'+side;socket.add(ball);
-    const lidR=kun.eyeRadius*1.07;   // 与 src/kun.js 的 lidShells(RE * 1.07, …) 同一个半径
+    const lidR=kun.eyeRadius*1.07;   // 与 films/beiming-10s/src/kun.js 的 lidShells(RE * 1.07, …) 同一个半径
     if(!lidMat){
       const source=eye.lidU.children[0].material;
       lidMat=tex(new T.SphereGeometry(lidR,80,48),source,'kun-eyelids-PBR',512,256);

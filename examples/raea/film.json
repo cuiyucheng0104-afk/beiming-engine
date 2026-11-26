@@ -1,9 +1,10 @@
 {
+  "schemaVersion": 2,
+  "id": "raea",
   "route": "b",
+  "backend": "native",
   "title": "北冥",
-  "dur": 10,
-  "fps": 24,
-  "size": [1920, 1040],
+  "output": { "profile": "beiming-1040p24", "width": 1920, "height": 1040, "fps": 24, "frameCount": 240 },
   "shots": [
     { "id": "S1", "in": 0, "out": 84, "purpose": "渡船建立尺度，巨鲲从上方横穿" },
     { "id": "S2", "in": 84, "out": 144, "purpose": "鲲眼近景" },
@@ -16,6 +17,7 @@
     { "id": "chord", "frame": 142, "shot": "S2", "visual": "第二镜末尾、切全景之前", "audio": "chord", "note": "弓弦和弦进入（0.95 秒渐强，跨过切点）", "sync": "soft" },
     { "id": "title", "frame": 194, "shot": "S3", "visual": "片名「北」起笔（毛笔逐笔写出，0.86 秒写完）", "audio": "title.bell", "note": "玻璃铃，第二声落在「冥」起笔" }
   ],
+  "audio": { "mode": "native" },
   "aigc": { "contains": true, "note": "天空、云、天际线、江面底板由 AI 生成后人工整理（assets/plates/plates.json）；鲲、渡船、水面着色与片名由代码合成" },
   "credits": [
     { "what": "片名字体子集（马善政，只含「北冥」两字）", "license": "OFL-1.1", "source": "fonts/LICENSE.md" },
@@ -43,9 +45,9 @@
         }
       },
       {
-        "to": "ferry.glb", "module": "../../src/ferry.js", "export": "createFerry", "length": 2,
+        "to": "ferry.glb", "module": "tools/ferry-model.mjs", "export": "createFerry", "length": 2,
         "prefix": "ferry", "names": { "lights": "ferry-light-" },
-        "meta": { "forward": "+X", "up": "+Y", "lights": "Original emissive window and navigation-light meshes; no source punctual lights" },
+        "meta": { "source": "beiming-engine/src/ferry.js createFerry", "forward": "+X", "up": "+Y", "lights": "Original emissive window and navigation-light meshes; no source punctual lights" },
         "report": "ferry-report.json"
       }
     ],

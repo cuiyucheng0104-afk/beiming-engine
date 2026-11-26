@@ -56,7 +56,7 @@
   const loadImage = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
 
   // —— 分享图的毛笔标题：与首屏 h1 同一套写法（site/js/brush-title.js）：engine/overlay/brush.js 写完的样子，
-  //    骨架取 src/hud.js 的 __TITLE_SKEL；飞白表 DRY 与 hud.js、brush-title.js 两处相同（改时三处一起改），字体马善政 ——
+  //    骨架取 films/beiming-10s/src/hud.js 的 __TITLE_SKEL；飞白表 DRY 与 hud.js、brush-title.js 两处相同（改时三处一起改），字体马善政 ——
   const DRY = { '北': [0, 0, 0.7, 0.6, 0.45], '冥': [0, 0.4, 0, 0.25, 0, 0, 0, 0.5, 0.7, 0.35] };
   function brushTitle(g, text, { x, yc, F, rgb }) {
     // 与页面一样：两个字的字距 -0.02em（.hero-glyphs），字的中心落在字框中心

@@ -74,7 +74,7 @@ test('R39 opts.defaults 与 LOOK_BASE 逐项合并（缺字段不再是 undefine
   assert.deepEqual(D.fog, { density: .01 });
   assert.equal(D.kuwahara, false); assert.equal(lookParams({}, D).kuwahara, null);
   assert.equal(D.vignette, LOOK_BASE.vignette);
-  // 完整的一套（例如 src/look.js 的 LOOK_DEFAULTS）合并后逐字段不变
+  // 完整的一套（例如 films/beiming-10s/src/look.js 的 LOOK_DEFAULTS）合并后逐字段不变
   const full = { ...LOOK_BASE, outline: { ...LOOK_BASE.outline, width: 2.6, color: '#2A2D52' }, grain: 0.3 };
   const M = lookDefaults(full);
   assert.deepEqual(M.outline, full.outline); assert.equal(M.grain, 0.3);

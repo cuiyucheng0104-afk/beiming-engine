@@ -1,7 +1,7 @@
 // 北冥引擎 · 创作闸门的审片记录（决策 D08）：films/<名>/review/<闸>-<日期>[-n].json，一条记录一个文件，只增不改；
 // 另认 films/<名>/review/waivers.json（{ "waivers": [ 豁免记录… ] }，给命令行之外录入的豁免用，每条按 decision = waive 校验）。
 // 字段与验收题库 H6 对齐（tools/eval/lib/review.mjs）：gate、decision、quote（用户原话，逐字）、source（出处）、at（写记录的时间）。
-// 三道阻断闸 look（风格关键帧）→ animatic（动态预演）→ final（终渲成片），另有只记录、不阻断的 structure（导演方法 ⛔1 结构确认）。
+// 可选 deliveryMode=review 的三道人工闸 look（风格关键帧）→ animatic（动态预演）→ final（终渲成片），另有只记录、不阻断的 structure（导演方法 ⛔1 结构确认）。
 // 对应 routes/directing/DIRECTING.md 的关口：⛔1 = structure、⛔2 = look、⛔3 = animatic、⛔4 = final。
 //
 // 规则（validateReview 逐条检查，不合格的记录在状态计算里当作不存在）：

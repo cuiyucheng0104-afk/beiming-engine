@@ -9,6 +9,7 @@
 //   materializeTemplate(tree, rel, vars)  把 routes/<路线>/template 按 new-film 的规则复制到 <tree>/out/golden-tpl-…/
 //     （模版是按 films/<名字>/ 两级深度写相对路径的，不能原地渲染）并替换 {{NAME}} / {{TITLE}}；film.json 声明了字体时
 //     再按本片文字生成字体子集（A 模版需要）；结束时删除
+import { readFilmDocument } from '../../lib/film-json.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
@@ -42,7 +43,7 @@ export function materializeTemplate(tree, rel, vars, tag) {
   copy(src, dst);
   const remove = () => fs.rmSync(dst, { recursive: true, force: true });
   // A 模版在页面上只画本片字体子集里的字：实例化后要先生成子集（与作者跑 npm run new 之后的第一步相同），否则页面拒绝打开
-  const film = (() => { try { return JSON.parse(fs.readFileSync(path.join(dst, 'film.json'), 'utf8')); } catch { return null; } })();
+  const film = (() => { try { return readFilmDocument(path.join(dst, 'film.json')).value; } catch { return null; } })();
   if (film?.fonts?.length && !fs.existsSync(path.join(dst, 'fonts', 'fonts.json'))) {
     const r = spawnSync(process.execPath, [path.join(tree, 'tools/fonts/subset.mjs'), dst, '--quiet'], { cwd: tree, encoding: 'utf8', timeout: 300000, windowsHide: true });
     if (r.status !== 0) {
@@ -99,16 +100,13 @@ async function pool(items, n, fn) {
   return out;
 }
 
-function readFilmSize(dir) {
-  try {
-    const j = JSON.parse(fs.readFileSync(path.join(dir, 'film.json'), 'utf8'));
-    const s = j.size || j.output && [j.output.width, j.output.height];
-    if (Array.isArray(s) && s.length === 2) return s;
-  } catch { /* 下面报错 */ }
-  return null;
+function readFilm(dir) {
+  try { return readFilmDocument(path.join(dir, 'film.json')).value; } catch { return null; }
 }
-function readFilmFps(dir) {
-  try { const j = JSON.parse(fs.readFileSync(path.join(dir, 'film.json'), 'utf8')); return j.fps || j.output?.fps || null; } catch { return null; }
+
+function filmSize(film) {
+  const size = film?.size || film?.output && [film.output.width, film.output.height];
+  return Array.isArray(size) && size.length === 2 ? size : null;
 }
 
 export async function captureSet({ tree, sets, setName, outDir, gpu = 'required', jobs = 2, frameTimeoutMs = 60000, log = () => {}, source = {}, perturb = '' }) {
@@ -134,9 +132,10 @@ export async function captureSet({ tree, sets, setName, outDir, gpu = 'required'
       }
     }
     try {
-      const size = g.size === 'film.json' ? readFilmSize(dir) : g.size;
+      const film = g.size === 'film.json' || !p.fps ? readFilm(dir) : null;
+      const size = g.size === 'film.json' ? filmSize(film) : g.size;
       if (!size) return { group: g, exitCode: EXIT.CONTRACT, error: { code: 'bad-film-json', message: `${g.pageId} 的 film.json 读不出画幅` } };
-      const fps = p.fps || readFilmFps(dir) || 24;
+      const fps = p.fps || film?.fps || film?.output?.fps || 24;
       const spec = {
         groupId: g.groupId, tree, dir, pageId: g.pageId, query: g.query, w: size[0], h: size[1], clip: g.clip, times: g.times, fps,
         outDir: path.join(outDir, 'frames'), resultFile: path.join(outDir, '.work', `${g.groupId.replace(/[^a-z0-9]+/gi, '_')}.json`),

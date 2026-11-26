@@ -8,7 +8,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { types } from 'node:util';
-import { contractError, runCli, usageError } from '../../tools/eval/lib/cli.mjs';
+import { contractError, runCli, usageError } from './session/cli.mjs';
 import { isCalendarDate } from '../cards/status.mjs';
 import { normalizeLedgerEntry, summarizeJobLedger, withFileLock } from '../jobs/ledger.mjs';
 import { scanQuestionLeaks, validateQuestion } from './validate-question.mjs';

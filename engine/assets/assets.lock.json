@@ -3,14 +3,14 @@
   "$comment": "共享资产的 sha256（engine/assets/manifest.js 生成：node engine/assets/manifest.js lock --write）。资产文件改了而这里没更新时，film.js check 提示「资产哈希变化」：依赖它的镜头缓存失效，用户认可过的风格帧要复核。",
   "assets": {
     "character:birds@v1": {
-      "sha256": "39c1679322c15cc7192791062460a79497a070188ce2c4bc585e0f699e299881",
-      "files": { "src/birds.js": "bf206700990d6ae60c338eb6098a549a7f674208e47a51db01c057900e7caae2" }
+      "sha256": "e1a9acaa346d047a9471bfcb25f8ddb5160bd210732c047116251ebe97763889",
+      "files": { "films/beiming-10s/src/birds.js": "4ff2db27ba3e5f09e81492ecb369c708c6a4ec7eba416c8df3d06bd7093840fb" }
     },
     "character:girl@v1": {
-      "sha256": "334d5c25a96686966de7445ae553642fe8e9cb208f54fe236e89f66e0fa0b585",
+      "sha256": "ad16796f4c15677baa59294340608bc5e6d42216c18208cfda85bedcde73db41",
       "files": {
-        "src/girl.js": "a4c72ff8d4defb519fb44385300157036026af73ed886cb56f4f9527d2c9294a",
-        "src/timeline.js": "48c1acb41c6d40375d5ab7ab4a4eba1ffda9abebfc9470e6e0b3c3caff3bd34e"
+        "films/beiming-10s/src/girl.js": "24ae3fe2b00be909e2b82cfcfb78d20356a306734937fe1986fc6609a47286f7",
+        "films/beiming-10s/src/timeline.js": "48c1acb41c6d40375d5ab7ab4a4eba1ffda9abebfc9470e6e0b3c3caff3bd34e"
       }
     },
     "font:barlow@v1": {
@@ -30,108 +30,108 @@
       "files": { "fonts/NotoSansSC-var.woff2": "917e2a1b6215cd1f344844065ff8cb47e522e45180f83cee85d199969320b5a0" }
     },
     "material:toon@v1": {
-      "sha256": "7f50b798ad58751e6706ea003e621438bf3f6f0d917d417d7f4d32fdfaa020a3",
-      "files": { "src/toon.js": "c5c0adf6586524d7fe817333368bf62c6e625245584a74798f9aeb39e3a4bf75" }
+      "sha256": "12c4ec2570c8f28bd8687054070d34dde9820e8579159ef7d9ed1f194164c6dc",
+      "files": { "films/beiming-10s/src/toon.js": "0434e03a260430d14089223e03d7eb40fdbd601e81e58644b7a861a990a8c1cf" }
     },
     "material:toon_bronze@v1": {
-      "sha256": "19230d8162bdb926603f11ef6f926c4f5323b343113d9439f337032efe05323e",
+      "sha256": "edc1432641cbe3f74fc1918bb6005ff0dcd3e52d7d28a0a0feb51f325e6a3588",
       "files": {
-        "src/toon.js": "c5c0adf6586524d7fe817333368bf62c6e625245584a74798f9aeb39e3a4bf75",
-        "src/toon_bronze.js": "bc330a5a4f5c231c70450dc900150ed86a9bc71dc66f5cdc2f7eee70752d76ea"
+        "films/beiming-10s/src/toon.js": "0434e03a260430d14089223e03d7eb40fdbd601e81e58644b7a861a990a8c1cf",
+        "films/beiming-10s/src/toon_bronze.js": "9bf2cfdf1f55869d2fe75f69038fa94c88eb89e3b479ebb78b538a4e64367226"
       }
     },
     "material:toon_peng@v1": {
-      "sha256": "e6d01f0a8808d5d2975daa94ec4b55a1056b22578e37fbca52e43108ff2e36e8",
+      "sha256": "320352a72f419b313da25441a1d3c9009197c6f089751b1175973f87f6ff93e9",
       "files": {
-        "src/toon.js": "c5c0adf6586524d7fe817333368bf62c6e625245584a74798f9aeb39e3a4bf75",
-        "src/toon_peng.js": "34f6718f2d5ae01b47449a46b6b30cd3fe68d711b475ad5c6558ede4a48650c8"
+        "films/beiming-10s/src/toon.js": "0434e03a260430d14089223e03d7eb40fdbd601e81e58644b7a861a990a8c1cf",
+        "films/beiming-10s/src/toon_peng.js": "0a4c1b14d8396ce91ed17ace4d65b148802365c71115ccbed67f525f8873c7aa"
       }
     },
     "material:toon_qinglv@v1": {
-      "sha256": "619e95b89f4ec896e0d093e9236d973a9dc57998e765bb837e7f736a92468385",
+      "sha256": "a903499ad3a467b57f276d7d8fec3e8f4e3403222979ad5c6741c236c0d23d89",
       "files": {
-        "src/toon.js": "c5c0adf6586524d7fe817333368bf62c6e625245584a74798f9aeb39e3a4bf75",
-        "src/toon_qinglv.js": "fdd03bbfb863cf6d9d7d56c072669b5cb83fabd45cd819f2e0e9071be42fe0e1"
+        "films/beiming-10s/src/toon.js": "0434e03a260430d14089223e03d7eb40fdbd601e81e58644b7a861a990a8c1cf",
+        "films/beiming-10s/src/toon_qinglv.js": "fe5e656ade8459aa7a7263a54df6ec190a24e5a545ca35d4ec7818de8fdd8495"
       }
     },
     "material:toon_refine@v1": {
-      "sha256": "a87503144ed544c7add440d42f820cc8e3726b8c5b69583d870dc1d253686868",
+      "sha256": "5d346f6ba36fb1890c589186a67a51dceb7ef63bbdddedc60fc928d0a131ea82",
       "files": {
-        "src/toon.js": "c5c0adf6586524d7fe817333368bf62c6e625245584a74798f9aeb39e3a4bf75",
-        "src/toon_refine.js": "4e9622f8a8cdc28c517ddc367b003f8abf3d35a9a82390a43d24c668facf6e7c"
+        "films/beiming-10s/src/toon.js": "0434e03a260430d14089223e03d7eb40fdbd601e81e58644b7a861a990a8c1cf",
+        "films/beiming-10s/src/toon_refine.js": "1f3c785ac06525a5f5a32cb4312d716fed31d1236835f05dcfd36c547e432204"
       }
     },
     "material:toon_xuan@v1": {
-      "sha256": "1d7d5567669e54bc9325437544a6506eed6dde55dd4316c7ccacd7a3596d3897",
+      "sha256": "60f9fe39a587d3a1be478ea6c909581e0d14dd4efbc0467a19e538185f66df57",
       "files": {
-        "src/toon.js": "c5c0adf6586524d7fe817333368bf62c6e625245584a74798f9aeb39e3a4bf75",
-        "src/toon_xuan.js": "2c51b148d7d74af0936c9dcb38271afc3b2252fdfab91bb678c4c0ae81c89256"
+        "films/beiming-10s/src/toon.js": "0434e03a260430d14089223e03d7eb40fdbd601e81e58644b7a861a990a8c1cf",
+        "films/beiming-10s/src/toon_xuan.js": "51cac6bce1f80492fd84858a61d43867afd330c46ebd6ec6f1408ee916a69830"
       }
     },
     "model:ferry@v1": {
-      "sha256": "68153b0f8c77e9c1626434d26a9087ac1d1e459b760499a2b67fd440d13d9baa",
+      "sha256": "1bd35b52cc81dbf7b4b17bde9eeb8dba3b2c3bb11606a008b3d315e7fb78058d",
       "files": {
-        "src/ferry.js": "08d411e6ad6d98078d19d01f7d05ad11ca645e5907aa03de7479d439bef0e4d5",
-        "src/toon.js": "c5c0adf6586524d7fe817333368bf62c6e625245584a74798f9aeb39e3a4bf75"
+        "films/beiming-10s/src/ferry.js": "cb193d143bd6c29d1c184ad8f90bb7a7b16afbd24ecf6b8bb92bb05a7c57d76f",
+        "films/beiming-10s/src/toon.js": "0434e03a260430d14089223e03d7eb40fdbd601e81e58644b7a861a990a8c1cf"
       }
     },
     "model:kun@v1": {
-      "sha256": "c5d0c4ee8c8c8cb944568deebc74258e5f82c0fbf2b4b7328805b87ceb82dbb8",
+      "sha256": "89e61f42c40a9ab4cace6290a574ecb8c70481a0bdd1fed65f82bded7f528ce1",
       "files": {
-        "src/eye_shade.js": "e454da554d511758436a0eb7d257c264dd72f428053a79c2cc03a336c3861ab4",
-        "src/kun.js": "e9b8017c4fbe7caceb9c16db2adfa1cf90336eb356cc70ca853ba29ccec70033",
-        "src/shadow.js": "4d48d2f0b73f7a1a0c779322b6c2f4696c344fff8af818fb85e6389a806aad2b",
-        "src/toon.js": "c5c0adf6586524d7fe817333368bf62c6e625245584a74798f9aeb39e3a4bf75"
+        "films/beiming-10s/src/eye_shade.js": "e454da554d511758436a0eb7d257c264dd72f428053a79c2cc03a336c3861ab4",
+        "films/beiming-10s/src/kun.js": "e636cdcda2b0bca81c0f0e4251d3723466f6a5d04a94f17f51ed834d7d7015d2",
+        "films/beiming-10s/src/shadow.js": "4d48d2f0b73f7a1a0c779322b6c2f4696c344fff8af818fb85e6389a806aad2b",
+        "films/beiming-10s/src/toon.js": "0434e03a260430d14089223e03d7eb40fdbd601e81e58644b7a861a990a8c1cf"
       }
     },
     "model:kun_bronze@v1": {
-      "sha256": "5354aa17c6bcdb2f4b574830cf4a28364a890f170a63084ebb406629f0afc67d",
+      "sha256": "81bbec2af488c6e2eebf4f883263e92866e10a8d52a660fcc427df91d4f91324",
       "files": {
-        "src/eye_shade.js": "e454da554d511758436a0eb7d257c264dd72f428053a79c2cc03a336c3861ab4",
-        "src/kun_bronze.js": "0a03bc839cb702f52f69c859a3ffe0c86db1b96c6b5ed254aa6e8b389eeb23f8",
-        "src/shadow.js": "4d48d2f0b73f7a1a0c779322b6c2f4696c344fff8af818fb85e6389a806aad2b",
-        "src/toon.js": "c5c0adf6586524d7fe817333368bf62c6e625245584a74798f9aeb39e3a4bf75",
-        "src/toon_bronze.js": "bc330a5a4f5c231c70450dc900150ed86a9bc71dc66f5cdc2f7eee70752d76ea"
+        "films/beiming-10s/src/eye_shade.js": "e454da554d511758436a0eb7d257c264dd72f428053a79c2cc03a336c3861ab4",
+        "films/beiming-10s/src/kun_bronze.js": "05898f93c906efbf8e78d8c08d0aa967641f942649ae6891141b0081c1f78289",
+        "films/beiming-10s/src/shadow.js": "4d48d2f0b73f7a1a0c779322b6c2f4696c344fff8af818fb85e6389a806aad2b",
+        "films/beiming-10s/src/toon.js": "0434e03a260430d14089223e03d7eb40fdbd601e81e58644b7a861a990a8c1cf",
+        "films/beiming-10s/src/toon_bronze.js": "9bf2cfdf1f55869d2fe75f69038fa94c88eb89e3b479ebb78b538a4e64367226"
       }
     },
     "model:kun_peng@v1": {
-      "sha256": "30e5e81c997c7dd56d3535375f4350576b9dc109ca77cac12379f837448f0645",
+      "sha256": "424b7139b326f9254ba3061ab8739f4a22c2e300bb69f048450f172da855b490",
       "files": {
-        "src/kun_peng.js": "0e40c5857f7b2e83d2b68cb9f75e6bab82cd3cf1f8092a498986739e677e21a4",
-        "src/shadow.js": "4d48d2f0b73f7a1a0c779322b6c2f4696c344fff8af818fb85e6389a806aad2b",
-        "src/toon.js": "c5c0adf6586524d7fe817333368bf62c6e625245584a74798f9aeb39e3a4bf75",
-        "src/toon_peng.js": "34f6718f2d5ae01b47449a46b6b30cd3fe68d711b475ad5c6558ede4a48650c8"
+        "films/beiming-10s/src/kun_peng.js": "578925cef1a9d03938a64f6133c6cf7413eb108be9eb77c42e48fb1e87b5a20a",
+        "films/beiming-10s/src/shadow.js": "4d48d2f0b73f7a1a0c779322b6c2f4696c344fff8af818fb85e6389a806aad2b",
+        "films/beiming-10s/src/toon.js": "0434e03a260430d14089223e03d7eb40fdbd601e81e58644b7a861a990a8c1cf",
+        "films/beiming-10s/src/toon_peng.js": "0a4c1b14d8396ce91ed17ace4d65b148802365c71115ccbed67f525f8873c7aa"
       }
     },
     "model:kun_qinglv@v1": {
-      "sha256": "da1fa9d6c0ca926dd1582dbda55e6066e5ddb2215865e425a2abad5cdc5b44d4",
+      "sha256": "b49063de36738faaeb2da16a1e4dad012d17f24a03cff85672e00c07d0f8a4c4",
       "files": {
-        "src/eye_shade.js": "e454da554d511758436a0eb7d257c264dd72f428053a79c2cc03a336c3861ab4",
-        "src/kun_qinglv.js": "5785ebb8210f08b63682946ac94be9cb0fa4eb4e8ca90f301b465fd80a517896",
-        "src/shadow.js": "4d48d2f0b73f7a1a0c779322b6c2f4696c344fff8af818fb85e6389a806aad2b",
-        "src/toon.js": "c5c0adf6586524d7fe817333368bf62c6e625245584a74798f9aeb39e3a4bf75",
-        "src/toon_qinglv.js": "fdd03bbfb863cf6d9d7d56c072669b5cb83fabd45cd819f2e0e9071be42fe0e1"
+        "films/beiming-10s/src/eye_shade.js": "e454da554d511758436a0eb7d257c264dd72f428053a79c2cc03a336c3861ab4",
+        "films/beiming-10s/src/kun_qinglv.js": "07617bfab37f4c29dcee06d2996ff642bb89a1131b1ec4bac520d03d800c2ed3",
+        "films/beiming-10s/src/shadow.js": "4d48d2f0b73f7a1a0c779322b6c2f4696c344fff8af818fb85e6389a806aad2b",
+        "films/beiming-10s/src/toon.js": "0434e03a260430d14089223e03d7eb40fdbd601e81e58644b7a861a990a8c1cf",
+        "films/beiming-10s/src/toon_qinglv.js": "fe5e656ade8459aa7a7263a54df6ec190a24e5a545ca35d4ec7818de8fdd8495"
       }
     },
     "model:kun_refine@v1": {
-      "sha256": "6d0e54c4db779f2cabdddc602abda4c191c2f76b6b2827f29877cf86f5fc30c7",
+      "sha256": "b3d36d004a020ea4d1747b4c8587b32729f4f0367feee7fa758a1b258085cc4a",
       "files": {
-        "src/eye_shade.js": "e454da554d511758436a0eb7d257c264dd72f428053a79c2cc03a336c3861ab4",
-        "src/kun.js": "e9b8017c4fbe7caceb9c16db2adfa1cf90336eb356cc70ca853ba29ccec70033",
-        "src/kun_refine.js": "83578e659a3342501f35c7de464c74c4d8f00184a74d851dbcab67f3f14c3131",
-        "src/shadow.js": "4d48d2f0b73f7a1a0c779322b6c2f4696c344fff8af818fb85e6389a806aad2b",
-        "src/toon.js": "c5c0adf6586524d7fe817333368bf62c6e625245584a74798f9aeb39e3a4bf75",
-        "src/toon_refine.js": "4e9622f8a8cdc28c517ddc367b003f8abf3d35a9a82390a43d24c668facf6e7c"
+        "films/beiming-10s/src/eye_shade.js": "e454da554d511758436a0eb7d257c264dd72f428053a79c2cc03a336c3861ab4",
+        "films/beiming-10s/src/kun.js": "e636cdcda2b0bca81c0f0e4251d3723466f6a5d04a94f17f51ed834d7d7015d2",
+        "films/beiming-10s/src/kun_refine.js": "de63850540596688e814e49709040e60ec155c1c3568c10426a915accf5ce0cf",
+        "films/beiming-10s/src/shadow.js": "4d48d2f0b73f7a1a0c779322b6c2f4696c344fff8af818fb85e6389a806aad2b",
+        "films/beiming-10s/src/toon.js": "0434e03a260430d14089223e03d7eb40fdbd601e81e58644b7a861a990a8c1cf",
+        "films/beiming-10s/src/toon_refine.js": "1f3c785ac06525a5f5a32cb4312d716fed31d1236835f05dcfd36c547e432204"
       }
     },
     "model:kun_xuan@v1": {
-      "sha256": "e9e09ffa95edb8ac68e97e26497cb975658c8373d0725e9a4be481d4c3abf149",
+      "sha256": "b24d22c33b8c31a10a5b4be37f27ab91cfe94a6ff84f1e2124ffddef99cd855d",
       "files": {
-        "src/eye_shade.js": "e454da554d511758436a0eb7d257c264dd72f428053a79c2cc03a336c3861ab4",
-        "src/kun_xuan.js": "40e18643e35904ead92d1b30b00c8bcbda5c4c89ccdf2a06f625af6933a56a1b",
-        "src/shadow.js": "4d48d2f0b73f7a1a0c779322b6c2f4696c344fff8af818fb85e6389a806aad2b",
-        "src/toon.js": "c5c0adf6586524d7fe817333368bf62c6e625245584a74798f9aeb39e3a4bf75",
-        "src/toon_xuan.js": "2c51b148d7d74af0936c9dcb38271afc3b2252fdfab91bb678c4c0ae81c89256"
+        "films/beiming-10s/src/eye_shade.js": "e454da554d511758436a0eb7d257c264dd72f428053a79c2cc03a336c3861ab4",
+        "films/beiming-10s/src/kun_xuan.js": "a65f3dd3795ec02da54ec02781a97d0e742c514124f5df74f1c1e02090e12589",
+        "films/beiming-10s/src/shadow.js": "4d48d2f0b73f7a1a0c779322b6c2f4696c344fff8af818fb85e6389a806aad2b",
+        "films/beiming-10s/src/toon.js": "0434e03a260430d14089223e03d7eb40fdbd601e81e58644b7a861a990a8c1cf",
+        "films/beiming-10s/src/toon_xuan.js": "51cac6bce1f80492fd84858a61d43867afd330c46ebd6ec6f1408ee916a69830"
       }
     },
     "plate:clouds_back@v1": {

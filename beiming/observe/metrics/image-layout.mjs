@@ -1,4 +1,4 @@
-import { srgbToLab, deltaE00 } from '../../../tools/eval/lib/metrics.mjs';
+import { srgbToLab, deltaE00 } from './perceptual.mjs';
 
 // 输入 RGBA8 为显示空间 sRGB，三个色分量按原码值量测。坐标原点在左上。
 function check(ok, message) { if (!ok) throw new RangeError(message); }

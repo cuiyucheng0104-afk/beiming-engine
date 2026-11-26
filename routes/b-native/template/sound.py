@@ -15,9 +15,10 @@ from engine.audio import ambience, dsp, mixing, synth
 
 FILM = Path(os.environ.get('BNE_FILM', Path(__file__).resolve().parent))
 SPEC = json.loads((FILM / 'film.json').read_text(encoding='utf-8'))
-D = float(os.environ.get('BNE_DUR', SPEC['dur']))
+TIMING = SPEC['output']
+D = float(os.environ.get('BNE_DUR', TIMING['frameCount'] / TIMING['fps']))
 OUT = Path(os.environ.get('BNE_OUT', FILM / 'media' / 'mix.wav'))
-LAND = next(e['frame'] for e in SPEC['events'] if e['id'] == 'title') / SPEC['fps']
+LAND = next(e['frame'] for e in SPEC['events'] if e['id'] == 'title') / TIMING['fps']
 
 y = np.zeros((dsp.N(D), 2))
 wind, _ = ambience.wind(D, 11, 'far')

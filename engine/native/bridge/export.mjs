@@ -18,7 +18,7 @@
 //   退出码：0 · 1 导出 / 回读失败 · 2 用法 · 3 缺浏览器或依赖 · 4 结构检查不通过 · 124 超时（--timeout 秒，默认 900）
 //
 // models 条目（film.json，路径相对作品目录）
-//   { "to": "ferry.glb", "module": "../../src/ferry.js", "export": "createFerry", "args": {…},
+//   { "to": "ferry.glb", "module": "../../films/beiming-10s/src/ferry.js", "export": "createFerry", "args": {…},
 //     "length": 2 | "scale": 0.05,          最终长度（米，按返回值的 length 字段或包围盒最长边换算）或直接给缩放
 //     "prefix": "ferry",                    未命名网格 / 材质的名字前缀（默认取对象名或文件名）
 //     "names": { "lights": "ferry-light-" },  返回值里 { 键: Object3D } 字段的命名规则

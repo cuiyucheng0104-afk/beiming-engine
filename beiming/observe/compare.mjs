@@ -5,16 +5,16 @@
 //     options   { tolerance?, pixelDiffThreshold?, heatmapPath?（别名 heatmapOut，不得指向输入文件）, heatmapGain?, metrics? }；未知选项、容差键或指标名报错
 //               pixelDiffThreshold（0..1 的有限数，越界、null 等一律报错；也可写在 tolerance 里，校验相同）：逐像素取三通道最大差的整数级数除以 255，超过阈值的像素占比记为
 //               fracAboveThreshold 一行，占比超过 tolerance.pixelDiffMaxRatio（默认 0）即不通过
-//   复用白名单：tools/baseline/lib/metrics.mjs（PSNR、SSIM、maxDiff、fracAbove1/2、容差 judge、热图 diffHeatmap）
-//     与 tools/eval/lib/metrics.mjs（seamDeltaE、paletteDeltaE、lineCoverage、grainEnergy），并补 Rec.709 亮度分位差（p05/p50/p95）。
+//   metrics/pixel.mjs（PSNR、SSIM、maxDiff、fracAbove1/2、容差 judge、热图 diffHeatmap）
+//     与 metrics/perceptual.mjs（seamDeltaE、paletteDeltaE、lineCoverage、grainEnergy），并补 Rec.709 亮度分位差（p05/p50/p95）。
 //   成功返回 { ok: true, size, identical, pass, rows, heatmap?, truncated }；非法参数返回 { ok: false, error: { code, message } }，不抛异常。
 //   预算：返回值 JSON 严格满足 withinBudget(json, 500)。
 
 import { Buffer } from 'node:buffer';
 import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
-import { compareImages, diffHeatmap, judge } from '../../tools/baseline/lib/metrics.mjs';
-import { blockColors, deltaE00, grainEnergy, lineCoverage, median, paletteDeltaE, seamDeltaE } from '../../tools/eval/lib/metrics.mjs';
+import { compareImages, diffHeatmap, judge } from './metrics/pixel.mjs';
+import { blockColors, deltaE00, grainEnergy, lineCoverage, median, paletteDeltaE, seamDeltaE } from './metrics/perceptual.mjs';
 import { fail } from './curves.mjs';
 import { withinBudget } from './query.mjs';
 import { decodePng, encodePng, runFfmpeg } from './sheet.mjs';
@@ -99,7 +99,7 @@ function lumaQuantiles({ width, height, rgb }) {
   return { p05: q(0.05), p50: q(0.5), p95: q(0.95) };
 }
 
-// 超差像素占比：一个像素的差取三通道最大的整数级数（口径同白名单 compareImages），再除以 255 与阈值比；
+// 超差像素占比：一个像素的差取三通道最大的整数级数（口径同 compareImages），再除以 255 与阈值比；
 // 直接比 m > threshold * 255，不留松弛：(k / 255) * 255 在双精度下对 0..255 的每个 k 都恰好等于 k，阈值写成 k / 255 时差 k 级不算超
 function fracAboveThreshold(a, b, threshold) {
   const n = a.width * a.height;
@@ -112,7 +112,7 @@ function fracAboveThreshold(a, b, threshold) {
   return above / n;
 }
 
-// 白名单 SSIM 在 < 8x8 时直接回 1；小图改用整幅单窗口的标准 SSIM（逐通道再取平均）
+// 像素指标 SSIM 在 < 8x8 时直接回 1；小图改用整幅单窗口的标准 SSIM（逐通道再取平均）
 function globalSsim(a, b) {
   const n = a.width * a.height;
   const c1 = (0.01 * 255) ** 2;

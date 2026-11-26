@@ -127,6 +127,8 @@ jobs:
         run: npm ci
       - name: 安装 ruff（按哈希固定，只用于 lint 报告）
         run: python -m pip install --require-hashes -r tests/ci/requirements-lint.txt
+      - name: 检查新旧目录依赖
+        run: node beiming/kernel/guard.mjs
       - name: 检查（= npm run check -- --skip tests）
         env:
           BEIMING_PY: ${{ steps.py.outputs.python-path }}

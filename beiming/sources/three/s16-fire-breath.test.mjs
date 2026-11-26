@@ -3,7 +3,7 @@ import { Buffer } from 'node:buffer';
 import { readFile, readdir } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { test } from 'node:test';
-import { launchBrowser } from '../../../engine/render/lib/gpu.mjs';
+import { launchBrowser } from '../../host/page/gpu.mjs';
 import { loadCards, startServer } from '../../host/page/host.mjs';
 import { createCardRegistry, scanCardLeaks } from '../../cards/index.mjs';
 import { loadCardLibrary } from '../../api/runtime.mjs';

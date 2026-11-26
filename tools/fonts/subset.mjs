@@ -3,6 +3,7 @@
 // 文字来源是 film.json 的 texts（画面文字白名单：页面只画这里登记的字）与 fonts[].extra；字族与原始字体的对应在 fonts[]。
 // 缺字（原始字体里没有）直接失败并列出是哪个字，绝不静默回退到系统字体；--check 只核对已有子集是否覆盖当前文字（不要 Python）。
 // 页面端用 engine/style/fonts.js 读同一份清单并在画字前核对覆盖，两头用同一套码位。不碰仓库 fonts/ 下《北冥》共用的子集。
+import { readFilmDocument } from '../lib/film-json.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
@@ -20,7 +21,7 @@ export function readFilm(dir) {
   const fj = path.join(dir, 'film.json');
   if (!fs.existsSync(fj)) throw new CliError('usage.not-a-film', `${rel(dir)} 下没有 film.json`, '参数要给作品目录，例如 films/chendu');
   let film;
-  try { film = JSON.parse(fs.readFileSync(fj, 'utf8')); } catch (e) { throw new CliError('contract.film-json', `${rel(fj)} 不是合法 JSON：${e.message}`, '修好 JSON 语法后重跑'); }
+  try { film = readFilmDocument(fj).value; } catch (e) { throw new CliError('contract.film-json', `${rel(fj)} 不是合法 JSON：${e.message}`, '修好 JSON 语法后重跑'); }
   const bad = m => new CliError('contract.film-fonts', `${rel(fj)}：${m}`, '写法见 node tools/fonts/subset.mjs --help');
   const { fonts, texts } = film;
   if (!Array.isArray(fonts) || !fonts.length) throw bad('缺 fonts（字族 → 锁定原始字体的对应）：画面上有字就必须声明');

@@ -195,7 +195,7 @@ test('S15-4 镜像目录 films/beiming-10s 自动解析到仓库根页面入口�
     await assert.rejects(() => legacyPage.open(realInput('beiming-10s', 'b'), { lock: incomplete, tier: 'draft', workspace: ws, filmDir: ws }, { driver: fakeDriver() }), code('contract.unsupported-input'));
     const log = [];
     const s = await legacyPage.open(realInput('beiming-10s', 'b'), { lock, tier: 'draft', workspace: ws, filmDir: path.join(REPO, 'films/beiming-10s') }, { driver: fakeDriver(log) });
-    assert.equal(path.resolve(log[0].open.dir), REPO);
+    assert.equal(path.resolve(log[0].open.dir), path.join(REPO, 'films/beiming-10s'));
     assert.equal(log[0].open.frameCount, 240);
     assert.deepEqual(s.manifest(), { frames: 48, entities: [] });
     const { meta } = await s.render(5, {}, ['color', 'meta']);
@@ -755,7 +755,7 @@ for (const workId of legacyPage.PUBLISHED_WORKS) {
         const gpu = readJson(path.join(out, 'still.run.json')).gpu?.renderer;
         if (gpu !== env.renderer) return t.skip(`基线绑定另一出片环境，本机渲染器为 ${gpu}`);
       }
-      const png = await import('../../../tools/baseline/lib/png.mjs');
+      const png = await import('./baseline-png.mjs');
       for (const f of frames) {
         const img = png.decodePNG(fs.readFileSync(path.join(out, `${f.id}.png`)));
         assert.equal(`sha256:${png.pixelSha256(img)}`, f.hash, f.id);

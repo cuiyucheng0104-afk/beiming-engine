@@ -17,7 +17,7 @@ import {
   validateQuestion,
 } from './index.mjs';
 import { runExam } from './exam.mjs';
-import { isInside } from '../../tools/eval/lib/paths.mjs';
+import { isInside } from './session/paths.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '../..');

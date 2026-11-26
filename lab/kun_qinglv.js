@@ -4,8 +4,8 @@
 // 可选参数：&lod=0.3 &noink=1 &pass=1 &roll=-0.5 &look=1
 //   &view=side|top|far|eye|under|reveal（同 lab/kun.js）| hero（海报帧）| isle（仙岛近景）| front（迎面）| tail（尾鳍）
 import * as THREE from 'three';
-import { createKun } from '../src/kun_qinglv.js';
-import { PALETTE, setToonGlobals } from '../src/toon.js';
+import { createKun } from '../films/beiming-10s/src/kun_qinglv.js';
+import { PALETTE, setToonGlobals } from '../films/beiming-10s/src/toon.js';
 import { labRenderer, kunStats, keyLight, BASE_VIEWS, baseExtra, pickView, eyeCloseup, frameTimes, lerpN, labPipeline, labPixelRatio } from './kun_bench.js';
 
 const q = new URLSearchParams(location.search);

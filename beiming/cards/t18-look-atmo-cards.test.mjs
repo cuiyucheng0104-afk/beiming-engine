@@ -5,7 +5,7 @@ import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import * as THREE from 'three-webgpu';
-import { launchBrowser } from '../../engine/render/lib/gpu.mjs';
+import { launchBrowser } from '../host/page/gpu.mjs';
 import { startServer } from '../host/page/host.mjs';
 import { checkArchitecture } from '../kernel/guard.mjs';
 import { createCardRegistry, resolveParams, scanCardLeaks, validateCard } from './index.mjs';

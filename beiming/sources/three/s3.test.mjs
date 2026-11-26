@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { inspect } from 'node:util';
 import { runInNewContext } from 'node:vm';
 import { chromium } from 'playwright-core';
-import { chromeArgs, chromeExecutable } from '../../../engine/render/lib/gpu.mjs';
+import { chromeArgs, chromeExecutable } from '../../host/page/gpu.mjs';
 import { resolveServed, startServer, startSource } from '../../host/page/host.mjs';
 import { measureEntity } from '../../host/page/measure.js';
 import { metaCheck, sourceCheck } from '../../kernel/conformance/records.mjs';

@@ -10,9 +10,9 @@
   },
   "scripts": {
     "build": "node tools/film/beiming.mjs",
-    "stills": "node engine/render/still.mjs . --range 0:9.5:0.5 --out out/stills",
-    "video": "node engine/render/video.mjs . --out out/video.mp4",
-    "video:4k": "node engine/render/video.mjs . --size 3840x2080 --workers 8 --out out/video_4k.mp4",
+    "stills": "node engine/render/still.mjs films/beiming-10s --range 0:9.5:0.5 --out out/stills",
+    "video": "node engine/render/video.mjs films/beiming-10s --out out/video.mp4",
+    "video:4k": "node engine/render/video.mjs films/beiming-10s --size 3840x2080 --workers 8 --out out/video_4k.mp4",
     "setup": "node tools/env/setup.mjs",
     "raea:prepare": "node engine/native/prepare.mjs examples/raea",
     "raea:check": "node engine/render/native.mjs examples/raea --check-only",

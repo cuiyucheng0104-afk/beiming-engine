@@ -244,7 +244,7 @@ export async function writeRecord(film, record) {
 }
 
 /** 各道闸的现状：{ look, animatic, final }，每道 { required, state, record, quote, source, at, reason, invalid[], comments }；另有不可枚举的 diagnostics。 */
-export async function gateStatus(film) {
+export async function gateStatus(film, { deliveryMode = 'automatic' } = {}) {
   const L = await productionLib();
   let records, diagnostics, judge;
   if (L) {
@@ -260,7 +260,7 @@ export async function gateStatus(film) {
   for (const g of GATES) {
     const v = judge(g);
     out[g] = {
-      required: g === 'final' || film.gates?.[g] !== 'optional', state: v.status, label: STATE_LABEL[v.status] || v.status,
+      required: deliveryMode === 'review' && (g === 'final' || film.gates?.[g] !== 'optional'), state: v.status, label: STATE_LABEL[v.status] || v.status,
       record: v.record?.file ? rel(path.join(film.dir, 'review', v.record.file)) : null, quote: v.record?.quote ?? null,
       source: v.record?.source ?? null, at: v.record?.recordedAt ?? null, reason: v.reason ?? null,
       invalid: v.invalid || [], comments: v.comments || 0, reviewed: v.reviewed || [],
@@ -276,7 +276,9 @@ export async function gateStatus(film) {
 export const passes = s => s.state === 'approved' || s.state === 'waived';
 
 // 终渲前的闸门检查：返回放行依据；不满足时抛 FilmError(4)，信息里给出补记录的确切命令
-export function assertFinalAllowed(film, status) {
+export function assertFinalAllowed(film, status, { deliveryMode = 'automatic' } = {}) {
+  if (deliveryMode === 'automatic') return [{ mode: 'automatic', checked: false }];
+  if (deliveryMode !== 'review') throw new FilmError(EXIT.USAGE, 'delivery-mode', 'delivery-mode 只能是 automatic 或 review');
   const blockers = ['look', 'animatic'].filter(g => status[g].required && !passes(status[g]));
   if (!blockers.length) return ['look', 'animatic'].map(g => ({ gate: g, state: status[g].state, record: status[g].record || null }));
   const desc = blockers.map(g => {

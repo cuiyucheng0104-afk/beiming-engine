@@ -16,9 +16,10 @@
 // P02 的命令约定库（tools/lib）合入后，本文件改为对它的薄封装，对外行为不变。
 // 还没对齐的：各命令自己的错误码（run-missing、env-missing 等）仍是扁平写法，C2 要求按退出码加 usage. / env. 前缀，改造时一并换。
 
-export const EXIT = Object.freeze({
-  OK: 0, RUN: 1, USAGE: 2, ENV: 3, CONTRACT: 4, BUSY: 5, TIMEOUT: 124, SIGINT: 130, SIGTERM: 143,
-});
+import { EXIT as BASE_EXIT, commandEnvelope, scanArgv } from '../../lib/cli.mjs';
+
+const { FAILURE, ENVIRONMENT, ...COMMON_EXIT } = BASE_EXIT;
+export const EXIT = Object.freeze({ ...COMMON_EXIT, RUN: FAILURE, ENV: ENVIRONMENT });
 
 export class EvalError extends Error {
   /**
@@ -56,50 +57,33 @@ export function parseArgs(argv, spec = {}) {
     else if (def.type === 'boolean') opts[name] = false;
     else if (def.type === 'list') opts[name] = [];
   }
-  const positionals = [];
-  let rest = false;
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i];
-    if (rest) { positionals.push(arg); continue; }
-    if (arg === '--') { rest = true; continue; }
-    let name = null;
-    let inline = null;
-    if (arg.startsWith('--')) {
-      const eq = arg.indexOf('=');
-      name = eq > 0 ? arg.slice(2, eq) : arg.slice(2);
-      if (eq > 0) inline = arg.slice(eq + 1);
-    } else if (/^-[A-Za-z]$/.test(arg)) {
-      name = shorts.get(arg.slice(1)) ?? null;
-      if (!name) throw usageError(`不认识的选项 ${arg}`, `加 --help 查看 ${spec.command ?? ''} 支持的参数`.replace(/\s+/g, ' '), 'usage.unknown-option');
-    } else {
-      positionals.push(arg);
-      continue;
-    }
-    const def = options[name];
-    if (!def) throw usageError(`不认识的选项 --${name}`, `加 --help 查看 ${spec.command ?? ''} 支持的参数`.replace(/\s+/g, ' '), 'usage.unknown-option');
-    if (def.type === 'boolean') {
-      if (inline !== null) throw usageError(`--${name} 是开关，不带值`, `直接写 --${name}`);
-      opts[name] = true;
-      continue;
-    }
-    let value = inline;
-    if (value === null) {
-      value = argv[i + 1];
-      if (value === undefined || (value.startsWith('--') && value.length > 2)) throw usageError(`--${name} 后面要跟一个值`, '加 --help 查看用法', 'usage.missing-value');
-      i++;
-    }
-    if (def.type === 'number') {
-      const n = Number(value);
-      if (!Number.isFinite(n)) throw usageError(`--${name} 要求数字，收到「${value}」`);
-      if (def.min !== undefined && n < def.min) throw usageError(`--${name} 不能小于 ${def.min}`);
-      opts[name] = n;
-    } else if (def.type === 'list') {
-      for (const part of value.split(',').map(s => s.trim()).filter(Boolean)) opts[name].push(part);
-    } else {
-      if (def.choices && !def.choices.includes(value)) throw usageError(`--${name} 只能是 ${def.choices.join(' / ')}，收到「${value}」`);
-      opts[name] = value;
-    }
-  }
+  const unknown = flag => usageError(`不认识的选项 ${flag}`, `加 --help 查看 ${spec.command ?? ''} 支持的参数`.replace(/\s+/g, ' '), 'usage.unknown-option');
+  const positionals = scanArgv(argv, {
+    isOption: arg => arg.startsWith('--') || /^-[A-Za-z]$/.test(arg),
+    apply({ flag, inline, value }) {
+      const name = flag.startsWith('--') ? flag.slice(2) : shorts.get(flag.slice(1));
+      const def = options[name];
+      if (!def) throw unknown(flag);
+      const label = `--${name}`;
+      if (def.type === 'boolean') {
+        if (inline !== undefined) throw usageError(`${label} 是开关，不带值`, `直接写 ${label}`);
+        opts[name] = true;
+        return;
+      }
+      const raw = value(() => usageError(`${label} 后面要跟一个值`, '加 --help 查看用法', 'usage.missing-value'));
+      if (def.type === 'number') {
+        const n = Number(raw);
+        if (!Number.isFinite(n)) throw usageError(`${label} 要求数字，收到「${raw}」`);
+        if (def.min !== undefined && n < def.min) throw usageError(`${label} 不能小于 ${def.min}`);
+        opts[name] = n;
+      } else if (def.type === 'list') {
+        opts[name].push(...raw.split(',').map(s => s.trim()).filter(Boolean));
+      } else {
+        if (def.choices && !def.choices.includes(raw)) throw usageError(`${label} 只能是 ${def.choices.join(' / ')}，收到「${raw}」`);
+        opts[name] = raw;
+      }
+    },
+  });
   const help = Boolean(opts.help);
   if (!help) {
     const min = spec.positionals?.min ?? 0;
@@ -130,8 +114,8 @@ export function formatHelp(command, spec) {
   return lines.join('\n') + '\n';
 }
 
-function envelope({ ok, exitCode, command, error = null, outputs = [], runJson = null, warnings = [], data = null }) {
-  return { schemaVersion: 1, ok, exitCode, command, error, outputs, runJson, warnings, data };
+function envelope(fields) {
+  return commandEnvelope({ data: null, ...fields });
 }
 
 /**

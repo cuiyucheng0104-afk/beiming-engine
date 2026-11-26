@@ -1,4 +1,4 @@
-// spec.mirror：《北冥》镜像 films/beiming-10s/film.json 与冻结样片的源码（src/timeline.js、src/main.js、src/hud.js…）
+// spec.mirror：《北冥》镜像 films/beiming-10s/film.json 与冻结样片的源码（films/beiming-10s/src/timeline.js、films/beiming-10s/src/main.js、films/beiming-10s/src/hud.js…）
 // 和声音表 audio/cues.json 一致：样片源码改了切点或事件时刻、镜像没跟上（或反过来），这里报错（ORCH-01）。
 import { engineLibs, finding } from './_lib.mjs';
 import { pathToFileURL } from 'node:url';

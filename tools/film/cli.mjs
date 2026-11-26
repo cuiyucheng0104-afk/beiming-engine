@@ -36,7 +36,7 @@ export const SUBCOMMANDS = {
 const ALIASES = { approve: ['review', 'approve'] };
 
 const TOP_DESCRIPTION = [
-  '做一部片的顺序（三道闸 look → animatic → final，决定 D08；每道闸都要用户看过、按原话记录，agent 不得自己批准）：',
+  '做一部片：默认 automatic 自动终渲并跑机器 QA；--delivery-mode review 启用 look → animatic → final 人工闸，agent 不得自己批准：',
   '  new <a|b|c|d> <名字> [--title 标题]     新建作品（转调 tools/new-film.mjs）',
   '  check <作品目录>                         只读检查：作品描述（P05）、页面契约 / 离屏 / 原生或光追预检、档位与镜头表',
   '  plan <作品目录>                          开渲前估算整片耗时与磁盘（A / C / D；只读）',
@@ -45,7 +45,7 @@ const TOP_DESCRIPTION = [
   '  build <作品目录> [--final]               整条出片链 → out/<run-id>/           → review approve final（之后才能称「已交付」）',
   '  mix <作品目录>                           只做声音（A / C 到声画拍点核对；B 原生素材准备）',
   '  assemble <作品目录>                      画面与声音复用缓存，只重做封装及之后',
-  '  render <作品目录> --frames a:b|--shot S  只渲指定帧段或镜头（帧级复用）；--final 先查闸门',
+  '  render <作品目录> --frames a:b|--shot S  只渲指定帧段或镜头（帧级复用）；--final 默认自动；人工审阅加 --delivery-mode review',
   '  qa <作品目录> [--run <run-id>]           对已出的片子补跑机器 QA 门（tools/qa），回写 run.json',
   '  review approve|reject|waive|note|status  闸门审阅记录；approve … 是 review approve … 的简写',
   '  status <作品目录>                        闸门、最近运行与下一步',

@@ -101,4 +101,4 @@ export function titleBox({ W, H }, { x, y, size }) {
   return { F, glyphs: [['北', xB, yc], ['冥', xM, yc]], box: [xB - 0.47 * F, yc - 0.42 * F, xM + 0.38 * F, yc + 0.47 * F] };
 }
 
-export const eventSeconds = film => Object.fromEntries((film.events || []).map(e => [e.id, e.frame / film.fps]));
+export const eventSeconds = film => Object.fromEntries((film.events || []).map(e => [e.id, e.frame / film.output.fps]));

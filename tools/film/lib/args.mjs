@@ -11,6 +11,7 @@
 //     },
 //   }
 // 写法：--k v 与 --k=v 都认；bool 选项不带值；"--" 之后全部当位置参数。opts 的键去掉前导 "--" 并转成驼峰（--no-cache → noCache）。
+import { scanArgv } from '../../lib/cli.mjs';
 import { usage } from './exit.mjs';
 
 export const camel = k => k.replace(/^--/, '').replace(/-([a-z0-9])/g, (_, c) => c.toUpperCase());
@@ -18,43 +19,30 @@ export const camel = k => k.replace(/^--/, '').replace(/-([a-z0-9])/g, (_, c) =>
 export function parseArgs(argv, spec) {
   const options = spec.options || {};
   const opts = {};
-  const positionals = [];
   const names = Object.keys(options);
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === '--') { positionals.push(...argv.slice(i + 1)); break; }
-    if (a.startsWith('--')) {
-      const eq = a.indexOf('=');
-      const key = eq > 0 ? a.slice(0, eq) : a;
-      const def = options[key];
+  const positionals = scanArgv(argv, {
+    isOption: arg => arg.startsWith('-') && arg.length > 1 && !/^-\d/.test(arg),
+    apply({ arg, flag, inline, value }) {
+      if (!arg.startsWith('--')) {
+        if (arg === '-h') { opts.help = true; return; }
+        throw usage(`不认识的选项 ${arg}`, '只认双横线的长选项，例如 --help');
+      }
+      const def = options[flag];
       if (!def) {
-        const near = names.filter(n => n.includes(key.slice(2, 5))).slice(0, 3);
-        throw usage(`不认识的选项 ${key}`, `可用选项：${names.join(' ')}${near.length ? `（是不是 ${near.join(' / ')}？）` : ''}`);
+        const near = names.filter(n => n.includes(flag.slice(2, 5))).slice(0, 3);
+        throw usage(`不认识的选项 ${flag}`, `可用选项：${names.join(' ')}${near.length ? `（是不是 ${near.join(' / ')}？）` : ''}`);
       }
-      let val;
+      const key = camel(flag);
       if (def.type === 'bool') {
-        if (eq > 0) throw usage(`${key} 是开关，不带值`);
-        val = true;
-      } else {
-        if (eq > 0) val = a.slice(eq + 1);
-        else {
-          val = argv[i + 1];
-          if (val === undefined || (val.startsWith('--') && val.length > 2)) throw usage(`${key} 后面要跟 ${def.arg || '一个值'}`);
-          i++;
-        }
-        val = coerce(key, def, val);
+        if (inline !== undefined) throw usage(`${flag} 是开关，不带值`);
+        opts[key] = true;
+        return;
       }
-      const k = camel(key);
-      if (def.type === 'list') opts[k] = [...new Set([...(opts[k] || []), ...val])];
-      else opts[k] = val;
-      continue;
-    }
-    if (a.startsWith('-') && a.length > 1 && !/^-\d/.test(a)) {
-      if (a === '-h') { opts.help = true; continue; }
-      throw usage(`不认识的选项 ${a}`, '只认双横线的长选项，例如 --help');
-    }
-    positionals.push(a);
-  }
+      const raw = value(() => usage(`${flag} 后面要跟 ${def.arg || '一个值'}`));
+      const parsed = coerce(flag, def, raw);
+      opts[key] = def.type === 'list' ? [...new Set([...(opts[key] || []), ...parsed])] : parsed;
+    },
+  });
   const want = spec.positionals || [];
   const missing = want.filter((p, i) => p.required && positionals[i] === undefined);
   if (missing.length && !opts.help) throw usage(`缺少参数：${missing.map(p => p.name).join('、')}`);

@@ -21,6 +21,7 @@
 // 输出先写 <输出目录>/.<名>.partial-<pid>.mp4，核对通过才改名；失败不留半成品。最后核对：帧数与输入一致、
 //   |I − 目标| ≤ 0.5 LU、真峰值 ≤ 上限（默认 −1.0 dBTP，D07）。
 // 退出码：0 成功 · 2 用法 · 3 缺 FFmpeg · 4 输入不合规（帧率、帧数、静音、读不出）或成片响度 / 帧数不达标 · 1 FFmpeg 出错。
+import { readFilmDocument } from '../../../tools/lib/film-json.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -188,7 +189,7 @@ export async function mux({ video, audio, out, fps = null, frames = null, grain 
 /** 读作品描述（目录或 film.json）：只取 id 与 aigc；读不了 → usage.film-json */
 function readFilmJson(p) {
   const file = fs.existsSync(p) && fs.statSync(p).isDirectory() ? path.join(p, 'film.json') : p;
-  try { return { file, json: JSON.parse(fs.readFileSync(file, 'utf8')) }; } catch (e) {
+  try { return { file, json: readFilmDocument(file).value }; } catch (e) {
     throw new RenderError('usage.film-json', `读不了作品描述 ${file}：${e.code === 'ENOENT' ? '文件不存在' : e.message}`, { hint: '--film 写作品目录（films/<名字>）或它的 film.json' });
   }
 }

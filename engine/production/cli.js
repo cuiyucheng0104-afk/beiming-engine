@@ -63,7 +63,8 @@ const loadValid = (target, label = 'film.json') => { const L = load(target); ret
 
 const check = defineCommand({
   name: 'film.js check',
-  summary: '校验 film.json v2（v1 自动升级读取）：镜头表、事件、档位、闸门、署名、AIGC、qa 段、路线专属段',
+  summary: '校验 film.json v2 的镜头表、事件、档位、闸门、署名、AIGC、qa 段与路线专属段',
+  description: [`v1 作品请先运行 ${PROG} upgrade <作品目录> --write，按提示补齐字段后再检查。`],
   usage: [`${PROG} check <作品目录|film.json> [--template] [--strict] [--no-files] [--json]`],
   positionals: [{ name: 'target', label: '<作品目录|film.json>', describe: '作品目录（films/<名>）或它的 film.json' }],
   options: {
@@ -80,9 +81,9 @@ const check = defineCommand({
     const lines = [];
     if (L.film) {
       const s = filmSummary(L.film);
-      lines.push(`${ok ? '✓' : '✗'} ${shown(L.file)}：${L.upgraded ? 'v1（已自动升级读取）' : 'v2'}，路线 ${s.route} / ${s.backend}，档位 ${s.profile}，${s.size.replace('x', '×')}@${s.fps}，${s.frameCount} 帧（${+s.seconds.toFixed(3)} 秒），${s.shots} 镜，${s.events} 个事件`);
+      lines.push(`${ok ? '✓' : '✗'} ${shown(L.file)}：v2，路线 ${s.route} / ${s.backend}，档位 ${s.profile}，${s.size.replace('x', '×')}@${s.fps}，${s.frameCount} 帧（${+s.seconds.toFixed(3)} 秒），${s.shots} 镜，${s.events} 个事件`);
     } else lines.push(`✗ ${shown(L.file)}：不合格`);
-    if (!L.upgraded) for (const n of L.notes) lines.push(`· ${n}`);   // v1 升级的说明已写在 v1-upgraded 提示里
+    for (const n of L.notes) lines.push(`· ${n}`);
     for (const d of [...errors, ...warnings]) lines.push(fmtDiag(d));
     lines.push(`${errors.length} 个错误，${warnings.length} 个提示${ctx.opts.strict && warnings.length ? '（--strict：提示也算失败）' : ''}`);
     ctx.out(lines.join('\n'));
@@ -222,8 +223,9 @@ const status = defineCommand({
 });
 
 const gate = defineCommand({
+  options: { 'delivery-mode': { type: 'string', choices: ['automatic', 'review'], default: 'automatic', describe: 'automatic 默认；review 启用人工前置闸' } },
   name: 'film.js gate',
-  summary: '闸门判定：final = 能否终渲（look 与 animatic 已认可或豁免）；deliver = 能否写「已交付」（accepted）',
+  summary: '闸门判定：默认允许自动终渲；review 模式检查 look / animatic；deliver 检查用户认可',
   usage: [`${PROG} gate <作品目录> final|deliver [--json]`],
   positionals: [
     { name: 'target', label: '<作品目录>', describe: '作品目录（films/<名>）' },
@@ -238,7 +240,7 @@ const gate = defineCommand({
     }
     const { assertDelivered, assertFinalAllowed } = await stateLib();
     const dir = load(target).filmDir;
-    const s = stage === 'final' ? assertFinalAllowed(dir) : assertDelivered(dir);
+    const s = stage === 'final' ? assertFinalAllowed(dir, { deliveryMode: ctx.opts['delivery-mode'] }) : assertDelivered(dir);
     ctx.out(`✓ ${stage === 'final' ? '可以终渲' : '可以写「已交付」'}：${s.state} — ${s.label}`);
     return { data: statusData(s), warnings: diagWarnings(s.diagnostics) };
   }),
@@ -385,7 +387,7 @@ const retimeCmd = defineCommand({
       throw usage('unknown-shot', `没有镜头 ${o.shot}`, `可用：${film.shots.map(x => x.id).join('、')}${s ? `；是不是想写 ${s}？` : ''}`);
     }
     if (o.write && L.raw?.mirror?.frozen === true) {
-      throw new CliError('contract.mirror-frozen', `${shown(L.file)} 是冻结样片的镜像（mirror.frozen = true），不能改写切点`, '镜像只描述样片现状：样片本身改了切点（src/timeline.js）之后，再同步镜像并跑它的 mirror.check；新作品的切点在新作品里改');
+      throw new CliError('contract.mirror-frozen', `${shown(L.file)} 是冻结样片的镜像（mirror.frozen = true），不能改写切点`, '镜像只描述样片现状：样片本身改了切点（films/beiming-10s/src/timeline.js）之后，再同步镜像并跑它的 mirror.check；新作品的切点在新作品里改');
     }
     const before = { frameCount: film.output.frameCount, cuts: cutList(film).map(c => c.frame) };
     const res = retime(L.raw, o.shot, o.out !== null ? { out: o.out } : { length: o.length }, { mode: o.mode, filmDir: L.filmDir });
@@ -459,9 +461,14 @@ const upgrade = defineCommand({
     if (L.raw?.schemaVersion === 2) {
       ({ film, notes } = migrateV2(L.raw));
       if (!notes.length) { ctx.out(`${shown(L.file)} 已经是现行的 v2 写法，不需要迁移`); return { data: { upgraded: false, notes: [] } }; }
-    } else if (L.upgraded) {
+    } else if (L.raw?.schemaVersion === undefined && L.raw?.dur !== undefined && L.raw?.fps !== undefined) {
       const has = rel => existsSync(join(L.filmDir, rel));
-      ({ film, notes } = upgradeFilm(L.raw, { dirName: L.filmDir.split(/[\\/]/).pop(), template: ctx.opts.template, has }));
+      try {
+        ({ film, notes } = upgradeFilm(L.raw, { dirName: basename(L.filmDir), template: ctx.opts.template, has }));
+      } catch (error) {
+        if (!(error instanceof TimelineError)) throw error;
+        throw new CliError(`contract.${error.code}`, error.message, error.hint);
+      }
       if (ctx.opts['keep-v1-fields']) Object.assign(film, { dur: L.raw.dur, fps: L.raw.fps, size: L.raw.size });
     } else {
       const e = firstError(L.diagnostics);

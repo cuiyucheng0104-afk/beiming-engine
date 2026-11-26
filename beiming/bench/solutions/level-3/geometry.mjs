@@ -7,7 +7,7 @@ import path from 'node:path';
 import { evaluate as fit } from '../../../cards/camera/fit/evaluate.mjs';
 
 const HERE = import.meta.dirname;
-const PYTHON = path.resolve(HERE, '..', '..', '..', '..', 'tools', 'env', 'py.mjs');
+const PYTHON = path.resolve(HERE, '..', '..', '..', 'jobs', 'python', 'py.mjs');
 const sub = (a, b) => a.map((v, i) => v - b[i]);
 const dot = (a, b) => a.reduce((s, x, j) => s + x * b[j], 0);
 const unit = a => a.map(x => x / Math.hypot(...a));

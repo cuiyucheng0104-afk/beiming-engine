@@ -35,6 +35,7 @@
 //
 // 本文件同时导出一组命令约定的小工具（参数解析、退出码、--json 信封、带超时与进程树清理的子进程），供 tools/check-all.mjs
 // 与 tests/ci/ 下的脚本复用。P02 的 tools/lib/cli.mjs 合入后，这些工具改为从那里导入，行为保持附录 C1/C2 不变。
+import { CliError as BaseCliError, EXIT as BASE_EXIT, commandEnvelope, scanArgv } from './lib/cli.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -45,12 +46,13 @@ export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 
 // ───────────────────────── 命令约定（附录 C1 / C2） ─────────────────────────
 
-export const EXIT = Object.freeze({ OK: 0, FAIL: 1, USAGE: 2, ENV: 3, CONTRACT: 4, BUSY: 5, TIMEOUT: 124, SIGINT: 130, SIGTERM: 143 });
+const { FAILURE, ENVIRONMENT, ...COMMON_EXIT } = BASE_EXIT;
+export const EXIT = Object.freeze({ ...COMMON_EXIT, FAIL: FAILURE, ENV: ENVIRONMENT });
 
-export class CliError extends Error {
+export class CliError extends BaseCliError {
   constructor(exitCode, code, message, hint = '') {
-    super(message);
-    this.exitCode = exitCode; this.code = code; this.hint = hint;
+    super(code, message, { exitCode, hint });
+    this.name = 'Error';
   }
 }
 
@@ -63,32 +65,32 @@ export function parseArgs(argv, spec, { positional = 0 } = {}) {
   const out = { _: [] };
   for (const [k, s] of Object.entries(spec)) out[k] = s.type === 'list' || s.type === 'multi' ? [] : s.type === 'bool' ? false : null;
   const shorts = Object.fromEntries(Object.entries(spec).filter(([, s]) => s.short).map(([k, s]) => [s.short, k]));
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === '--') { out._.push(...argv.slice(i + 1)); break; }
-    let name, val;
-    if (a.startsWith('--')) { const eq = a.indexOf('='); name = eq > 0 ? a.slice(2, eq) : a.slice(2); val = eq > 0 ? a.slice(eq + 1) : undefined; }
-    else if (/^-[a-zA-Z]$/.test(a)) { name = shorts[a[1]]; if (!name) throw usageError(`不认识的选项 ${a}`, '加 --help 查看用法', 'usage.unknown-option'); }
-    else { out._.push(a); continue; }
-    const s = spec[name];
-    if (!s) throw usageError(`不认识的选项 --${name}`, '加 --help 查看用法', 'usage.unknown-option');
-    if (s.type === 'bool') {
-      if (val !== undefined) throw usageError(`--${name} 是开关，不带值`, `直接写 --${name}`);
-      out[name] = true; continue;
-    }
-    if (val === undefined) { val = argv[++i]; if (val === undefined || (val.startsWith('--') && val.length > 2)) throw usageError(`--${name} 后面要跟一个值`, '加 --help 查看用法', 'usage.missing-value'); }
-    if (s.type === 'int') {
-      if (!/^\d+$/.test(val) || +val <= 0) throw usageError(`--${name} 要写正整数，现在是「${val}」`);
-      out[name] = +val;
-    } else if (s.type === 'list') {
-      const items = val.split(',').map(x => x.trim()).filter(Boolean);
-      if (!items.length) throw usageError(`--${name} 的值不能为空`);
-      out[name].push(...items);
-    } else if (s.type === 'multi') {
-      if (!val.trim()) throw usageError(`--${name} 的值不能为空`);
-      out[name].push(val);
-    } else out[name] = val;
-  }
+  out._ = scanArgv(argv, {
+    isOption: arg => arg.startsWith('--') || /^-[a-zA-Z]$/.test(arg),
+    apply({ arg, flag, inline, value }) {
+      const name = flag.startsWith('--') ? flag.slice(2) : shorts[flag[1]];
+      const s = spec[name];
+      if (!name && !flag.startsWith('--')) throw usageError(`不认识的选项 ${arg}`, '加 --help 查看用法', 'usage.unknown-option');
+      if (!s) throw usageError(`不认识的选项 --${name}`, '加 --help 查看用法', 'usage.unknown-option');
+      if (s.type === 'bool') {
+        if (inline !== undefined) throw usageError(`--${name} 是开关，不带值`, `直接写 --${name}`);
+        out[name] = true;
+        return;
+      }
+      const raw = value(() => usageError(`--${name} 后面要跟一个值`, '加 --help 查看用法', 'usage.missing-value'));
+      if (s.type === 'int') {
+        if (!/^\d+$/.test(raw) || +raw <= 0) throw usageError(`--${name} 要写正整数，现在是「${raw}」`);
+        out[name] = +raw;
+      } else if (s.type === 'list') {
+        const items = raw.split(',').map(x => x.trim()).filter(Boolean);
+        if (!items.length) throw usageError(`--${name} 的值不能为空`);
+        out[name].push(...items);
+      } else if (s.type === 'multi') {
+        if (!raw.trim()) throw usageError(`--${name} 的值不能为空`);
+        out[name].push(raw);
+      } else out[name] = raw;
+    },
+  });
   if (out._.length > positional) throw usageError(`多余的参数：${out._.slice(positional).join(' ')}`, '加 --help 查看用法', 'usage.extra-argument');
   return out;
 }
@@ -96,11 +98,11 @@ export const usageError = (message, hint = '加 --help 查看用法', code = 'us
 
 // 附录 C2 信封：{schemaVersion, ok, exitCode, command, error, outputs, runJson, warnings} + 各命令自己的字段（放在后面）
 export function envelope({ exitCode, command, error = null, outputs = [], runJson = null, warnings = [], ...extra }) {
-  return {
-    schemaVersion: 1, ok: exitCode === 0, exitCode, command,
+  return commandEnvelope({
+    exitCode, command,
     error: error ? { code: error.code || 'ERROR', message: error.message, hint: error.hint || '' } : null,
     outputs, runJson, warnings, ...extra,
-  };
+  });
 }
 
 // 写 --report 文件（目录不存在就建）；失败只告警，不改变退出码

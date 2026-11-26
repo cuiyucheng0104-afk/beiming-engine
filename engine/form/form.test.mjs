@@ -58,7 +58,7 @@ test('R36 preBend / extraNormal 末尾不带换行也能让预处理指令落在
   const nb = f.hooks({ bend: false, preBend: 'transformed.y += 0.3;', extraNormal: 'objectNormal = normalize( objectNormal );' });
   assert.ok(nb.vertexBegin.includes('transformed.y += 0.3;'), 'bend:false 时 preBend 保留');
   assert.ok(nb.vertexNormal.includes('normalize( objectNormal )'), 'bend:false 时 extraNormal 保留');
-  // 原有调用的输出逐字不变（正片 src/kun.js 的写法）
+  // 原有调用的输出逐字不变（正片 films/beiming-10s/src/kun.js 的写法）
   assert.deepEqual(f.hooks({ bend: false, extraPars: 'varying vec3 vLocal;\n', extraBegin: 'vLocal = position;' }), { vertexPars: 'varying vec3 vLocal;\n', vertexBegin: 'vLocal = position;' });
   assert.deepEqual(f.hooks({ bend: false }), {});
   const keep = f.hooks({ extraPars: 'varying vec3 vLocal;\n', extraBegin: 'vLocal = position;' });

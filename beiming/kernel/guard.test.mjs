@@ -27,19 +27,9 @@ function withFixture(check) {
     put('cases/vendor/example.mjs', "import '../../beiming/api/public.mjs';\n");
     put('cases/source/example.py', 'from beiming import api\n');
     put('beiming/api/public.mjs', [
-      "import '../../engine/core/clock.mjs';",
-      "import '../../engine/overlay/clock.mjs';",
-      "import '../../engine/audio/clock.mjs';",
-      "import '../../engine/render/lib/errors.mjs';",
-      "import '../../tools/baseline/lib/metrics.mjs';",
-      "import '../../tools/eval/lib/metrics.mjs';",
-      "import '../../tools/lookdev/sweep.mjs';",
-      "import '../../tools/eval/run.mjs';",
-      "import '../../tools/qa/check.mjs';",
       "import '../kernel/eval/frame.mjs';",
       "import 'node:fs';",
       "import 'external-package';",
-      "import '../../engine/core/clock.mjs?variant=base';",
     ].join('\n'));
     put('beiming/kernel/eval/frame.mjs', [
       "// import 'three'; const material = 0;",
@@ -122,7 +112,7 @@ test('旧目录反向引用涵盖各类导入和重导出', () => {
   });
 });
 
-test('白名单守卫按路径段和完整文件名匹配', () => {
+test('新目录禁止引用仓库内的任何外部模块', () => {
   withFixture(({ root, put }) => {
     put('beiming/api/outside.mjs', [
       "import '../../engine/core-extra/clock.mjs';",
@@ -131,7 +121,7 @@ test('白名单守卫按路径段和完整文件名匹配', () => {
       "import '../../package.json';",
     ].join('\n'));
     put('beiming/api/outside.py', 'from tools.private import helpers\n');
-    const problems = problemsFor(root, 'legacy-whitelist');
+    const problems = problemsFor(root, 'no-legacy-import');
     assert.equal(problems.length, 5);
     for (const target of ['engine/core-extra/clock.mjs', 'engine/render/lib/errors.mjs.backup', 'tools/other/check.mjs', 'package.json', 'tools/private']) {
       assert.ok(problems.some(({ message }) => message.endsWith(`（${target}）`)), target);
@@ -175,6 +165,37 @@ test('CLI 的 --root 和 --json 反映通过与违例的退出状态', () => {
   });
 });
 
+test('日常守卫仅容许冻结工具的精确引用；拆仓守卫逐条报出', () => {
+  withFixture(({ root, put }) => {
+    const coreTool = 'beiming/sources/core/chassis/freeze.mjs';
+    put(coreTool, "import '../../../../tools/lib/cli.mjs';");
+    assert.deepEqual(checkArchitecture(root).problems, []);
+    const strict = spawnSync(process.execPath, [guardFile, '--root', root, '--json', '--standalone'], { encoding: 'utf8' });
+    const [problem] = JSON.parse(strict.stdout).problems;
+    assert.equal(strict.status, 1);
+    assert.equal(problem.file, coreTool);
+    assert.equal(problem.rule, 'no-legacy-import');
+    put(coreTool, "import '../../../../tools/lib/other.mjs';");
+    put('beiming/sources/core/chassis/extra.mjs', "import '../../../../tools/lib/cli.mjs';");
+    assert.equal(problemsFor(root, 'no-legacy-import').length, 2);
+  });
+});
+
+test('锁卡自测只保留原来的浏览器依赖，拆仓检查区分其签名影响', () => {
+  withFixture(({ root, put, setOwnership }) => {
+    setOwnership([...registered, 'cards']);
+    const spec = '../../../../engine/render/lib/gpu.mjs';
+    const file = 'beiming/cards/post/bloom/selftest.test.mjs';
+    put(file, `import '${spec}';`);
+    assert.deepEqual(checkArchitecture(root).problems, []);
+    const strict = checkArchitecture(root, { standalone: true });
+    assert.deepEqual(strict.problems.map(p => [p.file, p.rule]), [[file, 'locked-card-test-import']]);
+    put(file, "import '../../../../tools/lib/cli.mjs';");
+    put('beiming/cards/post/bloom/runtime.mjs', `import '${spec}';`);
+    assert.equal(problemsFor(root, 'no-legacy-import').length, 2);
+  });
+});
+
 test('真实仓库架构守卫通过', () => {
   const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
   const result = checkArchitecture(repoRoot);
@@ -193,16 +214,16 @@ const evalPython = 'beiming/kernel/eval/frame.py';
 const pageFile = 'beiming/sources/legacy-page/use.mjs';
 const valueModule = { 'beiming/api/value.mjs': 'export {}' };
 const qaPackage = { 'tools/qa/checks.py': 'ok = True' };
-const [W, R, E] = ['legacy-whitelist', 'no-reverse-import', 'eval-pure'];
+const [W, R, E] = ['no-legacy-import', 'no-reverse-import', 'eval-pure'];
 const reviewCases = [
-  ['M1', pageFile, "import '../../../engine/render/still.mjs'", '', { 'engine/render/still.mjs': 'export {}' }],
-  ['M1', pageFile, "import '../../../engine/render/video.mjs'", '', { 'engine/render/video.mjs': 'export {}' }],
+  ['M1', pageFile, "import '../../../engine/render/still.mjs'", W, { 'engine/render/still.mjs': 'export {}' }],
+  ['M1', pageFile, "import '../../../engine/render/video.mjs'", W, { 'engine/render/video.mjs': 'export {}' }],
   ['M2', legacyFile, "await import(('../beiming/api/value.mjs'))", R, valueModule],
   ['M2', legacyFile, "await import(`../beiming/${'api'}/value.mjs`)", R, valueModule],
   ['M3', 'engine/run.cjs', "const spec={require(x){return x}}; spec.require('../beiming/api/value.mjs')", '', {}],
-  ['M4', 'beiming/verify/run.cjs', "require('../../tools/qa')", '', { 'tools/qa/index.js': 'exports.ok=true' }],
-  ['M4', apiPython, 'from tools.qa import checks', '', qaPackage],
-  ['M5', apiPython, 'from tools import qa', '', qaPackage],
+  ['M4', 'beiming/verify/run.cjs', "require('../../tools/qa')", W, { 'tools/qa/index.js': 'exports.ok=true' }],
+  ['M4', apiPython, 'from tools.qa import checks', W, qaPackage],
+  ['M5', apiPython, 'from tools import qa', W, qaPackage],
   ['M5', evalPython, 'from beiming import host', E, { 'beiming/host/adapter.py': 'ok=True' }],
   ['M6', apiPython, 'import site', '', { 'site/local.py': '' }],
   ['M6', apiFile, "import 'tools/helpers.mjs'", '', { 'node_modules/tools/package.json': '{"name":"tools"}', 'node_modules/tools/helpers.mjs': 'export {}' }],
@@ -260,8 +281,14 @@ test('补充边界：成员调用、正则与除号、目录入口、网址包�
     [legacyFile, "module.require('../beiming/api/value.mjs')", [R]],
     [legacyFile, "import(prefix + '../beiming/api/value.mjs'); require(`../beiming/${name}`)", []],
     [legacyFile, "import(`${'../beiming/'}${`api/${'value'}`}.mjs`)", [R]],
-    [apiFile, "require('../../engine/render/still'); import '../../engine/render/video/encode.mjs'", []],
-    [apiFile, "import '../../engine/look/layers.js'", []],
+    [apiFile, "require('../../engine/render/still'); import '../../engine/render/video/encode.mjs'", [W, W]],
+    [apiFile, "import '../../engine/look/layers.js'", [W]],
+    [apiFile, "const script = new URL('../../tools/env/py.mjs', import.meta.url);", [W]],
+    ['beiming/api/run.ts', "import type Input from '../../tools/types';", [W]],
+    ['beiming/api/run.tsx', "export type { Input } from '../../tools/types';", [W]],
+    [apiFile, "await import(new URL('../../tools/lib/cli.mjs', import.meta.url))", [W]],
+    [apiFile, "await import(new URL('../../tools/' + 'lib/cli.mjs', import.meta.url).href)", [W]],
+    [apiFile, "const document = new URL('../../tools/guide.md', import.meta.url)", []],
     [apiFile, "import '../../engine/render/stills.mjs'", [W]],
     [apiFile, "import '../../engine/render'", [W]],
     [apiPython, 'from tools import private', [W]],
@@ -298,9 +325,9 @@ test('二审八组边界：数字插值、可选链、同名文件与包优先�
     ['engine/run.cjs', "const spec = { require(x) { return x; } }; spec?.require('../beiming/api/value.cjs')", [], {}],
     // M4: CommonJS 同名文件 tools/qa.js 优先于目录 tools/qa/index.js
     ['beiming/api/run.cjs', "require('../../tools/qa')", [W], { 'tools/qa.js': 'module.exports = 1;', 'tools/qa/index.js': 'module.exports = 2;' }],
-    ['beiming/api/run.cjs', "require('../../tools/qa/')", [], { 'tools/qa.js': 'module.exports = 1;', 'tools/qa/index.js': 'module.exports = 2;' }],
+    ['beiming/api/run.cjs', "require('../../tools/qa/')", [W], { 'tools/qa.js': 'module.exports = 1;', 'tools/qa/index.js': 'module.exports = 2;' }],
     // M5: Python 常规包 tools/qa/__init__.py 优先于同名 tools/qa.py；仅有 tools/qa.py 时拒绝
-    [apiPython, 'from tools import qa', [], { 'tools/__init__.py': '', 'tools/qa.py': '', 'tools/qa/__init__.py': '' }],
+    [apiPython, 'from tools import qa', [W], { 'tools/__init__.py': '', 'tools/qa.py': '', 'tools/qa/__init__.py': '' }],
     [apiPython, 'from tools import qa', [W], { 'tools/__init__.py': '', 'tools/qa.py': '' }],
     // M7: Python 常量拼接写键在 AST 与词法模式下均拦下，只读放行
     [evalPython, "frame = {}\nframe['rough' + 'ness'] = 1", [E], {}],

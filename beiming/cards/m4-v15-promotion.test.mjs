@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, globSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
-import { launchBrowser } from '../../engine/render/lib/gpu.mjs';
+import { launchBrowser } from '../host/page/gpu.mjs';
 import { loadCardLibrary } from '../api/runtime.mjs';
 import { buildBoard } from '../bench/board.mjs';
 import { startServer } from '../host/page/host.mjs';

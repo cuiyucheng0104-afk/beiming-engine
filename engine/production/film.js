@@ -23,6 +23,7 @@
 //   toProjectSpec(film, opts) / fromProjectSpec(spec)                  与 engine/production/project.js 的 ProjectSpec v1 互相映射（路线 a / b / c，旧值 beiming / raea 作别名）
 //   formatFilmJson / writeFilmJson                                     稳定排版、原子写
 // 路径一律相对"路径基准"：普通作品是作品目录；镜像作品（mirror.paths = "repo"，如 films/beiming-10s）是仓库根。
+import { readFilmDocument } from '../../tools/lib/film-json.mjs';
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import process from 'node:process';
 import { basename, dirname, isAbsolute, join, posix, relative, resolve } from 'node:path';
@@ -30,7 +31,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { canonicalRoute, normalizeRelativePath, validateProjectSpec } from './project.js';
 import { BUILTIN_ROUTES, loadRouteRegistry, resolveRoute } from './routes.js';
 import { checkAssets, loadRegistry as loadAssetRegistry, resolveAsset } from '../assets/manifest.js';
-import { REPO_ROOT, formatJson, readJsonFile, repoRelative, sha256Text, writeJsonAtomic } from './io.js';
+import { REPO_ROOT, formatJson, readJsonFile, sha256Text, writeJsonAtomic } from './io.js';
 import { isAgentName, isPlaceholderQuote } from './vocab.js';
 import { validateSteps } from '../../tools/lib/routes.mjs';
 import { createTempo } from '../core/tempo.js';
@@ -360,10 +361,9 @@ function substitute(value) {
   return value;
 }
 const lcm = (a, b) => { const g = (x, y) => (y ? g(y, x % y) : x); return a / g(a, b) * b; };
-const route0 = v => (typeof v?.route === 'string' ? v.route.toLowerCase() : null);
 
 /**
- * 校验 film.json（v1 自动升级）。不抛错，返回结构化诊断。
+ * 校验 film.json v2。不抛错，返回结构化诊断。
  * @param {unknown} input
  * @param {{ filmDir?: string, template?: boolean, checkFiles?: boolean, profiles?: object, registry?: object, dirName?: string }} [opts]
  */
@@ -374,42 +374,29 @@ export function validateFilm(input, opts = {}) {
   const diagnostics = [];
   const err = (code, path, message, hint = '') => diagnostics.push({ level: 'error', code, path, message, hint });
   const warn = (code, path, message, hint = '') => diagnostics.push({ level: 'warning', code, path, message, hint });
-  const done = (film = null, extra = {}) => ({ ok: !diagnostics.some(d => d.level === 'error'), film, diagnostics, upgraded: false, notes: [], ...extra });
+  const notes = [];
+  const done = (film = null) => ({ ok: !diagnostics.some(d => d.level === 'error'), film, diagnostics, upgraded: false, notes });
 
   if (!isObj(input)) { err('film-invalid', '$', 'film.json 顶层必须是 JSON 对象'); return done(); }
 
-  // 1. 版本：v2 直接校验；v1（没有 schemaVersion、有 dur / fps / size）自动升级；其他一律拒绝
-  let source = input, upgraded = false, notes = [];
   if (input.schemaVersion === undefined) {
-    if (input.dur === undefined || input.fps === undefined) {
-      err('schema-version-missing', 'schemaVersion', '没有 schemaVersion，也不是 v1 记录（v1 至少有 dur 与 fps）', '新作品写 "schemaVersion": 2，字段见 engine/production/README.md');
-      return done();
-    }
-    try {
-      const has = rel => Boolean(filmDir) && existsSync(join(filmDir, rel));
-      ({ film: source, notes } = upgradeFilm(input, { dirName, template, has, profiles }));
-      upgraded = true;
-      const where = (filmDir && repoRelative(resolve(filmDir))) || '<作品目录>';
-      warn('v1-upgraded', '$', `v1 记录已自动升级读取（${notes.join('；')}）`, `迁到 v2：node engine/production/film.js upgrade ${where}${template ? ' --template' : ''} --write，再补 credits / aigc${route0(input) === 'a' ? ' / style' : ''}`);
-    } catch (error) {
-      if (!(error instanceof TimelineError)) throw error;
-      err(error.code, '$', `v1 记录读不出时间：${error.message}`, error.hint);
-      return done();
-    }
+    err('schema-version-missing', 'schemaVersion', 'film.json 必须声明 "schemaVersion": 2',
+      '旧记录用 node engine/production/film.js upgrade <作品> --write 迁到 v2，字段见 engine/production/README.md');
+    return done();
   } else if (input.schemaVersion === 1 && (input.projectId !== undefined || input.execution !== undefined)) {
     err('projectspec-not-film', 'schemaVersion', '这是 ProjectSpec v1（engine/production/project.js），不是 film.json', '用 fromProjectSpec() 转换，或另写 film.json v2');
     return done();
   } else if (input.schemaVersion !== FILM_SCHEMA_VERSION) {
-    err('schema-version-unknown', 'schemaVersion', `未知的 schemaVersion：${JSON.stringify(input.schemaVersion)}；只接受 2（v1 不写 schemaVersion）`);
+    err('schema-version-unknown', 'schemaVersion', `未知的 schemaVersion：${JSON.stringify(input.schemaVersion)}；只接受 2`);
     return done();
   }
 
   // 2. 占位符：模版只能用 {{NAME}} / {{TITLE}}；作品里不能残留
-  for (const ph of collectPlaceholders(source)) {
+  for (const ph of collectPlaceholders(input)) {
     if (!template) err('placeholder-left', ph.path, `残留占位符 {{${ph.name}}}`, '作品应由 node tools/new-film.mjs <a|b|c> <名字> 生成；手建的作品把占位符换成真值');
     else if (!['NAME', 'TITLE'].includes(ph.name)) err('placeholder-unknown', ph.path, `模版只允许 {{NAME}} / {{TITLE}}，这里是 {{${ph.name}}}`);
   }
-  const f = template ? substitute(source) : clone(source);
+  const f = template ? substitute(input) : clone(input);
 
   // 3. 字段白名单与"没有消费者的时间字段"
   const known = (obj, list, path, { compat = [] } = {}) => {
@@ -421,7 +408,7 @@ export function validateFilm(input, opts = {}) {
       else warn('unknown-field', where, `未知字段 ${where}（校验器不认识，消费者也不会读）`, '拼写错了就改正；确需新字段先在 engine/production/README.md 登记');
     }
   };
-  known(f, [...FIELDS.top, 'holds'], '$', { compat: upgraded ? [] : FIELDS.compat });
+  known(f, [...FIELDS.top, 'holds'], '$', { compat: FIELDS.compat });
   if (f.holds !== undefined) {
     err('holds-moved', 'holds', '顶层 holds 已并入 qa.intentional：机器 QA 只读 qa.intentional，写在 holds 里的停顿与黑场不会被放行',
       '改成 "qa": { "intentional": [{ "kind": "freeze" | "black" | "flash", "from": 起帧, "to": 止帧, "reason": "为什么" }] }；node engine/production/film.js upgrade <作品> --write 会自动搬');
@@ -433,8 +420,8 @@ export function validateFilm(input, opts = {}) {
 
   // 4. 身份与路线
   if (template) {
-    if (source.id !== '{{NAME}}') err('template-id', 'id', `模版的 id 应为 "{{NAME}}"（由 new-film 替换），收到 ${JSON.stringify(source.id)}`);
-    if (source.title !== '{{TITLE}}') err('template-title', 'title', `模版的 title 应为 "{{TITLE}}"，收到 ${JSON.stringify(source.title)}`);
+    if (input.id !== '{{NAME}}') err('template-id', 'id', `模版的 id 应为 "{{NAME}}"（由 new-film 替换），收到 ${JSON.stringify(input.id)}`);
+    if (input.title !== '{{TITLE}}') err('template-title', 'title', `模版的 title 应为 "{{TITLE}}"，收到 ${JSON.stringify(input.title)}`);
   } else {
     if (!isStr(f.id)) err('id-missing', 'id', 'id 必须是非空字符串（与作品目录名相同）');
     else if (!FILM_ID.test(f.id)) err('id-invalid', 'id', `id 只能用小写字母、数字和短横线，字母或数字开头：${JSON.stringify(f.id)}`);
@@ -450,7 +437,7 @@ export function validateFilm(input, opts = {}) {
     if (r.alias) warn('route-alias', 'route', `route 写成了别名 ${JSON.stringify(f.route)}，规范值是 "${r.id}"`, `改成 "route": "${r.id}"`);
   }
   if (route) {
-    if (f.backend === undefined) { if (!upgraded) err('backend-missing', 'backend', `backend 必填；${route.id} 路线可选：${route.backends.join(' / ')}`); }
+    if (f.backend === undefined) err('backend-missing', 'backend', `backend 必填；${route.id} 路线可选：${route.backends.join(' / ')}`);
     else if (Array.isArray(route.backends) && !route.backends.includes(f.backend)) err('backend-invalid', 'backend', `${route.brand} 的 backend 只能是 ${route.backends.join(' / ')}，收到 ${JSON.stringify(f.backend)}`);
   }
 
@@ -460,10 +447,8 @@ export function validateFilm(input, opts = {}) {
   if (!isObj(o)) err('output-missing', 'output', 'output 必须是对象：{ profile, width, height, fps, frameCount }');
   else {
     known(o, FIELDS.output, 'output');
-    if (!isStr(o.profile)) {
-      if (upgraded) err('profile-unmatched', 'output.profile', `v1 记录的 ${o.width}×${o.height}@${o.fps} 不对应任何交付档位`, `迁到 v2 时写 output.profile，并按档位改画幅（新作品默认 ${profiles.default}）`);
-      else err('profile-missing', 'output.profile', `output.profile 必填，取 profiles.json 里的档位（新作品默认 ${profiles.default}）`);
-    } else if (!profiles.profiles[o.profile]) err('profile-unknown', 'output.profile', `没有交付档位 ${o.profile}`, `可用：${Object.keys(profiles.profiles).join('、')}`);
+    if (!isStr(o.profile)) err('profile-missing', 'output.profile', `output.profile 必填，取 profiles.json 里的档位（新作品默认 ${profiles.default}）`);
+    else if (!profiles.profiles[o.profile]) err('profile-unknown', 'output.profile', `没有交付档位 ${o.profile}`, `可用：${Object.keys(profiles.profiles).join('、')}`);
     else profile = getProfile(o.profile, profiles);
     for (const k of ['width', 'height']) {
       if (!posInt(o[k])) err('output-invalid', `output.${k}`, `${k} 必须是正整数像素`);
@@ -479,16 +464,14 @@ export function validateFilm(input, opts = {}) {
   }
 
   // 6. v1 兼容镜像字段（过渡期给旧版 repo-check / build.mjs 读）：必须与 output 一致
-  if (!upgraded) {
-    const mirrors = FIELDS.compat.filter(k => f[k] !== undefined);
-    if (mirrors.length && isObj(o)) {
-      const bad = [];
-      if (f.dur !== undefined && !(finite(f.dur) && posInt(o.fps) && posInt(o.frameCount) && Math.abs(f.dur - o.frameCount / o.fps) < 1e-9)) bad.push(`dur=${JSON.stringify(f.dur)}（应为 ${o.frameCount}/${o.fps}）`);
-      if (f.fps !== undefined && f.fps !== o.fps) bad.push(`fps=${JSON.stringify(f.fps)}（应为 ${o.fps}）`);
-      if (f.size !== undefined && !(Array.isArray(f.size) && f.size[0] === o.width && f.size[1] === o.height && f.size.length === 2)) bad.push(`size=${JSON.stringify(f.size)}（应为 [${o.width}, ${o.height}]）`);
-      if (bad.length) err('legacy-mirror-mismatch', '$', `v1 兼容镜像字段与 output 不一致：${bad.join('；')}`, '镜像字段只是 output 的抄本：删掉，或改成与 output 相同（retime 会同步改 dur）');
-      else warn('legacy-mirror', '$', `保留了 v1 兼容镜像字段 ${mirrors.join('、')}（与 output 一致）`, '过渡期给旧版 tools/repo-check.mjs 与 engine/render/build.mjs 读；它们改读 film.js 后删除');
-    }
+  const mirrors = FIELDS.compat.filter(k => f[k] !== undefined);
+  if (mirrors.length && isObj(o)) {
+    const bad = [];
+    if (f.dur !== undefined && !(finite(f.dur) && posInt(o.fps) && posInt(o.frameCount) && Math.abs(f.dur - o.frameCount / o.fps) < 1e-9)) bad.push(`dur=${JSON.stringify(f.dur)}（应为 ${o.frameCount}/${o.fps}）`);
+    if (f.fps !== undefined && f.fps !== o.fps) bad.push(`fps=${JSON.stringify(f.fps)}（应为 ${o.fps}）`);
+    if (f.size !== undefined && !(Array.isArray(f.size) && f.size[0] === o.width && f.size[1] === o.height && f.size.length === 2)) bad.push(`size=${JSON.stringify(f.size)}（应为 [${o.width}, ${o.height}]）`);
+    if (bad.length) err('legacy-mirror-mismatch', '$', `v1 兼容镜像字段与 output 不一致：${bad.join('；')}`, '镜像字段只是 output 的抄本：删掉，或改成与 output 相同（retime 会同步改 dur）');
+    else warn('legacy-mirror', '$', `保留了 v1 兼容镜像字段 ${mirrors.join('、')}（与 output 一致）`, '过渡期给旧版 tools/repo-check.mjs 与 engine/render/build.mjs 读；它们改读 film.js 后删除');
   }
 
   // 7. 路径基准
@@ -540,7 +523,7 @@ export function validateFilm(input, opts = {}) {
   const implicitShots = template && f.shots === undefined && frameCount !== null;
   if (implicitShots) {
     f.shots = [{ id: 'S1', in: 0, out: frameCount }];
-    notes = [...notes, `模版没写镜头表：按 new-film 的口径读作整片一个镜头 S1 [0, ${frameCount})`];
+    notes.push(`模版没写镜头表：按 new-film 的口径读作整片一个镜头 S1 [0, ${frameCount})`);
   }
   const shots = Array.isArray(f.shots) ? f.shots : null;
   const shotDiag = checkShots(f.shots, frameCount);
@@ -686,7 +669,7 @@ export function validateFilm(input, opts = {}) {
   // 13. 声音
   const profileAudio = profile?.audio;
   if (f.audio === undefined) {
-    if (!upgraded && route && route.id !== 'b') warn('audio-missing', 'audio', '没写 audio：按无声片处理', '有声音就写 { "mode": "script", "script": "sound.py" } 或 { "mode": "wav", "wav": "…" }');
+    if (route && route.id !== 'b') warn('audio-missing', 'audio', '没写 audio：按无声片处理', '有声音就写 { "mode": "script", "script": "sound.py" } 或 { "mode": "wav", "wav": "…" }');
   } else if (!isObj(f.audio)) err('audio-invalid', 'audio', 'audio 必须是对象');
   else {
     const a = f.audio;
@@ -737,7 +720,7 @@ export function validateFilm(input, opts = {}) {
 
   // 15. 风格、资产、署名、AIGC
   if (f.style === undefined) {
-    if (route?.id === 'a') (upgraded || template ? warn : err)('style-missing', 'style', '北冥风格路线必须写 style：{ id, version, baseline }（视觉基准）');
+    if (route?.id === 'a') (template ? warn : err)('style-missing', 'style', '北冥风格路线必须写 style：{ id, version, baseline }（视觉基准）');
   } else if (!isObj(f.style)) err('style-invalid', 'style', 'style 必须是对象');
   else {
     known(f.style, FIELDS.style, 'style');
@@ -763,7 +746,7 @@ export function validateFilm(input, opts = {}) {
       }
     }
   }
-  if (f.credits === undefined) (upgraded ? warn : err)('credits-missing', 'credits', '没有 credits：列出字体、采样、素材、第三方代码的署名与许可（没有就写 []）');
+  if (f.credits === undefined) err('credits-missing', 'credits', '没有 credits：列出字体、采样、素材、第三方代码的署名与许可（没有就写 []）');
   else if (!Array.isArray(f.credits)) err('credits-invalid', 'credits', 'credits 是 [{ what, owner, license, source }]');
   else f.credits.forEach((c, i) => {
     const p = `credits[${i}]`;
@@ -774,7 +757,7 @@ export function validateFilm(input, opts = {}) {
     else if (/待补|unknown|TBD/i.test(c.license)) warn('credit-license-pending', `${p}.license`, `${c.what ?? '该条'} 的许可还是「${c.license}」`, '授权状态登记在 docs/rights/；交付前补齐');
     if (!isStr(c.owner) && !isStr(c.source)) warn('credit-incomplete', p, `${c.what ?? '该条'} 没写 owner 或 source`);
   });
-  if (f.aigc === undefined) (upgraded ? warn : err)('aigc-missing', 'aigc', `没有 aigc：写明是否含 AI 生成内容（决策 D11：含则片尾或说明写「${AIGC_MARK}」，mp4 comment 元数据同写）`);
+  if (f.aigc === undefined) err('aigc-missing', 'aigc', `没有 aigc：写明是否含 AI 生成内容（决策 D11：含则片尾或说明写「${AIGC_MARK}」，mp4 comment 元数据同写）`);
   else if (!isObj(f.aigc)) err('aigc-invalid', 'aigc', 'aigc 是 { contains, note }');
   else {
     known(f.aigc, FIELDS.aigc, 'aigc');
@@ -801,7 +784,7 @@ export function validateFilm(input, opts = {}) {
   if (f.native !== undefined) {
     if (route && route.id !== 'b') err('native-wrong-route', 'native', 'native 段只属于 B 路线（北冥原生 · BNE）');
     else validateNative(f.native, { err, warn, known, checkPath });
-  } else if (route?.id === 'b' && !template && !upgraded) warn('native-missing', 'native', 'B 路线没有 native 段：入口、素材与封装都按默认值');
+  } else if (route?.id === 'b' && !template) warn('native-missing', 'native', 'B 路线没有 native 段：入口、素材与封装都按默认值');
   if (f.pathtrace !== undefined) {
     if (route && route.id !== 'd') err('pathtrace-wrong-route', 'pathtrace', 'pathtrace 段只属于 D 路线（北冥光追 · 物理路径追踪）');
     else validatePathtrace(f.pathtrace, { err, known, shotById });
@@ -848,8 +831,8 @@ export function validateFilm(input, opts = {}) {
     }
   }
 
-  const film = diagnostics.some(d => d.level === 'error') ? null : normalize(source, { route, profile, shots: implicitShots ? f.shots : undefined });
-  return { ok: !diagnostics.some(d => d.level === 'error'), film, diagnostics, upgraded, notes };
+  const film = diagnostics.some(d => d.level === 'error') ? null : normalize(input, { route, profile, shots: implicitShots ? f.shots : undefined });
+  return done(film);
 }
 
 /** 打点只能落在整帧上的容差（帧）：与 C 模版 timeline.js 的页面自检相同（秒按 6 位小数取整后乘 fps 的误差远小于它）。 */
@@ -1110,11 +1093,14 @@ export function loadFilm(target, opts = {}) {
   if (existsSync(abs) && statSync(abs).isDirectory()) file = join(abs, 'film.json');
   else if (!abs.toLowerCase().endsWith('.json')) file = join(abs, 'film.json');
   const filmDir = dirname(file);
-  const r = readJsonFile(file);
-  if (!r.ok) {
-    if (r.code === 'not-found') throw new FilmError('not-found', r.message, { exitCode: 2, hint: '给作品目录（films/<名>）或 film.json 的路径；新建作品用 node tools/new-film.mjs' });
-    if (r.code === 'json-invalid') throw new FilmError('json-invalid', r.message, { exitCode: 4, hint: '修好 JSON 语法（多余逗号、注释、引号）再试' });
-    throw new FilmError('unreadable', r.message, { exitCode: 1 });
+  let r;
+  try { r = readFilmDocument(file, { stripBom: true }); } catch (error) {
+    if (error.code === 'ENOENT' || error.code === 'EISDIR') {
+      const label = error.code === 'ENOENT' ? '文件不存在' : '这是目录，不是文件';
+      throw new FilmError('not-found', `${label}：${file}`, { exitCode: 2, hint: '给作品目录（films/<名>）或 film.json 的路径；新建作品用 node tools/new-film.mjs' });
+    }
+    if (error instanceof SyntaxError) throw new FilmError('json-invalid', `不是合法 JSON（${error.message}）：${file}`, { exitCode: 4, hint: '修好 JSON 语法（多余逗号、注释、引号）再试' });
+    throw new FilmError('unreadable', `读取失败（${error.code ?? error.message}）：${file}`, { exitCode: 1 });
   }
   const result = validateFilm(r.value, { ...opts, filmDir });
   const pathBase = isObj(r.value.mirror) && r.value.mirror.paths === 'repo' ? REPO_ROOT : filmDir;

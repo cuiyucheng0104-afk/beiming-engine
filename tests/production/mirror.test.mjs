@@ -46,22 +46,22 @@ test('仓库里的镜像与样片一致：3 镜 A 0–72、B 72–120、C 120–
   assert.deepEqual(drift({}).codes, []);
 });
 
-test('改 src/timeline.js 的镜头 B 起点（临时副本）：镜头表、GIRL_SHOT 与镜像对不上，检查失败', () => {
-  const r = drift({ 'src/timeline.js': [['export const TIMELINE = Object.freeze({ A: 0, B: 3, C: 5, end: 10 });', 'export const TIMELINE = Object.freeze({ A: 0, B: 3.5, C: 5, end: 10 });']] });
+test('改 films/beiming-10s/src/timeline.js 的镜头 B 起点（临时副本）：镜头表、GIRL_SHOT 与镜像对不上，检查失败', () => {
+  const r = drift({ 'films/beiming-10s/src/timeline.js': [['export const TIMELINE = Object.freeze({ A: 0, B: 3, C: 5, end: 10 });', 'export const TIMELINE = Object.freeze({ A: 0, B: 3.5, C: 5, end: 10 });']] });
   assert.equal(r.ok, false);
   assert.ok(r.codes.includes('mirror-shots'), r.codes.join());
   assert.ok(r.codes.includes('mirror-girl-shot'), r.codes.join());
   assert.ok(r.diagnostics.some(d => /\[84, 120\)/.test(d.message)));
 });
 
-test('改 src/main.js 的镜头起点写法（临时副本）：at 写死成别的秒数也会被发现', () => {
-  const r = drift({ 'src/main.js': [['{ at: TIMELINE.B, shot: shotB }', '{ at: 3.25, shot: shotB }']] });
+test('改 films/beiming-10s/src/main.js 的镜头起点写法（临时副本）：at 写死成别的秒数也会被发现', () => {
+  const r = drift({ 'films/beiming-10s/src/main.js': [['{ at: TIMELINE.B, shot: shotB }', '{ at: 3.25, shot: shotB }']] });
   assert.equal(r.ok, false);
   assert.ok(r.codes.includes('mirror-shots'), r.codes.join());
 });
 
 test('改镜头 C 的起点：镜头表、C_START、显示层与片名事件整体漂移', () => {
-  const r = drift({ 'src/timeline.js': [['export const TIMELINE = Object.freeze({ A: 0, B: 3, C: 5, end: 10 });', 'export const TIMELINE = Object.freeze({ A: 0, B: 3, C: 5.5, end: 10 });']] });
+  const r = drift({ 'films/beiming-10s/src/timeline.js': [['export const TIMELINE = Object.freeze({ A: 0, B: 3, C: 5, end: 10 });', 'export const TIMELINE = Object.freeze({ A: 0, B: 3, C: 5.5, end: 10 });']] });
   assert.equal(r.ok, false);
   for (const code of ['mirror-shots', 'mirror-event-frame']) assert.ok(r.codes.includes(code), `${code} ∉ ${r.codes.join()}`);
   assert.ok(r.diagnostics.some(d => d.path === 'events.hud.scan'));
@@ -71,13 +71,13 @@ test('只改声音表或只改画面阈值：同一时刻两处写成不同的�
   const horn = drift({ 'audio/cues.json': [['"t": 0.4,', '"t": 0.5,']] });
   assert.equal(horn.ok, false);
   assert.ok(horn.codes.includes('mirror-event-frame'), horn.codes.join());
-  const scan = drift({ 'src/hud.js': [['scan: 5.45', 'scan: 5.5']] });
+  const scan = drift({ 'films/beiming-10s/src/hud.js': [['scan: 5.45', 'scan: 5.5']] });
   assert.equal(scan.ok, false);
   assert.ok(scan.codes.includes('mirror-av-split'), scan.codes.join());
 });
 
 test('源码写法超出检查认得的范围：报 mirror-parse，不去猜', () => {
-  const r = drift({ 'src/main.js': [['{ at: TIMELINE.B, shot: shotB }', '{ at: startOf(\'B\'), shot: shotB }']] });
+  const r = drift({ 'films/beiming-10s/src/main.js': [['{ at: TIMELINE.B, shot: shotB }', '{ at: startOf(\'B\'), shot: shotB }']] });
   assert.equal(r.ok, false);
   assert.deepEqual(r.codes, ['mirror-parse']);
   assert.equal(evalSeconds('TIMELINE.C - DESIGN.C + 0.5', { TIMELINE: { C: 5 }, DESIGN: { C: 5 } }), 0.5);
@@ -90,7 +90,7 @@ test('命令行：一致 exit 0；临时副本漂移 exit 4（--json 信封）�
   const ok = run(['--json']);
   assert.equal(ok.status, 0, ok.stderr);
   assert.equal(JSON.parse(ok.stdout).ok, true);
-  const c = copySources({ 'src/timeline.js': [['B: 3, C: 5, end: 10 });\nexport const DESIGN', 'B: 3.25, C: 5, end: 10 });\nexport const DESIGN']] });
+  const c = copySources({ 'films/beiming-10s/src/timeline.js': [['B: 3, C: 5, end: 10 });\nexport const DESIGN', 'B: 3.25, C: 5, end: 10 });\nexport const DESIGN']] });
   try {
     const bad = run(['--root', c.root, '--asset-root', REPO, '--json']);
     assert.equal(bad.status, 4, bad.stderr);

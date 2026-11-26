@@ -10,6 +10,7 @@
 //   onCleanup(fn) / trackChild(cp) / runCleanups()   登记清理动作与子进程；退出、出错、收到信号时统一清理
 //   installSignalHandlers()      SIGINT → 清理后 exit 130；SIGTERM → 清理后 exit 143
 //   log(...)                     供人阅读的日志，一律写 stderr
+import { commandEnvelope, scanArgv } from '../../lib/cli.mjs';
 import { QaError, EXIT } from '../../../engine/render/lib/qa-error.mjs';
 import { killChildren } from '../../../engine/render/lib/qa-process.mjs';
 export { QaError, EXIT };
@@ -33,44 +34,34 @@ export function parseArgs(argv, spec) {
     else if (o.type === 'list') opts[key(name)] = [];
     else if (o.default !== undefined) opts[key(name)] = o.default;
   }
-  const positionals = [];
-  let rest = false;
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (rest || !a.startsWith('-') || a === '-') { positionals.push(a); continue; }
-    if (a === '--') { rest = true; continue; }
-    const eq = a.indexOf('=');
-    const flag = eq > 0 ? a.slice(0, eq) : a;
-    const o = byName.get(flag);
-    if (!o) {
-      const known = Object.keys(options).join(' ');
-      throw usageError(`不认识的选项 ${flag}`, `可用参数：${known}`, 'usage.unknown-option');
-    }
-    const k = key(o.name);
-    if (o.type === 'boolean') {
-      if (eq > 0) throw usageError(`${flag} 是开关，不带值`);
-      opts[k] = true;
-      continue;
-    }
-    let v;
-    if (eq > 0) v = a.slice(eq + 1);
-    else {
-      v = argv[i + 1];
-      if (v === undefined || (v.startsWith('--') && v.length > 2)) throw usageError(`${flag} 后面要跟一个值`, '用 --help 查看用法', 'usage.missing-value');
-      i++;
-    }
-    if (o.type === 'number') {
-      const n = Number(v);
-      if (!Number.isFinite(n)) throw usageError(`${flag} 要一个数字，收到「${v}」`);
-      if (o.min !== undefined && n < o.min) throw usageError(`${flag} 不能小于 ${o.min}`);
-      opts[k] = n;
-    } else if (o.type === 'list') {
-      opts[k].push(...v.split(',').map(s => s.trim()).filter(Boolean));
-    } else {
-      if (o.choices && !o.choices.includes(v)) throw usageError(`${flag} 只能取 ${o.choices.join(' / ')}，收到「${v}」`);
-      opts[k] = v;
-    }
-  }
+  const positionals = scanArgv(argv, {
+    isOption: arg => arg.startsWith('-') && arg !== '-',
+    apply({ flag, inline, value }) {
+      const o = byName.get(flag);
+      if (!o) {
+        const known = Object.keys(options).join(' ');
+        throw usageError(`不认识的选项 ${flag}`, `可用参数：${known}`, 'usage.unknown-option');
+      }
+      const k = key(o.name);
+      if (o.type === 'boolean') {
+        if (inline !== undefined) throw usageError(`${flag} 是开关，不带值`);
+        opts[k] = true;
+        return;
+      }
+      const raw = value(() => usageError(`${flag} 后面要跟一个值`, '用 --help 查看用法', 'usage.missing-value'));
+      if (o.type === 'number') {
+        const n = Number(raw);
+        if (!Number.isFinite(n)) throw usageError(`${flag} 要一个数字，收到「${raw}」`);
+        if (o.min !== undefined && n < o.min) throw usageError(`${flag} 不能小于 ${o.min}`);
+        opts[k] = n;
+      } else if (o.type === 'list') {
+        opts[k].push(...raw.split(',').map(s => s.trim()).filter(Boolean));
+      } else {
+        if (o.choices && !o.choices.includes(raw)) throw usageError(`${flag} 只能取 ${o.choices.join(' / ')}，收到「${raw}」`);
+        opts[k] = raw;
+      }
+    },
+  });
   const pos = spec.positionals || { min: 0, max: 0 };
   if (positionals.length < (pos.min ?? 0)) throw usageError(`缺少参数：${(pos.names || []).slice(positionals.length).join(' ') || '位置参数'}`, '用 --help 查看用法', 'usage.missing-argument');
   if (pos.max !== undefined && positionals.length > pos.max) throw usageError(`多余的参数：${positionals.slice(pos.max).join(' ')}`, '用 --help 查看用法', 'usage.extra-argument');
@@ -78,8 +69,7 @@ export function parseArgs(argv, spec) {
 }
 
 export function envelope({ ok, exitCode, command, error = null, outputs = [], runJson = null, warnings = [], result = null }) {
-  return {
-    schemaVersion: 1,
+  return commandEnvelope({
     ok: !!ok,
     exitCode,
     command,
@@ -88,7 +78,7 @@ export function envelope({ ok, exitCode, command, error = null, outputs = [], ru
     runJson,
     warnings,
     result,
-  };
+  });
 }
 
 let quiet = false;

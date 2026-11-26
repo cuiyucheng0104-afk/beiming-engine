@@ -1,7 +1,7 @@
 // legacy-page 帧源对上层的接口：open(input, env) 交回会话 { manifest, render, query, close }（帧源接口契约 3.2）。
 // 旧页面按页面约定 v1 出画面：window.render(t) 画到时刻 t，window.TEXTS(t) 报文字框。这里截 8 位 sRGB 图，
 // 按 IEC 61966-2-1 精确解码成线性 f32 颜色层（显示参考），元数据只交文字框和来源信息，camera、entities 写 null（limited 档）。
-// 页面怎么开由驱动管：默认用 engine/render/page.mjs 开无头浏览器（pageDriver），测试和别的宿主可以注入 options.driver：
+// 页面怎么开由驱动管：默认用 browser/page.mjs 开无头浏览器（pageDriver），测试和别的宿主可以注入 options.driver：
 //   driver.open({ dir, size: [w, h], fps, frameCount }) → { render(t) → RGBA 字节（w·h·4）, texts(t) → TEXTS 原样, gpu?, frames?, close() }
 //   frameCount 是全片帧数（不是镜头出点）；frames 是页面自己 DUR × fps 的帧数，给了就核对镜头出点不超过它。
 import { Buffer } from 'node:buffer';
@@ -51,7 +51,7 @@ const fpsValue = (fps) => {
   return Number(m[1]) / Number(m[2]);
 };
 
-// 活跃的浏览器会话数（含正在 open 的）：engine/render/page.mjs 的静态服务是进程级单例，
+// 活跃的浏览器会话数（含正在 open 的）：browser/page.mjs 的静态服务是进程级单例，
 // openFilm 在起浏览器之前就把它开了，所以开失败和最后一个会话关掉时都得清场，否则进程挂着不退出
 let activeBrowserSessions = 0;
 export const browserSessions = () => activeBrowserSessions;
@@ -59,8 +59,8 @@ export const browserSessions = () => activeBrowserSessions;
 /** 默认驱动：无头浏览器开页面约定 v1 的页面。只在真要出帧时才引入浏览器那一套 */
 export const pageDriver = {
   async open({ dir, size: [w, h], fps, frameCount }) {
-    const { openFilm, renderFrame, closeServer } = await import('../../../engine/render/page.mjs');
-    const { decodePNG } = await import('../../../tools/baseline/lib/png.mjs');
+    const { openFilm, renderFrame, closeServer } = await import('./browser/page.mjs');
+    const { decodePNG } = await import('./baseline-png.mjs');
     activeBrowserSessions++;
     const release = async () => { if (--activeBrowserSessions === 0) await closeServer().catch(() => {}); };
     let film;
@@ -154,11 +154,10 @@ function writeLayer(workspace, file, bytes) {
   try { fs.writeFileSync(fd, bytes); } finally { fs.closeSync(fd); }
 }
 
-/** 页面所在目录：目录里没有 index.html、film.json 又标了 mirror.paths = repo（films/beiming-10s）时，页面在仓库根 */
+/** mirror.paths=repo 的 entry 相对仓库根；普通作品的 entry 相对作品目录。 */
 function pageDirOf(filmDir, entry) {
-  const dir = path.dirname(path.resolve(filmDir, entry));
-  if (fs.existsSync(path.join(dir, 'index.html'))) return dir;
-  return readFilmJson(dir)?.mirror?.paths === 'repo' ? REPO : dir;
+  const base = readFilmJson(filmDir)?.mirror?.paths === 'repo' ? REPO : filmDir;
+  return path.dirname(path.resolve(base, entry));
 }
 
 function readFilmJson(dir) {

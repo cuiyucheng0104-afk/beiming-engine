@@ -182,6 +182,11 @@
 - 新增 `npm run check:fence`（`tools/check-fence.mjs`，零依赖）：改动围栏硬门禁，移植自 mission-orchestrator 的 `check_fence.py`（7688ddc）。自 `--base` 的 merge-base 起，已提交与未提交的改动（`--no-renames`，把文件移出 forbidden 目录也算碰了它）加上未跟踪文件，都必须落在 `--fence` 内、`--forbidden` 外；forbidden 优先，`dir/` 只匹配目录之下，支持 `*`、`**`、`?`、`[…]`；围栏可用重复的 `--fence` / `--forbidden` 直接给，也可用 `--contract` 读块状 YAML 列表（行内写法 `fence: [a]` 直接拒绝）。围栏没填、含 ⏳、零改动、契约写法不对（行内列表、大写或带引号的键名、`-` 后漏空格、非法转义、非法通配）、文件被 `git update-index --assume-unchanged` / `--skip-worktree` 隐藏（git diff 看不到改动，稀疏检出里 skip-worktree 很常见，请在完整检出里跑），一律 `FAILED / EXPECTED / SAW` 退出 4（契约不通过）；git 执行失败（`--base` 写错等）退出 1，用法错误退出 2。git 输出的文件路径原样使用，字面带 `\` 的文件名不会被当成目录分隔。对 agent：worker 开 PR 前自检越界；不进 `npm run check`，普通 PR 不受影响。`.gitignore` 忽略的文件 git 看不到，查不了。
 
 ### Changed
+- 北冥一级组件的入口说明由 CI 检查，每份预算为 1500 token。
+- 旧链共用作品描述读取和命令行解析。三个原生例片与模版已迁至 film.json v2，旧文件可以显式执行 `film.js upgrade`。
+- 旧链的终渲默认运行机器 QA，人工创作闸通过 `--delivery-mode review` 启用。用户认可仍由审片记录确认。
+- 《北冥》10 秒样片源码与页面移入 `films/beiming-10s/`，保留原入口和已登记的金标准。
+- 把非核心运行时的旧链依赖迁入 `beiming/`，CI 阻止新增跨目录引用。拆仓检查会列出六条核心工具引用及八条需要保留现有内容哈希的卡片自测引用。
 
 - CI 渲染测试分片将 `beiming/bench/` 从 `beiming-api` 拆分为独立域 `beiming-bench`，在 `.github/workflows/ci.yml` 的 `render` 矩阵中新增并行分片 `tests-beiming-bench`（同步更新 `tests-rest` 的 `--skip`、`tools/run-tests.mjs`、`tests/ci/` 测试与文档），消除合并分片在 SwiftShader 上逼近 900 秒时限偶发 `exit 124` 的瓶颈；`smoke-render` 汇总检查名、测试覆盖范围与超时门槛不变。
 - `beiming/api/agents.mjs` 的 `createOpenAiVisionReviewer` 与 `reviewerFromEnv` 为 L5 九票视觉审片新增可控有界并发调度（默认 `concurrency = 1` 保严格逐票高水位预算边界，支持显式传入 `1..16` 或通过 `BEIMING_REVIEW_CONCURRENCY` 环境变量开启并发加速）：全部选票按固定槽位保序归档，乱序 HTTP 返回不影响 `ballots` / `invalidBallots` 顺序与聚类聚合；开启并发且带 `budgetCheck` 时先放行首票完成高水位标定再按 `concurrency` 并发调度，并逐票核验 `settle` 回调（任一票缺 `settle` 或仅传有限 `maxTokens` 时退回串行不重叠执行）、防止在途临时预留截断 `max_tokens`、通过 `settledSeq` 重检异步 `budgetCheck` 期间已推进结算的过期拒绝、`Object.hasOwn` 读取视角键并在调度异常退出前排空全部在途票记账与结算，其余审片契约、账本口径与既有作品画面不变（见 [细则](beiming/api/DETAILS.md)）。

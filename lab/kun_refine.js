@@ -1,16 +1,16 @@
 // 鲲·原版精修 自测页（?test=kun_refine）。背景、天空、光线、机位、描边合成全部与 lab/kun.js 相同（共用 lab/kun_bench.js），
-// 只把鲲换成 src/kun_refine.js，便于横向对比。
+// 只把鲲换成 films/beiming-10s/src/kun_refine.js，便于横向对比。
 // DUR = 4 秒，三个机位按时间分段（同 lab/kun.js）：0–1.5 大远景侧面 / 1.5–3.0 渡船甲板仰视 / 3.0–4.0 眼睛特写
 // 可选参数（同 lab/kun.js）：&lod=0.3 &noink=1 &pass=1 &view=side|top|far|eye|under|reveal|hero|hero2|ferry &roll=-0.5 &look=1
 // 本页另加：&nopine=1（不要小松）&nowhisk=1（不要龙须）&noclouds=1（不要祥云纹）&nowisps=1（不要飘带）
-//           后期：默认走正片的后期管线 src/look.js（ID 图描边用鲲网格上的 userData.outlineVertex + Kuwahara + bloom + 调色 + 纸纹，
+//           后期：默认走正片的后期管线 films/beiming-10s/src/look.js（ID 图描边用鲲网格上的 userData.outlineVertex + Kuwahara + bloom + 调色 + 纸纹，
 //                 天空图作为 scene.background），与 lab/kun.js 等各页相同（lab/kun_bench.js 的 labPipeline）；
 //           &ink=lab 回退到自测页的临时屏幕描边（旧截图对照用）；&ink=2 是它的手绘加强版（笔压起伏、偶尔断笔、墨色吸一点底色）；
 //           &post=look 是旧写法，现在就是默认，保留不报错
 //           &cam=x,y,z&at=x,y,z&fov=&sky=zoom,ox,oy（自由机位）&pitch=（鲲绕 Z 轴俯仰，弧度）
 import * as THREE from 'three';
-import { createKun } from '../src/kun_refine.js';
-import { PALETTE, setToonGlobals } from '../src/toon_refine.js';
+import { createKun } from '../films/beiming-10s/src/kun_refine.js';
+import { PALETTE, setToonGlobals } from '../films/beiming-10s/src/toon_refine.js';
 import { labRenderer, kunStats, keyLight, BASE_VIEWS, baseExtra, pickView, eyeCloseup, frameTimes, labPipeline, labPixelRatio } from './kun_bench.js';
 
 const q = new URLSearchParams(location.search);

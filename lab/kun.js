@@ -3,14 +3,14 @@
 //   1.5–3.0  ② 从下方仰视腹部和头（镜头 C 那种渡船甲板机位）
 //   3.0–4.0  ③ 眼睛特写
 // 背景：assets/ref/sky_test.png（cover 铺满）。主光 = 破晓低角度逆光；城市暖光自下而上。
-// 后期：默认走正片的后期管线（src/look.js → engine/look：ID 图墨线、Kuwahara、bloom、调色、纸纹），这里调好的换进正片不会变样；
+// 后期：默认走正片的后期管线（films/beiming-10s/src/look.js → engine/look：ID 图墨线、Kuwahara、bloom、调色、纸纹），这里调好的换进正片不会变样；
 //       &ink=lab 回退到旧的临时屏幕描边（深度 + 法线 + 物体/实例 ID，一拍二抖动），只给对照旧截图用，它不能证明正片后期一致。
 // 渲染器、后期选择、机位表在 lab/kun_bench.js（各变体页共用）。
 // 可选参数：&lod=0.3（实例密度）&noink=1（关描边）&pass=1（看 ID 图；临时描边下是法线/ID 通道左右条纹交替）&dbg=<后期中间缓冲>
 //   &view=side|top|far|eye|under|reveal（固定机位）&roll=-0.5（鲲侧倾，弧度）&look=1（眼珠看镜头）
 import * as THREE from 'three';
-import { createKun } from '../src/kun.js';
-import { PALETTE, setToonGlobals } from '../src/toon.js';
+import { createKun } from '../films/beiming-10s/src/kun.js';
+import { PALETTE, setToonGlobals } from '../films/beiming-10s/src/toon.js';
 import { labRenderer, kunStats, keyLight, BASE_VIEWS, baseExtra, pickView, eyeCloseup, frameTimes, labPipeline, labPixelRatio } from './kun_bench.js';
 
 const q = new URLSearchParams(location.search);

@@ -19,7 +19,7 @@ import { dataValidators } from './sweep-schema.mjs';
 import { scanCardLeaks, validateCard } from './validate-card.mjs';
 
 const BM = join(import.meta.dirname, '..');
-const pythonCli = join(BM, '../tools/env/py.mjs');
+const pythonCli = join(BM, 'jobs/python/py.mjs');
 const specs = [
   ['assembly.schedule', 'assembly/schedule', []],
   ['assembly.explode', 'assembly/explode', ['1-2']],

@@ -53,7 +53,8 @@ export const renderSpec = {
     '--frames': stillsSpec.options['--frames'],
     '--shot': { type: 'string', arg: '<镜头 id>', help: '渲整个镜头（按 film.json 的镜头表）' },
     '--clip': { type: 'bool', help: '把连续帧段拼成 range.mp4（看动作用）' },
-    '--final': { type: 'bool', help: '终渲质量：先查 look / animatic 闸（D08），没通过或没有用户豁免时退出码 4；不给帧段时等于 build --final' },
+    '--delivery-mode': { type: 'string', arg: '<automatic|review>', help: '交付模式：automatic（默认，无人工前置闸）或 review（look / animatic / final 人工审阅）' },
+    '--final': { type: 'bool', help: '终渲质量；人工闸加 --delivery-mode review；不给帧段时等于 build --final' },
     ...COMMON,
   },
 };
@@ -75,7 +76,7 @@ export const RENDER_DOC = {
   description: [
     'A / C 用 engine/render/still.mjs，B 用 native.mjs --at。帧号从 0 起，a:b 是半开区间（含 a 不含 b），与 film.json 的镜头表同口径。',
     '产物：<作品>/out/<run-id>/frames/ frames.json contact.jpg run.json（--clip 时另有 range.mp4）；更新 out/latest-render。',
-    '--final：先查闸门（look → animatic，决定 D08），没有用户认可或用户豁免记录时退出码 4、一帧不渲；不给帧段时等于 build --final（整片终渲）。',
+    '--final --delivery-mode review：先查 look / animatic 闸门，没有用户认可或用户豁免记录时退出码 4、一帧不渲；不给帧段时等于 build --final（整片终渲）。',
     '（整片按镜头局部重渲属于渲染器 v2，P04·R4 合入后这里改为转调 video.mjs --shots。）',
   ],
   examples: ['npm run film -- render films/my-film --frames 0:24', 'npm run film -- render films/my-film --shot S2 --clip'],
@@ -120,6 +121,7 @@ async function renderPageFrames(ctx, frames, cacheDir) {
 }
 
 export async function runFrames(kind, opts, positionals) {
+  if (opts.deliveryMode && !['automatic', 'review'].includes(opts.deliveryMode)) throw usage('--delivery-mode 只能是 automatic 或 review');
   if (kind === 'stills' && opts.frames && opts.times) throw usage('--frames 与 --times 只能给一个');
   if (kind === 'render' && opts.frames && opts.shot) throw usage('--frames 与 --shot 只能给一个');
   // 终渲质量的帧段也要过闸（D08）：先判闸门，拒绝时不建运行目录、一帧不渲
@@ -127,8 +129,8 @@ export async function runFrames(kind, opts, positionals) {
   if (opts.final) {
     if (opts.size) throw usage('--final 只按交付档位出帧，不能再用 --size 改画幅', '要别的画幅就换档位：--profile <档位>');
     const film = loadFilm(positionals[0], { page: opts.page ? path.resolve(opts.page) : null });
-    const status = await gateStatus(film);
-    gateBasis = { checked: true, by: status.by, basis: assertFinalAllowed(film, status) };
+    const status = await gateStatus(film, opts);
+    gateBasis = { checked: opts.deliveryMode === 'review', mode: opts.deliveryMode || 'automatic', by: status.by, basis: assertFinalAllowed(film, status, opts) };
   }
   if (kind === 'render' && !opts.frames && !opts.shot) throw usage('render 要给 --frames <帧段> 或 --shot <镜头 id>', '例：npm run film -- render films/my-film --frames 72:120；整片终渲用 npm run film -- build <作品目录> --final');
   const o = { gpu: 'required', ...opts };

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { launchBrowser } from '../../engine/render/lib/gpu.mjs';
+import { launchBrowser } from '../host/page/gpu.mjs';
 import { startServer } from '../host/page/host.mjs';
 import { join } from 'node:path';
 import test from 'node:test';

@@ -6,7 +6,7 @@
 // Float32Array / Float64Array 是场景线性值（可以大于 1）。阈值一律用输入自己的量纲。
 // 坐标原点在左上；roi 是 { x, y, width, height } 整数像素框。
 // 入参不对抛 RangeError，code 是冻结错误码 usage.bad-argument。
-import { srgbToLab } from '../../../tools/eval/lib/metrics.mjs';
+import { srgbToLab } from './perceptual.mjs';
 import { colorPalette } from './image-layout.mjs';
 
 function bad(message) { throw Object.assign(new RangeError(message), { code: 'usage.bad-argument' }); }

@@ -11,15 +11,15 @@
 | 层级 | 当前文件 | 应改什么 |
 |---|---|---|
 | 通用能力 | `engine/form`、`shade`、`paint`、`stage`、`look`、`overlay`、`render` | 复用的造型、着色、笔触、合成、时间与输出算法；修复这里会影响多个作品 |
-| 北冥美术配方 | [`src/toon.js`](../../src/toon.js)、[`src/look.js`](../../src/look.js)、各鲲变体与二维人物 | 本片色板、材质族、造型、默认后期；新作品最好建立自己的配方文件 |
-| 影片与镜头 | [`src/timeline.js`](../../src/timeline.js)、[`src/main.js`](../../src/main.js)、[`shotA`](../../src/shotA.js)、[`shotB`](../../src/shotB.js)、[`shotC`](../../src/shotC.js) | 时长与镜头切点（只在 `timeline.js` 的镜头表里写一次）、相机、对象状态及逐镜头参数覆盖 |
+| 北冥美术配方 | [`films/beiming-10s/src/toon.js`](../../films/beiming-10s/src/toon.js)、[`films/beiming-10s/src/look.js`](../../films/beiming-10s/src/look.js)、各鲲变体与二维人物 | 本片色板、材质族、造型、默认后期；新作品最好建立自己的配方文件 |
+| 影片与镜头 | [`films/beiming-10s/src/timeline.js`](../../films/beiming-10s/src/timeline.js)、[`films/beiming-10s/src/main.js`](../../films/beiming-10s/src/main.js)、[`shotA`](../../films/beiming-10s/src/shotA.js)、[`shotB`](../../films/beiming-10s/src/shotB.js)、[`shotC`](../../films/beiming-10s/src/shotC.js) | 时长与镜头切点（只在 `timeline.js` 的镜头表里写一次）、相机、对象状态及逐镜头参数覆盖 |
 
 原片不是全三维城市：鲲和渡船是三维造型，天空、云、楼群和江面大量采用绘画底板；人物镜头由 Canvas 绘制人物，再放进合成场景。保留这种二维与三维的比例，是延续原片的重要条件。新增高精度模型可以增加空间和表演能力，但不会自动得到相同画风。
 
 现有入口的调用链：
 
 ```text
-src/main.js
+films/beiming-10s/src/main.js
   → createFilm({designHeight:1040})
   → 加载底板/字体、创建三个镜头、createLook(...)
   → film.run({dur:10, shots:[0,3,5], ...})
@@ -37,14 +37,14 @@ src/main.js
 |---|---|---|
 | 身体与鳍的放样 | [`form/loft.js`](../../engine/form/loft.js)：`profileBody / ringsAt / loftRings / loftWing` | 从轮廓截面生成几何；先保证远中近景轮廓，再提高细分。拓扑密度不等于美术复杂度 |
 | 草木与表面散布 | [`form/scatter.js`](../../engine/form/scatter.js)：`weightedSampler / placeOnSurface / instanced`；[`plants.js`](../../engine/form/plants.js)、[`props.js`](../../engine/form/props.js) | 权重采样、法线朝向、实例矩阵/颜色；种子、密度、尺度和遮挡要作为资产版本保存 |
-| 身体形变与眼睛 | [`form/bend.js`](../../engine/form/bend.js)、[`form/eye.js`](../../engine/form/eye.js)、[`src/kun.js`](../../src/kun.js) | 顶点波动、鳍与眼睑状态；彩色、深度和描边通道须使用同样形变 |
+| 身体形变与眼睛 | [`form/bend.js`](../../engine/form/bend.js)、[`form/eye.js`](../../engine/form/eye.js)、[`films/beiming-10s/src/kun.js`](../../films/beiming-10s/src/kun.js) | 顶点波动、鳍与眼睑状态；彩色、深度和描边通道须使用同样形变 |
 | 分档材质 | [`shade/toon.js`](../../engine/shade/toon.js)：`toonKind / makeToonShared / setToonShared` | 包装 Three r170 `MeshToonMaterial` 并注入 GLSL；提供材质族和共享 uniform，不是独立替换 Three 的渲染器 |
 | 表面斑块 | [`shade/surface.js`](../../engine/shade/surface.js)：原片调用 `patchLayer()` | 在物体坐标中生成锈斑、藻斑和斑点；与最终屏幕颗粒分开调，避免纹理随相机漂移 |
 | 着色注入与投影 | [`shade/patch.js`](../../engine/shade/patch.js) | 注入锚点、程序缓存键、量化投影和深度材质；升级 Three 后须重新核对 shader chunk |
-| 二维人物与绘画 | [`src/girl.js`](../../src/girl.js)、[`engine/paint/`](../../engine/paint)、[`core/stroke.js`](../../engine/core/stroke.js) | 轮廓路径、笔压、绘画层及其变换；当前人物效果不证明已有通用骨骼表演系统 |
+| 二维人物与绘画 | [`films/beiming-10s/src/girl.js`](../../films/beiming-10s/src/girl.js)、[`engine/paint/`](../../engine/paint)、[`core/stroke.js`](../../engine/core/stroke.js) | 轮廓路径、笔压、绘画层及其变换；当前人物效果不证明已有通用骨骼表演系统 |
 | 底板与摄影 | [`stage/plates.js`](../../engine/stage/plates.js)、[`camera.js`](../../engine/stage/camera.js)、[`dome.js`](../../engine/stage/dome.js) | 贴图颜色空间、透明卡片、层次、设计画幅和相机；绘画透视与相机运动范围需要匹配 |
 | 后期编排 | [`look/index.js`](../../engine/look/index.js)：`createLook` | HDR 场景、ID/深度、雾、光晕、调色、显示转换、笔触和合成；用实际输出像素分配纹理 |
-| 文字/显示层 | [`overlay/`](../../engine/overlay)、[`src/hud.js`](../../src/hud.js) | 字体、字形与屏幕布局；由影片顶层 Canvas 绘制，当前不会经过场景后期 |
+| 文字/显示层 | [`overlay/`](../../engine/overlay)、[`films/beiming-10s/src/hud.js`](../../films/beiming-10s/src/hud.js) | 字体、字形与屏幕布局；由影片顶层 Canvas 绘制，当前不会经过场景后期 |
 | 声音 | [`engine/audio/`](../../engine/audio)、[`audio/`](../../audio) | 合成、采样、混音和响度；动作事件用全局时码对齐声音，最终对 AAC 复测 |
 | 时间与输出 | [`core/clock.js`](../../engine/core/clock.js)、[`render/`](../../engine/render) | 整数帧量化、页面取帧和 FFmpeg；分段资格取决于状态能否重现，不只取决于接口存在 |
 
@@ -74,11 +74,11 @@ m2  = 第一与第二暗档的权重（基于 hl）
 | `fillAmt / skyAmt` | `0 / 0` | `0 / 0` | `0.92 / 0.75` |
 | `rimAmt / rimLitAmt` | `1 / 0` | `1 / 0` | `0.6 / 1` |
 
-来源分别是 [`engine/shade/toon.js`](../../engine/shade/toon.js) 与 [`src/toon.js`](../../src/toon.js)。`makeToonMaterial(opts)` 的对象覆盖值最终决定材质；运行时又可能直接改 `mat.userData.toon`。例如镜头 C 把对象的 `uFillStep / uFillStep2 / uFillW1 / uFillAmt` 改为默认 `0.38 / 0.72 / 0.5 / 1.0`，也开放了查询参数覆盖。因此复刻一帧必须记录镜头和时刻，不能只复制默认表。
+来源分别是 [`engine/shade/toon.js`](../../engine/shade/toon.js) 与 [`films/beiming-10s/src/toon.js`](../../films/beiming-10s/src/toon.js)。`makeToonMaterial(opts)` 的对象覆盖值最终决定材质；运行时又可能直接改 `mat.userData.toon`。例如镜头 C 把对象的 `uFillStep / uFillStep2 / uFillW1 / uFillAmt` 改为默认 `0.38 / 0.72 / 0.5 / 1.0`，也开放了查询参数覆盖。因此复刻一帧必须记录镜头和时刻，不能只复制默认表。
 
 原片关键色关系：天空 `#4F5BBF / #9C8FD8`，暖光 `#F2A0A6 / #FFB26B`，城市 `#4B4A8C`，墨线 `#2A2D52`。这些是色板输入；线性转换、补光、雾、调色和显示编码之后的最终像素不必等于输入十六进制值。
 
-造型尺度也影响参数：原版 `createKun` 名义长度为 600，默认脊柱波幅 `uKunAmp=15`、波数 `uKunWave=0.8`、角频率 `uKunOmega=2π/5`，`lod` 限于 0.1–1。这些不是当前所有资产共同的米制标尺；迁移时要和导出鲲约 30m 的目标尺度明确转换。双色边缘光亮芯还要求材质族启用 `rimCore`，原版工厂不会因传入几个亮芯参数就自动增加该分支；已用该能力的例子见 [`toon_refine.js`](../../src/toon_refine.js)。
+造型尺度也影响参数：原版 `createKun` 名义长度为 600，默认脊柱波幅 `uKunAmp=15`、波数 `uKunWave=0.8`、角频率 `uKunOmega=2π/5`，`lod` 限于 0.1–1。这些不是当前所有资产共同的米制标尺；迁移时要和导出鲲约 30m 的目标尺度明确转换。双色边缘光亮芯还要求材质族启用 `rimCore`，原版工厂不会因传入几个亮芯参数就自动增加该分支；已用该能力的例子见 [`toon_refine.js`](../../films/beiming-10s/src/toon_refine.js)。
 
 ### 3.2 调什么会改变什么
 
@@ -111,7 +111,7 @@ Kuwahara → 叠加墨线 → 纸纹 → 暗角 → 颗粒
 
 常用对象开关见 [`ids.js`](../../engine/look/ids.js)：`outlineWidth` 控制权重，`outlinePerInstance` 决定实例分别描边，`outlineGroup` 可合并内部 ID，`outlineOccluder` 区分实心/透明遮挡。底板不应被统一描成一个矩形外框。
 
-[`src/look.js`](../../src/look.js) 默认线宽 2.6、墨色 `#2A2D52`、wobble 1.2、boilFps 12、pressure 0.35、breakup 0.1、inner 0.55；默认 Kuwahara 半径 5、强度 1、q 8；这些像素量按 **1080 高度标定**。正片则覆盖如下：
+[`films/beiming-10s/src/look.js`](../../films/beiming-10s/src/look.js) 默认线宽 2.6、墨色 `#2A2D52`、wobble 1.2、boilFps 12、pressure 0.35、breakup 0.1、inner 0.55；默认 Kuwahara 半径 5、强度 1、q 8；这些像素量按 **1080 高度标定**。正片则覆盖如下：
 
 | 项目 | 镜头 A：0–3 秒 | 镜头 B：3–5 秒 | 镜头 C：5–10 秒 |
 |---|---|---|---|
@@ -208,7 +208,7 @@ node engine/render/still.mjs . 1.5 4 7.5 --size 1920x1040 --out out/style-baseli
 
 > 状态更新：这个问题已在 2026-11 的代码审查中修复（审查编号 R15）：`setPose` 不再改写共用 Euler 的顺序，胸鳍的欧拉角顺序改成构建参数 `finEulerOrder`（正片镜头 C 传 `YXZ`，保持 v1.0 的画面）；`lab/regress.test.mjs` 里有对应的回归测试。下面保留当时的记录与复现脚本，作为“状态必须是 t 的纯函数”这条要求的例子；脚本在修复后的代码上会断言失败（角差为 0），这正说明历史依赖已消除。
 
-当时的 CPU 检查复现了一个需要 T03/T04 处理的实际情况：[`kun.setPose`](../../src/kun.js) 在收到 `look` 后，将复用 Euler 的顺序改成 `YXZ`。新对象采样 `t=2`，再调用带 `look` 的 `t=3`，最后回到 `t=2`，两侧胸鳍四元数与首次采样的角差约为 **0.00025129346 / 0.00138398988 弧度**。它是状态差异；本次没有测量像素影响，也没有修改原片行为。
+当时的 CPU 检查复现了一个需要 T03/T04 处理的实际情况：[`kun.setPose`](../../films/beiming-10s/src/kun.js) 在收到 `look` 后，将复用 Euler 的顺序改成 `YXZ`。新对象采样 `t=2`，再调用带 `look` 的 `t=3`，最后回到 `t=2`，两侧胸鳍四元数与首次采样的角差约为 **0.00025129346 / 0.00138398988 弧度**。它是状态差异；本次没有测量像素影响，也没有修改原片行为。
 
 以下最小复现已在当前基线的 Node/Three 上执行，不启动 GPU；断言通过表示成功复现历史依赖，**不是确定性验收通过**：
 
@@ -216,7 +216,7 @@ node engine/render/still.mjs . 1.5 4 7.5 --size 1920x1040 --out out/style-baseli
 // 在仓库根使用 node --input-type=module 执行
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { createKun } from './src/kun.js';
+import { createKun } from './films/beiming-10s/src/kun.js';
 const kun = createKun({ lod: 0.1, wisps: false });
 kun.setPose(2);
 const before = kun.fins.map(f => f.pivot.quaternion.clone());

@@ -58,7 +58,7 @@ export function makeSourceRepo(dir) {
     'routes/README.md': lines(80, '# 三条路线'),
     'routes/a-webgl/README.md': lines(150, '# A 路线'),
     'docs/long.md': lines(400, '# 长文档'),
-    'src/main.js': 'export const sample = 1;\n',
+    'films/beiming-10s/src/main.js': 'export const sample = 1;\n',
     'engine/core/math.js': 'export const lerp = (a, b, t) => a + (b - a) * t;\n',
     'cases/vendor/lemo-opuscar/.gitignore': '/films/\n',
     'cases/vendor/lemo-opuscar/README.md': '# vendor 快照\n',

@@ -1,5 +1,5 @@
 // 北冥作品站 · 舞台（实时引擎）：青绿仙山鲲在访客浏览器里一帧一帧地被算出来。
-// 鲲用影片原版代码构建（src/kun_qinglv.js 的 createKun、src/toon_qinglv.js 的卡通材质），
+// 鲲用影片原版代码构建（films/beiming-10s/src/kun_qinglv.js 的 createKun、films/beiming-10s/src/toon_qinglv.js 的卡通材质），
 // 合成移植自 lab/kun_qinglv.js（两遍渲染 + 墨线着色器），纸纹与雾用 engine/look 的模块，时间量化用 engine/core/clock.js。
 // 接口见 site/CONTRACT.md 第 2 节；机位见 ./stage/rig.js，合成见 ./stage/compositor.js，画质与 CPU 探针见 ./stage/quality.js。
 //

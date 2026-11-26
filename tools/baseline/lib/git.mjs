@@ -21,7 +21,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { CliError, EXIT, onCleanup, offCleanup } from './cli.mjs';
 
-export const PIXEL_PATHS = ['engine', 'src', 'lab', 'assets', 'fonts', 'index.html',
+export const PIXEL_PATHS = ['engine', 'src', 'films/beiming-10s', 'lab', 'assets', 'fonts', 'index.html',
   'routes/a-webgl/template', 'routes/c-style/template', 'routes/c-style/fonts', 'tests/golden/fixtures', 'tools/baseline/sets.json'];
 
 export function git(args, { cwd, allowFail = false } = {}) {
@@ -134,7 +134,10 @@ export async function withSnapshot(root, sha, { workDir, log = () => {}, paths =
   remove.sync = remove;
   onCleanup(remove);
   try {
-    const want = [...new Set([...PIXEL_PATHS.filter(p => p !== 'tools/baseline/sets.json'), ...paths])];
+    // Historical renderers and template preparation need CLI, FFmpeg, mux and font tools.
+    // These are snapshot runtime support, not additions to signed pixel-tree digests.
+    const want = [...new Set([...PIXEL_PATHS.filter(p => p !== 'tools/baseline/sets.json'),
+      'tools/lib', 'tools/env/lib', 'tools/compliance/lib', 'tools/fonts', ...paths])];
     const t0 = Date.now();
     const { files, bytes } = exportPaths(root, sha, want, dir);
     if (!files) throw new CliError('contract.empty-snapshot', `提交 ${sha.slice(0, 12)} 里没有任何像素相关文件`, { hint: '换一个包含 engine/、src/ 的提交', exitCode: EXIT.CONTRACT });

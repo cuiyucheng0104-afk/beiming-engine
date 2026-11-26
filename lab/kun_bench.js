@@ -17,7 +17,7 @@
 //   labPost(q)                         这一页走不走正片后期：默认走；&ink=lab（或 &ink=2）回退到本文件的临时描边
 //   labPixelRatio(q)                   给 labRenderer 的像素比：正片后期 1（后期自己超采样）、临时描边 2（与旧版相同）
 //   labPipeline({ renderer, scene, W, H, RW, RH, PALETTE, q })   → { post, skyCover(zoom, ox, oy), draw({ camera, setToonGlobals, inkT, fr }) }
-//       post = true：天空图当 scene.background（同样 cover 裁切），交给 src/look.js 的正片后期（ID 图墨线、Kuwahara、bloom、调色、
+//       post = true：天空图当 scene.background（同样 cover 裁切），交给 films/beiming-10s/src/look.js 的正片后期（ID 图墨线、Kuwahara、bloom、调色、
 //                    纸纹）；&noink=1 → 关墨线，&pass=1 → 看 ID 图，&dbg=<视图> → 看后期中间缓冲（engine/look/debug.js）
 //       post = false：inkComposite + drawPasses，与旧版逐像素相同
 // 默认走正片后期，是因为在自测页上调好的造型和材质，换进正片时线条、笔触、纸纹不能变样（审计 CRAFT-16）；
@@ -25,7 +25,7 @@
 import * as THREE from 'three';
 import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 import { frameOf, heldTime, hold } from '../engine/core/clock.js';
-import { createLook } from '../src/look.js';
+import { createLook } from '../films/beiming-10s/src/look.js';
 
 // 被当成自测页直接打开（?test=kun_bench）时立刻报错，不让页面一直等不到 READY
 if (typeof location !== 'undefined' && new URLSearchParams(location.search).get('test') === 'kun_bench')

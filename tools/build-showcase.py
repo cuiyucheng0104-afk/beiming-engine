@@ -647,7 +647,7 @@ class Graph:
             return NODE / 'three' / 'build' / 'three.module.min.js'
         if rel.startswith('vendor/three/addons/'):
             return NODE / 'three' / 'examples' / 'jsm' / rel[len('vendor/three/addons/'):]
-        if rel.startswith(('engine/', 'src/', 'fonts/')):
+        if rel.startswith(('engine/', 'src/', 'fonts/', 'films/beiming-10s/src/')):
             return ROOT / rel
         return self.site / rel
 

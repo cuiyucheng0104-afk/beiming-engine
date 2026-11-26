@@ -9,10 +9,10 @@
 //      与模版自己 .gitignore 里列出的生成物目录；不跟符号链接。
 //   2. 文本文件里的 {{NAME}} 换成名字、{{TITLE}} 换成片名；替换后还残留 {{大写标识符}} 就退出 4、什么都不写。
 //      占位符只认「两层花括号 + 大写标识符」，JSX 的 style={{ color: P.ink }} 不受影响。
-//   3. film.json 升到 v2（附录 C6，与 engine/production/film.js 的 upgradeFilm 同口径）：id = 名字；
+//   3. 按 v2 模版生成 film.json（附录 C6）：id = 名字；
 //      output 按交付档位（--profile > 模版声明 > 注册表默认 web-1080p24，D07）；没有镜头表时整片一个镜头 S1；
-//      gates 三道闸（D08）；backend、audio、style、aigc、credits 取模版声明，模版是 v1 时用注册表的 templateDefaults 补齐；
-//      v1 的 poster（秒）换成 posterFrame（帧）；模版里有 dur / fps / size（v1 写法）时保留为兼容镜像，数值按 output 重写。
+//      gates 三道闸（D08）；backend、audio、style、aigc、credits 取模版声明，缺省值由注册表的 templateDefaults 补齐；
+//      模版里有 dur / fps / size（v1 写法）时保留为兼容镜像，数值按 output 重写。
 //      档位帧率与模版不同时，镜头、事件、停顿、海报帧按帧率比例换算（按节拍写的事件无法换算，拒绝并说明）。
 //   4. 模版带字体文件而同目录没有许可文本时：字体与仓库 fonts/ 里的同一份 → 附上 fonts/LICENSE.md；否则退出 4。
 //   5. 有作品描述校验器 engine/production/film.js 时，在暂存目录上跑 `film.js check --json`：不过退出 4、不留目录；
@@ -28,6 +28,7 @@ import { CliError, defineCommand, isMain, runCli, sha256, suggest } from './lib/
 import { expandSteps, filmVars, formatStep, loadRegistry, readRegistry, validateRegistry } from './lib/routes.mjs';
 import { DEFAULT_PROFILE, loadProfiles } from './lib/profiles.mjs';
 import { filmJsonProblems, findPlaceholders, formatFilmJson, nameProblem, titleProblem } from './lib/filmspec.mjs';
+import { parseFilmDocument } from './lib/film-json.mjs';
 import { applyWebgpuScaffold } from './lib/webgpu-scaffold.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -75,16 +76,13 @@ function decodeText(buf) {
   try { return utf8.decode(buf); } catch { return null; }
 }
 
-/** 模版的时间与画幅：v2 读 output，v1 读 dur / fps / size。 */
+/** 模版的时间与画幅取自 output。 */
 function templateTiming(tpl, where) {
-  const v2 = tpl.schemaVersion === 2;
-  const fps = v2 ? tpl.output?.fps : tpl.fps;
-  const frameCount = v2 ? tpl.output?.frameCount : (Number.isFinite(tpl.dur) && Number.isInteger(fps) ? Math.round(tpl.dur * fps) : undefined);
+  const { fps, frameCount, width, height, profile } = tpl.output ?? {};
   if (!(Number.isInteger(fps) && fps > 0 && Number.isInteger(frameCount) && frameCount > 0)) {
-    throw new CliError('contract.template', `${where} 读不出片长与帧率`, 'v1 写 dur（秒）与 fps，v2 写 output.frameCount 与 output.fps');
+    throw new CliError('contract.template', `${where} 读不出片长与帧率`, '写 output.frameCount 与 output.fps');
   }
-  const size = v2 ? [tpl.output?.width, tpl.output?.height] : (Array.isArray(tpl.size) ? tpl.size : [undefined, undefined]);
-  return { fps, frameCount, seconds: frameCount / fps, size, declaredProfile: v2 ? (tpl.output?.profile ?? tpl.deliveries?.[0]) : undefined };
+  return { fps, frameCount, seconds: frameCount / fps, size: [width, height], declaredProfile: profile ?? tpl.deliveries?.[0] };
 }
 
 /** 交付档位：--profile > 模版 v2 声明 > 注册表默认 > profiles.json 的 default。 */
@@ -138,7 +136,7 @@ function rescaleFrames(film, ratio, frameCount, where) {
   return notes;
 }
 
-/** 声音：模版声明的优先；v1 模版按注册表默认补齐，并核对脚本文件在不在。 */
+/** 声音：模版声明的优先；缺省时按注册表补齐，并核对脚本文件在不在。 */
 function pickAudio(tpl, route, files, warn) {
   if (tpl.audio !== undefined) return tpl.audio;
   const d = route.templateDefaults?.audio;
@@ -155,17 +153,16 @@ function pickAudio(tpl, route, files, warn) {
 function buildFilm({ tpl, timing, route, name, title, profile, profileFromOpt, backendOpt, frameCount, files, warn }) {
   const d = route.templateDefaults ?? {};
   const where = `${route.template}/film.json`;
-  const v2 = tpl.schemaVersion === 2;
   const backend = backendOpt ?? tpl.backend ?? route.backend;
   if (Array.isArray(route.backends) && !route.backends.includes(backend)) {
     throw new CliError('contract.template', `${where} 的 backend ${JSON.stringify(backend)} 不在路线 ${route.id} 允许的 ${route.backends.join(' / ')} 里`, '改模版 film.json 的 backend（取值见 routes/routes.json 的 backends）');
   }
   const aigc = tpl.aigc ?? d.aigc;
   if (!aigc) throw new CliError('contract.template', `${where} 没有声明 aigc，注册表也没有补齐值`, '在模版 film.json 写 "aigc": { "contains": true|false, "note": "…" }（D11）');
-  // 由下面逐项处理的键；v1 的 poster（秒）会换成 posterFrame，v2 模版里的 poster 原样带过去，由校验器指出模版写错了
+  // 由下面逐项处理的键；未登记的字段交给作品描述校验器确认
   const consumed = new Set(['schemaVersion', '$comment', 'id', 'title', 'route', 'backend', 'output', 'deliveries', 'shots', 'events', 'holds',
     'drive', 'timeline', 'audio', 'style', 'assets', 'credits', 'aigc', 'gates', 'docs', 'methodRefs', 'native', 'cuecheck', 'posterFrame',
-    'entry', 'notes', 'mirror', 'next', 'dur', 'fps', 'size', ...(v2 ? [] : ['poster'])]);
+    'entry', 'notes', 'mirror', 'next', 'dur', 'fps', 'size']);
   const mirrors = ['dur', 'fps', 'size'].filter(k => k in tpl);
   const film = { schemaVersion: 2 };
   if (tpl.$comment !== undefined) film.$comment = tpl.$comment;
@@ -191,13 +188,6 @@ function buildFilm({ tpl, timing, route, name, title, profile, profileFromOpt, b
 
   const notes = [];
   if (profile.fps !== timing.fps) notes.push(...rescaleFrames(film, profile.fps / timing.fps, frameCount, where));
-  // v1 的 poster 是秒：换成整数帧 posterFrame（与 film.js upgradeFilm 相同，四舍五入）
-  if (!v2 && tpl.poster !== undefined) {
-    if (typeof tpl.poster === 'number' && Number.isFinite(tpl.poster) && tpl.poster >= 0) {
-      film.posterFrame = Math.min(Math.round(tpl.poster * profile.fps), frameCount - 1);
-      notes.push(`海报 poster ${tpl.poster} 秒 → posterFrame ${film.posterFrame}`);
-    } else warn('template.poster', `模版的 poster ${JSON.stringify(tpl.poster)} 不是秒数，没有迁移`, '模版改写成 posterFrame（整数帧）');
-  }
   // v1 兼容镜像：模版里有才写，数值跟 output 走
   if ('dur' in tpl) film.dur = Number((frameCount / profile.fps).toFixed(6));
   if ('fps' in tpl) film.fps = profile.fps;
@@ -324,12 +314,12 @@ async function run(ctx) {
   const fjEntry = planned.find(f => f.rel === 'film.json');
   if (!fjEntry) throw new CliError('contract.template', `${where} 不存在`, '跑 npm run check:repo 查看模版问题');
   let tpl;
-  try { tpl = JSON.parse(fjEntry.replacedText); } catch (e) {
+  try { tpl = parseFilmDocument(fjEntry.replacedText).value; } catch (e) {
     throw new CliError('contract.template', `${where} 不是合法 JSON（${e.message}）`, '修好模版后重跑；npm run check:repo 会给出位置');
   }
   if (!isObj(tpl)) throw new CliError('contract.template', `${where} 顶层不是对象`, '修好模版后重跑');
   if (tpl.route !== route.id) throw new CliError('contract.template', `${where} 的 route 是 ${JSON.stringify(tpl.route)}，注册表里这条路线的 id 是 "${route.id}"`, '模版 film.json 的 route 要写注册表 id');
-  if (tpl.schemaVersion !== undefined && tpl.schemaVersion !== 2) throw new CliError('contract.template', `${where} 的 schemaVersion 是 ${JSON.stringify(tpl.schemaVersion)}：只认 2（v1 不写）`, '模版 film.json 按附录 C6 写');
+  if (tpl.schemaVersion !== 2) throw new CliError('contract.template', `${where} 的 schemaVersion 是 ${JSON.stringify(tpl.schemaVersion)}：只接受 2`, '模版 film.json 按附录 C6 写');
   const timing = templateTiming(tpl, where);
   const profiles = loadProfiles(ROOT);
   for (const w of profiles.warnings) ctx.warn('profile.source', w);

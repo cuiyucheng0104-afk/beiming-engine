@@ -33,7 +33,7 @@ export const CHECK_DOC = {
   summary: '出片前的只读检查（不渲帧、不写作品目录、不建运行目录）',
   usage: ['npm run film -- check <作品目录> [--profile <档位>] [--page <目录>] [--json]'],
   description: [
-    '  1. 作品描述  node engine/production/film.js check（作品描述包的校验器：镜头首尾相接、事件落在镜头内、引用存在…）',
+    '  1. 校验 film.json v2 的镜头、事件与文件引用；v1 先运行 node engine/production/film.js upgrade <作品目录> --write，按提示补齐字段',
     '  2. 页面契约  A / C 打开页面等 READY，查 render / DUR / 帧数 / 软件渲染（写了 fonts 的先核对本片字体子集）；B 跑 native.mjs --check-only',
     '  3. 编排视图  路线、档位、帧数、切点、闸门要求',
   ],
@@ -193,7 +193,7 @@ export async function checkCommand(opts, positionals) {
   }
 
   // 闸门要求
-  add('gates', 'info', `闸门：look ${film.gates.look === 'required' ? '必审' : '可选'}，animatic ${film.gates.animatic === 'required' ? '必审' : '可选'}，final 必审`);
+  add('gates', 'info', `人工交付模式（--delivery-mode review）的闸门；默认 automatic 不拦终渲：look ${film.gates.look === 'required' ? '必审' : '可选'}，animatic ${film.gates.animatic === 'required' ? '必审' : '可选'}，final 必审`);
   const worst = checks.some(c => c.status === 'fail') ? EXIT.CONTRACT : checks.some(c => c.status === 'env') ? EXIT.ENV : EXIT.OK;
   const err = worst === EXIT.OK ? null : new FilmError(worst, worst === EXIT.CONTRACT ? 'check-failed' : 'check-env', worst === EXIT.CONTRACT ? `检查不通过：${checks.filter(c => c.status === 'fail').map(c => c.id).join('、')}` : `检查没做全（缺环境）：${checks.filter(c => c.status === 'env').map(c => c.id).join('、')}`, checks.find(c => c.hint && c.status !== 'pass')?.hint || null);
   const mark = { pass: '✓', fail: '✗', env: '…', warn: '!', info: '·' };

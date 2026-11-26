@@ -1,10 +1,10 @@
-// 鲲 · 青绿仙山版 × 正片后期管线（src/look.js → engine/look）联调页（?test=kun_qinglv_look）。
+// 鲲 · 青绿仙山版 × 正片后期管线（films/beiming-10s/src/look.js → engine/look）联调页（?test=kun_qinglv_look）。
 // 目的：确认换进正片时 engine/look/ids.js 的 ID 图能编译 userData.outlineVertex（弯曲、扑动、瀑布边缘），墨线贴着弯过的形体走。
 // 参数：&view=side|hero|under &dbg=id|edge|line（看中间缓冲）
 import * as THREE from 'three';
-import { createKun } from '../src/kun_qinglv.js';
-import { setToonGlobals } from '../src/toon.js';
-import { createLook } from '../src/look.js';
+import { createKun } from '../films/beiming-10s/src/kun_qinglv.js';
+import { setToonGlobals } from '../films/beiming-10s/src/toon.js';
+import { createLook } from '../films/beiming-10s/src/look.js';
 import { frameOf, heldTime, hold } from '../engine/core/clock.js';
 import { loadSky } from './kun_bench.js';
 
