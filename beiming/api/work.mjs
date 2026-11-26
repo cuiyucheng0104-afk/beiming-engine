@@ -363,7 +363,10 @@ export function createWork({ store, library, reviewer, scheduler }) {
         || (code === 'contract.delivery-mismatch' && /母带不达标|响度|真峰值/.test(detail)
           ? '声轨响度/真峰值未达标：调整片长、音频事件，或设 audio/mode 为 none 后重试'
           : undefined);
-      const next = Array.isArray(e?.next) ? e.next : code.startsWith('contract.') ? [{ verb: `PUT /v1/films/${id}/film`, why: '按失败原因调整片子或规格后重试' }] : [];
+      // 核心作业用完墙钟预算被杀：不是片子写错了，提示拆小或加预算重新提交，不叫人改片子
+      const next = Array.isArray(e?.next) ? e.next
+        : e?.code === 'timeout.budget' ? [{ verb: `POST /v1/films/${id}/${name}`, why: '墙钟预算用完被杀：少渲几个镜头或几帧再提交；渲染作业也可以在草稿档上限内加大 budget.maxWallMs' }]
+          : code.startsWith('contract.') ? [{ verb: `PUT /v1/films/${id}/film`, why: '按失败原因调整片子或规格后重试' }] : [];
       outcome = {
         ok: false, crashed: true, code, message,
         ...(hint ? { hint } : {}),

@@ -310,6 +310,7 @@ test('经服务端提交的核心作业到声明的墙钟预算被杀：作业 f
   // 错误码表里登记了 timeout.budget 就报它本身；还没登记时报登记过的近义码，原码在信息里
   assert.equal(outcome.code, isRegistered('timeout.budget') ? 'timeout.budget' : 'contract.bad-value');
   assert.match(outcome.message, /timeout\.budget/);
+  assert.deepEqual(outcome.next.map((n) => n.verb), [`POST /v1/films/${id}/render`], '超时的提示是重新提交渲染，不叫人改片子');
   assert.ok(took >= WALL && took < WALL + 5000, `到预算才杀：用了 ${Math.round(took)} ms`);
   const pids = JSON.parse(fs.readFileSync(path.join(hang, 'pids.json'), 'utf8'));
   assert.deepEqual(pids.map((pid) => processIsAlive(pid)), [false, false], '渲染进程与它的孙进程都不在了');
