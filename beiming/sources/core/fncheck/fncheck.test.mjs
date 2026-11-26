@@ -180,7 +180,7 @@ const NEW = [
   'sample_uniform_disk', 'microfacet_ggx_sample_vndf', 'microfacet_fresnel_f82', 'microfacet_ggx_preserve_energy',
   'bsdf_microfacet_setup_fresnel_f82_tint', 'bsdf_microfacet_eval_ggx', 'bsdf_microfacet_ggx_eval',
   'bsdf_microfacet_sample_ggx', 'bsdf_microfacet_ggx_sample',
-  'safe_asinf', 'safe_asinf_ulp_bias', 'ray_quad_intersect', 'area_light_rect_sample', 'area_light_rect_sample_solid_angle', 'area_light_rect_sample_tiny', 'area_light_rect_sample_grazing',
+  'safe_asinf', 'safe_asinf_ulp_bias', 'sincosf', 'sinf_ulp_bias', 'cosf_ulp_bias', 'ray_quad_intersect', 'area_light_rect_sample', 'area_light_rect_sample_solid_angle', 'area_light_rect_sample_tiny', 'area_light_rect_sample_grazing',
   'area_light_rect_sample_far', 'area_light_rect_sample_near',
   'area_light_sample', 'area_light_eval_from_intersection', 'area_light_intersect',
   // 原理化 BSDF 非金属那一半
@@ -288,6 +288,20 @@ test('端到端：故意把一个 WGSL 函数改错一项，报出是哪个函�
       const b = r.results[1].bias;
       t.diagnostic(`内建 asin 的分段平均偏差（末位）：${b.segments.map(x => x.worst.toFixed(3)).join('，')}`);
       assert.ok(Math.abs(b.segments[0].worst) > b.segments[0].max);
+    }
+  }
+  // 改回内建 sin、cos：逐组比照旧合格（每组都在 1e-4 相对误差以内），两项分段平均偏差必须都判不过
+  {
+    const builtin = usrc.replace(/fn sincosf\(x: f32\) -> vec2f \{[\s\S]*?\n\}/, 'fn sincosf(x: f32) -> vec2f {\n  return vec2f(sin(x), cos(x));\n}');
+    assert.notEqual(builtin, usrc, 'util.wgsl 里找不到 sincosf');
+    const r = await e2e(t, { n: 1_000_000, seed: 1, wgsl: { [util]: builtin }, names: ['sincosf', 'sinf_ulp_bias', 'cosf_ulp_bias'] });
+    if (r) {
+      assert.equal(r.ok, false);
+      assert.deepEqual(r.results.map(x => x.fails), [0, 0, 0]);
+      for (const x of r.results.slice(1)) {
+        t.diagnostic(`内建 ${x.name} 的分段平均偏差（末位）：${x.bias.segments.map(s => s.worst.toFixed(3)).join('，')}`);
+        assert.ok(x.bias.fails > 0, x.name);
+      }
     }
   }
   const light = 'shaders/area_light.wgsl', lsrc = await readFile(`${CORE}/${light}`, 'utf8');

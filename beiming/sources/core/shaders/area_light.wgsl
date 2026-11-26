@@ -59,7 +59,9 @@ fn area_light_rect_sample(P: vec3f, light_p: vec3f, axis_u: vec3f, len_u: f32, a
     let b0sq = b0 * b0;
     // Compute cu. 论文里的常数 k 同样会抵消，Cycles 用上面的 asin 项代替，并翻转 cos(au)、sin(au) 的符号消掉多出的 π（area.h:64-68）
     let au = rand.x * S + g2 + g3;
-    let fu = safe_divide(cos(au) * b0 + b1, sin(au));
+    // cos、sin 用 util.wgsl 的 sincosf，不用内建：内建的偏差随 au 光滑变化、平均不掉（那里的说明）
+    let sc = sincosf(au);
+    let fu = safe_divide(sc.y * b0 + b1, sc.x);
     var cu = copysignf(1.0 / sqrt(fu * fu + b0sq), fu);
     cu = clamp(cu, -1.0, 1.0);
     // Compute xu.

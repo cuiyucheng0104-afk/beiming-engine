@@ -236,6 +236,13 @@ const ABS_S = 48 * 2 ** -23;
 // |x| < 0.5 是面光远场立体角四个 asin 的主要输入，门槛 0.05；0.5 到 0.9 现用的写法也偏 0.36（π/2 的低位在 fma 的舍入里丢了），
 // 门槛 1 只拦粗错；0.9 以上门槛 0.3。内建 asin 在第一段超出门槛 30 倍（fncheck.test.mjs 的负对照）
 const ASINF_BIAS = [{ lo: 1e-6, hi: 0.5, bins: 12, max: 0.05 }, { lo: 0.5, hi: 0.9, bins: 4, max: 1 }, { lo: 0.9, hi: 1, bins: 2, max: 0.3 }];
+// sincosf 分段平均偏差的段与门槛（末位）。【实测】苹果显卡、100 万组、种子 1，小段平均的绝对值最大者（sin / cos）：
+//   写法                         [1e-6, 0.5)      [0.5, 1.5)       [1.5, π)
+//   两段约简、修正量并进最后一步（现用） −0.034 / −0.001   0.030 / −0.033   −0.030 / −0.016
+//   低位先并进约简结果               −0.034 / −0.002   0.099 / 0.166    0.115 / 0.248
+//   内建 sin、cos                   −0.399 / 0.688    0.202 / −0.216   0.153 / 0.139
+// 三段门槛都取 0.1：现用的写法有 3 倍余量，内建的三段都超出（fncheck.test.mjs 的负对照）
+const SINCOS_BIAS = [{ lo: 1e-6, hi: 0.5, bins: 12, max: 0.1 }, { lo: 0.5, hi: 1.5, bins: 4, max: 0.1 }, { lo: 1.5, hi: Math.PI, bins: 4, max: 0.1 }];
 FUNCTIONS.push(
   // asin 在 ±1 附近导数无界，取在 clamp 两侧各外延 0.2，覆盖截断那一支。被测一侧不是内建 asin，是 util.wgsl 里自己写的级数
   // （内建 asin 的误差随位置光滑变化，理由见那里）；【实测】苹果显卡上对 C 库 asinf 最大 3.4e-7 相对误差
@@ -245,6 +252,13 @@ FUNCTIONS.push(
   // 只取正数（safe_asinf 经 copysignf 对称），[1e-6, 1) 上按对数均匀取；每段按对数等分成小段求平均，小段平均的绝对值最大者不超过门槛。
   // 门槛照实测定（苹果显卡，100 万组）：ASINF_BIAS 处的注释
   entry('safe_asinf_ulp_bias', [['a', 'f32', [1e-6, 1, 'log']]], 1, 0, { file: APACHE, wgsl: 'safe_asinf', ref: 'safe_asinf', ulpBias: ASINF_BIAS }),
+  // 矩形面光采样映射的 cos(au)、sin(au)（area.h:67）：被测一侧是 util.wgsl 里自己写的 sincosf，不是内建（理由见那里）。au 在 (−π, π)，
+  // 两边各外延到 3.5。【实测】苹果显卡上对 C 库 sinf、cosf 最大 1.2e-7 相对误差（一个末位）
+  entry('sincosf', [['x', 'f32', [-3.5, 3.5]]], 2, 0, { file: APACHE }),
+  // 同一个函数分别对 C 库 sinf、cosf 的分段平均偏差（以末位计），查法同 safe_asinf_ulp_bias。只取正数（sincosf 严格对称），
+  // [1e-6, π) 上按对数均匀取，小的 au 对应采样点贴着垂足（fu 的分母 sin(au) 很小）。门槛照实测定：SINCOS_BIAS 处的注释
+  entry('sinf_ulp_bias', [['x', 'f32', [1e-6, Math.PI, 'log']]], 1, 0, { file: APACHE, wgsl: 'sincosf', ref: 'sinf', call: a => `sincosf(${a[0]}).x`, ulpBias: SINCOS_BIAS }),
+  entry('cosf_ulp_bias', [['x', 'f32', [1e-6, Math.PI, 'log']]], 1, 0, { file: APACHE, wgsl: 'sincosf', ref: 'cosf', call: a => `sincosf(${a[0]}).y`, ulpBias: SINCOS_BIAS }),
   // 概率密度在 WELL 里直接比，abs 只为采样点
   light('area_light_rect_sample', RECT_IN, { pdf: 1, P: 3 }, ABS_SAMPLE, {
     gen: next => ({ ...lightGeom(next, WELL), rand: [linU(next, RAND_WELL), linU(next, RAND_WELL)] }), branch: rectBranchOf,

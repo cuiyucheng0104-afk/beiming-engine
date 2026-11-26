@@ -485,6 +485,10 @@ static const Entry table[] = {
        o[0] = bump_shadowing_term(sd, &sc, get3(i + 6), i[9] != 0.0f);
      }},
     {"safe_asinf", 1, 1, [](const float *i, float *o) { o[0] = safe_asinf(i[0]); }},
+    /* 矩形面光采样映射里的 cosf(au)、sinf(au)（kernel/light/area.h:67）：Cycles 在处理器上直接调 C 库 */
+    {"sincosf", 1, 2, [](const float *i, float *o) { o[0] = sinf(i[0]); o[1] = cosf(i[0]); }},
+    {"sinf", 1, 1, [](const float *i, float *o) { o[0] = sinf(i[0]); }},
+    {"cosf", 1, 1, [](const float *i, float *o) { o[0] = cosf(i[0]); }},
     {"ray_quad_intersect", 20, 7, [](const float *i, float *o) {
        float3 P = zero_float3();
        float t = 0.0f, u = 0.0f, v = 0.0f;

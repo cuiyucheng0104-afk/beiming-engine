@@ -66,6 +66,40 @@ fn safe_asinf(a: f32) -> f32 {
   return copysignf(r, x);
 }
 
+// C 库的 sinf、cosf，一次给出 (sin x, cos x)。Cycles 在处理器上调 C 库，结果近乎正确舍入；显卡内建的 sin、cos 偏差随位置光滑
+// 变化、一段里同号，像素抖动平均不掉（理由同 safe_asinf）。照教科书的写法自己算（北冥的写法，不是 Cycles 的式子）：
+// Cody–Waite 两段约简 x = k·π/2 + rh + rl（k = round(x·2/π)，π/2 拆成单精度的高位与低位；rh = x − k·高位经 fma 是精确的，
+// rl = −k·低位），|rh| ≤ π/4 上 sin 的泰勒级数到 r¹³、cos 到 r¹²（截断误差不到 1e-12），rl 当一阶修正并进最后一步，再按 k 的
+// 象限换位、变号。rl 不先并进 rh：rh 落在 x 的末位网格上，加 rl 的舍入对一段输入是同一个量，结果整段同号地偏（实测约 0.25 个末位）。
+// 只为 |x| 不过几个 π 的输入（矩形面光采样映射的 au 在 (−π, π)）。级数是奇偶函数、round 对正负对称，sincosf(−x) 与 sincosf(x) 严格对称
+fn sincosf(x: f32) -> vec2f {
+  let k = round(x * 0.63661975);
+  let rh = fma(-k, 1.5707964, x);
+  let rl = k * 4.3711388e-8;
+  let t = rh * rh;
+  var ps = 1.6059044e-10;
+  ps = ps * t - 2.5052108e-8;
+  ps = ps * t + 2.7557319e-6;
+  ps = ps * t - 1.9841270e-4;
+  ps = ps * t + 8.3333333e-3;
+  ps = ps * t - 0.16666667;
+  var pc = 2.0876757e-9;
+  pc = pc * t - 2.7557319e-7;
+  pc = pc * t + 2.4801587e-5;
+  pc = pc * t - 1.3888889e-3;
+  pc = pc * t + 4.1666667e-2;
+  pc = pc * t - 0.5;
+  // sin(rh + rl) ≈ sin rh + rl·cos rh，cos(rh + rl) ≈ cos rh − rl·sin rh（rl 不到 1e-7，二阶项远小于末位）。修正量都在最后一次
+  // 舍入之前并进去：先把 cos rh 舍入成单精度再减 rl·rh 的话，修正量不到一个末位、整段被同一个方向舍掉（实测约 0.3 个末位）
+  let c = 1.0 + fma(t, pc, -rl * rh);
+  let s = rh + fma(rl, c, rh * (t * ps));
+  let q = i32(k) & 3;
+  if (q == 0) { return vec2f(s, c); }
+  if (q == 1) { return vec2f(c, -s); }
+  if (q == 2) { return vec2f(-s, -c); }
+  return vec2f(-c, s);
+}
+
 // C 标准库的 copysignf（Cycles 在 CPU 上直接用它）：WGSL 没有，按位取 b 的符号位，±0 与 NaN 的符号也照搬
 fn copysignf(a: f32, b: f32) -> f32 {
   return bitcast<f32>((bitcast<u32>(a) & 0x7fffffffu) | (bitcast<u32>(b) & 0x80000000u));
