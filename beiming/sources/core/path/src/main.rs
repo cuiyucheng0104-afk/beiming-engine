@@ -449,9 +449,7 @@ fn write_passes(dir: &Path, frame: &gpu::Frame, params: &gpu::Params) -> Result<
     let aux = frame.aux.as_ref().ok_or_else(|| anyhow!("要出层，渲染却没有带辅助层"))?;
     std::fs::create_dir_all(dir)?;
     let (h, w) = (frame.height as usize, frame.width as usize);
-    let v3 = |v: [f32; 4]| Vec3::new(v[0], v[1], v[2]);
-    let (right, up, fwd) = (v3(params.cam_right), v3(params.cam_up), v3(params.cam_fwd));
-    let denoise_normal: Vec<f32> = frame.normal.iter().flat_map(|n| { let n = Vec3::from(*n); [n.dot(right), n.dot(up), n.dot(fwd)] }).collect();
+    let denoise_normal: Vec<f32> = camera_normals(frame, params).iter().flat_map(|n| [n.x, n.y, n.z]).collect();
     let color: Vec<f32> = frame.color.iter().zip(&frame.alpha).flat_map(|(c, a)| [c[0], c[1], c[2], *a]).collect();
     let flat = |v: &[[f32; 3]]| v.iter().flatten().copied().collect::<Vec<f32>>();
     let f32s: [(&str, &str, &[&str], Vec<f32>); 6] = [
@@ -489,6 +487,13 @@ fn write_passes(dir: &Path, frame: &gpu::Frame, params: &gpu::Params) -> Result<
     });
     std::fs::write(dir.join("passes.json"), serde_json::to_vec_pretty(&table)?)?;
     Ok(serde_json::json!({ "dir": dir, "table": "passes.json", "layers": layers }))
+}
+
+/// 北冥：降噪特征的法线换到 Cycles 降噪特征的相机空间（看 +Z、Y 向上），出层的 denoiseNormal 与 OIDN 的引导用同一份。
+fn camera_normals(frame: &gpu::Frame, params: &gpu::Params) -> Vec<Vec3> {
+    let v3 = |v: [f32; 4]| Vec3::new(v[0], v[1], v[2]);
+    let (right, up, fwd) = (v3(params.cam_right), v3(params.cam_up), v3(params.cam_fwd));
+    frame.normal.iter().map(|n| { let n = Vec3::from(*n); Vec3::new(n.dot(right), n.dot(up), n.dot(fwd)) }).collect()
 }
 
 /// PREFIX-diffuse.raw, -specular.raw, -emission.raw (RGB f32 each).
@@ -570,13 +575,14 @@ fn finish(g: &gpu::Gpu, mut sc: scene::Scene, job: &Job, init_ms: f64, mut timin
     let (w, h) = (frame.width as usize, frame.height as usize);
     let color: Vec<Vec3> = frame.color.iter().map(|c| Vec3::from(*c)).collect();
     let denoise = job.denoise.unwrap_or(preset.native.denoise);
-    // Exposure is needed up front so OIDN knows the display scale of the HDR input.
     let (exposure, ev100) = post::exposure_scale(&post::Image { w, h, px: color.clone() }, &sc.camera.exposure, &preset.post);
     let mut denoiser = "none";
     let color = if denoise {
         let albedo: Vec<Vec3> = frame.albedo.iter().map(|c| Vec3::from(*c)).collect();
         let normal: Vec<Vec3> = frame.normal.iter().map(|c| Vec3::from(*c).normalize_or_zero()).collect();
-        match denoise::oidn(w, h, &color, &albedo, &normal, exposure) {
+        // 北冥：OIDN 的法线是相机空间的均值（照 Cycles），只在编进了 OIDN 时算；小波降噪照旧用世界空间、逐像素归一的
+        let oidn = if cfg!(feature = "oidn") { denoise::oidn(w, h, &color, &albedo, &camera_normals(&frame, &params)) } else { None };
+        match oidn {
             Some(c) => {
                 denoiser = "oidn";
                 c

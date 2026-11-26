@@ -79,8 +79,12 @@ fn luminance(c: Vec3) -> f32 {
 }
 
 /// Intel Open Image Denoise (RT filter, albedo + normal guided). `None` if unavailable at runtime.
+/// 北冥：参数照 Cycles 最终渲染降噪的口径（对照表见 ../README.md「降噪的口径」）：颜色是场景线性的样本均值，不乘曝光、
+/// 不设 hdr_scale（库自己从图上估）；hdr 开、srgb 关；引导是反照率加法线，法线取降噪特征的相机空间（看 +Z、Y 向上），与出层的
+/// denoiseNormal 是同一份均值，不归一；质量 High。辅助层不预过滤、clean_aux 取库的默认（关），即 Cycles 的 FAST 预过滤；
+/// Cycles 默认的 ACCURATE 先单独降噪辅助层再 clean_aux，这里还没做。设备取库的默认。
 #[cfg(feature = "oidn")]
-pub fn oidn(w: usize, h: usize, color: &[Vec3], albedo: &[Vec3], normal: &[Vec3], exposure: f32) -> Option<Vec<Vec3>> {
+pub fn oidn(w: usize, h: usize, color: &[Vec3], albedo: &[Vec3], normal: &[Vec3]) -> Option<Vec<Vec3>> {
     thread_local! {
         static DEVICE: Option<oidn::Device> = oidn::Device::new().ok();
     }
@@ -90,7 +94,7 @@ pub fn oidn(w: usize, h: usize, color: &[Vec3], albedo: &[Vec3], normal: &[Vec3]
         let (c, a, n) = (flat(color), flat(albedo), flat(normal));
         let mut out = vec![0f32; c.len()];
         let mut f = oidn::RayTracing::new(dev);
-        f.srgb(false).hdr(true).hdr_scale(exposure).image_dimensions(w, h).albedo_normal(&a, &n).filter_quality(oidn::Quality::High);
+        f.srgb(false).hdr(true).image_dimensions(w, h).albedo_normal(&a, &n).filter_quality(oidn::Quality::High);
         if let Err(e) = f.filter(&c, &mut out) {
             eprintln!("oidn failed: {e:?}");
             return None;
@@ -104,6 +108,6 @@ pub fn oidn(w: usize, h: usize, color: &[Vec3], albedo: &[Vec3], normal: &[Vec3]
 }
 
 #[cfg(not(feature = "oidn"))]
-pub fn oidn(_w: usize, _h: usize, _c: &[Vec3], _a: &[Vec3], _n: &[Vec3], _e: f32) -> Option<Vec<Vec3>> {
+pub fn oidn(_w: usize, _h: usize, _c: &[Vec3], _a: &[Vec3], _n: &[Vec3]) -> Option<Vec<Vec3>> {
     None
 }

@@ -98,6 +98,28 @@ core-render render-pack <包目录> -o out.png [--frame k] [--spp N] [--width W 
 - 测试在 `../chassis/scenepack.test.mjs`（写出器是同目录的 `scenepack.mjs`，自己拼 GLB）：`BEIMING_CHASSIS_E2E=1` 时现编渲染程序。从 Blender 导出的场景包不进仓库，用环境变量 `BEIMING_CORE_TEST_PACKS` 列出它们的目录（按系统的路径分隔符隔开，每个目录旁边放「目录名.blender-stats.json」），不设就跳过。出层的测试在 `../chassis/passes.test.mjs`：两块前后错开的板（`scenepack.mjs` 的 `platesPack`），测试照内核的取数在 JS 里重算每个颜色样本落在像素里的哪一点、照场景规格自己求交，逐像素对编号、深度、法线与覆盖率，写通道核对记录交给 `passes/check.mjs` 判，并以「辅助层换成颜色样本的平均」做负对照；同一个文件还查透明度、加辅助层不改颜色、两份从 Blender 导出的包每个通道的文件。
 - 出层转多层 EXR：`node beiming/sources/core/chassis/passes-exr.mjs <出层目录> --width W --height H [-o frame.exr] [--zip]`。读 `passes.json` 与逐通道文件（层文件没有文件头，尺寸照出层时给），每个分量一个 32 位通道，通道名是「通道名.分量名」（`color.R`、`depth.Z`、`objectId.id`、`objectId.coverage`、`normal.X`、`denoiseAlbedo.R`、`denoiseNormal.Z`…，照输出通道契约 3.1 的登记表；`objectId.id` 是 u32，其余 f32），用 `beiming/verify/exr/exr.mjs` 的 `writeExr` 写单部件扫描线 EXR（默认不压缩，`--zip` 按扫描线 ZIPS），再用 `readExr` 读回逐通道逐字节比，通道名逐个过 `isPassChannel`。往返不逐位相同或名字不在登记表里退出 4。出层目录里有几个通道就转几个，现在是六个固定通道的十六个分量（不出 motion 与分灯组，见上）。
 
+## 降噪的口径
+
+`render-pack` 与 `render` 的 `--hdr`、PNG 是降噪之后的（`--no-denoise` 或预设里 `native.denoise` 为假时不降噪；`--passes` 的 `color` 永远不降噪）。编进了 OIDN（cargo 特性 `oidn`）时先试 `src/denoise.rs` 的 `oidn()`，拿不到设备或出错就退回自带的小波降噪，stats 的 `denoise` 记 `oidn` 或 `atrous`。仓库里现成的构建都没开这个特性（`../chassis/build.mjs` 不加 `--features`），所以到现在出的帧都是小波降噪。
+
+`oidn()` 的参数对着 Cycles（Blender 5.2.3）最终渲染的降噪接法。能读到的 Cycles 源码只有内核里写降噪特征的 `kernel/film/denoising_passes.h` 与界面属性 `blender/addon/properties.py`；宿主一侧的 `integrator/denoiser_oidn.cpp`、`integrator/denoiser_oidn_gpu.cpp`、`device/` 下的 OIDN 设备接法、`scene/` 里 film 与 pass 的设置都没读到，那几行标「未读到」，写的是 OIDN 接口的默认值与对 Cycles 的记忆，要拿到源码核。
+
+| 参数 | Cycles | 改之前（上游原样） | 现在 |
+|---|---|---|---|
+| 过滤器 | `RT`（未读到） | `RT` | `RT` |
+| 输入的层 | 颜色、反照率、法线：界面属性 `denoising_input_passes` 默认 `RGB_ALBEDO_NORMAL` | 同 | 同 |
+| 法线 | 相机空间（`denoising_passes.h` 用 `worldtocamera` 变过去），样本累积的均值，乘不透明度与特征权重，不归一 | 世界空间，逐像素归一 | 相机空间的均值，不归一：与出层的 `denoiseNormal` 是同一份 |
+| 反照率 | 首次命中处漫反射类闭包的反照率（`denoising_passes.h`） | 内核的反照率均值 | 不变（就是出层的 `denoiseAlbedo`） |
+| `hdr` | 开（未读到） | 开 | 开 |
+| `hdrScale`（2.x 叫 `inputScale`） | 不设，库从图上估（未读到） | 设成曝光系数 | 不设 |
+| `srgb` | 关（未读到） | 关 | 关 |
+| 输入乘不乘曝光 | 场景线性的样本均值，曝光在显示变换里（未读到） | 颜色不乘，但曝光经 `hdrScale` 进了降噪 | 不乘，也不进降噪 |
+| 预过滤、`cleanAux` | 界面属性 `denoising_prefilter` 默认 `ACCURATE`：先单独降噪反照率与法线，再按干净的辅助层降噪颜色；`FAST` 是颜色与辅助层一起降噪；`NONE` 当辅助层没有噪声。各档在 OIDN 上怎么设（`ACCURATE` 另开两个过滤器预过滤、`cleanAux` 开；`FAST` 关）未读到 | 不预过滤，`cleanAux` 取默认（关） | 不变：相当于 `FAST`。`ACCURATE` 还没做：要单独降噪辅助层的接口，没见到 crate 的源码，不敢写 |
+| 质量 | 界面属性 `denoising_quality` 默认 `HIGH`（视口是 `BALANCED`） | `High` | `High` |
+| 设备 | 界面属性 `denoising_use_gpu` 默认关：最终渲染在 CPU 上降噪，勾上才用渲染所在的显卡 | 库的默认设备（OIDN 挑最快的一个） | 不变 |
+
+所以要和 Blender 对拍降噪，Blender 那边要设 `denoising_prefilter = 'FAST'`、`denoising_quality = 'HIGH'`，两边的设备要一样（Blender 勾「在 GPU 上降噪」对这里的显卡设备，或这里改用 CPU 设备）。还没实测的：上面标「未读到」的每一行、`oidn()` 能不能编过（本机与工作站的 cargo 缓存里都没有 `oidn` 这个 crate）、编进去之后两边喂同一份带噪输入差多少。没编进 OIDN 的构建不受这次改动影响：小波降噪的输入与代码都没动，相机空间的法线只在编进了 OIDN 时才算。
+
 ## 改之前
 
 - 每个文件第一行的来源注释保留。

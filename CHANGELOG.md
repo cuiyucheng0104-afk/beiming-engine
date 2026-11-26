@@ -202,6 +202,7 @@
 - O3 新增 `still.match`，调用方可按灰度误差定位最佳与分离次优帧，并可核验有充分重叠的整像素平移。 (#259)
 
 ### Changed
+- 核心渲染程序编进 OIDN 时（cargo 特性 `oidn`，现成的构建都没开）降噪参数改照 Cycles：法线用降噪特征的相机空间均值，不再把曝光设成 `hdrScale`；口径对照表写在 `beiming/sources/core/path/README.md`「降噪的口径」。没编进 OIDN 的构建出帧不变。
 - 核心内核的来源说明（`beiming/sources/core/path/PROVENANCE.md`）补上选底盘时的探针读数（RTX 5090 上软硬求交计时与两遍逐位结果）与钉点对账：实测、分叉、基线都钉在上游 `c946cc96`。
 - 北冥一级组件的入口说明由 CI 检查，每份预算为 1500 token。
 - 旧链共用作品描述读取和命令行解析。三个原生例片与模版已迁至 film.json v2，旧文件可以显式执行 `film.js upgrade`。
