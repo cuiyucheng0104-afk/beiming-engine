@@ -141,7 +141,7 @@ function gates(w, h, cores, seeds, ref, refFloor) {
   const wg = welchGate(cores.map((c) => frame(w, h, c)), seeds.map((c) => frame(w, h, c)));
   return {
     floor: { status: f.status, value, threshold: f.threshold ?? null, floor: fl, floorSource: computed ? '现算：参考包 seed00 对 seed01' : '参考包清单 floor.seedVsSeedFlipMean' },
-    welch: { pass: wg.pass, significantRatio: wg.significantRatio, alpha: wg.alpha, flat: wg.pHistogram.flat, testedUnits: wg.testedUnits },
+    welch: { pass: wg.pass, significantRatio: wg.significantRatio, alpha: wg.alpha, flat: wg.pHistogram.flat, testedUnits: wg.testedUnits, equivalentUnits: wg.equivalentUnits },
     ok: f.status === 'pass' && wg.pass,
   };
 }

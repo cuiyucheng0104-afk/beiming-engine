@@ -116,7 +116,7 @@ export function judgePack(root, bin, g, { override } = {}) {
   return {
     pack: g.pack, ref: g.ref, adapter, spp: ref.samples, size: g.size,
     floor: { status: floor.status, value: floorValue(floor, flipValue), threshold: floor.threshold ?? null, floor: floor.floor ?? null },
-    welch: { pass: welch.pass, significantRatio: welch.significantRatio, alpha: welch.alpha, flat: welch.pHistogram.flat, testedUnits: welch.testedUnits },
+    welch: { pass: welch.pass, significantRatio: welch.significantRatio, alpha: welch.alpha, flat: welch.pHistogram.flat, testedUnits: welch.testedUnits, equivalentUnits: welch.equivalentUnits },
     ok: floor.status === 'pass' && welch.pass,
     balls: ballReadings(names, g.balls, cycles, cores),
   };
