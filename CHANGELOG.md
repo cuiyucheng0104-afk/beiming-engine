@@ -20,6 +20,7 @@
 - 出片链接上核心帧源：场景包镜头（`source: core`）经 `beiming/api/pipeline.mjs` 的帧源池出草稿档的帧，只用编好的渲染程序 `core-render`，没有就报 `env.missing-tool`；终渲档仍在打开会话时以 `contract.unsupported-mode` 拒绝。
 - `beiming/sources/core/chassis/rerender.mjs` 做场景包同帧同种子两遍的逐位检查（两种求交各两遍，比每个通道、线性颜色与 PNG 的 sha256，并做 EXR 往返），按机器存进 `chassis/rerender/`，苹果 M5 Pro 一份已入库。
 - `beiming/sources/core/path/README.md` 写下核心渲染程序链接 Blender 自带 OIDN 动态库的构建档设计（两台机器的库与 sha256、`oidn` crate 要什么、要先取到本机的 crate 清单），还没落地。
+- 许可登记：核心帧源 OIDN 档在运行时动态链接本机 Blender 自带的 Intel Open Image Denoise 2.5.0（Apache-2.0）与它装载的 oneTBB（Apache-2.0），编进 `oidn` crate 2.5.1（MIT），登记进 `docs/rights/register.json` 的 R17 与 `THIRD-PARTY.md` 第 14 节：库不入仓、不分发，对外分发时要附两份 Apache-2.0 许可与 NOTICE；`beiming/sources/core/path/README.md` 写明接进出片链时起程序前先核库的 sha256。
 - 核心渲染程序加 `core-render as-size --blas N,N,… [--instances K]`：问驱动这些三角形数的 BLAS 与 K 个实例的 TLAS 各占多少字节（只要预建尺寸，不建、不要几何），苹果显卡（Metal）与 Vulkan 可用，给大场景估显存。
 - `beiming/sources/core/chassis/advance.test.mjs`：核心渲染程序对 10 帧的场景包连续推进（再打乱次序一遍），每帧的时间键 `{ frame, sub }` 由测试从编号层与覆盖率量出（`sub` 恒 0，依据场景包契约第 6 节），恰好对上状态表第 k 行，写成时间核对记录过时间键契约的 T1、T4、T5、T8、T9，负对照不过；`chassis/moving.mjs` 放三份核心测试共用的双精度几何。
 - 核心渲染程序加调试开关 `BEIMING_CORE_FILM_DUMP`（把读回的输出缓冲与全局参数原样落盘）；`beiming/sources/core/chassis/readback.test.mjs` 拿它做读回一致性：同一帧着色器写进缓冲的原值照读回的写法重算，和 `--passes` 落盘的通道文件逐位相同，motion 和缓冲里的命中点重算的差不超过 1e-6 像素；改一位、换一份缓冲的负对照都查得出。

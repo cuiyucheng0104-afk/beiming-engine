@@ -175,7 +175,9 @@ node -e "import('./beiming/sources/core/chassis/build.mjs').then(m => console.lo
 
 各文件的 sha256 只写在锁文件里。三处 Blender 都只有动态库：没有头文件、没有 pkg-config 的 `.pc`、没有 CMake 的配置文件（用不着）。5090 上另有 Blender 4.5.16 自带的 OIDN 2.3.3（`libOpenImageDenoise.so.2.3.3` `9a220453d6a7ea32a036559e6579768a312653c9da12b819282f91bf8b2acc11`），对它另编一份要把 `Cargo.lock` 里的 `oidn` 降到 2.3.3（缓存里没有，要取），还没做。
 
-许可：只从本机已装的 Blender 动态链接，库不进仓库、不随仓库分发。OIDN（Apache-2.0）的动态链接在 `docs/rights/register.md` 的 R15 已登记；它依赖的 TBB（Apache-2.0）还没登记（登记表不在本目录）。
+许可：只从本机已装的 Blender 动态链接，库不进仓库、不随仓库分发。OIDN 2.5.0（Apache-2.0）、它装载的 oneTBB（Apache-2.0）与 `oidn` crate（MIT）登记在 `docs/rights/register.md` 的 R17 与 [THIRD-PARTY.md](../../../../THIRD-PARTY.md) 第 14 节；以后要对外分发带 OIDN 的程序，随附两份 Apache-2.0 许可（OIDN、oneTBB 各一份）与各自的 NOTICE，并保留 `oidn` crate 的 MIT 声明。
+
+把 OIDN 档接进出片链时（宿主或作业起带 OIDN 的 `core-render` 之前），先照 `oidn-lock.json` 核一遍库的 sha256（`verifyOidnLibs`），对不上就不起程序：编好之后库目录里的文件被换掉、程序照样装得上，运行时自己不核。
 
 `oidn` 2.5.1 与它的依赖（`num_enum`、`num_enum_derive` 0.7.6，`proc-macro-crate` 3.5.0，`toml_edit` 0.25.17+spec-1.1.0）已按 `Cargo.lock` 的校验和取进两台机器的 cargo 缓存，之后的构建一律不联网。
 
