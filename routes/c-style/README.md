@@ -15,7 +15,7 @@
   2. **取方法**：在 STYLES.md 里找到一式，读它的 STYLE.md 和示例，然后在 C 模版里重写，或者落到 A、B 路线。
   3. **历史复刻**：把我们做过的一部原样重渲，见 [REPLICATE.md](REPLICATE.md)。
 
-新片和既有片做连续运镜、跨段衔接或平面图进三维时，按[长镜头与媒介交接](../directing/craft/continuous-take.md)排节拍。可从原创案例《校准环》重渲匹配版与错位对照。
+新片和既有片做连续运镜、跨段衔接或平面图进三维时，按[长镜头与媒介交接](../directing/craft/continuous-take.md)排节拍。原创《校准环》可重渲匹配版与错位版。[OneTake 技术考察](../directing/craft/onetake-study.md)和[独立对照实验](../../films/calibration-ring/ONETAKE-LAB.md)说明如何复核承接、快门和声画时点。
 
 ## 最快上手
 
