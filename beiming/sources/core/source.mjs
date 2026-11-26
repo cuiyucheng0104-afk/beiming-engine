@@ -197,13 +197,16 @@ export const SPP_MAX = { draft: caps('').final.samples };
 /** 每档墙钟预算 maxWallMs 的上限。核心作业不被终渲抢占（jobs/DETAILS「调度器的道」），这个数就是同一块卡上的终渲最多被一个核心作业
  *  挡住多久：草稿档 10 分钟。看板一次只出少量帧，一个作业渲不完就拆成几个，在 core 道里排队，终渲在两个作业之间插得进去 */
 export const WALL_MAX = { draft: 10 * 60 * 1000 };
+/** 一次准入里全部 pack-info 加起来的时限。准入在 HTTP 处理里同步跑（submit 是同步的），这个数就是一次提交最多把服务端挡住多久；
+ *  pack-info 只读场景包的清单与网格计数、不碰显卡，两块板的小包几毫秒，留足大包的余量又不让挂住的程序拖住服务端：5 秒 */
+export const ADMIT_MS = 5000;
 const BUDGET_KEYS = { maxTriangles: Number.MAX_SAFE_INTEGER, spp: 2 ** 32 - 1, maxWallMs: 2 ** 31 - 1 };
 
 /**
  * 核心作业的准入，入队之前判。budget 是作业声明的 { maxTriangles, spp, maxWallMs }，三项都是正整数（maxWallMs 不超过 2³¹−1）：
  * 缺一项、多一项或值不对报 usage.budget-required。之后报 contract.over-budget 的四种：声明的 spp、maxWallMs 超过这一档的上限（SPP_MAX、WALL_MAX）；
  * 镜头生效的采样数（planRender 的取值次序，这次调用不给 opts）超过声明的 spp；场景包在要渲的帧上画出来的三角形数
- * （core-render pack-info 一行统计里的 triangles，每帧一次）超过 maxTriangles。
+ * （core-render pack-info 一行统计里的 triangles，每帧一次）超过 maxTriangles；全部 pack-info 加起来超过 ADMIT_MS 也报这个码。
  * shots 是 [{ shot: 镜头条目, frames: [镜头局部帧号] }]，场景包相对 filmDir；bin 不给时用 findRenderer()（没有报 env.missing-tool）。
  * 交回 { triangles: 各帧里最多的那一帧的三角形数, samples: 生效采样数里最大的 }。
  */
@@ -219,6 +222,7 @@ export function admitBudget({ budget, tier, filmDir, shots, bin }) {
   if (budget.maxWallMs > WALL_MAX[tier]) throw over(`声明的墙钟预算 ${budget.maxWallMs} ms 超过 ${tier} 档的上限 ${WALL_MAX[tier]} ms`);
   const c = caps('');
   let triangles = 0, samples = 0;
+  const until = performance.now() + ADMIT_MS;
   for (const { shot, frames } of shots) {
     const { samples: n } = planRender(c, shot, [1, 1], tier, {}, ['color'], {});
     if (n > budget.spp) throw over(`镜头 ${shot.id} 的每像素采样数是 ${n}，超过声明的 ${budget.spp}`);
@@ -226,7 +230,9 @@ export function admitBudget({ budget, tier, filmDir, shots, bin }) {
     const dir = packDir(filmDir, renderingOf(shot).entry);
     for (const f of new Set(frames)) {
       bin ??= findRenderer();
-      const r = spawnSync(bin, ['pack-info', dir, '--frame', String(f), '--presets', PRESETS], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', timeout: budget.maxWallMs, killSignal: 'SIGKILL' });
+      const left = Math.ceil(until - performance.now());
+      const r = left > 0 ? spawnSync(bin, ['pack-info', dir, '--frame', String(f), '--presets', PRESETS], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', timeout: left, killSignal: 'SIGKILL' }) : null;
+      if (!r || r.error?.code === 'ETIMEDOUT') throw over(`准入的 ${ADMIT_MS} ms 里数不完要渲的帧的三角形（停在镜头 ${shot.id} 第 ${f} 帧）：少渲几帧，或把场景包拆小`);
       if (r.error) throw r.error.code === 'ENOENT' ? new SourceError('env.missing-tool', `起不了渲染程序 ${basename(bin)}`) : r.error;
       if (r.status !== 0) throw failure(r.stderr, 'pack-info', r.status ?? r.signal);
       const info = lastJson(r.stdout);

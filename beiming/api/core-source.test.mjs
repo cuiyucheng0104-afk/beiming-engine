@@ -15,7 +15,7 @@ import { test } from 'node:test';
 import { loadQueue, openWorkspace, processIsAlive, Scheduler } from '../jobs/index.mjs';
 import { PRESETS } from '../sources/core/chassis/build.mjs';
 import { platesPack, writePack } from '../sources/core/chassis/scenepack.mjs';
-import { WALL_MAX, findRenderer, startSource } from '../sources/core/source.mjs';
+import { ADMIT_MS, WALL_MAX, findRenderer, startSource } from '../sources/core/source.mjs';
 import { renderPlan, sourcePool } from './pipeline.mjs';
 import { isRegistered } from './envelope.mjs';
 import { createStore } from './store.mjs';
@@ -26,7 +26,7 @@ const SIZE = [64, 36], SPP = 8, SEED = 7;
 const LAYERS = ['color.f32', 'objectId.u32'];
 
 /**
- * 假的 core-render，行为照场景包目录里的 fake.json：pack-info 答一行统计（triangles 没写就 4）；
+ * 假的 core-render，行为照场景包目录里的 fake.json：pack-info 答一行统计（triangles 没写就 4；写了 infoHang 时一直挂着不答）；
  * render-pack 在 --passes 目录写全 0 的颜色层、答一行统计；fake.json 写了 hang（一个目录）时不出帧：把自己和它起的孙进程的
  * 进程号写进 hang/pids.json，收到 SIGTERM 只在 hang/ 下记一笔 term、不退出，一直挂着等 SIGKILL。别的子命令退出 9
  */
@@ -38,6 +38,7 @@ function fakeRenderer(t) {
 const fs = require('node:fs'), path = require('node:path');
 const [cmd, dir] = process.argv.slice(2);
 const cfg = fs.existsSync(path.join(dir, 'fake.json')) ? JSON.parse(fs.readFileSync(path.join(dir, 'fake.json'), 'utf8')) : {};
+if (cmd === 'pack-info' && cfg.infoHang) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0);
 if (cmd === 'pack-info') { console.log(JSON.stringify({ format: 'core-pack-info/0.1', id: 'pack:fake@1', frames: 1, triangles: cfg.triangles ?? 4 })); process.exit(0); }
 if (cmd !== 'render-pack') process.exit(9);
 const flag = (name) => process.argv[process.argv.indexOf(name) + 1];
@@ -225,6 +226,19 @@ test('核心作业的准入：预算缺了、采样超档位上限或超声明�
   const job = work.submit(id, 'render', { tier: 'draft', rev: 0, plan, budget: { ...BUDGET, spp: 64, maxWallMs: WALL_MAX.draft } });
   await work.wait(id, job, 10);
   assert.equal(loadQueue(store.filmDir(id)).getJob(job).request.kind, 'core');
+});
+
+test('准入的 pack-info 挂住时，一次提交最多把服务端挡住 ADMIT_MS：到点拒、不进队列', { timeout: 30_000 }, async (t) => {
+  useRenderer(t, fakeRenderer(t));
+  const { store, id, work } = served(t, { fake: { infoHang: true } });
+  const t0 = performance.now();
+  const e = (() => { try { work.submit(id, 'render', { tier: 'draft', rev: 0, plan: [{ shot: 's01', frames: [0] }], budget: BUDGET }); } catch (x) { return x; } return null; })();
+  const took = performance.now() - t0;
+  t.diagnostic(`pack-info 挂住：提交 ${Math.round(took)} ms 后被拒，${e?.diagnostics?.[0]?.evidence}`);
+  assert.equal(e?.diagnostics?.[0]?.evidence, '原码 contract.over-budget', e?.message);
+  assert.match(e.message, new RegExp(`准入的 ${ADMIT_MS} ms 里数不完`));
+  assert.ok(took >= ADMIT_MS && took < ADMIT_MS + 2000, `到时限才拒：${Math.round(took)} ms`);
+  assert.deepEqual(loadQueue(store.filmDir(id)).listJobs(), []);
 });
 
 test('准入拿真渲染程序的 pack-info 数三角形：两块板各两个三角形，声明 3 个被拒、4 个照收', { timeout: 30_000 }, async (t) => {
