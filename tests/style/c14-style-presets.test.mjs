@@ -1,15 +1,23 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { loadCardLibrary } from '../../beiming/api/runtime.mjs';
-import { listLookPresets, loadRegistrySync, loadStyleSync, resolveLook } from '../../engine/style/index.js';
+import { listLookPresets, resolveLook, validateStyleLock } from '../../engine/style/index.js';
 
 const names = ['wide', 'actor', 'hero', 'hero-sunrise'];
 const styleRef = 'beiming-original@v1';
-const style = loadStyleSync(styleRef);
+const styleRoot = new URL('../../engine/style/', import.meta.url);
+const readStyleJson = name => JSON.parse(readFileSync(new URL(name, styleRoot), 'utf8'));
+const styleRegistry = readStyleJson('registry.json');
+const source = styleRegistry.styles.find(({ id, version }) => `${id}@v${version}` === styleRef);
+assert.ok(source, '原注册表缺少 ' + styleRef);
+const style = readStyleJson(source.file);
 const library = loadCardLibrary();
 
 test('原画风登记表的镜头预设与迁移清单一致', () => {
-  assert.deepEqual(listLookPresets(loadRegistrySync()).filter(ref => ref.startsWith(styleRef + '/')).sort(),
+  assert.equal(`${style.styleId}@${style.version}`, styleRef);
+  assert.deepEqual(validateStyleLock(style), []);
+  assert.deepEqual(listLookPresets(styleRegistry).filter(ref => ref.startsWith(styleRef + '/')).sort(),
     names.map(name => styleRef + '/' + name).sort());
 });
 

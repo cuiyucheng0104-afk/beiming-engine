@@ -43,7 +43,7 @@
   },
   "calibration": "probe-gray-chart",
   "verify": {
-    "selftest": "与已登记镜头预设及覆盖路径逐字段比较，修改一次回读后再次取值",
+    "selftest": "验证卡文件、注册表与数据入口；修改一次回读后再次取值",
     "predicates": []
   },
   "provenance": {
