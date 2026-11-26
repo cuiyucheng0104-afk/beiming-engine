@@ -23,6 +23,7 @@
 //!   core-render serve [--presets DIR]      # JSON-lines jobs on stdin, keeps the GPU device and game runtimes warm
 //!   core-render setup <bundle.js>          # setup cost in the embedded runtime
 //!   core-render info [--limits]            # print adapter info (北冥：--limits 打适配器与设备的上限、特性全文的 JSON)
+//!   core-render as-size --blas N,N,… [--instances K]   # 北冥：问驱动这些三角形数的 BLAS 与 K 个实例的 TLAS 各占多少字节（不建）
 
 use beiming_core_path::script::ScriptHost;
 use beiming_core_path::{default_presets_dir, denoise, gpu, pack, post, prepare, scene};
@@ -323,6 +324,18 @@ fn main() -> Result<()> {
                     }
                 }
             }
+        }
+        // 北冥：`as-size --blas N,N,… [--instances K]`：每个数是一个 BLAS 的三角形数，问驱动这些 BLAS 与 K 个实例的 TLAS 占多少
+        // 字节（`Gpu::as_sizes`，不建、不要几何），给大场景估显存。这块显卡没有硬件求交或后端不认时报错
+        "as-size" => {
+            let g = gpu::Gpu::new()?;
+            if !g.hwrt {
+                return Err(anyhow!("as-size：这块显卡没开硬件求交，没有加速结构可问"));
+            }
+            let blases: Vec<Vec<u32>> = flag("--blas").ok_or_else(|| anyhow!("as-size 要 --blas N,N,…"))?.split(',').map(|n| n.trim().parse::<u32>().map(|n| vec![n])).collect::<Result<_, _>>()?;
+            let instances: u32 = flag("--instances").map(|s| s.parse()).transpose()?.unwrap_or(0);
+            let (blas, tlas, scratch) = g.as_sizes(&blases, instances).ok_or_else(|| anyhow!("as-size：{:?} 后端问不到加速结构的尺寸", g.adapter_info.backend))?;
+            println!("{}", serde_json::json!({ "adapter": g.adapter_info.name, "backend": format!("{:?}", g.adapter_info.backend), "blasTriangles": blases.iter().map(|b| b[0]).collect::<Vec<_>>(), "blasBytes": blas, "instances": instances, "tlasBytes": tlas, "maxScratchBytes": scratch }));
         }
         "fncheck-host" => fncheck_host(args.get(2).map(String::as_str).unwrap_or(""))?,
         "denoise" => denoise_files(&flag)?,

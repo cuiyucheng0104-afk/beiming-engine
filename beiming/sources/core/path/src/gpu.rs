@@ -2078,6 +2078,27 @@ impl Gpu {
 
     /// Bytes Metal allocates for a triangle BLAS over the (first vertex, vertex count, opaque) geometries of `verts`
     /// (non-indexed Float32x3, as every triangle BLAS here; None on other backends).
+    /// 北冥：加速结构占的字节数，取驱动给的预建尺寸（`get_acceleration_structure_build_sizes`，只问尺寸、不建）：`blases` 每项是
+    /// 一个 BLAS，列它各段（不透明、不带下标、32 位浮点三分量顶点）的三角形数；`instances` 是 TLAS 的实例数。返回
+    /// (每个 BLAS 的字节数, TLAS 的字节数, 建这些要的最大临时缓冲)。苹果显卡（Metal）与 Vulkan 有，别的后端 None。
+    /// 驱动的尺寸只看个数与标志，不看顶点，所以拿一块小缓冲顶着就行（Vulkan 根本不读它）。
+    pub fn as_sizes(&self, blases: &[Vec<u32>], instances: u32) -> Option<(Vec<u64>, u64, u64)> {
+        let dummy = self.device.create_buffer(&wgpu::BufferDescriptor { label: Some("as-size"), size: 256, usage: wgpu::BufferUsages::BLAS_INPUT | wgpu::BufferUsages::TLAS_INPUT, mapped_at_creation: false });
+        #[cfg(target_vendor = "apple")]
+        {
+            return as_sizes_on::<wgpu::hal::api::Metal>(&self.device, &dummy, blases, instances);
+        }
+        #[cfg(all(not(target_vendor = "apple"), not(target_arch = "wasm32")))]
+        {
+            return as_sizes_on::<wgpu::hal::api::Vulkan>(&self.device, &dummy, blases, instances);
+        }
+        #[allow(unreachable_code)]
+        {
+            let _ = (dummy, blases, instances);
+            None
+        }
+    }
+
     fn tri_blas_bytes(&self, verts: &wgpu::Buffer, parts: &[(u32, u32, bool)]) -> Option<u64> {
         #[cfg(target_vendor = "apple")]
         {
@@ -2412,6 +2433,25 @@ impl Gpu {
         timings.push(("readback_ms".into(), t2.elapsed().as_secs_f64() * 1000.0));
         Ok(frame)
     }
+}
+
+/// `Gpu::as_sizes` 在一种后端上：设备与缓冲不是这种后端的（`as_hal` 拿不到）时 None。
+#[cfg(not(target_arch = "wasm32"))]
+fn as_sizes_on<A: wgpu::hal::Api>(device: &wgpu::Device, buf: &wgpu::Buffer, blases: &[Vec<u32>], instances: u32) -> Option<(Vec<u64>, u64, u64)> {
+    use wgpu::hal::{self, Device as _};
+    let d = unsafe { device.as_hal::<A>() }?;
+    let b = unsafe { buf.as_hal::<A>() }?;
+    let size = |entries: &hal::AccelerationStructureEntries<A::Buffer>| unsafe { d.get_acceleration_structure_build_sizes(&hal::GetAccelerationStructureBuildSizesDescriptor { entries, flags: hal::AccelerationStructureBuildFlags::PREFER_FAST_TRACE }) };
+    let mut scratch = 0;
+    let mut blas = vec![];
+    for parts in blases {
+        let tris = parts.iter().map(|&n| hal::AccelerationStructureTriangles { vertex_buffer: Some(&*b), vertex_format: wgpu::VertexFormat::Float32x3, first_vertex: 0, vertex_count: n * 3, vertex_stride: 12, indices: None, transform: None, flags: hal::AccelerationStructureGeometryFlags::OPAQUE }).collect();
+        let s = size(&hal::AccelerationStructureEntries::Triangles(tris));
+        scratch = scratch.max(s.build_scratch_size);
+        blas.push(s.acceleration_structure_size);
+    }
+    let t = size(&hal::AccelerationStructureEntries::Instances(hal::AccelerationStructureInstances { buffer: Some(&*b), offset: 0, count: instances }));
+    Some((blas, t.acceleration_structure_size, scratch.max(t.build_scratch_size)))
 }
 
 #[cfg(test)]
