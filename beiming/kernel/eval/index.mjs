@@ -4,3 +4,5 @@ export * from './input.mjs';
 export * from './events.mjs';
 export * from './tracks.mjs';
 export * from './interp.mjs';
+export { evalSnapMotion, evalExplode } from './assembly-motion.mjs';
+export { scheduleAssembly } from './assembly-schedule.mjs';
