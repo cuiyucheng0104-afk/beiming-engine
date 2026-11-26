@@ -18,7 +18,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { COMMIT, PRESETS, sourceKey } from './build.mjs';
+import { COMMIT, PRESETS } from './build.mjs';
 import { readLimits, rendererBin } from './limits.mjs';
 import { passesToExr, runMain, usage } from './passes-exr.mjs';
 import { baselineName } from './regress.mjs';
@@ -106,7 +106,7 @@ export function main(argv) {
   const gpu = { adapter: limits.adapter.name, backend: limits.adapter.backend, driver: limits.adapter.driver };
   opts.modes = limits.hwrt ? ['sw', 'hw'] : ['sw'];
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'core-rerender-'));
-  const record = { format: 'core-rerender/0.1', gpu, kernel: built.key ?? sourceKey(), upstreamCommit: COMMIT, packs: [] };
+  const record = { format: 'core-rerender/0.1', gpu, kernel: built.key, binSha256: built.sha256, upstreamCommit: COMMIT, packs: [] };
   try {
     for (const pack of packs) {
       const item = checkPack(built.bin, pack, work, opts);

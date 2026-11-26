@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { OUT, sourceKey } from './build.mjs';
-import { readLimits } from './limits.mjs';
+import { readLimits, rendererBin } from './limits.mjs';
 import { passesToExr, readPasses } from './passes-exr.mjs';
 import { checkPack, packDigest } from './rerender.mjs';
 
@@ -109,6 +109,14 @@ test('场景包的内容摘要：与目录在哪无关，改一个字节就变',
   assert.equal(packDigest(a), packDigest(b));
   fs.writeFileSync(path.join(b, 'frames', 'camera.f32'), Buffer.from([0, 0, 0, 0, 0, 0, 0, 1]));
   assert.notEqual(packDigest(a), packDigest(b));
+});
+
+test('记录里的程序：给了程序时 kernel 取它文件名里的摘要，取不到是 null，sha256 是文件本身的', () => {
+  const named = path.join(TMP, `core-render-0123456789abcdef${EXE}`), other = path.join(TMP, 'my-render');
+  fs.writeFileSync(named, 'a');
+  fs.writeFileSync(other, 'a');
+  assert.deepEqual(rendererBin(named), { bin: named, key: '0123456789abcdef', sha256: 'ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb' });
+  assert.equal(rendererBin(other).key, null);
 });
 
 test('info --limits：适配器与设备的上限同一套键，设备的特性都在适配器的里面', t => {

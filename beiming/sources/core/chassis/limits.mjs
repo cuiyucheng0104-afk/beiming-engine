@@ -5,23 +5,25 @@
 // 程序取值次序：--bin → 环境变量 BEIMING_CORE_RENDER → build.mjs 现编。子进程不带 THREERT_HWRT、THREERT_MERGED
 // （记的是默认的设备）。退出码：0 写好了（--print 只打印不写）；3 缺工具链或拿不到显卡。
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import console from 'node:console';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { COMMIT, buildRenderer, sourceKey } from './build.mjs';
+import { COMMIT, buildRenderer } from './build.mjs';
 import { runMain } from './passes-exr.mjs';
 import { baselineName } from './regress.mjs';
 
 export const LIMITS = path.join(path.dirname(fileURLToPath(import.meta.url)), 'limits');
 
-/** 程序：给了就用，否则环境变量，再否则现编 */
+/** 程序：给了就用，否则环境变量，再否则现编。返回 { bin, key, sha256 }：key 是这个程序自己的源码摘要（现编的照
+ *  build.mjs；给了程序时从文件名 core-render-<摘要> 里取，取不到是 null，不拿当前源码的摘要顶替），sha256 是程序文件本身的 */
 export function rendererBin(bin) {
-  if (bin) return { bin, key: null };
-  if (process.env.BEIMING_CORE_RENDER) return { bin: process.env.BEIMING_CORE_RENDER, key: null };
-  return buildRenderer();
+  const given = bin ?? process.env.BEIMING_CORE_RENDER;
+  const built = given ? { bin: given, key: path.basename(given).match(/^core-render-([0-9a-f]{16})(\.exe)?$/)?.[1] ?? null } : buildRenderer();
+  return { ...built, sha256: createHash('sha256').update(fs.readFileSync(built.bin)).digest('hex') };
 }
 
 /** 跑一次 info --limits，返回它打的对象 */
@@ -44,7 +46,7 @@ export function main(argv) {
     throw Object.assign(e, { exit: e.missing ? 3 : 1 });
   }
   const report = readLimits(built.bin);
-  const record = { ...report, kernel: built.key ?? sourceKey(), upstreamCommit: COMMIT };
+  const record = { ...report, kernel: built.key, binSha256: built.sha256, upstreamCommit: COMMIT };
   const d = report.deviceLimits;
   console.log(`${report.adapter.name}（${report.adapter.backend}）：单个存储缓冲绑定 ${d.max_storage_buffer_binding_size}，单个缓冲 ${d.max_buffer_size}，二维纹理 ${d.max_texture_dimension_2d}，顶层实例 ${d.max_tlas_instance_count}，硬件求交 ${report.hwrt}`);
   if (o.print) {

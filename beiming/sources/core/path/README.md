@@ -63,6 +63,8 @@ node beiming/sources/core/chassis/freeze.mjs --update    # 有意改了之后，
 node beiming/sources/core/chassis/limits.mjs [--bin core-render]   # 写 chassis/limits/<显卡加后端>.json（命名同回归基线）；--print 只打印
 ```
 
+两份记录（上限与下面的两遍）都记 `kernel` 与 `binSha256`：`kernel` 是跑记录的这个程序自己的源码摘要（现编的照 `build.mjs` 的摘要；`--bin` 或环境变量 `BEIMING_CORE_RENDER` 给的程序，从文件名 `core-render-<摘要>` 里取，取不到记 `null`，不拿当前源码的摘要顶替），`binSha256` 是程序文件本身的 sha256。
+
 ### 场景包同帧两遍
 
 ```sh
