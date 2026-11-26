@@ -63,6 +63,14 @@ node beiming/sources/core/chassis/freeze.mjs --update    # 有意改了之后，
 node beiming/sources/core/chassis/limits.mjs [--bin core-render]   # 写 chassis/limits/<显卡加后端>.json（命名同回归基线）；--print 只打印
 ```
 
+### 场景包同帧两遍
+
+```sh
+BEIMING_CORE_TEST_PACKS=<包目录>[:<包目录>…] node beiming/sources/core/chassis/rerender.mjs [--bin core-render] [--frame k] [--spp 256] [--width 1280 --height 720] [--seed 0]
+```
+
+同一个场景包、同一帧、同一个内核种子（`THREERT_SEED`），两个独立的 `render-pack` 进程各渲一遍，比每个产物的 sha256：`--passes` 的每个通道文件（`color.f32` 是未降噪的颜色）、`--hdr` 的线性颜色（降噪之后）、PNG。软件求交（`THREERT_HWRT=0`）与硬件求交（开得起来时）各两遍；第一遍的出层再转一次多层 EXR（`passes-exr.mjs`）读回逐位比。结果写 `chassis/rerender/<显卡加后端>.json`，随提交入库。场景包不进仓库，记录里只有包的 id 与内容摘要（包里全部文件按相对路径排序，路径加内容一起算 sha256），不写目录；`--frame` 不给时取包帧数的一半向下取整。两遍有不同或 EXR 往返不同退出 4（记录照写），没给场景包或拿不到显卡退出 3。
+
 ## 读场景包
 
 内核除了跑场景脚本，还能直接读场景包契约（`beiming/kernel/contracts/scene-pack/`）的包：`src/pack.rs` 读清单、GLB、实例表与每帧状态表，逐字段校验，选一帧建成内核的场景。

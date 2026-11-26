@@ -18,6 +18,7 @@
 - 错误码表登记 `usage.budget-required`、`contract.over-budget`、`timeout.budget`、`env.lib-mismatch` 四个码，由帧源接口契约新加的 5.15 点名（预算准入、墙钟预算用完、本机动态库和钉住的哈希对不上）。照契约写法约定第 6 节，冻结以后这是破坏性修改：错误码表与帧源接口两份契约的版本升到 `0.2.0-draft`，第 7 节写了变更说明与依赖方的迁移办法（对依赖 main 的一方这四个是新码，按码分支的调用方要加上它们，墙钟预算用完的退出码是 124）；结构定义与格式标识不变。
 - 服务端签锁接上核心帧源：带核心镜头的片子经服务端提交时签得出正式锁，锁里 `sources.core` 记内核源码摘要（和元数据里帧源的版本相同）、离屏宿主与每个核心镜头的场景包哈希，作业照这份锁出帧。镜头写了 `renderer` 时取它的场景包；场景包里有符号链接、或场景包目录本身是符号链接时不签（`env.lock-required`），不跟随也不跳过。
 - 出片链接上核心帧源：场景包镜头（`source: core`）经 `beiming/api/pipeline.mjs` 的帧源池出草稿档的帧，只用编好的渲染程序 `core-render`，没有就报 `env.missing-tool`；终渲档仍在打开会话时以 `contract.unsupported-mode` 拒绝。
+- `beiming/sources/core/chassis/rerender.mjs` 做场景包同帧同种子两遍的逐位检查（两种求交各两遍，比每个通道、线性颜色与 PNG 的 sha256，并做 EXR 往返），按机器存进 `chassis/rerender/`，苹果 M5 Pro 一份已入库。
 - `beiming/sources/core/chassis/passes-exr.mjs` 把核心 `render-pack --passes` 的出层目录转成多层 EXR（通道名照输出通道契约，`writeExr` 写、`readExr` 读回逐位比）。
 - 核心渲染程序 `core-render info --limits` 输出适配器与设备的上限、特性全文的 JSON；`beiming/sources/core/chassis/limits.mjs` 把它按机器存进 `chassis/limits/`，苹果 M5 Pro（Metal）一份已入库。
 - 题库新增 M4 B19 第 4 级整镜公开题 `42-1`（峡谷吐息整镜）、离线评分器 `evaluate-b19.mjs`、标准答案工程 `solutions/level-4/42-1/film.json` 与 `run-b19.mjs` 9 项逐卡关闭负对照，接入 `exam.mjs`（19 道公开题核验）与 `suite.mjs full-4`（全卷四精确 28 次计分调度），并完成 FX15 M4 技术卡跨题复用涨分实证。
