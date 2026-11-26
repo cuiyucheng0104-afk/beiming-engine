@@ -1,4 +1,5 @@
 export { layoutEdges, pixelBbox, colorPalette, motionZoomPan, loopClosurePsnr } from './image-layout.mjs';
+export { colorCountEvent, detectColorCountEvents } from './color-count-event.mjs';
 export { deliverSpec, audioLoudness, blackFreezeDup, cutYdif, cutScene } from './video-audio.mjs';
 export { clipHighlightRatio, noiseResidual, aliasEdge, colorPaletteDe00, shapeIou, ENERGY_METRICS, runEnergyMetric } from './energy-rulers.mjs';
 export { videoNoiseResidual, videoAliasEdge } from './video-energy.mjs';
