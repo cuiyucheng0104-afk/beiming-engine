@@ -64,3 +64,19 @@ test('upper median, empty parity groups and interior cuts', { skip }, async t =>
   await assert.rejects(onTwosCadence(path,{cuts:Array(1)}),RangeError);
   await assert.rejects(onTwosCadence(path,{crop:{x:2,y:0,width:2,height:1}}),RangeError);
 });
+
+test('crop coordinates follow the decoded display orientation', { skip }, async t => {
+  const dir = mkdtempSync(join(tmpdir(), 'cadence-rotation-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const source = join(dir, 'source.mov');
+  const rotated = join(dir, 'rotated.mov');
+  const baked = join(dir, 'baked.mkv');
+  const ffmpeg = (...args) => execFileSync('ffmpeg', ['-v', 'error', ...args]);
+  ffmpeg('-f', 'lavfi', '-i', 'testsrc2=size=128x64:rate=30', '-frames:v', '20', '-c:v', 'libx264', '-qp', '0', source);
+  ffmpeg('-display_rotation', '90', '-i', source, '-c', 'copy', rotated);
+  ffmpeg('-i', rotated, '-c:v', 'ffv1', baked);
+  const crop = { x: 4, y: 72, width: 20, height: 20 };
+  const expected = await onTwosCadence(baked, { crop });
+  assert.deepEqual(await onTwosCadence(rotated, { crop }), expected);
+  await assert.rejects(onTwosCadence(rotated, { crop: { ...crop, x: 70, y: 4 } }), RangeError);
+});

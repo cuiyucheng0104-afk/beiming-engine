@@ -1,4 +1,18 @@
+import { execFile } from 'node:child_process';
+import { resolve } from 'node:path';
+import { promisify } from 'node:util';
 import { deliverSpec, readSignalFrames } from './video-audio.mjs';
+
+const exec = promisify(execFile);
+
+async function displaySize(filePath) {
+  // framecrc reports the output size after the same automatic orientation used by crop.
+  const { stdout } = await exec('ffmpeg', ['-nostdin', '-v', 'error', '-i', resolve(filePath),
+    '-map', '0:v:0', '-frames:v', '1', '-f', 'framecrc', '-']);
+  const size = /^#dimensions 0:\s*(\d+)x(\d+)\s*$/m.exec(stdout);
+  if (!size) throw new Error('Missing decoded frame dimensions');
+  return { width: Number(size[1]), height: Number(size[2]) };
+}
 
 async function signal(file, filter, tag) {
   const values = [];
@@ -46,22 +60,26 @@ export async function onTwosCadence(filePath, { cuts = [], crop } = {}) {
   const unit = 'ratio';
   const spec = await deliverSpec(filePath);
   if (!spec.value) return { metric, unit, value: null, details: spec.details };
-  const { fps, width, height, frames } = spec.value;
+  const { fps, frames } = spec.value;
   if (fps !== 30) throw new RangeError('Expected a 30 fps edit of 24 fps source frames');
   const cutFrames = Array.isArray(cuts) && Array.from(cuts);
   if (!cutFrames || cutFrames.some((n, i) => !Number.isSafeInteger(n) || n <= (cutFrames[i - 1] ?? 0) || n >= frames)) {
     throw new RangeError('Expected strictly increasing interior cut frames');
   }
-  let filter = 'null';
-  if (crop) {
-    const { x, y, width: w, height: h } = crop;
-    if (![x,y,w,h].every(Number.isSafeInteger) || x < 0 || y < 0 || w < 1 || h < 1 || x + w > width || y + h > height) {
-      throw new RangeError('Invalid crop');
-    }
-    filter = 'crop=' + [w,h,x,y].join(':');
-  }
   let diffs;
-  try { diffs = await signal(filePath, filter, 'YDIF'); }
+  try {
+    let filter = 'null';
+    if (crop) {
+      const { x, y, width: w, height: h } = crop;
+      if (![x,y,w,h].every(Number.isSafeInteger) || x < 0 || y < 0 || w < 1 || h < 1) {
+        throw new RangeError('Invalid crop');
+      }
+      const { width, height } = await displaySize(filePath);
+      if (x + w > width || y + h > height) throw new RangeError('Invalid crop');
+      filter = 'crop=' + [w,h,x,y].join(':');
+    }
+    diffs = await signal(filePath, filter, 'YDIF');
+  }
   catch (error) {
     if (error.code !== 'ENOENT') throw error;
     return { metric, unit, value: null, details: { code: 'tool-missing', tool: error.path } };
