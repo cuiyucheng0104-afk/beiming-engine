@@ -61,8 +61,8 @@ function readCaptions(frames, width, height) {
   return { changeFrames, blanks };
 }
 
-function align(blanks, onsets) {
-  const interior = blanks.slice(1, -1);
+function align(blanks, onsets, videoFrames) {
+  const interior = blanks.filter(({ startFrame, endFrame }) => startFrame > 0 && endFrame < videoFrames);
   const matches = [];
   let nearest = 0;
   for (const { endFrame } of interior) {
@@ -88,9 +88,10 @@ export function narrationTiming(pcm, { frames, width, height, sampleRate = 16000
   if (![width, height, size].every(n => Number.isSafeInteger(n) && n > 0) || frames.length % size !== 0) {
     throw new RangeError('Invalid caption ROI dimensions or incomplete frame');
   }
+  const videoFrames = frames.length / size;
   const { pauses, onsetWindows } = readPauses(pcm);
   const { blanks, changeFrames } = readCaptions(frames, width, height);
   return { metric: 'metric:narration.timing', unit: 's',
-    value: { pauses, onsetsSec: onsetWindows.map(i => i / 100), changeFrames, blanks, alignment: align(blanks, onsetWindows) },
-    details: { sampleRate, fps, width, height, audioWindows: Math.floor(pcm.length / WINDOW), videoFrames: frames.length / size } };
+    value: { pauses, onsetsSec: onsetWindows.map(i => i / 100), changeFrames, blanks, alignment: align(blanks, onsetWindows, videoFrames) },
+    details: { sampleRate, fps, width, height, audioWindows: Math.floor(pcm.length / WINDOW), videoFrames } };
 }

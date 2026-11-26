@@ -55,3 +55,12 @@ test('two blank frames do not split a caption and six-frame jitter is suppressed
   assert.deepEqual(v.blanks, [{ startFrame: 0, endFrame: 3 }]);
   assert.deepEqual(v.changeFrames, [3, 11]);
 });
+
+test('matches the only blank when both ends of a clip already show captions', () => {
+  const pcm = new Int16Array(16000);
+  pcm.fill(200, 30 * 160);
+  const v = measure(pcm, 'xxxxxx...xxxx');
+  assert.deepEqual(v.blanks, [{ startFrame: 6, endFrame: 9 }]);
+  assert.equal(v.alignment.candidates, 1);
+  assert.deepEqual(v.alignment.matches, [{ appearFrame: 9, onsetSec: 0.3, offsetSec: 0 }]);
+});
