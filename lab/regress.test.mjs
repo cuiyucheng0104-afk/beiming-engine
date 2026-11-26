@@ -147,17 +147,18 @@ test('镜头表：各模块的起点都取自 timeline.js', async () => {
   assert.equal(HUD_T.on, DESIGN.C);
   assert.equal(HUD_T.clockIn, DESIGN.C);
 });
-// 按改过的镜头表载入整套模块：把 src/ 复制到临时目录，只改 timeline.js 里 TIMELINE 那一行（平常改镜头表就是这么改），
+// 按改过的镜头表载入整套模块：把 films/beiming-10s/src/ 按原目录深度复制到临时仓库，只改 timeline.js 的 TIMELINE。
 // engine/ 与 node_modules/ 链回仓库。复制出来的每个模块都是新实例，载入时读到的就是改过的镜头表。
 async function withTimeline(tl, fn) {
   const dir = mkdtempSync(join(tmpdir(), 'bm-timeline-')), links = ['engine', 'node_modules'].map(d => join(dir, d));
+  const sourceRel = 'films/beiming-10s/src';
   try {
-    cpSync(join(ROOT, 'src'), join(dir, 'src'), { recursive: true });
+    cpSync(join(ROOT, sourceRel), join(dir, sourceRel), { recursive: true });
     ['engine', 'node_modules'].forEach((d, i) => symlinkSync(join(ROOT, d), links[i], 'junction'));
-    const p = join(dir, 'src', 'timeline.js'), code = readFileSync(p, 'utf8'), re = /(export const TIMELINE = (?:Object\.freeze\()?)\{[^}]*\}/;
+    const p = join(dir, sourceRel, 'timeline.js'), code = readFileSync(p, 'utf8'), re = /(export const TIMELINE = (?:Object\.freeze\()?)\{[^}]*\}/;
     assert.match(code, re, 'timeline.js 里找不到 TIMELINE 那一行');
     writeFileSync(p, code.replace(re, (m, head) => head + JSON.stringify(tl)));
-    return await fn(f => import(pathToFileURL(join(dir, 'src', f)).href));
+    return await fn(f => import(pathToFileURL(join(dir, sourceRel, f)).href));
   } finally {
     for (const l of links) try { unlinkSync(l); } catch {}   // 先拆链接，再删临时目录（不碰仓库里的 engine/）
     rmSync(dir, { recursive: true, force: true });
