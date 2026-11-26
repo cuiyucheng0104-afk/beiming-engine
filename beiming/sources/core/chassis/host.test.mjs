@@ -14,8 +14,8 @@ const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-host-'));
 process.on('exit', () => fs.rmSync(TMP, { recursive: true, force: true }));
 const EXE = process.platform === 'win32' ? '.exe' : '';
 
-// 输出通道契约 3.1 的登记表：core 交的六个固定通道和各自分量的次序
-const CONTRACT = { color: ['R', 'G', 'B', 'A'], depth: ['Z'], objectId: ['id', 'coverage'], normal: ['X', 'Y', 'Z'], denoiseAlbedo: ['R', 'G', 'B'], denoiseNormal: ['X', 'Y', 'Z'] };
+// 输出通道契约 3.1 的登记表：core 交的七个固定通道和各自分量的次序
+const CONTRACT = { color: ['R', 'G', 'B', 'A'], depth: ['Z'], objectId: ['id', 'coverage'], normal: ['X', 'Y', 'Z'], motion: ['X', 'Y'], denoiseAlbedo: ['R', 'G', 'B'], denoiseNormal: ['X', 'Y', 'Z'] };
 
 /** 照 core-render write_passes 的写法造一个出层目录：每个分量的值是「通道序号 × 100 + 分量序号 + 像素序号 / 1000」 */
 function fakePasses(dir, [w, h]) {

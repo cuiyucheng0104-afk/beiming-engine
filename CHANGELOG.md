@@ -20,6 +20,7 @@
 - 出片链接上核心帧源：场景包镜头（`source: core`）经 `beiming/api/pipeline.mjs` 的帧源池出草稿档的帧，只用编好的渲染程序 `core-render`，没有就报 `env.missing-tool`；终渲档仍在打开会话时以 `contract.unsupported-mode` 拒绝。
 - `beiming/sources/core/chassis/rerender.mjs` 做场景包同帧同种子两遍的逐位检查（两种求交各两遍，比每个通道、线性颜色与 PNG 的 sha256，并做 EXR 往返），按机器存进 `chassis/rerender/`，苹果 M5 Pro 一份已入库。
 - `beiming/sources/core/path/README.md` 写下核心渲染程序链接 Blender 自带 OIDN 动态库的构建档设计（两台机器的库与 sha256、`oidn` crate 要什么、要先取到本机的 crate 清单），还没落地。
+- 核心渲染程序 `core-render render-pack --passes` 交出 `motion` 层（`motion.f32`，输出通道契约 0.2.0-draft 的 5.6，快门角为 0）：内核的辅助样本把命中点与物体号写进输出缓冲预留的第 8 格（内核结构冻结标记升 1.2.1），宿主按场景包相邻两帧的实例矩阵与相机用双精度求下一帧的屏幕位置减这一帧的，最后一帧向后差分、只有一帧的包全 0；通道声明七个固定通道齐了。`chassis/motion.test.mjs` 拿板平移、板旋转、相机移动三种已知运动的包和解析值对拍，物体内部差在 1e-4 像素以内（苹果 M5 Pro 上最大 1.6e-5）。其余通道、线性颜色与 PNG 和改前逐位相同。帧源一侧的能力声明还写 `motion: false`。
 - 核心渲染程序加带 OIDN 的构建档（`beiming/sources/core/chassis/build.mjs` 的 `buildOidnRenderer`，默认档不变）：链接 Blender 自带的 OIDN 动态库，库的 sha256 钉在 `chassis/oidn-lock.json`（苹果 M5 Pro 的 Blender 5.2.0、RTX 5090 的 Blender 5.2.3），构建前与运行前核对，对不上报 env 类的错；运行时只靠 rpath 找库。`core-render denoise` 子命令把现成的三张图走同一个 OIDN。
 - `beiming/sources/core/chassis/oidn-parity.mjs` 做核心 OIDN 与 Blender（Cycles）降噪的对拍：同一份带噪颜色与降噪特征层、同一个库、同设备同预过滤，判据 1e-3；苹果 M5 Pro（CPU 三档预过滤、Metal）与 RTX 5090（CPU、CUDA）的读数入库，结果写在 `beiming/sources/core/path/README.md`「和 Blender 对拍」。
 - 核心底盘加两条负对照：EXR 写好之后改坏一个通道，往返比较必须报出；两遍里第二遍改了一个通道文件，两遍对比必须列出它。

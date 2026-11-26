@@ -57,6 +57,8 @@ struct Job {
     transparent: bool,
     /// 北冥：照 Cycles 口径的成像参数（只有 render-pack 给）。给了就关掉上游的亮度夹取（`Params::misc[0]`）。
     cycles_film: Option<CyclesFilm>,
+    /// 北冥：出层时求 motion 要的相邻一帧（render-pack 给；只有一帧的包是 None，motion 全 0）。
+    motion: Option<beiming_core_path::motion::Step>,
 }
 
 /// 北冥：render-pack 的像素滤波、夹取与滤光泽，照 Cycles 宿主一侧写进内核的口径（scene/film.cpp、scene/integrator.cpp:
@@ -215,6 +217,7 @@ fn main() -> Result<()> {
                 passes: None,
                 transparent: false,
                 cycles_film: None,
+                motion: None,
             };
             let stats = render(&g, &job, &presets, init_ms, &mut Hosts::default())?;
             println!("{}", serde_json::to_string(&stats)?);
@@ -303,6 +306,7 @@ fn main() -> Result<()> {
                         passes: None,
                         transparent: false,
                         cycles_film: None,
+                        motion: None,
                     };
                     // (A `live` job asks for the real-time renderer, which this build does not have.)
                     match v["live"].as_u64() {
@@ -412,6 +416,7 @@ fn pack_command(cmd: &str, args: &[String], presets: &Path) -> Result<()> {
     let init_ms = t0.elapsed().as_secs_f64() * 1000.0;
     let t = Instant::now();
     let b = pack::build(&p, frame, size, flag("--preset").as_deref(), presets, overrides.as_ref())?;
+    let motion = pack::motion_step(&p, frame, size, &b)?;
     let timings = vec![("gpu_init_ms".into(), init_ms), ("pack_ms".into(), t.elapsed().as_secs_f64() * 1000.0)];
     let job = Job {
         // （场景来自场景包，不来自游戏脚本：`finish` 不读 `game`）
@@ -430,6 +435,7 @@ fn pack_command(cmd: &str, args: &[String], presets: &Path) -> Result<()> {
         passes: flag("--passes").map(PathBuf::from),
         transparent: !p.world_visible,
         cycles_film: Some(film),
+        motion,
     };
     let mut stats = finish(&g, b.scene, &job, init_ms, timings, t_total)?;
     stats["pack"] = serde_json::json!({ "id": p.id, "frame": frame, "frames": p.count });
@@ -446,20 +452,23 @@ fn pack_command(cmd: &str, args: &[String], presets: &Path) -> Result<()> {
 /// 通道的数值照输出通道契约：color 是 RGBA（RGB 是样本均值，已经预乘 A）；depth、objectId、normal 取辅助样本；
 /// denoiseAlbedo 是上游口径的反照率均值；denoiseNormal 照 Cycles 的降噪特征换到它的相机空间（看 +Z、Y 向上：
 /// kernel/film/denoising_passes.h 把世界空间的法线经 worldtocamera 变过去），见 STRUCTURES.md「输出通道」。
-/// 不出 motion（场景包没有帧间的状态）与分灯组。另写一份通道声明 passes.json（passes/0.1，只列交出的六个通道）。
+/// motion 照输出通道契约 5.6（快门角为 0）：辅助样本的命中点在相邻一帧的屏幕位置之差，宿主一侧用双精度求（`motion::layer`），
+/// `motion` 是 None（只有一帧的包）时全 0。不出分灯组。另写一份通道声明 passes.json（passes/0.1，列交出的七个固定通道）。
 /// 返回给 stdout 统计的一段：每个通道的文件、形状 [高, 宽, 分量数]、分量名与类型。
-fn write_passes(dir: &Path, frame: &gpu::Frame, params: &gpu::Params) -> Result<serde_json::Value> {
+fn write_passes(dir: &Path, frame: &gpu::Frame, params: &gpu::Params, motion: Option<&beiming_core_path::motion::Step>) -> Result<serde_json::Value> {
     let aux = frame.aux.as_ref().ok_or_else(|| anyhow!("要出层，渲染却没有带辅助层"))?;
     std::fs::create_dir_all(dir)?;
     let (h, w) = (frame.height as usize, frame.width as usize);
     let denoise_normal: Vec<f32> = camera_normals(frame, params).iter().flat_map(|n| [n.x, n.y, n.z]).collect();
     let color: Vec<f32> = frame.color.iter().zip(&frame.alpha).flat_map(|(c, a)| [c[0], c[1], c[2], *a]).collect();
     let flat = |v: &[[f32; 3]]| v.iter().flatten().copied().collect::<Vec<f32>>();
-    let f32s: [(&str, &str, &[&str], Vec<f32>); 6] = [
+    let motion = beiming_core_path::motion::layer(motion, &aux.hit, frame.width, frame.height).map_err(|e| anyhow!(e))?;
+    let f32s: [(&str, &str, &[&str], Vec<f32>); 7] = [
         ("color", "color.f32", &["R", "G", "B", "A"], color),
         ("depth", "depth.f32", &["Z"], aux.depth.clone()),
         ("objectId.coverage", "objectId.coverage.f32", &["coverage"], aux.coverage.clone()),
         ("normal", "normal.f32", &["X", "Y", "Z"], flat(&aux.normal)),
+        ("motion", "motion.f32", &["X", "Y"], motion),
         ("denoiseAlbedo", "denoiseAlbedo.f32", &["R", "G", "B"], flat(&frame.albedo)),
         ("denoiseNormal", "denoiseNormal.f32", &["X", "Y", "Z"], denoise_normal),
     ];
@@ -484,6 +493,7 @@ fn write_passes(dir: &Path, frame: &gpu::Frame, params: &gpu::Params) -> Result<
             ch("depth", &[("Z", f)], "none", "sub0"),
             ch("objectId", &[("id", "u32"), ("coverage", f)], "none", "sub0"),
             ch("normal", &[("X", f), ("Y", f), ("Z", f)], "none", "sub0"),
+            ch("motion", &[("X", f), ("Y", f)], "none", "sub0"),
             ch("denoiseAlbedo", &[("R", f), ("G", f), ("B", f)], lin, "accumulate"),
             ch("denoiseNormal", &[("X", f), ("Y", f), ("Z", f)], "none", "accumulate"),
         ],
@@ -590,7 +600,7 @@ fn finish(g: &gpu::Gpu, mut sc: scene::Scene, job: &Job, init_ms: f64, mut timin
     }
     let frame = g.render(&sc, &prep.tri_verts, prep.groups, bytemuck::cast_slice(&prep.nodes), &prep.emitters, &prep.gpu_emitter_tris, beiming_core_path::ltree::nodes_of(prep.light_tree.as_ref()), &prep.env, &prep.env_cdf, &prep.energy, params, spp, job.passes.is_some(), &mut timings)?;
     let passes = match &job.passes {
-        Some(dir) => Some(write_passes(dir, &frame, &params)?),
+        Some(dir) => Some(write_passes(dir, &frame, &params, job.motion.as_ref())?),
         None => None,
     };
     if let Some(prefix) = &job.signals {

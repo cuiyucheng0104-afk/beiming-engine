@@ -142,7 +142,7 @@ pub struct KernelFilm {
 }
 
 /// 北冥：输出缓冲 film 固定部分各通道的位置（film.wgsl 里同名，库测试逐个比数值）：颜色与样本数、降噪用的反照率
-/// 与法线、上游降噪用的两个方差量、上游 `--signals` 的两组、辅助样本的两格。第 8、9 格预留。
+/// 与法线、上游降噪用的两个方差量、上游 `--signals` 的两组、辅助样本的三格。第 9 格预留。
 pub const FILM_COMBINED: u32 = 0;
 pub const FILM_DENOISE_ALBEDO: u32 = 1;
 pub const FILM_DENOISE_NORMAL: u32 = 2;
@@ -151,6 +151,8 @@ pub const FILM_LEGACY_EMIT: u32 = 4;
 pub const FILM_LEGACY_SPEC: u32 = 5;
 pub const FILM_AUX_DATA: u32 = 6;
 pub const FILM_AUX_NORMAL: u32 = 7;
+/// 辅助样本的命中点（世界坐标）与物体表下标加 1（没打到：0），宿主拿它求 motion（输出通道契约 5.6）。
+pub const FILM_AUX_HIT: u32 = 8;
 /// 输出缓冲里每个像素固定部分的长度（vec4 个数）：灯组排在它后面。内核不写死这个数，从 `KernelFilm` 读。
 pub const FILM_FIXED: u32 = 10;
 /// 每个像素的步长向上取到这个数的倍数（4 个 vec4 是 64 字节）。量出来的：苹果显卡上步长 10、11 比步长 12、16 的
@@ -1509,6 +1511,8 @@ pub struct AuxLayers {
     pub normal: Vec<[f32; 3]>,
     /// 首次命中的实体编号等于 `id` 的颜色样本数除以样本数。
     pub coverage: Vec<f32>,
+    /// 辅助样本的命中点（世界坐标）与物体表下标加 1；没打到：全 0（`FILM_AUX_HIT` 的原值）。motion 由它在宿主一侧求。
+    pub hit: Vec<[f32; 4]>,
 }
 
 impl Gpu {
@@ -2368,7 +2372,7 @@ impl Gpu {
         let n = (w * h) as usize;
         let (stride, groups) = (base.film.film_stride as usize * 4, base.film.num_lightgroups as usize);
         let mut frame = Frame { width: w, height: h, color: Vec::with_capacity(n), albedo: Vec::with_capacity(n), normal: Vec::with_capacity(n), emission: Vec::with_capacity(n), specular: Vec::with_capacity(n), variance: Vec::with_capacity(n), lightgroups: vec![Vec::with_capacity(n); groups], alpha: Vec::with_capacity(n), aux: None, samples: spp };
-        let mut layers = aux.then(|| AuxLayers { depth: Vec::with_capacity(n), id: Vec::with_capacity(n), normal: Vec::with_capacity(n), coverage: Vec::with_capacity(n) });
+        let mut layers = aux.then(|| AuxLayers { depth: Vec::with_capacity(n), id: Vec::with_capacity(n), normal: Vec::with_capacity(n), coverage: Vec::with_capacity(n), hit: Vec::with_capacity(n) });
         for p in floats.chunks_exact(stride) {
             let c = p[FILM_COMBINED as usize * 4 + 3].max(1.0);
             let at = |slot: u32, k: usize| Some(p[slot as usize * 4 + k]).filter(|v| v.is_finite()).unwrap_or(0.0);
@@ -2385,11 +2389,12 @@ impl Gpu {
             }
             frame.alpha.push(at(FILM_DENOISE_ALBEDO, 3) / c);
             if let Some(l) = &mut layers {
-                // （辅助两格是覆盖写的原值，不除以样本数；编号存的是浮点数值）
+                // （辅助三格是覆盖写的原值，不除以样本数；编号存的是浮点数值）
                 l.depth.push(at(FILM_AUX_DATA, 0));
                 l.id.push(at(FILM_AUX_DATA, 1) as u32);
                 l.normal.push([at(FILM_AUX_NORMAL, 0), at(FILM_AUX_NORMAL, 1), at(FILM_AUX_NORMAL, 2)]);
                 l.coverage.push(at(FILM_DENOISE_NORMAL, 3) / c);
+                l.hit.push([at(FILM_AUX_HIT, 0), at(FILM_AUX_HIT, 1), at(FILM_AUX_HIT, 2), at(FILM_AUX_HIT, 3)]);
             }
         }
         frame.aux = layers;

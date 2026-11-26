@@ -112,7 +112,7 @@ Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee
 | `rust-toolchain.toml` | `rust-toolchain.toml` | Rust 版本不变（1.100.0）；去掉只给浏览器构建用的 wasm32 目标，注释重写 |
 | `LICENSE-upstream.txt` | `LICENSE` | 原样 |
 
-`PROVENANCE.md`、`README.md`、`STRUCTURES.md`、`FREEZE.json`、`.gitignore` 是北冥新写的。`src/pack.rs`（场景包读入器）也是北冥新写的（MIT，文件头写明）：三种灯的换算是辐射度量学的式子，只对过 Cycles 的口径、没有搬代码，出处写在它的注释里。`shaders/hash.wgsl` 与 `src/cycles_hash.rs` 也不是上游的文件：照 Cycles 移植的哈希函数，见下一节「随机维度」。
+`PROVENANCE.md`、`README.md`、`STRUCTURES.md`、`FREEZE.json`、`.gitignore` 是北冥新写的。`src/pack.rs`（场景包读入器）与 `src/motion.rs`（motion 层在宿主一侧的求法）也是北冥新写的（MIT，文件头写明）：三种灯的换算是辐射度量学的式子，只对过 Cycles 的口径、没有搬代码，出处写在它的注释里。`shaders/hash.wgsl` 与 `src/cycles_hash.rs` 也不是上游的文件：照 Cycles 移植的哈希函数，见下一节「随机维度」。
 
 ## 北冥加了什么
 
@@ -224,6 +224,7 @@ Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee
 - `film_write_sample` 里四格先都读出来再写回去（读一格写一格地交替，苹果显卡上稳态慢约 1%）。
 - 降噪、`--hdr`、图像输出、`--signals` 读的还是颜色、反照率、法线、两个方差量与那两组，结果不变（三个场景开、关降噪各渲一遍，图像、`--hdr` 与三份 `--signals` 输出逐字节相同）。
 - 辅助样本与覆盖率（冻结标记 1.1.0）：内核的第二个入口 `aux_sample`（编译开关 `aux` 的变体里才有），过像素中心打一条针孔射线，只求交与取几何量，写深度、实体编号（读物体扩展表）、相机空间的着色法线，经 `film_write_aux` 覆盖写辅助两格。`Gpu::render` 要辅助层时用 `aux` 的变体，在清零之后、第一个颜色样本之前从这个入口调度一次（起先是 `main` 开头按 `P.integrator.pass_kind` 分支、覆盖率每次都数，英伟达显卡上不要辅助层时稳态慢 4% 到 5%，所以拆开）。路径状态加了 `first_hit_object`（相机射线首次命中的物体），`aux` 的变体里 `film_write_sample` 拿它的实体编号与辅助那一格比，相等就给 `FILM_DENOISE_NORMAL.w` 加 1；不透明度（`SampleResult.alpha`，背景对相机不可见而相机射线没打到时 0）累加在 `FILM_DENOISE_ALBEDO.w`。这三处都只写各通道的 w 与新的两格，颜色、反照率、法线、方差的写法没动：两台机器上回归基线逐位相同，库测试 `requested_lightgroups_leave_the_picture_alone` 另查要辅助层时颜色、反照率、法线逐位相同。
+- motion 层（冻结标记 1.2.1，输出通道契约 0.2.0-draft 的 5.6）：`aux_sample` 另把命中点（世界坐标）与物体表下标加 1 写进预留的第 8 格 `FILM_AUX_HIT`（`AuxSample` 加 `hit`），读回进 `AuxLayers::hit`。另一帧的位置与投影不在内核里算：新文件 `src/motion.rs`（北冥新写，MIT）在宿主一侧用双精度求刚体的 M_G × M_F⁻¹ × X 与两次投影（相机的基照 `scene::camera_data` 的取法），`pack::motion_step` 把场景包的实例行对到内核的物体表下标，`main.rs` 的 `write_passes` 写 `motion.f32` 并在通道声明里列出 `motion`。只多写一格，颜色、反照率、法线、深度、编号、覆盖率的写法没动。
 - 库测试 `the_film_layout_is_the_kernels`（`src/merged.rs`）逐个比两侧的位置常数，查 film 只在 `film.wgsl` 里下标、步长只在一处乘，并锁住缓冲大小的算法与报错。
 
 ### 随机维度

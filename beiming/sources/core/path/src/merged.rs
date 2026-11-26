@@ -223,11 +223,12 @@ mod tests {
             ("FILM_LEGACY_SPEC", gpu::FILM_LEGACY_SPEC),
             ("FILM_AUX_DATA", gpu::FILM_AUX_DATA),
             ("FILM_AUX_NORMAL", gpu::FILM_AUX_NORMAL),
+            ("FILM_AUX_HIT", gpu::FILM_AUX_HIT),
             ("FILM_FIXED", gpu::FILM_FIXED),
         ] {
             assert_eq!(constant(&m, name), value, "{name}");
         }
-        assert_eq!([gpu::FILM_COMBINED, gpu::FILM_DENOISE_ALBEDO, gpu::FILM_DENOISE_NORMAL, gpu::FILM_LEGACY_VARIANCE, gpu::FILM_LEGACY_EMIT, gpu::FILM_LEGACY_SPEC, gpu::FILM_AUX_DATA, gpu::FILM_AUX_NORMAL, gpu::FILM_FIXED], [0, 1, 2, 3, 4, 5, 6, 7, 10]);
+        assert_eq!([gpu::FILM_COMBINED, gpu::FILM_DENOISE_ALBEDO, gpu::FILM_DENOISE_NORMAL, gpu::FILM_LEGACY_VARIANCE, gpu::FILM_LEGACY_EMIT, gpu::FILM_LEGACY_SPEC, gpu::FILM_AUX_DATA, gpu::FILM_AUX_NORMAL, gpu::FILM_AUX_HIT, gpu::FILM_FIXED], [0, 1, 2, 3, 4, 5, 6, 7, 8, 10]);
         // film 只在 film.wgsl 里下标，内核别处不碰；固定部分的长度只出现在定义那一行。
         let template = kernel_template();
         let film = include_str!("../shaders/film.wgsl");

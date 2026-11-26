@@ -35,7 +35,7 @@ await s.close(); await src.stop();
 | `color` | 出 | R、G、B、A，场景线性，不降噪的样本均值，RGB 已预乘 A |
 | `depth`、`objectId`、`normal` | 出 | 取辅助样本（sub = 0、针孔、像素中心，每像素一个），不做平均；`objectId` 的层引用只带 `id`，覆盖率在同目录的 `objectId.coverage.f32`（帧源接口契约 3.3「带覆盖率的 objectId 怎么装进文件」待定，层引用没有放第二个文件的格子） |
 | `denoiseAlbedo`、`denoiseNormal` | 出 | 法线照 Cycles 降噪特征的相机空间；反照率照 Cycles 取相机首次命中处漫反射类闭包的反照率之和（不跟反射、不按粗糙度加权；带清漆或透射的材质还是上游口径的底色） |
-| `motion` | 不出 | 场景包只有整数帧的状态，快门打开到关上的位置算不出来（场景包契约第 6 节帧间怎么取待定）；能力声明写 `false`。输出通道契约 PS1 对出层方要七个固定通道，这一条现在不满足 |
+| `motion` | 内核出，帧源还不交 | `core-render render-pack --passes` 照输出通道契约 0.2.0-draft 的 5.6（快门角为 0：下一帧的屏幕位置减这一帧的，最后一帧向后差分，只有一帧的包全 0）出 `motion.f32`，通道声明七个固定通道齐了（PS1 满足），解析对拍见 [path/README.md](path/README.md)「读场景包」。帧源这一侧的能力声明（`caps.mjs`）还写 `false`、`render` 要了照旧拒，等能力声明与 `source.mjs` 跟上 |
 | `lightgroup:*` | 不出 | 逐盏写灯组要改直接光的夹取，还没做 |
 
 ## 拒绝的请求

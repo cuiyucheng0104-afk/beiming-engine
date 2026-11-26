@@ -1377,6 +1377,26 @@ pub fn build(p: &Pack, k: usize, size: (u32, u32), preset: Option<&str>, presets
     Ok(Built { scene: sc, placed })
 }
 
+/// 北冥：第 `k` 帧的 motion 要的东西（输出通道契约 5.6）。另一帧取第 k + 1 帧，第 k 帧是最后一帧时取第 k − 1 帧（向后差分），
+/// 只有一帧的包返回 None（motion 全 0）。每个这一帧画出来的实例行：它在内核物体表里的下标 → 两帧实例矩阵给出的刚体变换；
+/// 两行落到同一个物体上时分不出命中的是哪一行，报错。
+pub fn motion_step(p: &Pack, k: usize, size: (u32, u32), b: &Built) -> Result<Option<crate::motion::Step>> {
+    let Some(g) = (if k + 1 < p.count { Some(k + 1) } else { k.checked_sub(1) }) else { return Ok(None) };
+    let aspect = size.0 as f64 / size.1.max(1) as f64;
+    let cam = |f: usize| {
+        let t = &p.frames_camera;
+        crate::motion::Cam::new(p.camera_matrix(f), t.field(t.row(f, 0), "fovY").map_or(1.0, |x| x[0] as f64), aspect)
+    };
+    let mut objects = HashMap::new();
+    for x in b.placed.iter().filter(|x| x.drawn) {
+        let (Some(o), Some(d)) = (x.object, crate::motion::rigid(p.instance_matrix(k, x.row), p.instance_matrix(g, x.row))) else { continue };
+        if objects.insert(o, d).is_some() {
+            return Err(anyhow::anyhow!("实例表第 {} 行与另一行落到了内核的同一个物体 {o} 上，motion 分不出命中的是哪一行", x.row));
+        }
+    }
+    Ok(Some(crate::motion::Step { here: cam(k), there: cam(g), forward: g > k, objects }))
+}
+
 // ------------------------------------------------------------------------------------------ 统计与核对记录
 
 /// `pack-info` 的统计。三角形数是从几何文件实际读到的每个网格的三角形数，乘以这一帧画出来的实例（不是抄清单的 tris）。

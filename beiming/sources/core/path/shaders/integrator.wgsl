@@ -171,7 +171,7 @@ fn seen_directly() -> bool {
 }
 
 // 北冥：辅助样本（输出通道契约 5.1），内核的第二个入口，只在要辅助层的变体里（编译开关 aux）。每个像素一条：过像素中心、针孔（不开景深）、时刻 0，不取任何随机数、不调图案节点，
-// 只求交、取几何量，覆盖写 film 的辅助两格。深度是沿相机前方的平面深度；法线是着色法线（顶点法线插值，背对来路的面翻向
+// 只求交、取几何量，覆盖写 film 的辅助三格。深度是沿相机前方的平面深度；法线是着色法线（顶点法线插值，背对来路的面翻向
 // 相机：shader_setup_from_hit 已经翻过），变到相机空间（相机看 -Z、Y 向上）；实体编号读物体扩展表。什么都没打到：编号 0、
 // 深度 1e10、法线 0。相机射线的算式照 main 里的那一段，只是像素内的位置取中心、不加镜头的偏移。
 // 单独成一个入口、不在 main 里按 pass_kind 分支：颜色样本那个入口里多一个分支，英伟达显卡上稳态慢约 3%。
@@ -193,6 +193,8 @@ fn aux_sample(@builtin(global_invocation_id) gid: vec3<u32>) {
         aux.depth = hit.t * dot(d, P.cam_fwd.xyz);
         aux.object_id = u32(object_ext_at(sd.object).entity_id);
         aux.normal = vec3<f32>(dot(sd.N, P.cam_right.xyz), dot(sd.N, P.cam_up.xyz), -dot(sd.N, P.cam_fwd.xyz));
+        // 北冥：命中点与物体号交给宿主求 motion（输出通道契约 5.6：相邻一帧的位置在宿主一侧按场景包的状态表求）
+        aux.hit = vec4<f32>(sd.P, f32(sd.object) + 1.0);
     }
     film_write_aux(aux);
 }
