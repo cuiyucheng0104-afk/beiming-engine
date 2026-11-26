@@ -11,6 +11,8 @@ async function signal(file, filter, tag) {
 }
 
 export async function regionalFlicker(filePath, { startFrame = 1 } = {}) {
+  const metric = 'metric:flicker.tri';
+  const unit = 'frames';
   if (!Number.isSafeInteger(startFrame) || startFrame < 0) throw new RangeError('Invalid startFrame');
   const value = {};
   try {
@@ -29,9 +31,9 @@ export async function regionalFlicker(filePath, { startFrame = 1 } = {}) {
     }
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
-    return { metric: 'metric:regionalFlicker', unit: 'frames', value: null, details: { code: 'tool-missing', tool: error.path } };
+    return { metric, unit, value: null, details: { code: 'tool-missing', tool: error.path } };
   }
-  return { metric: 'metric:regionalFlicker', unit: 'frames', value, details: { startFrame } };
+  return { metric, unit, value, details: { startFrame } };
 }
 
 function upperMedian(numbers) {
@@ -40,13 +42,14 @@ function upperMedian(numbers) {
 }
 
 export async function onTwosCadence(filePath, { cuts = [], crop } = {}) {
-  const metric = 'metric:onTwosCadence';
+  const metric = 'metric:cadence.on-twos';
   const unit = 'ratio';
   const spec = await deliverSpec(filePath);
   if (!spec.value) return { metric, unit, value: null, details: spec.details };
   const { fps, width, height, frames } = spec.value;
   if (fps !== 30) throw new RangeError('Expected a 30 fps edit of 24 fps source frames');
-  if (!Array.isArray(cuts) || cuts.some((n, i) => !Number.isSafeInteger(n) || n <= (cuts[i - 1] ?? 0) || n >= frames)) {
+  const cutFrames = Array.isArray(cuts) && Array.from(cuts);
+  if (!cutFrames || cutFrames.some((n, i) => !Number.isSafeInteger(n) || n <= (cutFrames[i - 1] ?? 0) || n >= frames)) {
     throw new RangeError('Expected strictly increasing interior cut frames');
   }
   let filter = 'null';
@@ -66,7 +69,7 @@ export async function onTwosCadence(filePath, { cuts = [], crop } = {}) {
   const phases = Array.from({length: 5}, () => []);
   const value = [];
   let start = 0;
-  for (const end of [...cuts, diffs.length]) {
+  for (const end of [...cutFrames, diffs.length]) {
     const odd = [], even = [];
     for (let n = start + 1; n < end; n++) {
       phases[n % 5].push(diffs[n]);

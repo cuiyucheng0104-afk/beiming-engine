@@ -1,10 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { Buffer } from 'node:buffer';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { regionalFlicker, onTwosCadence } from './temporal-cadence.mjs';
+
+const skip = ['ffmpeg', 'ffprobe'].some(tool => spawnSync(tool, ['-version']).error?.code === 'ENOENT')
+  ? '环境缺少音视频工具'
+  : false;
 
 function movie(t, frames) {
   const dir = mkdtempSync(join(tmpdir(), 'cadence-'));
@@ -16,7 +21,7 @@ function movie(t, frames) {
   return path;
 }
 
-test('three exact horizontal regions on seven pixels, strict jumps and neighbors', async t => {
+test('three exact horizontal regions on seven pixels, strict jumps and neighbors', { skip }, async t => {
   const rows = Array.from({length: 11}, () => Array(7).fill(80));
   rows[2].fill(89, 0, 2);
   rows[4].fill(88, 2, 4);
@@ -25,10 +30,11 @@ test('three exact horizontal regions on seven pixels, strict jumps and neighbors
   rows[9].fill(85, 0, 2);
   rows[8].fill(95, 0, 2); // neighbor gap 5 equals half the smaller jump
   const result = await regionalFlicker(movie(t,rows), {startFrame: 3});
+  assert.equal(result.metric, 'metric:flicker.tri');
   assert.deepEqual(result.value, {left: [], center: [6], right: [8]});
 });
 
-test('previous source parity, absolute five-frame phase and segment boundaries', async t => {
+test('previous source parity, absolute five-frame phase and segment boundaries', { skip }, async t => {
   const rows = Array.from({length: 20}, (_, n) => {
     const source = Math.floor(n * 4 / 5);
     const y = 40 + 12 * Math.floor(source / 2) + 2 * (source % 2);
@@ -36,6 +42,7 @@ test('previous source parity, absolute five-frame phase and segment boundaries',
   });
   const path = movie(t,rows);
   const result = await onTwosCadence(path, {cuts: [7],crop:{x:0,y:0,width:3,height:2}});
+  assert.equal(result.metric, 'metric:cadence.on-twos');
   assert.deepEqual(result.value.map(s => [s.start,s.end,s.oddToEven,s.evenToOdd,s.ratio]),
     [[0,7,10,2,5],[7,20,10,2,5]]);
   assert.deepEqual(result.details.phaseMedians,[10,0,2,10,2]);
@@ -44,7 +51,7 @@ test('previous source parity, absolute five-frame phase and segment boundaries',
   assert.equal(still.value[0].ratio,0);
 });
 
-test('upper median, empty parity groups and interior cuts', async t => {
+test('upper median, empty parity groups and interior cuts', { skip }, async t => {
   const path = movie(t,[40,40,42,52,58,72].map(v => [v,v,v]));
   const report = await onTwosCadence(path);
   assert.equal(report.value[0].oddToEven,14);
@@ -54,5 +61,6 @@ test('upper median, empty parity groups and interior cuts', async t => {
   assert.deepEqual(short.value[0],{start:0,end:1,oddToEven:null,evenToOdd:null,ratio:null});
   await assert.rejects(onTwosCadence(path,{cuts:[6]}),RangeError);
   await assert.rejects(onTwosCadence(path,{cuts:[2,2]}),RangeError);
+  await assert.rejects(onTwosCadence(path,{cuts:Array(1)}),RangeError);
   await assert.rejects(onTwosCadence(path,{crop:{x:2,y:0,width:2,height:1}}),RangeError);
 });
