@@ -1,8 +1,9 @@
 // 对齐与拟合：切点对齐、20ms 能量包络互相关时间偏移与拉伸比求解、构图包围盒对位、7 参数最小二乘相机拟合。
-//   align(request)  可单独或组合提供 { cuts?, stretch?, composition?, camera? }（兼容别名 audioEnvelope/media、boxes、cameraFit）
+//   align(request)  可单独或组合提供 { cuts?, stretch?, music?, composition?, camera? }（兼容别名 audioEnvelope/media、boxes、cameraFit）
 //     cuts         { reference: number[], actual: number[], maxDeltaFrames = 3 } → 单调最优匹配 pairs、meanAbsDelta、maxAbsDelta、missed、extra、missedCount、extraCount
 //     stretch      { filmEnvelope, trackEnvelope, stepSec = 0.02, fps = 24, stretchRange = [0.97, 1.03], stretchStep = 0.001, maxOffsetSec = 8.0 }
 //                  或 { filmPath, trackPath, ... }（经 ffmpeg 抽单声道 s16le PCM 算 20ms RMS 包络，不经 shell）
+//     music        { filmPath, trackPath, fps?, stretchRange?, stretchStep?, maxOffsetSec? } → metric:music.align（8 kHz 单声道、150 Hz 低通、20ms RMS）
 //     composition  { reference: bbox2d, actual: bbox2d, size: [w, h] } → centerShiftPx、centerShiftNorm、areaRatio、iou
 //     camera       { points: [{ world: [x,y,z], screen: [u,v] }], size: [w, h], initial?: { pos?, target?, fovY?, near?, far? } }
 //                  7 参数（pos[3] + 轴角 rotation[3] + fovY[5..140]）阻尼高斯-牛顿（LM）拟合；world/proj 4x4 列主序对齐 meta/0.1（双精度），rmsePx 由返回矩阵复算，另给 converged 与 degenerate
@@ -18,6 +19,10 @@ import { runFfmpeg } from './sheet.mjs';
 
 export const ALIGN_TOKEN_LIMIT = 500;
 const PCM_MAX_BYTES = 256 * 1024 * 1024;
+const MUSIC_WINDOWS_PER_SECOND = 50;
+const MUSIC_MAX_DURATION_SEC = 300;
+const MUSIC_MAX_CANDIDATES = 100_000;
+const MUSIC_MAX_SAMPLE_CHECKS = 100_000_000;
 const isPlain = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const r = (v, d = 4) => (v == null || !Number.isFinite(v) ? null : Number(v.toFixed(d)));
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -112,13 +117,22 @@ function alignCuts(spec) {
 
 // ---------- 2. 20ms 包络互相关时间偏移与拉伸求解 ----------
 
-function extractEnvelopeFromMedia(filePath, stepSec, sampleRate) {
+function extractEnvelopeFromMedia(filePath, stepSec, sampleRate, music) {
   if (typeof filePath !== 'string' || !filePath) throw new Error('音视频路径不能为空');
+  // Decode one extra window to detect an overlong source without reading its entire PCM.
+  const maxSamples = MUSIC_MAX_DURATION_SEC * sampleRate;
+  const timelineArgs = music ? ['-copyts', '-start_at_zero'] : [];
+  // Pad and trim against container PTS, allowing 5 ms of timestamp quantization.
+  const musicArgs = music ? [
+    '-map', '0:a:0', '-af', 'lowpass=f=150,aresample=async=1:first_pts=0:min_hard_comp=0.005',
+    '-t', String(MUSIC_MAX_DURATION_SEC + stepSec),
+  ] : [];
   const pcm = runFfmpeg([
-    '-nostdin', '-v', 'error', '-i', resolve(filePath), '-vn', '-ac', '1',
-    '-ar', String(sampleRate), '-f', 's16le', '-',
-  ], PCM_MAX_BYTES);
+    '-nostdin', '-v', 'error', ...timelineArgs, '-i', resolve(filePath), '-vn', '-ac', '1',
+    '-ar', String(sampleRate), ...musicArgs, '-f', 's16le', '-',
+  ], music ? (maxSamples + sampleRate) * 2 : PCM_MAX_BYTES);
   const totalSamples = Math.floor(pcm.length / 2);
+  if (music && totalSamples > maxSamples) throw new Error(`music 每份音频最长 ${MUSIC_MAX_DURATION_SEC} 秒`);
   const win = Math.max(1, Math.round(sampleRate * stepSec));
   const frames = Math.floor(totalSamples / win);
   if (frames < 2) throw new Error('音频过短，无法提取 20ms 能量包络');
@@ -148,7 +162,7 @@ function toEnvelope(arr, label) {
   return out;
 }
 
-function alignStretch(spec) {
+function alignStretch(spec, { music = false } = {}) {
   if (!isPlain(spec)) throw new Error('stretch 必须是对象');
   const stepSec = spec.stepSec ?? 0.02;
   const fps = spec.fps ?? 24;
@@ -166,11 +180,24 @@ function alignStretch(spec) {
   if (!(typeof maxOffsetSec === 'number' && Number.isFinite(maxOffsetSec) && maxOffsetSec >= 0)) throw new Error('maxOffsetSec 必须是非负数');
   if (!Number.isInteger(sampleRate) || sampleRate < 1000) throw new Error('sampleRate 必须是 >= 1000 的整数');
 
+  const nearestOi = Math.round(maxOffsetSec / stepSec);
+  // Compare the exact grid point in seconds so a bound equal to a grid point includes it.
+  const maxOi = music && nearestOi / MUSIC_WINDOWS_PER_SECOND > maxOffsetSec ? nearestOi - 1 : nearestOi;
+  const sSteps = Math.max(0, Math.round((stretchRange[1] - stretchRange[0]) / stretchStep));
+  const candidateCount = (sSteps + 1) * (2 * maxOi + 1);
+  if (music) {
+    if (stretchStep < 0.000001) throw new Error('music.stretchStep 至少为 0.000001');
+    if (!(stretchRange[0] >= 0.000001 && stretchRange[1] <= 1_000_000)) {
+      throw new Error('music.stretchRange 必须在 [0.000001, 1000000] 内');
+    }
+    if (candidateCount > MUSIC_MAX_CANDIDATES) throw new Error(`music 搜索候选上限为 ${MUSIC_MAX_CANDIDATES} 个`);
+  }
+
   let film;
   let track;
   if (spec.filmPath !== undefined || spec.trackPath !== undefined) {
-    film = extractEnvelopeFromMedia(spec.filmPath, stepSec, sampleRate);
-    track = extractEnvelopeFromMedia(spec.trackPath, stepSec, sampleRate);
+    film = extractEnvelopeFromMedia(spec.filmPath, stepSec, sampleRate, music);
+    track = extractEnvelopeFromMedia(spec.trackPath, stepSec, sampleRate, music);
   } else {
     film = toEnvelope(spec.filmEnvelope, 'filmEnvelope');
     track = toEnvelope(spec.trackEnvelope, 'trackEnvelope');
@@ -178,6 +205,9 @@ function alignStretch(spec) {
 
   const m = track.length;
   const n = film.length;
+  if (music && candidateCount * m > MUSIC_MAX_SAMPLE_CHECKS) {
+    throw new Error(`music 候选数乘配乐包络窗数最多 ${MUSIC_MAX_SAMPLE_CHECKS}，请缩小搜索范围或增大步长`);
+  }
   const minSeg = Math.max(2, Math.ceil(0.9 * m));
   // 预计算 track 前缀和，区间方差 O(1)
   const prefT = new Float64Array(m + 1);
@@ -186,9 +216,9 @@ function alignStretch(spec) {
     prefT[k + 1] = prefT[k] + track[k];
     prefT2[k + 1] = prefT2[k] + track[k] * track[k];
   }
+  // 配乐量测以整首参考曲的中心化能量为分母，重叠段仍沿用相同的插值和协方差。
+  const wholeTrackEnergy = music ? prefT2[m] - prefT[m] ** 2 / m : 0;
 
-  const maxOi = Math.round(maxOffsetSec / stepSec);
-  const sSteps = Math.max(0, Math.round((stretchRange[1] - stretchRange[0]) / stretchStep));
   let bestCorr = -Infinity;
   let bestOi = 0;
   let bestS = stretchRange[0];
@@ -224,7 +254,8 @@ function alignStretch(spec) {
       }
       const varF = len * sumF2 - sumF * sumF;
       if (varF <= 1e-10 * Math.max(1, len * sumF2)) continue;
-      const corr = (len * sumFT - sumF * sumT) / Math.sqrt(varF * varT);
+      const trackVariance = music ? len * wholeTrackEnergy : varT;
+      const corr = (len * sumFT - sumF * sumT) / Math.sqrt(varF * trackVariance);
       if (corr > bestCorr) {
         bestCorr = corr;
         bestOi = oi;
@@ -246,6 +277,17 @@ function alignStretch(spec) {
     reliable: bestCorr >= 0.5,
     overlapRatio: r(bestLen / m, 4),
   };
+}
+
+function alignMusic(spec) {
+  if (!isPlain(spec)) throw new Error('music 必须是对象');
+  const { filmPath, trackPath, fps, stretchRange = [0.99, 1.03], stretchStep, maxOffsetSec } = spec;
+  if (![filmPath, trackPath].every(path => typeof path === 'string' && path.length > 0)) {
+    throw new Error('music.filmPath 与 music.trackPath 必须是非空路径');
+  }
+  return { metric: 'metric:music.align', ...alignStretch({
+    filmPath, trackPath, fps, stretchRange, stretchStep, maxOffsetSec, stepSec: 1 / MUSIC_WINDOWS_PER_SECOND, sampleRate: 8000,
+  }, { music: true }) };
 }
 
 // ---------- 3. 构图包围盒对位 ----------
@@ -769,16 +811,18 @@ function fitAlign(payload) {
 /** 对齐与拟合入口；非法输入返回结构化错误，不抛异常。 */
 export function align(request) {
   try {
-    if (!isPlain(request)) throw new Error('request 必须是对象，包含 cuts、stretch、composition 或 camera 至少一项');
+    if (!isPlain(request)) throw new Error('request 必须是对象，包含 cuts、stretch、music、composition 或 camera 至少一项');
     const stretchSpec = request.stretch ?? request.audioEnvelope ?? request.media;
     const compSpec = request.composition ?? request.boxes;
     const camSpec = request.camera ?? request.cameraFit;
-    const hasAny = request.cuts !== undefined || stretchSpec !== undefined || compSpec !== undefined || camSpec !== undefined;
-    if (!hasAny) throw new Error('request 至少提供 cuts、stretch、composition 或 camera 之一');
+    const hasAny = request.cuts !== undefined || stretchSpec !== undefined || request.music !== undefined
+      || compSpec !== undefined || camSpec !== undefined;
+    if (!hasAny) throw new Error('request 至少提供 cuts、stretch、music、composition 或 camera 之一');
 
     const out = { ok: true };
     if (request.cuts !== undefined) out.cuts = alignCuts(request.cuts);
     if (stretchSpec !== undefined) out.stretch = alignStretch(stretchSpec);
+    if (request.music !== undefined) out.music = alignMusic(request.music);
     if (compSpec !== undefined) out.composition = alignComposition(compSpec);
     if (camSpec !== undefined) out.camera = alignCamera(camSpec);
     out.truncated = false;
