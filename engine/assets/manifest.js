@@ -9,7 +9,7 @@
 //   font:noto-sans-sc …             字体子集                  ref:sky_test                      风格参考图
 //   local:<作品目录里的相对路径>     作品自带的文件（不进注册表，只核对存在）
 //   只写名字（kun@v1）时按名字在注册表里找，唯一才算数。
-// JS 模块的哈希覆盖它在 src/ 里的相对 import 闭包（例如 model:kun = src/kun.js + toon.js + shadow.js + eye_shade.js）；
+// JS 模块的哈希覆盖它在 src/ 里的相对 import 闭包（例如 model:kun = films/beiming-10s/src/kun.js + toon.js + shadow.js + eye_shade.js）；
 // engine/ 的模块不计入（引擎版本由运行记录的 sourceCommit 表达）。文本文件把 CRLF 当 LF 算，Windows 检出与 macOS 得到同一个哈希。
 //
 // 库接口：
@@ -46,21 +46,21 @@ const OWN = '北冥引擎 Beiming Engine';
 
 /** 手工登记的部分（底板从 assets/plates/plates.json 读，见 loadRegistry）。 */
 const STATIC = [
-  { id: 'model:kun', name: '鲲（《北冥》正片版：三渲二卡通着色、背上海草森林）', module: 'src/kun.js', usedBy: ['films/beiming-10s'] },
-  { id: 'model:kun_qinglv', name: '青绿仙山鲲（作品站首屏实时渲染）', module: 'src/kun_qinglv.js', usedBy: ['site/'] },
-  { id: 'model:kun_bronze', name: '青铜古鲲（自测页 ?test=kun_bronze）', module: 'src/kun_bronze.js' },
-  { id: 'model:kun_peng', name: '鲲鹏（自测页 ?test=kun_peng）', module: 'src/kun_peng.js' },
-  { id: 'model:kun_refine', name: '精修鲲（自测页 ?test=kun_refine）', module: 'src/kun_refine.js' },
-  { id: 'model:kun_xuan', name: '玄鲲（自测页 ?test=kun_xuan）', module: 'src/kun_xuan.js' },
-  { id: 'model:ferry', name: '渡船（红绿航行灯、甲板）', module: 'src/ferry.js', usedBy: ['films/beiming-10s'] },
-  { id: 'character:girl', name: '女孩（2D 手绘路径，一拍二，镜头 B）', module: 'src/girl.js', usedBy: ['films/beiming-10s'] },
-  { id: 'character:birds', name: '鸽群（被汽笛惊起，镜头 A）', module: 'src/birds.js', usedBy: ['films/beiming-10s'] },
-  { id: 'material:toon', name: '卡通着色（三档色阶、背光边缘光、锈斑）', module: 'src/toon.js' },
-  { id: 'material:toon_qinglv', name: '青绿山水着色', module: 'src/toon_qinglv.js', usedBy: ['site/'] },
-  { id: 'material:toon_bronze', name: '青铜着色', module: 'src/toon_bronze.js' },
-  { id: 'material:toon_peng', name: '鲲鹏着色', module: 'src/toon_peng.js' },
-  { id: 'material:toon_refine', name: '精修着色', module: 'src/toon_refine.js' },
-  { id: 'material:toon_xuan', name: '玄鲲着色', module: 'src/toon_xuan.js' },
+  { id: 'model:kun', name: '鲲（《北冥》正片版：三渲二卡通着色、背上海草森林）', module: 'films/beiming-10s/src/kun.js', usedBy: ['films/beiming-10s'] },
+  { id: 'model:kun_qinglv', name: '青绿仙山鲲（作品站首屏实时渲染）', module: 'films/beiming-10s/src/kun_qinglv.js', usedBy: ['site/'] },
+  { id: 'model:kun_bronze', name: '青铜古鲲（自测页 ?test=kun_bronze）', module: 'films/beiming-10s/src/kun_bronze.js' },
+  { id: 'model:kun_peng', name: '鲲鹏（自测页 ?test=kun_peng）', module: 'films/beiming-10s/src/kun_peng.js' },
+  { id: 'model:kun_refine', name: '精修鲲（自测页 ?test=kun_refine）', module: 'films/beiming-10s/src/kun_refine.js' },
+  { id: 'model:kun_xuan', name: '玄鲲（自测页 ?test=kun_xuan）', module: 'films/beiming-10s/src/kun_xuan.js' },
+  { id: 'model:ferry', name: '渡船（红绿航行灯、甲板）', module: 'films/beiming-10s/src/ferry.js', usedBy: ['films/beiming-10s'] },
+  { id: 'character:girl', name: '女孩（2D 手绘路径，一拍二，镜头 B）', module: 'films/beiming-10s/src/girl.js', usedBy: ['films/beiming-10s'] },
+  { id: 'character:birds', name: '鸽群（被汽笛惊起，镜头 A）', module: 'films/beiming-10s/src/birds.js', usedBy: ['films/beiming-10s'] },
+  { id: 'material:toon', name: '卡通着色（三档色阶、背光边缘光、锈斑）', module: 'films/beiming-10s/src/toon.js' },
+  { id: 'material:toon_qinglv', name: '青绿山水着色', module: 'films/beiming-10s/src/toon_qinglv.js', usedBy: ['site/'] },
+  { id: 'material:toon_bronze', name: '青铜着色', module: 'films/beiming-10s/src/toon_bronze.js' },
+  { id: 'material:toon_peng', name: '鲲鹏着色', module: 'films/beiming-10s/src/toon_peng.js' },
+  { id: 'material:toon_refine', name: '精修着色', module: 'films/beiming-10s/src/toon_refine.js' },
+  { id: 'material:toon_xuan', name: '玄鲲着色', module: 'films/beiming-10s/src/toon_xuan.js' },
   { id: 'font:noto-sans-sc', name: 'Noto Sans SC 可变字重子集（显示层中文）', files: ['fonts/NotoSansSC-var.woff2'], license: 'OFL-1.1', owner: 'Adobe / Google', source: 'fonts/LICENSE.md' },
   { id: 'font:barlow', name: 'Barlow 300 / 400 / 500 子集（显示层数字）', files: ['fonts/Barlow-300.woff2', 'fonts/Barlow-400.woff2', 'fonts/Barlow-500.woff2'], license: 'OFL-1.1', owner: 'The Barlow Project Authors', source: 'fonts/LICENSE.md' },
   { id: 'font:ma-shan-zheng', name: '马善政毛笔楷书子集（片名「北」「冥」）', files: ['fonts/MaShanZheng-400.woff2'], license: 'OFL-1.1', owner: 'The Ma Shan Zheng Project Authors', source: 'fonts/LICENSE.md' },
@@ -150,7 +150,7 @@ export function moduleClosure(module, { root = REPO_ROOT } = {}) {
     const text = readFileSync(abs, 'utf8');
     for (const m of text.matchAll(/^\s*(?:import|export)\s[^'"]*?from\s*['"](\.{1,2}\/[^'"]+)['"]/gm)) {
       const dep = posix.normalize(posix.join(posix.dirname(rel), m[1]));
-      if (dep.startsWith('src/')) visit(dep);
+      if (dep.startsWith('films/beiming-10s/src/')) visit(dep);
     }
   };
   visit(module);

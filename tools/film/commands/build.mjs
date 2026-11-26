@@ -40,7 +40,8 @@ const COMMON = {
 export const buildSpec = {
   positionals: [{ name: '作品目录', describe: '作品目录，例如 films/my-film（相对当前目录）', required: true }],
   options: {
-    '--final': { type: 'bool', help: '终渲：先查 look / animatic 闸，QA 必须可用且通过' },
+    '--delivery-mode': { type: 'string', arg: '<automatic|review>', help: '交付模式：automatic（默认，无人工前置闸）或 review（look / animatic / final 人工审阅）' },
+    '--final': { type: 'bool', help: '终渲：默认自动交付模式，QA 必须可用且通过；人工闸加 --delivery-mode review' },
     '--waive': { type: 'list', values: ['look', 'animatic'], arg: '<闸,闸>', help: '出片前先记豁免（要配 --reason；终渲只认带 --quote/--source 的用户豁免）' },
     '--reason': { type: 'string', arg: '<理由>', help: '豁免理由' },
     '--quote': { type: 'string', arg: '<用户原话>', help: '豁免依据的用户原话（逐字）' },
@@ -74,7 +75,7 @@ export const BUILD_DOC = {
     '--profile 换成画幅或帧率与 film.json 不同的档位时，镜头表按帧率换算，交给 QA 的作品描述是运行目录里换算好的',
     '  film.effective.json（film.json 不改；run.json 的 filmEffective 记来源与改动）。',
     '--size 改画幅的是工作版、不是交付件：不跑交付 QA，只核对帧数、画幅、帧率与音轨（不符退出码 4），符合时退出码 0。',
-    '终渲：--final 先查闸门（look → animatic → final，决定 D08）：没有用户认可或带用户原话的豁免时退出码 4，一帧不渲；',
+    '终渲：--final 默认无需用户原话；--delivery-mode review 启用三道人工闸：没有用户认可或带用户原话的豁免时退出码 4，一帧不渲；',
     '  终渲档位要在 film.json 的 deliveries 里。用法与契约检查全部在写审片记录（--waive）和开运行目录之前做完。',
   ],
   examples: [
@@ -143,6 +144,7 @@ function stepsFor(ctx) {
 }
 
 export async function runBuild(kind, opts, positionals, command = kind) {
+  if (opts.deliveryMode && !['automatic', 'review'].includes(opts.deliveryMode)) throw usage('--delivery-mode 只能是 automatic 或 review');
   if (opts.final && kind !== 'build') throw usage('--final 只用于 build');
   if (opts.final && opts.noQa) throw usage('--final 不能跳过 QA（--no-qa）');
   if (opts.noCache && opts.from) throw usage('--no-cache 与 --from 不能同时用：--from 要复用前面步骤的缓存');
@@ -150,7 +152,7 @@ export async function runBuild(kind, opts, positionals, command = kind) {
   if ((opts.quote && !opts.source) || (!opts.quote && opts.source)) throw usage('--quote 与 --source 要一起给：原话和它的出处缺一不可');
   if ((opts.quote || opts.reason || opts.sourceKind || opts.saidAt || opts.reviewer) && !opts.waive) throw usage('--reason / --quote / --source / --source-kind / --said-at / --reviewer 只在 --waive 时使用', '审阅认可用：npm run film -- review approve <闸> <作品目录> …');
   // 终渲只认带用户原话的豁免：没有原话的 --waive 只能记成内部说明，放行不了 --final，记下来也只是一条用不上的记录
-  if (opts.final && opts.waive && !opts.quote) throw usage('--final 只认带用户原话的豁免：--waive 要配 --quote <用户原话> --source <出处>', '没有用户原话时先出工作版（去掉 --final）；用户认可后用 npm run film -- review approve <闸> <作品目录> 记录');
+  if (opts.final && opts.deliveryMode === 'review' && opts.waive && !opts.quote) throw usage('--final 只认带用户原话的豁免：--waive 要配 --quote <用户原话> --source <出处>', '没有用户原话时先出工作版（去掉 --final）；用户认可后用 npm run film -- review approve <闸> <作品目录> 记录');
 
   // 先把用法与契约全部查完（作品描述、页面目录、档位、--size / --final、步骤名），再写审片记录、判闸门、开运行目录：
   // 任何一项不过都在这里退出（2 / 4），review/ 里不会多出记录，也不建运行目录
@@ -179,8 +181,8 @@ export async function runBuild(kind, opts, positionals, command = kind) {
     waived = r;
   }
   if (opts.final) {
-    const status = await gateStatus(plan.film);
-    gateBasis = { checked: true, by: status.by, basis: assertFinalAllowed(plan.film, status) };
+    const status = await gateStatus(plan.film, opts);
+    gateBasis = { checked: opts.deliveryMode === 'review', mode: opts.deliveryMode || 'automatic', by: status.by, basis: assertFinalAllowed(plan.film, status, opts) };
   }
 
   const ctx = await openSession({ command, kind, filmArg: positionals[0], opts: o, plan });

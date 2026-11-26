@@ -1,22 +1,25 @@
 # beiming/：新系统的根目录
 
-新系统在这个目录里旁建，旧目录（`engine/`、`tools/`、`routes/`、`films/` 等）冻结不动。
+新系统在这个目录里开发。旧链的作品与工具继续从原有入口运行。
 
 ## 目录
 
 | 目录 | 管什么 |
 |---|---|
-| `kernel/contracts/` | 契约：全系统唯一的统一点。写法约定见 [kernel/contracts/CONVENTIONS.md](kernel/contracts/CONVENTIONS.md) |
-| `kernel/eval/` | 求值核：时间线、事件、随机流、插值 |
-| `sources/` | 帧源：只有它接触渲染器 |
-| `comp/`、`observe/`、`verify/`、`cards/`、`bench/`、`harvest/`、`api/`、`jobs/` | 合成收尾、感知、验收、技术卡、考题、收获、协议、作业 |
-| `calib/` | 校准场景 |
-| `crew/` | 多代理施工：总则、角色提示词、任务书模板、配置表。见 [crew/README.md](crew/README.md) |
+| [kernel](kernel/README.md) | 契约、时间线、事件、随机流、插值 |
+| [sources](sources/README.md)、[host](host/README.md) | 帧源与宿主 |
+| [comp](comp/README.md)、[observe](observe/README.md)、[verify](verify/README.md) | 合成、感知、验收 |
+| [cards](cards/README.md)、[harvest](harvest/README.md) | 技术卡及可复用经验 |
+| [calib](calib/README.md)、[bench](bench/README.md) | 校准场景与考题 |
+| [api](api/README.md)、[jobs](jobs/README.md) | 协议与作业 |
+| [crew](crew/README.md) | 派工总则、角色、任务书模板和配置 |
 
-每个目录归谁、谁能改，以 `kernel/contracts/` 里的目录归属表为准。
+一级组件由[目录归属表](kernel/contracts/ownership/ownership.json)登记。每个组件的 `README.md` 随实现更新，入口预算为 1500 token，按 UTF-8 字节数除以 3.5 向上取整。CI 通过 `npm run check` 执行这项检查，本地可单跑 `npm run check:repo -- --only core.component-docs`。
 
 ## 三条依赖规则
 
 1. `kernel` 不依赖任何帧源和渲染库。
-2. 新目录只能引用旧目录的白名单模块；旧目录不引用新目录。
+2. 新旧目录之间禁止互相引用。[依赖检查](kernel/guard.mjs)仅对六条待核心线迁移的具体引用保留过渡例外。
 3. 跨组件只通过契约说话。要别的组件改东西，提变更单，不直接改。
+
+CI 执行 `node beiming/kernel/guard.mjs`。拆仓验收用 `node beiming/kernel/guard.mjs --standalone`，逐条报告仍需迁移的引用。

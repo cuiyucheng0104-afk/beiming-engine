@@ -21,7 +21,7 @@ import data from './palette.json';
 import titleSheet from './media/title.json';
 
 const P = palette(data);
-const [W, H] = film.size, FPS = film.fps, FRAMES = Math.round(film.dur * FPS);
+const { width: W, height: H, fps: FPS, frameCount: FRAMES } = film.output;
 const L = layout({ W, H, FPS, frames: FRAMES, cuts: film.shots.map(s => s.out) }, { shotAt, skyShift, headingYaw, behind, cardInView });
 const EV = eventSeconds(film);
 

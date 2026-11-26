@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // 北冥仓库 · 《北冥》10 秒样片的一键重建（npm run beiming:build；sh build.sh 是它的兼容壳）：转调统一出片命令，再按旧文件名放进 out/。
 //   node tools/film/beiming.mjs [--4k|--uhd] [--no-audio] [--workers N] [--json]
-// 等价于：node tools/film/cli.mjs build films/beiming-10s --page . --out-root out/beiming --profile beiming-1040p24 --audio audio/build.sh
+// 等价于：node tools/film/cli.mjs build films/beiming-10s --page films/beiming-10s --out-root out/beiming --profile beiming-1040p24 --audio audio/build.sh
 //   作品描述 films/beiming-10s/film.json（作品描述包维护的镜像：路径相对仓库根，页面是仓库根的 index.html + src/）；
 //   声音是《北冥》自己的 audio/build.sh（混音 + 自检）；产物在 out/beiming/<run-id>/（run.json、QA 报告、联系表、播放页），
 //   最近一次在 out/beiming/latest。
@@ -28,7 +28,7 @@ export const command = defineCommand({
   summary: '重建《北冥》10 秒样片：转调统一出片命令，再按旧文件名放进 out/',
   usage: ['npm run beiming:build -- [--4k] [--no-audio] [--workers N] [--json]', 'node tools/film/beiming.mjs [选项]', 'sh build.sh [选项]（POSIX 兼容壳，参数相同）'],
   description: [
-    `等价于 node tools/film/cli.mjs build ${FILM} --page . --out-root out/beiming --profile beiming-1040p24 --audio audio/build.sh；`,
+    `等价于 node tools/film/cli.mjs build ${FILM} --page films/beiming-10s --out-root out/beiming --profile beiming-1040p24 --audio audio/build.sh；`,
     '产物在 out/beiming/<run-id>/（run.json、qa/report.json、联系表、播放页），再按旧文件名放到 out/：',
     '  out/video[_4k].mp4 · out/beiming[_4k].mp4 · out/beiming_web.mp4 · out/beiming.html · out/contact_sheet.jpg · out/mix.wav',
     '机器 QA 门不通过时旧文件名照样放好，退出码 4（报告在运行目录的 qa/）。新作品不要用这个命令：npm run new，再 npm run film -- build。',
@@ -56,7 +56,7 @@ export const command = defineCommand({
     if (noAudio && !fs.existsSync(mixWav)) throw new CliError('usage.no-mix', '--no-audio 要沿用 out/mix.wav，但它不存在', { hint: '先不加 --no-audio 跑一次（会重新混音）' });
 
     const tag = fourK ? '_4k' : '';
-    const args = [CLI, 'build', FILM, '--page', '.', '--out-root', 'out/beiming', '--profile', 'beiming-1040p24',
+    const args = [CLI, 'build', FILM, '--page', FILM, '--out-root', 'out/beiming', '--profile', 'beiming-1040p24',
       '--workers', String(workers), '--audio', noAudio ? 'out/mix.wav' : 'audio/build.sh', '--json'];
     if (fourK) args.push('--size', '3840x2080');
     if (ctx.quiet) args.push('--quiet');
@@ -75,7 +75,7 @@ export const command = defineCommand({
     const code = await closed;
     let env = null;
     try { env = JSON.parse(out); } catch { /* 下面按失败处理 */ }
-    if (!env) throw new CliError('failure.film-cli', `统一出片命令没有给出 JSON 信封（退出码 ${code}）`, { hint: '看上面 stderr 的输出；单独跑 node tools/film/cli.mjs build films/beiming-10s --page . --out-root out/beiming 定位' });
+    if (!env) throw new CliError('failure.film-cli', `统一出片命令没有给出 JSON 信封（退出码 ${code}）`, { hint: '看上面 stderr 的输出；单独跑 node tools/film/cli.mjs build films/beiming-10s --page films/beiming-10s --out-root out/beiming 定位' });
     for (const w of env.warnings || []) ctx.warn(w);
     const runDir = env.data?.runDir || (env.runJson ? path.posix.dirname(env.runJson) : null);
     const qaOnly = code === 4 && /qa-failed$/.test(env.error?.code || '');

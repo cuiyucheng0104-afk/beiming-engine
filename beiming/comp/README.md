@@ -1,6 +1,6 @@
 # 合成收尾
 
-接收[帧源](../kernel/contracts/source/CONTRACT.md)与[输出通道](../kernel/contracts/passes/CONTRACT.md)，按[片子描述](../kernel/contracts/film/CONTRACT.md)交付成片。公共入口在 `index.mjs`；跨组件交接遵循[目录归属契约](../kernel/contracts/ownership/CONTRACT.md)，引用旧目录须命中白名单。
+接收[帧源](../kernel/contracts/source/CONTRACT.md)与[输出通道](../kernel/contracts/passes/CONTRACT.md)，按[片子描述](../kernel/contracts/film/CONTRACT.md)交付成片。公共入口在 `index.mjs`；跨组件交接遵循[目录归属契约](../kernel/contracts/ownership/CONTRACT.md)。
 
 ## 混用镜头
 

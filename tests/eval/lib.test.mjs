@@ -31,7 +31,7 @@ describe('Bash 静态分析', () => {
 
   it('here-doc 的正文不当命令分析；cd 之后的相对路径按新目录算', () => {
     assert.deepEqual(writes("cat > films/a/x.py <<'EOF'\nrm -rf engine\nEOF"), ['films/a/x.py']);
-    assert.deepEqual(writes('cd src && sed -i "" s/a/b/ main.js'), ['src/main.js']);
+    assert.deepEqual(writes('cd src && sed -i "" s/a/b/ main.js'), ['films/beiming-10s/src/main.js']);
   });
 
   it('git：-C 之后的 add -A、命令替换里的 add -A、commit -am、push 都认得出', () => {

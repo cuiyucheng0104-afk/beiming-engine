@@ -5,6 +5,7 @@
 //   node tools/baseline/determinism.mjs --template a|c [选项]    检查路线模版（按 new-film 的规则临时实例化，结束即删）
 //   node tools/baseline/determinism.mjs --scan-only [--path <目录>]…   只做静态扫描
 // 命令约定（参数、--help、--json 信封、退出码、信号收尾）用 tools/lib/cli.mjs（docs/CLI.md）。
+import { readFilmDocument } from '../lib/film-json.mjs';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -30,7 +31,7 @@ const ints = (list, name) => list.map(v => {
 function mulberry(a) {
   return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
-function readFilm(dir) { try { return JSON.parse(fs.readFileSync(path.join(dir, 'film.json'), 'utf8')); } catch { return null; } }
+function readFilm(dir) { try { return readFilmDocument(path.join(dir, 'film.json')).value; } catch { return null; } }
 // 切点（帧号）：film.json v2 的 shots[].in；v1 的 cuts；仓库根目录（《北冥》样片，没有 film.json）读 tools/baseline/sets.json 的镜头表标注
 function filmCuts(film, dir, fps) {
   if (Array.isArray(film?.shots)) return film.shots.map(s => s.in).filter(v => Number.isInteger(v) && v > 0);

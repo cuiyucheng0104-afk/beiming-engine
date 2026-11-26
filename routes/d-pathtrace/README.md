@@ -1,5 +1,7 @@
 # D · 北冥光追 · 物理路径追踪
 
+终渲默认自动交付模式：`npm run film -- build films/<名字> --final` 无需 look / animatic 用户原话，机器 QA 照常执行。需要逐步人工审阅时加 `--delivery-mode review`，沿用 look → animatic → final 记录；只有真实成片认可才可写 accepted。
+
 > 路线手册。第一次进仓库、要用这条路线做片，读完这一份就能开工；四条路线怎么选见 [routes/README.md](../README.md)。
 > 导演方法、画面规范与六章工艺在 [routes/directing/](../directing/README.md)，这里只写 D 路线怎么落地，不重复它们。
 

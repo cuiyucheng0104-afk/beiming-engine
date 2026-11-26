@@ -193,7 +193,7 @@ export async function checkCommand(opts, positionals) {
   }
 
   // 闸门要求
-  add('gates', 'info', `闸门：look ${film.gates.look === 'required' ? '必审' : '可选'}，animatic ${film.gates.animatic === 'required' ? '必审' : '可选'}，final 必审`);
+  add('gates', 'info', `人工交付模式（--delivery-mode review）的闸门；默认 automatic 不拦终渲：look ${film.gates.look === 'required' ? '必审' : '可选'}，animatic ${film.gates.animatic === 'required' ? '必审' : '可选'}，final 必审`);
   const worst = checks.some(c => c.status === 'fail') ? EXIT.CONTRACT : checks.some(c => c.status === 'env') ? EXIT.ENV : EXIT.OK;
   const err = worst === EXIT.OK ? null : new FilmError(worst, worst === EXIT.CONTRACT ? 'check-failed' : 'check-env', worst === EXIT.CONTRACT ? `检查不通过：${checks.filter(c => c.status === 'fail').map(c => c.id).join('、')}` : `检查没做全（缺环境）：${checks.filter(c => c.status === 'env').map(c => c.id).join('、')}`, checks.find(c => c.hint && c.status !== 'pass')?.hint || null);
   const mark = { pass: '✓', fail: '✗', env: '…', warn: '!', info: '·' };

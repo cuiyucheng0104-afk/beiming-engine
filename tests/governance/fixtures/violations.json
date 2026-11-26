@@ -15,6 +15,8 @@
     { "rule": "core.upstream-names", "title": "把上游项目名当路线名", "append": { "routes/README.md": "\nB 也叫 RAEA 原生路线。\n" }, "expect": "RAEA 原生路线" },
     { "rule": "core.upstream-names", "title": "新目录名带上游项目名", "write": { "routes/raea-extra/README.md": "# 额外\n" }, "expect": "目录名" },
     { "rule": "core.entry-budget", "title": "AGENTS.md 超过 150 行", "appendRepeat": { "AGENTS.md": ["填充行\n", 160] }, "expect": "超过入口预算" },
+    { "rule": "core.component-docs", "title": "单行中文组件入口超过 token 预算", "write": { "beiming/kernel/contracts/ownership/ownership.json": "{ \"entries\": [{ \"path\": \"api\" }] }", "beiming/api/README.md": "# 协议\n\n" }, "appendRepeat": { "beiming/api/README.md": ["说明", 900] }, "expect": "超过入口预算 1500 token" },
+    { "rule": "core.component-docs", "title": "已登记组件缺少入口", "write": { "beiming/kernel/contracts/ownership/ownership.json": "{ \"entries\": [{ \"path\": \"api\" }] }" }, "expect": "缺少组件入口说明" },
     { "rule": "core.reach", "title": "AGENTS.md 不链到总指引", "write": { "AGENTS.md": "# 入口\n\n先读 routes/README.md（没有写成链接）。\n" }, "expect": "到不了" },
     { "rule": "core.claude-bridge", "title": "CLAUDE.md 里另写规则", "write": { "CLAUDE.md": "@AGENTS.md\n另外：随便提交。\n" }, "expect": "只有一行" },
     { "rule": "core.claude-bridge", "title": "没有 CLAUDE.md", "remove": ["CLAUDE.md"], "expect": "没有 CLAUDE.md" },

@@ -5,8 +5,8 @@
 // 可选参数：&view=side|top|far|eye|under|reveal|hero|wing|tail（固定机位）&roll=-0.5（鲲侧倾）&look=1（眼珠看镜头）
 //   &lod=0.4 &noink=1 &pass=1 &wt=<秒>（翅膀时钟固定在某一刻，调扇翅姿态用）&bt=<秒>（身体时钟固定）
 import * as THREE from 'three';
-import { createKun } from '../src/kun_peng.js';
-import { PALETTE, setToonGlobals } from '../src/toon.js';
+import { createKun } from '../films/beiming-10s/src/kun_peng.js';
+import { PALETTE, setToonGlobals } from '../films/beiming-10s/src/toon.js';
 import { heldTime } from '../engine/core/clock.js';
 import { labRenderer, kunStats, keyLight, BASE_VIEWS, baseExtra, pickView, eyeCloseup, frameTimes, labPipeline, labPixelRatio } from './kun_bench.js';
 

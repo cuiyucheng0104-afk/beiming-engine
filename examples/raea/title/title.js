@@ -4,12 +4,12 @@
 //   window.render(t)          纯函数：同一个 t 永远画出同一张图（字形每个画面尺寸只预计算一次）
 //   window.TEXTS(t)           [{ text, box:[x, y, w, h], alpha, font }]，给检查用
 // 版式来自 ../layout.js 的 title（画面比例），与 film.tsx、tests/native 共用一份。
-// 笔画骨架用 src/hud.js 导出的 __TITLE_SKEL（《北冥》正片片名的同一份手标骨架，只读引用）；
-// 飞白强度 DRY 与 src/hud.js:308 同值（那里没有导出）——改那里时这里一起改。
+// 笔画骨架用 films/beiming-10s/src/hud.js 导出的 __TITLE_SKEL（《北冥》正片片名的同一份手标骨架，只读引用）；
+// 飞白强度 DRY 与 films/beiming-10s/src/hud.js:308 同值（那里没有导出）——改那里时这里一起改。
 import { buildBrushGlyph, paintBrushGlyph } from '../../../engine/overlay/brush.js';
 import { shadowOnly } from '../../../engine/paint/canvas.js';
 import { loadFonts } from '../../../engine/overlay/text.js';
-import { __TITLE_SKEL as SKEL } from '../../../src/hud.js';
+import { __TITLE_SKEL as SKEL } from '../../../films/beiming-10s/src/hud.js';
 import * as V from '../../../engine/native/view.js';
 import { layout, titleBox } from '../layout.js';
 
@@ -30,7 +30,8 @@ async function init() {
   const film = await (await fetch(new URL('../film.json', import.meta.url))).json();
   const pal = await (await fetch(new URL('../palette.json', import.meta.url))).json();   // 字色取色板的 title
   INK = [1, 3, 5].map(i => parseInt(pal.title.slice(i, i + 2), 16));
-  const L = layout({ W, H, FPS: film.fps, frames: Math.round(film.dur * film.fps), cuts: film.shots?.map(s => s.out) }, V);
+  const { fps: FPS, frameCount: frames } = film.output;
+  const L = layout({ W, H, FPS, frames, cuts: film.shots?.map(s => s.out) }, V);
   T = titleBox({ W, H }, L.title);
   G = T.glyphs.map(([ch]) => buildBrushGlyph(ch, { font: `400 ${T.F.toFixed(2)}px "${FAMILY}"`, size: T.F, strokes: SKEL[ch], span: SPAN[ch], dry: DRY[ch] }));
   window.READY = true;

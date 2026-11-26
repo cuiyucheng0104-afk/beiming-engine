@@ -115,7 +115,7 @@ test('--dry-run --json：退出 0、不写盘、给出文件清单、v2 film.jso
   assert.equal(fj.route, 'b');
   assert.equal(fj.backend, 'native', 'B 的 backend 与作品描述包同口径');
   assert.deepEqual(fj.output, { profile: 'web-1080p24', width: 1920, height: 1080, fps: 24, frameCount: 108 }, 'B 模版 4.5 秒');
-  assert.deepEqual(fj.shots, [{ id: 'S1', in: 0, out: 108 }], 'v1 模版没有镜头表：整片一个镜头');
+  assert.deepEqual(fj.shots, [{ id: 'S1', in: 0, out: 108 }], 'B 模版的 S1 覆盖整片');
   assert.deepEqual(fj.events.map(e => [e.id, e.frame, e.shot]), [['title', 30, 'S1']], '片名落定的事件原样带过来');
   assert.deepEqual(fj.audio, { mode: 'native' }, 'B 的声音由 native.audio 准备');
   assert.deepEqual(fj.gates, { look: 'required', animatic: 'required', final: 'required' });

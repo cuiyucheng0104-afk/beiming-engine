@@ -69,7 +69,7 @@ examples/raea/        当前已运行的原生实验与资产桥
 | [`engine/form/bend.js`](../../engine/form/bend.js) | GPU/JS 脊柱波形 | 烘焙成骨骼/morph，或在新后端重写形变与阴影路径 | [Model 入口][model] |
 | [`engine/shade/toon.js`](../../engine/shade/toon.js) | 三色、阴影、羽化、rim 与艺术补光 | 按视觉语义重建，逐项校准 | [Toon Rust][toon]、[Toon WESL][toonshader] |
 | [`engine/look/index.js`](../../engine/look/index.js) | 指定后期顺序 | 分离风格意图和后端参数 | [FramePass][framepass]、[Outline][outline] |
-| [`engine/paint`](../../engine/paint) / [`src/girl.js`](../../src/girl.js) | 二维人物路径、笔触与局部动作 | 建立二维关键姿态；三维角色另走骨骼与目标约束 | [Character][character]、[求解器][solve] |
+| [`engine/paint`](../../engine/paint) / [`films/beiming-10s/src/girl.js`](../../films/beiming-10s/src/girl.js) | 二维人物路径、笔触与局部动作 | 建立二维关键姿态；三维角色另走骨骼与目标约束 | [Character][character]、[求解器][solve] |
 | [`engine/render/video.mjs`](../../engine/render/video.mjs) | 分段浏览器截图和 FFmpeg | 增加外部运行时调度与统一 manifest | [原生导出][export]、[编码][encode] |
 
 ## 2. 镜头与动作协议：先解决状态，再追求抽象
@@ -144,7 +144,7 @@ type ActorSample = {
 
 ## 4. 风格迁移：按照可见结果逐层搭建
 
-建议新增 `engine/style/` 存版本化风格规范，初期只描述视觉语义；将 Three 与 RAEA 数值放在各自适配器。先保留原版 `src/toon.js`、`src/look.js` 与样片作为参考。
+建议新增 `engine/style/` 存版本化风格规范，初期只描述视觉语义；将 Three 与 RAEA 数值放在各自适配器。先保留原版 `films/beiming-10s/src/toon.js`、`films/beiming-10s/src/look.js` 与样片作为参考。
 
 | 视觉层 | 北冥当前实现 | RAEA 对应入口 | 需要重新实现或校准 |
 |---|---|---|---|

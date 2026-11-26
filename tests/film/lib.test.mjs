@@ -13,10 +13,13 @@ import { Legacy } from '../../tools/film/lib/legacy.mjs';
 import * as cache from '../../tools/film/lib/cache.mjs';
 import { resolveProfile, framesAt, BUILTIN } from '../../tools/film/lib/profiles.mjs';
 import { parseFilm, shotsAt, cutsOf, normalizeRoute } from '../../tools/film/lib/spec.mjs';
-import { gateStatus, assertFinalAllowed, passes, reviewProblems, buildRecord, writeRecord, recordWaivers, sourceOf, timingSnapshot, filmView, useBuiltinReviewLib } from '../../tools/film/lib/gates.mjs';
+import { gateStatus as rawGateStatus, assertFinalAllowed as rawAssertFinalAllowed, passes, reviewProblems, buildRecord, writeRecord, recordWaivers, sourceOf, timingSnapshot, filmView, useBuiltinReviewLib } from '../../tools/film/lib/gates.mjs';
 import { imageSize, encoderInfo, clickTrack, timecode } from '../../tools/film/lib/media.mjs';
 import { rerunCommand } from '../../tools/film/lib/session.mjs';
 import { ROOT, cleanupTestRoot } from './helpers.mjs';
+
+const gateStatus = film => rawGateStatus(film, { deliveryMode: 'review' });
+const assertFinalAllowed = (film, status) => rawAssertFinalAllowed(film, status, { deliveryMode: 'review' });
 
 // makeWork 建在 FILM_TEST_ROOT（默认系统临时目录下的 beiming-film-tests-<pid>）：跑完把这个目录一并删掉
 after(cleanupTestRoot);

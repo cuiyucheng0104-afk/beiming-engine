@@ -80,7 +80,7 @@ test('只改镜头 B 的 out（120 → 132）：总长、切点、事件、QA �
   // 只平移不改内容的镜头 C：位置无关签名不变（ripple 不让它重渲）；镜头 B 变了
   assert.equal(shotSignature(after, 'C'), shotSignature(before, 'C'));
   assert.notEqual(shotSignature(after, 'B'), shotSignature(before, 'B'));
-  // 镜头 C 的鲲按镜头 C 的设计帧一拍三（src/shotC.js 的 f = fg - FSHIFT）：时钟起点跟着镜头平移
+  // 镜头 C 的鲲按镜头 C 的设计帧一拍三（films/beiming-10s/src/shotC.js 的 f = fg - FSHIFT）：时钟起点跟着镜头平移
   assert.equal(after.shots[2].actorClockOrigin.kun, 12);
   assert.equal(after.shots[1].actorClockOrigin.girl, 72);
   assert.notEqual(timingSignature(after), timingSignature(before));

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { findOnset, findPCenter } from '../../tools/qa/lib/audio.mjs';
+import { findOnset, findPCenter } from './audio-onsets.mjs';
 import { mixEvents, SAMPLE_RATE, VOICES } from './audio.mjs';
 
 const materials = ['foley.impact', 'foley.step', 'foley.metal', 'foley.cloth'];

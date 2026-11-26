@@ -61,7 +61,7 @@
 
 不允许出现没有消费者的时间字段（`orphan-time-field`，判错）：时间只写在 `shots[].in / out`、`events[].frame / end`、`qa.intentional[].from / to`、`qa.waivers[].frames`、`timeline`（C 路线是 `tempo` + `cues`）与 `posterFrame`。白名单之外的字段，只要名字像时间就判错，不管写在顶层、镜头、事件、`output` 还是 `qa` 段：常见时间名本身（`poster`、`dur`、`duration`、`t`、`t0`、`start`、`at`、`delay`、`fps`、`tempo`…）；最后一段是时间单位（`startSec`、`durationMs`、`holdSec`、`fadeFrames`、`startTime`、`beatSec`）；`t` 加大写或数字开头（`tStart`、`t_end`）；时间动词加时刻或长度（`fadeIn`、`cutAt`、`inPoint`、`frameCount`）。字段名按 camelCase / 下划线切段再判，`items`、`endCard`、`fadeColor`、`startScale` 这类不会误判；值是布尔的不算。规则实现与测试：`film.js` 的 `isTimeLikeField`、`tests/production/film.test.mjs`。其他未知字段只提示。完整字段见 `film.schema.json`。
 
-**v1 兼容**：没有 `schemaVersion` 的 v1 记录 `{ route, title, dur, fps, size, native?, poster?, cuecheck? }` 自动升级读取（`frameCount = round(dur × fps)`，整片一个镜头），并提示迁移：`node engine/production/film.js upgrade <作品> --write`。v2 里可以暂留 `dur` / `fps` / `size` 作兼容镜像（给还没改读 film.js 的旧工具），但必须与 `output` 一致。早期 v2 草稿的旧写法（顶层 `holds`、`sync: true / false`、事件里的 `cue`）判错并给出搬法，`upgrade --write` 自动换成现行写法（库：`migrateV2`）。
+**v1 迁移**：没有 `schemaVersion` 的 v1 记录 `{ route, title, dur, fps, size, native?, poster?, cuecheck? }` 用 `node engine/production/film.js upgrade <作品> --write` 显式迁移（`frameCount = round(dur × fps)`，默认整片一个镜头）。v2 里可以暂留 `dur` / `fps` / `size` 作兼容镜像（给还没改读 film.js 的旧工具），但必须与 `output` 一致。早期 v2 草稿的旧写法（顶层 `holds`、`sync: true / false`、事件里的 `cue`）判错并给出搬法，`upgrade --write` 自动换成现行写法（库：`migrateV2`）。
 
 ## 2. 时间
 
@@ -92,12 +92,12 @@
 
 ## 4. 创作闸门与状态
 
-三道阻断闸 look → animatic → final（另有只记录的 structure），对应 `routes/directing/DIRECTING.md` 的 ⛔2、⛔3、⛔4（⛔1）。规则、命令与 agent 的边界见 `docs/creative-review/README.md`。给编排工具的库接口：
+可选人工交付模式（`--delivery-mode review`）的三道闸 look → animatic → final（另有只记录的 structure），对应 `routes/directing/DIRECTING.md` 的 ⛔2、⛔3、⛔4（⛔1）。规则、命令与 agent 的边界见 `docs/creative-review/README.md`。给编排工具的库接口：
 
 | 函数 | 用途 |
 |---|---|
 | `filmStatus(target)` | 现算状态 `{ state, label, gates, run, qa, canFinal, diagnostics, next, nextRequired }`：`next` 按制作顺序列出全部下一步（只记录不阻断的 ⛔1 结构确认以「（建议）」开头）；`nextRequired` 是卡住状态往上走的那一步（accepted 时为 `null`） |
-| `assertFinalAllowed(target)` | 终渲前调用：look 与 animatic 认可或豁免才放行，否则抛 `GateError`（`exitCode` 4） |
+| `assertFinalAllowed(target)` | 默认自动终渲；传 `{ deliveryMode: "review" }` 时 look 与 animatic 认可或豁免才放行，否则抛 `GateError`（`exitCode` 4） |
 | `assertDelivered(target)` | 写「已交付」之前调用：只有 accepted 放行；拒绝时 `hint` 是 `nextRequired`（终渲、机器 QA 或 ⛔4） |
 | `deliveryLabel(state)` / `findUnbackedClaims(text, state)` | 状态的对外文字；查出没有 accepted 撑腰的「已交付」「用户已认可」 |
 | `recordReview(target, input)` | 记一条审片结论（命令行 `film.js review` 与出片编排共用）：拼记录、算所看文件 sha256、校验，合格才原子地写 |
@@ -117,7 +117,7 @@ ProjectSpec（`project.js`，契约见 `docs/routes/contracts.md`）是执行侧
 
 ```
 node engine/production/film.js <子命令> [参数] [--json]
-  check <作品|film.json> [--template] [--strict] [--no-files]   校验（v1 自动升级读取）
+  check <作品|film.json> [--template] [--strict] [--no-files]   校验 film.json v2
   status <作品>                                              现算状态与下一步
   gate <作品> final|deliver                                   能否终渲 / 能否写「已交付」
   review <作品> --gate … --decision … [--quote …] …          记录一条审片结论（只增不改）

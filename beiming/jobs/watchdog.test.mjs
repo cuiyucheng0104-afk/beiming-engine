@@ -7,7 +7,7 @@ import process from 'node:process';
 import { ChildProcess, execFileSync, spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright-core';
-import { chromeArgs, chromeExecutable } from '../../engine/render/lib/gpu.mjs';
+import { chromeArgs, chromeExecutable } from '../host/page/gpu.mjs';
 import * as jobs from './index.mjs';
 import { Scheduler } from './scheduler.mjs';
 import {

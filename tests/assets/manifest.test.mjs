@@ -18,7 +18,7 @@ const codes = r => r.diagnostics.map(d => d.code);
 /** 只含 src/ 的临时仓库副本（底板、字体照常从真仓库核对时不需要它们）。 */
 function srcCopy() {
   const root = mkdtempSync(join(tmpdir(), 'beiming-assets-'));
-  cpSync(join(REPO, 'src'), join(root, 'src'), { recursive: true });
+  cpSync(join(REPO, 'films/beiming-10s/src'), join(root, 'films/beiming-10s/src'), { recursive: true });
   mkdirSync(join(root, 'assets', 'plates'), { recursive: true });
   cpSync(join(REPO, 'assets', 'plates', 'plates.json'), join(root, 'assets', 'plates', 'plates.json'));
   return { root, cleanup: () => rmSync(root, { recursive: true, force: true }) };
@@ -53,16 +53,16 @@ test('资产 id 的解析：种类、版本、只写名字时唯一才算、loca
 });
 
 test('JS 模块的哈希覆盖 src/ 里的 import 闭包，不含 engine/', () => {
-  assert.deepEqual(moduleClosure('src/kun.js'), ['src/eye_shade.js', 'src/kun.js', 'src/shadow.js', 'src/toon.js']);
-  assert.deepEqual(moduleClosure('src/girl.js'), ['src/girl.js', 'src/timeline.js']);
-  assert.ok(moduleClosure('src/kun_qinglv.js').includes('src/toon_qinglv.js'));
+  assert.deepEqual(moduleClosure('films/beiming-10s/src/kun.js'), ['films/beiming-10s/src/eye_shade.js', 'films/beiming-10s/src/kun.js', 'films/beiming-10s/src/shadow.js', 'films/beiming-10s/src/toon.js']);
+  assert.deepEqual(moduleClosure('films/beiming-10s/src/girl.js'), ['films/beiming-10s/src/girl.js', 'films/beiming-10s/src/timeline.js']);
+  assert.ok(moduleClosure('films/beiming-10s/src/kun_qinglv.js').includes('films/beiming-10s/src/toon_qinglv.js'));
   const reg = loadRegistry();
   const h = hashAsset(reg.assets.get('model:kun'));
   assert.match(h.sha256, /^[0-9a-f]{64}$/);
   assert.equal(h.files.length, 4);
 });
 
-test('改 src/kun.js 一个字节：资产哈希变了，check 提示依赖它的镜头缓存失效；锁文件与仓库现状一致', () => {
+test('改 films/beiming-10s/src/kun.js 一个字节：资产哈希变了，check 提示依赖它的镜头缓存失效；锁文件与仓库现状一致', () => {
   const lock = readLock();
   assert.ok(lock, '缺 engine/assets/assets.lock.json：node engine/assets/manifest.js lock --write');
   const fresh = buildLock();
@@ -70,7 +70,7 @@ test('改 src/kun.js 一个字节：资产哈希变了，check 提示依赖它�
   for (const [id, v] of Object.entries(fresh.assets)) assert.equal(v.sha256, lock.assets[id].sha256, `${id} 与锁文件不符：资产改过却没更新锁文件`);
   const c = srcCopy();
   try {
-    const p = join(c.root, 'src', 'kun.js');
+    const p = join(c.root, 'films/beiming-10s/src', 'kun.js');
     writeFileSync(p, `${readFileSync(p, 'utf8')} `);
     const r = checkAssets(['model:kun@v1', 'character:girl@v1'], { root: c.root, lock });
     assert.equal(r.ok, true);
@@ -78,15 +78,15 @@ test('改 src/kun.js 一个字节：资产哈希变了，check 提示依赖它�
     assert.match(r.diagnostics[0].message, /src\/kun\.js/);
     assert.match(r.diagnostics[0].message, /缓存失效/);
     // 被依赖的 toon.js 改了，用到它的 kun 也变
-    const t = join(c.root, 'src', 'toon.js');
-    writeFileSync(p, readFileSync(join(REPO, 'src', 'kun.js')));
+    const t = join(c.root, 'films/beiming-10s/src', 'toon.js');
+    writeFileSync(p, readFileSync(join(REPO, 'films/beiming-10s/src', 'kun.js')));
     writeFileSync(t, `${readFileSync(t, 'utf8')}\n// x\n`);
     assert.deepEqual(codes(checkAssets(['model:kun@v1'], { root: c.root, lock })), ['asset-changed']);
     // 换行改成 CRLF 不算改动（Windows 检出与 macOS 同一个哈希）
-    writeFileSync(t, readFileSync(join(REPO, 'src', 'toon.js'), 'utf8').replace(/\n/g, '\r\n'));
+    writeFileSync(t, readFileSync(join(REPO, 'films/beiming-10s/src', 'toon.js'), 'utf8').replace(/\n/g, '\r\n'));
     assert.deepEqual(codes(checkAssets(['model:kun@v1'], { root: c.root, lock })), []);
     // 文件被删：判错
-    rmSync(join(c.root, 'src', 'shadow.js'));
+    rmSync(join(c.root, 'films/beiming-10s/src', 'shadow.js'));
     assert.deepEqual(codes(checkAssets(['model:kun@v1'], { root: c.root, lock })), ['asset-file-missing']);
   } finally { c.cleanup(); }
 });

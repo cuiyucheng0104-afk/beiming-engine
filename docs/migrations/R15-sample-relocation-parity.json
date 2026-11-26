@@ -1,0 +1,295 @@
+{
+  "schema": "beiming-relocation-parity/v1",
+  "date": "2026-11-26",
+  "source": "origin/main 2b4123f8",
+  "platform": "darwin-arm64-metal",
+  "size": [
+    1920,
+    1040
+  ],
+  "frames": [
+    {
+      "frame": 0,
+      "original": "86124859cb39c894128c3086e55b1643386d344ceca1a93228d7c4014e3597ca",
+      "canonical": "86124859cb39c894128c3086e55b1643386d344ceca1a93228d7c4014e3597ca",
+      "legacyEntry": "86124859cb39c894128c3086e55b1643386d344ceca1a93228d7c4014e3597ca",
+      "equal": true
+    },
+    {
+      "frame": 84,
+      "original": "55478917208b37985eebcd772bd3af8f1715f313d1f075a71ff702bf317d6ca1",
+      "canonical": "55478917208b37985eebcd772bd3af8f1715f313d1f075a71ff702bf317d6ca1",
+      "legacyEntry": "55478917208b37985eebcd772bd3af8f1715f313d1f075a71ff702bf317d6ca1",
+      "equal": true
+    },
+    {
+      "frame": 182,
+      "original": "8edd4be0ab6b3f44668e4b39a1816af02bd0f8a9b04d042f96d31a04d3539618",
+      "canonical": "8edd4be0ab6b3f44668e4b39a1816af02bd0f8a9b04d042f96d31a04d3539618",
+      "legacyEntry": "8edd4be0ab6b3f44668e4b39a1816af02bd0f8a9b04d042f96d31a04d3539618",
+      "equal": true
+    },
+    {
+      "frame": 230,
+      "original": "c8643dd0984b56c5953d10a8ccb7b7dac48975745e1a34f8155baabbaf99225e",
+      "canonical": "c8643dd0984b56c5953d10a8ccb7b7dac48975745e1a34f8155baabbaf99225e",
+      "legacyEntry": "c8643dd0984b56c5953d10a8ccb7b7dac48975745e1a34f8155baabbaf99225e",
+      "equal": true
+    }
+  ],
+  "core44": {
+    "total": 44,
+    "identical": 44,
+    "originalSource": {
+      "commit": "928161a42fee34982b1f126119d0212087e37b83",
+      "dirty": true,
+      "dirtyPaths": [
+        "engine/style/qingfeng.v1.json",
+        "engine/style/registry.json"
+      ]
+    },
+    "currentSource": {
+      "commit": "2b4123f86e7e9c2545666b508c15261339ecb0ba",
+      "dirty": true,
+      "dirtyPaths": [
+        "ssets/plates/plates.json",
+        "engine/assets/assets.lock.json",
+        "engine/assets/manifest.js",
+        "engine/form/form.test.mjs",
+        "engine/look/look.test.mjs",
+        "engine/native/bridge/export.mjs",
+        "engine/native/film.mjs",
+        "engine/production/README.md",
+        "engine/production/cli.js",
+        "engine/production/film.js",
+        "engine/production/project.js",
+        "engine/production/state.js",
+        "engine/render/lib/film.mjs",
+        "engine/render/lib/mux.mjs",
+        "engine/render/lib/qa-error.mjs",
+        "engine/style/beiming-original.v1.json",
+        "engine/style/registry.json",
+        "films/beiming-10s/film.json",
+        "films/beiming-10s/mirror-check.mjs",
+        "index.html",
+        "lab/girl.js",
+        "lab/hud.js",
+        "lab/kun.js",
+        "lab/kun_bench.js",
+        "lab/kun_bronze.js",
+        "lab/kun_peng.js",
+        "lab/kun_qinglv.js",
+        "lab/kun_qinglv_look.js",
+        "lab/kun_refine.js",
+        "lab/kun_xuan.js",
+        "lab/look.js",
+        "lab/regress.test.mjs",
+        "src/birds.js",
+        "src/boot.js",
+        "src/eye_shade.js",
+        "src/ferry.js",
+        "src/girl.js",
+        "src/hud.js",
+        "src/kun.js",
+        "src/kun_bronze.js",
+        "src/kun_peng.js",
+        "src/kun_qinglv.js",
+        "src/kun_refine.js",
+        "src/kun_xuan.js",
+        "src/look.js",
+        "src/main.js",
+        "src/shadow.js",
+        "src/shotA.js",
+        "src/shotB.js",
+        "src/shotC.js"
+      ]
+    },
+    "frames": [
+      {
+        "id": "film@1920x1040#t=0.0500",
+        "pixelSha256": "3a68f07830cc2ec79d0804018defbcafcb9a253db629cb51cdd2f86ff7da319e"
+      },
+      {
+        "id": "film@1920x1040#t=0.3000",
+        "pixelSha256": "9b23168637f22c3eb73567c5d91926766ec1b05a9fd5d76d4271e253f077d7ab"
+      },
+      {
+        "id": "film@1920x1040#t=0.5500",
+        "pixelSha256": "1f56320d04d8815ca052fda4249060ffa1b9a143b456f4e4fe1846b60088218e"
+      },
+      {
+        "id": "film@1920x1040#t=0.8000",
+        "pixelSha256": "646e8503df11ce468527685d65fc50829eaa8c45c5fa5356e830e16c2b381df9"
+      },
+      {
+        "id": "film@1920x1040#t=1.0500",
+        "pixelSha256": "f9e9abc4e9f603da786d5a2226094fd367cd9663d1098848ce0120b2b66e34da"
+      },
+      {
+        "id": "film@1920x1040#t=1.3000",
+        "pixelSha256": "2379e8a5ba54c5113930f23910bb678f0b4c9352c07f85bc2ea4e5cd0629cacc"
+      },
+      {
+        "id": "film@1920x1040#t=1.5500",
+        "pixelSha256": "de11c601de28407793af1631a511e5c68f6386ea03daec00456e1fa6a6822cae"
+      },
+      {
+        "id": "film@1920x1040#t=1.8000",
+        "pixelSha256": "a0c515146fad865580b11a7da56960ff524279653868d8dfd3f08a2db7887294"
+      },
+      {
+        "id": "film@1920x1040#t=2.0500",
+        "pixelSha256": "b5284d53a5f4de92898fb35fd54ac277e15500716e871b53ec734ebcd1cf9128"
+      },
+      {
+        "id": "film@1920x1040#t=2.3000",
+        "pixelSha256": "49e9c980ec970575603240a9dcde0e4c9649edc2b902d59dd266cd0b73219831"
+      },
+      {
+        "id": "film@1920x1040#t=2.5500",
+        "pixelSha256": "d1b606b769ceb0033d57525267c78520fb180413713fcf0bce18afa34e89a97f"
+      },
+      {
+        "id": "film@1920x1040#t=2.8000",
+        "pixelSha256": "38e19b08f17ce7ab29f84b5a4f441e6b0de753b331ab3015b8d45946b1f30b92"
+      },
+      {
+        "id": "film@1920x1040#t=3.0500",
+        "pixelSha256": "b1dd00a22ab3c08ec505ae1f670800fa1a0a48fcb4770d243ed848243f2ef84e"
+      },
+      {
+        "id": "film@1920x1040#t=3.3000",
+        "pixelSha256": "a36c31df3912c4b5de197d406af514b64aa7b37b96ea5fa95d0a53fa888fe6c8"
+      },
+      {
+        "id": "film@1920x1040#t=3.5500",
+        "pixelSha256": "70c77a72156d2a968749735aa67f95b8274541c3c75d241e894bcfa097473bc7"
+      },
+      {
+        "id": "film@1920x1040#t=3.8000",
+        "pixelSha256": "ddafe65db1255d1addc63a6ef04eb237cf52031382d3367b7d36855dc130f6ac"
+      },
+      {
+        "id": "film@1920x1040#t=4.0500",
+        "pixelSha256": "b415797bcce64aa26a2b50c9237110ef5369d8b75d98f2c5cb882e9d055a70d3"
+      },
+      {
+        "id": "film@1920x1040#t=4.3000",
+        "pixelSha256": "9f6b32ed7adf69907aea62d4408d22c1dada012ceebbff57f22066f30a424945"
+      },
+      {
+        "id": "film@1920x1040#t=4.5500",
+        "pixelSha256": "50a3a9b47c04610d370f0756f9c0ec948576cf148f3f9faba88da4092782956e"
+      },
+      {
+        "id": "film@1920x1040#t=4.8000",
+        "pixelSha256": "8d50c1ba96c379f9c4c63239c3cebfcad80474e0b060616835767ebda0188e5c"
+      },
+      {
+        "id": "film@1920x1040#t=5.0500",
+        "pixelSha256": "27351547924a777f9f93551c605513b5f574a7904bf56221946ffd4bd3350089"
+      },
+      {
+        "id": "film@1920x1040#t=5.3000",
+        "pixelSha256": "187dc69196cc4e8eb7a0ae71f22524fb2cb47bb58af474b4ad9606ce9e58558a"
+      },
+      {
+        "id": "film@1920x1040#t=5.5500",
+        "pixelSha256": "d6a548cfabfb3c3b9db4e7ac30941a834f1e9f8ebd1679d1b756fd39ab6dcf4d"
+      },
+      {
+        "id": "film@1920x1040#t=5.8000",
+        "pixelSha256": "e11983aaf1467a4954bbb4897b0012171964256a4852a18301f184f67a848747"
+      },
+      {
+        "id": "film@1920x1040#t=6.0500",
+        "pixelSha256": "082b6c1df8561b4dce7839518425ec2c8c927b98e71dbaafda7f773851585536"
+      },
+      {
+        "id": "film@1920x1040#t=6.3000",
+        "pixelSha256": "80089ada05560d613d8bb1c0a3ffeebfc7368df8f8016778a24714548d5f1652"
+      },
+      {
+        "id": "film@1920x1040#t=6.5500",
+        "pixelSha256": "0648f3247f4de126ee6abfe7d79088c34b0665bc0b1a25713bfd66825f2396b9"
+      },
+      {
+        "id": "film@1920x1040#t=6.8000",
+        "pixelSha256": "a7dee76191a807600ab83d4104f2b267bedfe5bab6baaf5c7d1c488e622a5a0d"
+      },
+      {
+        "id": "film@1920x1040#t=7.0500",
+        "pixelSha256": "4c2a326723281545e02a9ae95b74ca23ce6ba24cb65c2a18783f76d5e7eb2404"
+      },
+      {
+        "id": "film@1920x1040#t=7.3000",
+        "pixelSha256": "5b82958b1b3c54b64373ae33054c8c142361587e9088528f2eabe536e03b20c3"
+      },
+      {
+        "id": "film@1920x1040#t=7.5500",
+        "pixelSha256": "9ef007021547d0bd7370e0a758999b614e50e39cbe0b1952f509db06fa15303b"
+      },
+      {
+        "id": "film@1920x1040#t=7.8000",
+        "pixelSha256": "0995411526f561d77d7eb4e5d9f8f9238f6cebc33ade145246b66d8d3c4f74ba"
+      },
+      {
+        "id": "film@1920x1040#t=8.0500",
+        "pixelSha256": "ab523e1737499bff986ac9d0abfff565ae7eec62c78a582837c63b6e3eee10b0"
+      },
+      {
+        "id": "film@1920x1040#t=8.3000",
+        "pixelSha256": "fc441f60d3efa2878a54ec1e49e3f20aa153ec909a4fc1d743e50cc6fe6eccb9"
+      },
+      {
+        "id": "film@1920x1040#t=8.5500",
+        "pixelSha256": "b8021540c5b020909991e7bd4b723f05c97c1a7ed3ae25aef34367ce3866235f"
+      },
+      {
+        "id": "film@1920x1040#t=8.8000",
+        "pixelSha256": "09bb5ae04bbacfe9ca474e111c4d7653993a21e0845c08c0fd136ad1cfda71da"
+      },
+      {
+        "id": "film@1920x1040#t=9.0500",
+        "pixelSha256": "d006b35f8cdadcdd7896cce4fc5782fbde9bde82b0f445bae4297f69c6a2a9e2"
+      },
+      {
+        "id": "film@1920x1040#t=9.3000",
+        "pixelSha256": "75589dbfa36b80e635e663c71c63b495994abdd912608ed613fa5e72a905d606"
+      },
+      {
+        "id": "film@1920x1040#t=9.5500",
+        "pixelSha256": "39207d23ba7f14f824b32c2eb447b732d1cdea1a9911191854e35945a8dbe8f4"
+      },
+      {
+        "id": "film@1920x1040#t=9.8000",
+        "pixelSha256": "e3c0f2f7aee4ee52ed87c7bbb92a504894c526399db478c6d46f1b00e3a8dc06"
+      },
+      {
+        "id": "film@3840x2080#t=1.6000",
+        "pixelSha256": "9bd52c3948df609367bd682c1e7c14df280c6a41568d1b1f2742fc34d7b68252"
+      },
+      {
+        "id": "film@3840x2080#t=4.0000",
+        "pixelSha256": "846442420d7a7ec2051f68173db92c49993c52069a17be3b1841e8bab26447ee"
+      },
+      {
+        "id": "film@3840x2080#t=7.6000",
+        "pixelSha256": "46e4470b5faec51fc451948c98018112ab3c1051eb46f634a02e5902e33a60b0"
+      },
+      {
+        "id": "film@3840x2080#t=9.9000",
+        "pixelSha256": "5b5855778bc73740a728fda3916efed02f320dba60af548443bd9e3542580c18"
+      }
+    ]
+  },
+  "registeredBaselineComparison": {
+    "set": "beiming-core",
+    "exitCode": 0,
+    "total": 44,
+    "identical": 44,
+    "environmentDriftFrames": 34,
+    "referenceRebuiltFrom": "c49da141c6d8",
+    "note": "34 stored hashes differ with this browser environment; local reconstruction of original baseline commit is pixel-identical in all 44 frames."
+  }
+}

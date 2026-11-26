@@ -169,6 +169,37 @@ function convert(opt, raw, flag) {
 }
 
 /**
+ * 扫描选项与位置参数。不同入口用各自的声明、类型转换和错误文案，
+ * 共用 --、内联值与下一项值的读取规则。
+ */
+export function scanArgv(argv, { isOption, apply, delimiterAsValue = true }) {
+  const positionals = [];
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === '--') {
+      positionals.push(...argv.slice(i + 1));
+      break;
+    }
+    if (!isOption(arg)) {
+      positionals.push(arg);
+      continue;
+    }
+    const eq = arg.indexOf('=');
+    const flag = eq > 0 ? arg.slice(0, eq) : arg;
+    const inline = eq > 0 ? arg.slice(eq + 1) : undefined;
+    const value = missing => {
+      if (inline !== undefined) return inline;
+      const next = argv[i + 1];
+      if (next === undefined || (next.startsWith('--') && (next.length > 2 || !delimiterAsValue))) throw missing();
+      i++;
+      return next;
+    };
+    apply({ arg, flag, inline, value });
+  }
+  return positionals;
+}
+
+/**
  * 按声明严格解析 argv。返回 { opts, args, positionals }；任何用法问题抛 CliError（usage.*，退出码 2）。
  * opts 里每个声明过的选项都有值：boolean 默认 false，list 默认 []，其他默认 opt.default ?? null。
  */
@@ -176,36 +207,30 @@ export function parseArgs(cmd, argv) {
   const opts = {};
   for (const o of Object.values(cmd.options)) opts[o.name] = o.type === 'boolean' ? false : o.type === 'list' ? [] : (o.default ?? null);
   const seen = new Set();
-  const positionals = [];
   const longNames = Object.keys(cmd.options);
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === '--') { positionals.push(...argv.slice(i + 1)); break; }
-    if (a.startsWith('--') && a.length > 2) {
-      const eq = a.indexOf('=');
-      const name = eq > 0 ? a.slice(2, eq) : a.slice(2);
-      const inline = eq > 0 ? a.slice(eq + 1) : undefined;
+  const positionals = scanArgv(argv, {
+    isOption: arg => arg.startsWith('-') && arg.length > 1 && !/^-\d/.test(arg),
+    delimiterAsValue: false,
+    apply({ arg, flag, inline, value }) {
+      if (!arg.startsWith('--')) {
+        const long = cmd.shorts.get(arg.slice(1));
+        if (long && cmd.options[long].type === 'boolean') { opts[long] = true; return; }
+        throw usageError('unknown-option', `不认识的选项 ${arg}`, '短选项只有 -h；其他选项写全名，见 --help');
+      }
+      const name = flag.slice(2);
       const opt = cmd.options[name];
       if (!opt) {
         const s = suggest(name, longNames);
         throw usageError('unknown-option', `不认识的选项 --${name}`, s ? `是不是想写 --${s}？全部选项见 --help` : '全部选项见 --help');
       }
-      const flag = `--${name}`;
       if (opt.type === 'boolean') {
-        if (inline === undefined) opts[name] = true;
-        else if (['true', '1'].includes(inline)) opts[name] = true;
+        if (inline === undefined || ['true', '1'].includes(inline)) opts[name] = true;
         else if (['false', '0'].includes(inline)) opts[name] = false;
         else throw usageError('bad-value', `${flag} 是开关，不带值（收到「${inline}」）`, `直接写 ${flag}`);
-        continue;
+        return;
       }
-      let raw = inline;
-      if (raw === undefined) {
-        const next = argv[i + 1];
-        if (next === undefined || (next.startsWith('--') && next.length > 2) || next === '--') {
-          throw usageError('missing-value', `${flag} 后面要跟${opt.arg ? ` ${opt.arg}` : '一个值'}`, opt.example ? `例：${flag} ${opt.example}` : '见 --help');
-        }
-        raw = next; i++;
-      }
+      const raw = value(() => usageError('missing-value', `${flag} 后面要跟${opt.arg ? ` ${opt.arg}` : '一个值'}`,
+        opt.example ? `例：${flag} ${opt.example}` : '见 --help'));
       if (opt.type === 'list') {
         const parts = opt.split ? raw.split(opt.split).map(s => s.trim()).filter(Boolean) : [raw];
         opts[name].push(...parts.map(p => convert(opt, p, flag)));
@@ -214,15 +239,8 @@ export function parseArgs(cmd, argv) {
         opts[name] = convert(opt, raw, flag);
       }
       seen.add(name);
-      continue;
-    }
-    if (a.startsWith('-') && a.length > 1 && !/^-\d/.test(a)) {
-      const long = cmd.shorts.get(a.slice(1));
-      if (long && cmd.options[long].type === 'boolean') { opts[long] = true; continue; }
-      throw usageError('unknown-option', `不认识的选项 ${a}`, '短选项只有 -h；其他选项写全名，见 --help');
-    }
-    positionals.push(a);
-  }
+    },
+  });
   // 位置参数
   const args = {};
   const decl = cmd.positionals;
@@ -284,18 +302,20 @@ export function normalizeWarning(w) {
  *     outputs: [{path, sha256, kind}], runJson: 路径 | null, warnings: [{code, message, hint}], data: 命令自己的结果 | null }
  * path 一律是仓库相对、正斜杠；不写本机绝对路径。
  */
+export function commandEnvelope({ command, exitCode = 0, ok = exitCode === 0, error = null, outputs = [], runJson = null, warnings = [], ...extra }) {
+  return { schemaVersion: 1, ok, exitCode, command, error, outputs, runJson, warnings, ...extra };
+}
+
 export function envelope({ command, exitCode = 0, error = null, outputs = [], runJson = null, warnings = [], data = null }) {
-  return {
-    schemaVersion: 1,
-    ok: exitCode === 0,
-    exitCode,
+  return commandEnvelope({
     command,
+    exitCode,
     error: error ? { code: error.code ?? 'failure', message: String(error.message ?? error), hint: error.hint ?? null } : null,
     outputs: outputs.map(o => ({ path: o.path, sha256: o.sha256 ?? null, kind: o.kind ?? 'file' })),
     runJson,
     warnings: warnings.map(normalizeWarning),
     data,
-  };
+  });
 }
 
 export const sha256 = buf => createHash('sha256').update(buf).digest('hex');

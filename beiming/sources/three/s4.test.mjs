@@ -12,7 +12,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { runInNewContext } from 'node:vm';
 import { chromium } from 'playwright-core';
-import { chromeArgs, chromeExecutable } from '../../../engine/render/lib/gpu.mjs';
+import { chromeArgs, chromeExecutable } from '../../host/page/gpu.mjs';
 import { resolveServed, startSource } from '../../host/page/host.mjs';
 import { shotInput } from '../../kernel/eval/input.mjs';
 import { caps } from './caps.mjs';

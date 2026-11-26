@@ -15,6 +15,7 @@
 //   referencedAssets(dir) → Set<name>     作品目录里 .tsx / .ts / .js 源码的字面量引用：staticFile('x') 与 'media/x'
 //   hashAsset(path) → sha256              文件直接算；目录（逐帧 PNG 序列）按「相对名 + 每个文件的 sha256」排序后再算一次
 //   sourceFiles(dir) → [相对路径]          作品自己的源码（不含 media/、out/），写进 run.json 的输入哈希
+import { readFilmDocumentAsync } from '../../tools/lib/film-json.mjs';
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { basename, join, relative, resolve, sep } from 'node:path';
@@ -24,12 +25,11 @@ const contract = (message, hint) => fail(EXIT.CONTRACT, 'film-json', message, hi
 
 export async function readFilmSpec(dir) {
   dir = resolve(dir);
-  let text;
-  try { text = await readFile(resolve(dir, 'film.json'), 'utf8'); } catch {
+  let raw;
+  try { raw = (await readFilmDocumentAsync(resolve(dir, 'film.json'))).value; } catch (error) {
+    if (error instanceof SyntaxError) throw contract(`film.json 不是合法 JSON：${error.message}`, '修好 film.json 的语法');
     throw fail(EXIT.USAGE, 'no-film', `${dir} 下没有 film.json`, '参数要给作品目录（例如 films/<名字>），新作品用 node tools/new-film.mjs b <名字> 生成');
   }
-  let raw;
-  try { raw = JSON.parse(text); } catch (e) { throw contract(`film.json 不是合法 JSON：${e.message}`, '修好 film.json 的语法'); }
   const route = String(raw.route ?? '').toLowerCase();
   if (route !== 'b') throw fail(EXIT.USAGE, 'wrong-route', `film.json 的 route 是 ${JSON.stringify(raw.route)}，原生入口只处理 "b"`, 'A / C 路线的作品走各自的出片入口（见 routes/README.md）');
   const out = raw.output || {};

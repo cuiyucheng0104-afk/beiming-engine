@@ -1,5 +1,7 @@
 # C 路线 · 北冥代码动画风格 · 86 式
 
+终渲默认自动交付模式：`npm run film -- build films/<名字> --final` 无需 look / animatic 用户原话，机器 QA 照常执行。需要逐步人工审阅时加 `--delivery-mode review`，沿用 look → animatic → final 记录；只有真实成片认可才可写 accepted。
+
 写给第一次进仓库的 agent：读完这一页，就能用 C 模版出一部片、从 86 式里挑风格，或者复刻一部历史作品。命令都在仓库根目录执行，路径都相对仓库根。
 
 ## 这条路线是什么

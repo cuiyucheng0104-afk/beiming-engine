@@ -9,11 +9,15 @@ import { join } from 'node:path';
 import { loadFilm } from '../../engine/production/film.js';
 import { buildReview, gateVerdict, readReviews, validateReview, writeReview } from '../../engine/production/review.js';
 import {
-  GateError, assertDelivered, assertFinalAllowed, creativeAcceptanceOf, deliveryLabel, filmStatus, findUnbackedClaims, validateRunRecord,
+  GateError, assertDelivered as rawAssertDelivered, assertFinalAllowed as rawAssertFinalAllowed, creativeAcceptanceOf, deliveryLabel, filmStatus as rawFilmStatus, findUnbackedClaims, validateRunRecord,
 } from '../../engine/production/state.js';
 import { validateCreativeAcceptance as validateCreativeContract } from '../../engine/production/project.js';
 import { buildReport, technicalAcceptanceFrom } from '../../tools/qa/lib/report.mjs';
 import { HUMAN, minimalFilm, runFilm, tempFilm } from './helpers.mjs';
+
+const filmStatus = (target, opts = {}) => rawFilmStatus(target, { ...opts, deliveryMode: 'review' });
+const assertFinalAllowed = (target, opts = {}) => rawAssertFinalAllowed(target, { ...opts, deliveryMode: 'review' });
+const assertDelivered = (target, opts = {}) => rawAssertDelivered(target, { ...opts, deliveryMode: 'review' });
 
 const sha = text => createHash('sha256').update(text).digest('hex');
 const codesOf = r => r.diagnostics.filter(d => d.level === 'error').map(d => d.code);
@@ -202,7 +206,7 @@ test('认可之后改了切点：animatic 认可自动失效（stale），终渲
     assert.match(s.gates.animatic.reason, /S1 \[0, 48\) → \[0, 60\)/);
     assert.equal(s.state, 'look-approved');
     assert.throws(() => assertFinalAllowed(t.dir), e => /animatic（stale/.test(e.message));
-    const g = runFilm(['gate', t.dir, 'final', '--json']);
+    const g = runFilm(['gate', t.dir, 'final', '--delivery-mode', 'review', '--json']);
     assert.equal(g.status, 4);
     assert.equal(g.json.ok, false);
     assert.equal(g.json.error.code, 'contract.gate-closed');

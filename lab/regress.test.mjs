@@ -67,8 +67,8 @@ for (const mod of ['kun', 'kun_refine', 'kun_qinglv', 'kun_xuan', 'kun_peng']) {
 }
 
 test('镜头 C 的鲲按 YXZ 合成胸鳍（v1.0 成片的顺序），与渲染顺序无关', async () => {
-  const { buildShotC } = await import('../src/shotC.js');
-  const { createKun } = await import('../src/kun.js');
+  const { buildShotC } = await import('../films/beiming-10s/src/shotC.js');
+  const { createKun } = await import('../films/beiming-10s/src/kun.js');
   const ref = createKun({ lod: 1, wisps: false, blinkPeriod: 4, blinkOffset: 2.375, finEulerOrder: 'YXZ' });
   const s1 = buildShotC({ W: 1920, H: 1040, tex: fakePlates(), q: q0() });
   const s2 = buildShotC({ W: 1920, H: 1040, tex: fakePlates(), q: q0() });
@@ -82,7 +82,7 @@ test('镜头 C 的鲲按 YXZ 合成胸鳍（v1.0 成片的顺序），与渲染�
 
 // ── R16：镜头 C 的城市暖光调哪些网格写成明确名单（照成片：身体、尾鳍、鳍上藤壶），?finwarm=1 才调胸鳍本身 ──
 test('镜头 C 城市暖光：默认名单与成片一致，finwarm=1 换成胸鳍网格', async () => {
-  const { buildShotC } = await import('../src/shotC.js');
+  const { buildShotC } = await import('../films/beiming-10s/src/shotC.js');
   const val = (o) => { const u = o.material.userData.toon; return [u.uFillStep.value, u.uFillStep2.value, u.uFillW1.value, u.uFillAmt.value]; };
   const WARM = [0.38, 0.72, 0.5, 1.0];
   for (const finwarm of [false, true]) {
@@ -101,7 +101,7 @@ test('镜头 C 城市暖光：默认名单与成片一致，finwarm=1 换成胸�
 // kun_bronze 的纹样要用 Canvas2D 画，Node 里建不了，在浏览器里核对过（换进正片渲 5.3 / 7.5 / 9.6 无报错）。
 for (const v of ['kun_xuan', 'kun_peng', 'kun_qinglv', 'kun_refine']) {
   test(`${v} 换进镜头 C：按预热时刻 update 不出错`, async () => {
-    const { buildShotC } = await import('../src/shotC.js');
+    const { buildShotC } = await import('../films/beiming-10s/src/shotC.js');
     const { createKun } = await import(`../src/${v}.js`);
     let made = null;
     const s = buildShotC({ W: 1920, H: 1040, tex: fakePlates(), q: q0(), makeKun: o => (made = createKun({ ...o, lod: 0.3 })) });
@@ -113,7 +113,7 @@ for (const v of ['kun_xuan', 'kun_peng', 'kun_qinglv', 'kun_refine']) {
   });
 }
 test('kun.js：镜头 C 在 7.1–7.9 收起远侧胸鳍', async () => {
-  const { buildShotC } = await import('../src/shotC.js');
+  const { buildShotC } = await import('../films/beiming-10s/src/shotC.js');
   const s = buildShotC({ W: 1920, H: 1040, tex: fakePlates(), q: q0() });
   const far = s.kun.fins.find(f => f.side === -1);
   s.update(6.0, 144); assert.equal(far.pivot.scale.x, 1);
@@ -122,7 +122,7 @@ test('kun.js：镜头 C 在 7.1–7.9 收起远侧胸鳍', async () => {
 
 // ── R20：hudAt(t) 与 render(t) 交给 drawHUD 的完全相同，只依赖 t ──
 test('镜头 C hudAt(t) = update(t) 的 hudState，且与之前算过哪一帧无关', async () => {
-  const { buildShotC } = await import('../src/shotC.js');
+  const { buildShotC } = await import('../films/beiming-10s/src/shotC.js');
   const s = buildShotC({ W: 1920, H: 1040, tex: fakePlates(), q: q0() });
   const snap = st => JSON.parse(JSON.stringify(st));
   const ref = {};
@@ -135,12 +135,12 @@ test('镜头 C hudAt(t) = update(t) 的 hudState，且与之前算过哪一帧�
   assert.deepEqual(snap(fresh.hudAt(6.0)), ref[144]);
 });
 
-// ── R22：镜头分界只在 src/timeline.js 写一次；改起点后镜头整体平移，不冻帧 ──
+// ── R22：镜头分界只在 films/beiming-10s/src/timeline.js 写一次；改起点后镜头整体平移，不冻帧 ──
 test('镜头表：各模块的起点都取自 timeline.js', async () => {
-  const { TIMELINE, DESIGN } = await import('../src/timeline.js');
-  const { GIRL_SHOT } = await import('../src/girl.js');
-  const { C_START } = await import('../src/shotC.js');
-  const { HUD_T } = await import('../src/hud.js');
+  const { TIMELINE, DESIGN } = await import('../films/beiming-10s/src/timeline.js');
+  const { GIRL_SHOT } = await import('../films/beiming-10s/src/girl.js');
+  const { C_START } = await import('../films/beiming-10s/src/shotC.js');
+  const { HUD_T } = await import('../films/beiming-10s/src/hud.js');
   assert.equal(GIRL_SHOT.start, TIMELINE.B);
   assert.equal(GIRL_SHOT.dur, TIMELINE.C - TIMELINE.B);
   assert.equal(C_START, TIMELINE.C);
@@ -186,8 +186,8 @@ async function withDoc(fn) {
 const close = (a, b, msg) => { const r = (k, v) => typeof v === 'number' ? +v.toFixed(6) : v; assert.equal(JSON.stringify(a, r), JSON.stringify(b, r), msg); };
 
 test('镜头 C 起点改到 4.75：整段编排（含显示层、片名）提前 0.25 秒，4.75 起就在动', async () => {
-  const { buildShotC } = await import('../src/shotC.js');
-  const hud = await import('../src/hud.js');
+  const { buildShotC } = await import('../films/beiming-10s/src/shotC.js');
+  const hud = await import('../films/beiming-10s/src/hud.js');
   const base = buildShotC({ W: 1920, H: 1040, tex: fakePlates(), q: q0() });
   await withTimeline({ A: 0, B: 2.75, C: 4.75, end: 10 }, async imp => {
     const { buildShotC: build2, C_START } = await imp('shotC.js');
@@ -221,9 +221,9 @@ test('镜头 C 起点改到 4.75：整段编排（含显示层、片名）提前
 // 运行中改镜头表：镜头 C 的 C_START、main.js 的镜头切点都在载入时定下，所以运行中改了也不动；
 // 显示层若现读镜头表就会单独平移（画面上显示层和鲲错开）。TIMELINE 冻结后赋值直接报错。
 test('镜头表冻结：运行中给 TIMELINE 赋值抛 TypeError，显示层不会单独平移', async () => {
-  const { TIMELINE } = await import('../src/timeline.js');
-  const hud = await import('../src/hud.js');
-  const { buildShotC } = await import('../src/shotC.js');
+  const { TIMELINE } = await import('../films/beiming-10s/src/timeline.js');
+  const hud = await import('../films/beiming-10s/src/hud.js');
+  const { buildShotC } = await import('../films/beiming-10s/src/shotC.js');
   const s = buildShotC({ W: 1920, H: 1040, tex: fakePlates(), q: q0() });
   await withDoc(() => {
     const keep = { ...TIMELINE }, at = t => hud.textsAt(t, 1920, 1040, s.hudAt(t)), before = [5.6, 7.5, 9.5].map(at);
@@ -239,7 +239,7 @@ test('镜头表冻结：运行中给 TIMELINE 赋值抛 TypeError，显示层不
 
 // ── R24：航行灯左舷红、右舷绿（船头 +X、上 +Y 的右手系里右舷是 +Z） ──
 test('渡船航行灯：红灯在左舷（−Z），绿灯在右舷（+Z）', async () => {
-  const { createFerry } = await import('../src/ferry.js');
+  const { createFerry } = await import('../films/beiming-10s/src/ferry.js');
   const f = createFerry();
   const starboard = new THREE.Vector3().crossVectors(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0));   // 前 × 上 = 右舷
   // 用相机核对“右”：站在船上朝船头（+X）看，相机本地 +X 就是右手边
@@ -257,7 +257,7 @@ test('镜头 A 鸽群画布：K = 2 时 3840×2080，绘制前 setTransform(2)',
   const made = [];
   globalThis.document = { createElement: () => { const c = { width: 0, height: 0, getContext: () => ctx }; made.push(c); return c; } };
   try {
-    const { buildShotA } = await import('../src/shotA.js');
+    const { buildShotA } = await import('../films/beiming-10s/src/shotA.js');
     for (const K of [1, 2]) {
       made.length = 0; calls.length = 0;
       const s = buildShotA({ W: 1920, H: 1040, K, tex: fakePlates(), q: q0() });
@@ -269,9 +269,9 @@ test('镜头 A 鸽群画布：K = 2 时 3840×2080，绘制前 setTransform(2)',
   } finally { delete globalThis.document; }
 });
 
-// ── R23：六个鲲的 fitShadow 共用 src/shadow.js ──
+// ── R23：六个鲲的 fitShadow 共用 films/beiming-10s/src/shadow.js ──
 test('fitShadowTo：阴影相机罩住给定半径，法线偏移按缩放', async () => {
-  const { fitShadowTo } = await import('../src/shadow.js');
+  const { fitShadowTo } = await import('../films/beiming-10s/src/shadow.js');
   const g = new THREE.Group(); g.position.set(100, 50, -20); g.scale.setScalar(0.5);
   const light = new THREE.DirectionalLight(); light.position.set(1, 1, 0); light.target.position.set(0, 0, 0);
   fitShadowTo(light, g, { center: [-10, -5, 0], radius: 380, size: 2048, normalBias: 1.2 });
@@ -284,7 +284,7 @@ test('fitShadowTo：阴影相机罩住给定半径，法线偏移按缩放', asy
   assert.ok(Math.abs(light.position.distanceTo(c) - R * 3) < 1e-9);
 });
 
-// ── 站点按行号引用 src/hud.js 的片名骨架：site/js/brush-title.js 与 site/CONTRACT.md 写的是“第 284–309 行（SKEL、DRY）” ──
+// ── 站点按行号引用 films/beiming-10s/src/hud.js 的片名骨架：site/js/brush-title.js 与 site/CONTRACT.md 写的是“第 284–309 行（SKEL、DRY）” ──
 // hud.js 里 SKEL 之前多一行或少一行，这两处就指歪了（第一轮修 R20/R22 时出过一次）；站点那份 SKEL / DRY 是拷贝，两边也要逐笔相同。
 // 站点文档改成不写行号时，这里没有可核对的行号，只核对拷贝。
 const literal = (code, name) => {   // 源码里 `const 名字 = {…}` 的对象字面量（按花括号配对；里面只有数字、带引号的键和行尾注释）
@@ -293,27 +293,27 @@ const literal = (code, name) => {   // 源码里 `const 名字 = {…}` 的对�
   for (; k < code.length; k++) { if (code[k] === '{') depth++; else if (code[k] === '}' && --depth === 0) break; }
   return Function(`return (${code.slice(start, k + 1)});`)();
 };
-test('站点文档引用的 src/hud.js 行号仍是 SKEL … __TITLE_SKEL，站点拷的骨架与片里一致', t => {
-  const hudCode = read('src/hud.js'), lines = hudCode.split('\n'), at = n => lines[n - 1] ?? '';
+test('站点文档引用的 films/beiming-10s/src/hud.js 行号仍是 SKEL … __TITLE_SKEL，站点拷的骨架与片里一致', t => {
+  const hudCode = read('films/beiming-10s/src/hud.js'), lines = hudCode.split('\n'), at = n => lines[n - 1] ?? '';
   let refs = 0;
   for (const doc of ['site/js/brush-title.js', 'site/CONTRACT.md']) {
     for (const m of (read(doc) ?? '').matchAll(/src\/hud\.js`?\s*第\s*(\d+)\s*[–—-]\s*(\d+)\s*行/g)) {
       const a = +m[1], b = +m[2]; refs++;
-      assert.match(at(a), /^const SKEL = \{/, `${doc} 说 src/hud.js 第 ${a} 行起是 SKEL，实际是：${at(a)}`);
+      assert.match(at(a), /^const SKEL = \{/, `${doc} 说 films/beiming-10s/src/hud.js 第 ${a} 行起是 SKEL，实际是：${at(a)}`);
       assert.ok(lines.slice(a - 1, b).some(l => /^const DRY = \{/.test(l)), `${doc} 说第 ${a}–${b} 行里有 DRY`);
       assert.match(at(b), /^export const __TITLE_SKEL = SKEL;/, `${doc} 说到第 ${b} 行（__TITLE_SKEL）为止，实际是：${at(b)}`);
     }
   }
   const site = read('site/js/brush-title.js');
   const copied = site && site.includes('const SKEL = {');
-  if (copied) for (const name of ['SKEL', 'DRY']) assert.deepEqual(literal(site, name), literal(hudCode, name), `站点 brush-title.js 的 ${name} 与 src/hud.js 不一致`);
+  if (copied) for (const name of ['SKEL', 'DRY']) assert.deepEqual(literal(site, name), literal(hudCode, name), `站点 brush-title.js 的 ${name} 与 films/beiming-10s/src/hud.js 不一致`);
   t.diagnostic(`核对了 ${refs} 处行号引用${copied ? '，站点 SKEL / DRY 拷贝与 hud.js 相同' : ''}`);
 });
 
 // ── R26②：底板清单 assets/plates/plates.json 要和代码实际载入的一致（标了镜头的底板都有代码载入；显存说明的张数等于常驻张数） ──
 // plates.json 不归 film-src 改，先记成 todo（失败不算整套失败）；资产负责人改好后这条会通过，届时去掉 todo。
 test('plates.json 与实际载入的底板一致（main.js 的 NAMES + look.js 的纸纹）', () => {
-  const J = JSON.parse(read('assets/plates/plates.json')), main = read('src/main.js');
+  const J = JSON.parse(read('assets/plates/plates.json')), main = read('films/beiming-10s/src/main.js');
   const NAMES = Function(`return ${/const NAMES = (\[[^\]]*\])/.exec(main)[1]}`)();
   const resident = [...NAMES, ...(/paperUrl:\s*'[^']+'/.test(main) ? ['paper'] : [])];
   for (const n of NAMES) assert.ok(J.plates.some(p => p.name === n), `main.js 载入的 ${n} 在 plates.json 里没有登记`);

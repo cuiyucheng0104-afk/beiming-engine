@@ -13,6 +13,7 @@
 //   镜像作品（mirror.paths = "repo"，如 films/beiming-10s 描述仓库根的《北冥》样片）：路径（entry、audio.script…）相对仓库根，
 //   页面目录是 entry 所在目录，运行目录默认在 mirror.outDir（《北冥》是 out/beiming）；普通作品都相对作品目录。
 //   ROUTE_INFO   路线 id → { slug, brand, renderer }；有 routes/routes.json（P02）时以它为准
+import { readFilmDocument } from '../../lib/film-json.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { EXIT, FilmError } from './exit.mjs';
@@ -76,7 +77,7 @@ export function loadFilm(dirArg, { page = null } = {}) {
     throw new FilmError(EXIT.USAGE, 'film-json-missing', `${rel(dir)} 下没有 film.json，不是作品目录`, '作品目录由 node tools/film/cli.mjs new 生成；《北冥》样片的作品描述在 films/beiming-10s/');
   }
   let raw;
-  try { raw = JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '')); } catch (e) { throw bad(file, [`不是合法 JSON（${e.message}）`]); }
+  try { raw = readFilmDocument(file, { stripBom: true }).value; } catch (e) { throw bad(file, [`不是合法 JSON（${e.message}）`]); }
   return parseFilm(raw, { dir, file, page });
 }
 

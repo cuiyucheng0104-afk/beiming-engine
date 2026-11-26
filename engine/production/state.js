@@ -3,7 +3,7 @@
 // 只有连续满足的阶段才算数：没过 animatic 就出的终渲、QA 报告对不上成片的、用户认可的不是这一版成片的，都不往上走。
 //
 //   filmStatus(target)               → { state, label, film, gates, run, qa, canFinal, diagnostics, next, nextRequired }
-//   assertFinalAllowed(target)       终渲前调用：look 与 animatic 都已认可或豁免才放行，否则抛 GateError（退出码 4）
+//   assertFinalAllowed(target)       终渲前调用：默认 automatic；显式 deliveryMode=review 时检查 look / animatic（退出码 4）
 //   assertDelivered(target)          只有 accepted 才放行（生成「已交付」字样之前调用）
 //   recordReview(target, input)      记一条审片结论：拼记录、算所看文件 sha256、校验，合格才原子地写 review/<闸>-<日期>.json
 //   deliveryLabel(state)             状态 → 对外文字；只有 accepted 得到「已交付 · 用户已认可」
@@ -179,7 +179,7 @@ const runShasOf = run => new Set([run?.output?.sha256, ...(Array.isArray(run?.ou
 
 // ───────────────────────── 状态 ─────────────────────────
 
-export function filmStatus(target, { loaded = null } = {}) {
+export function filmStatus(target, { loaded = null, deliveryMode = 'automatic' } = {}) {
   const L = loaded ?? loadFilm(target);
   const diagnostics = [...L.diagnostics];
   const film = L.film;
@@ -205,7 +205,7 @@ export function filmStatus(target, { loaded = null } = {}) {
     const shas = runShasOf(latest.run);
     runInfo = { runId: latest.runId, kind: latest.run.kind ?? null, status: latest.run.status ?? null, valid: rv.ok, outputs: [...shas] };
     rendered = rv.ok && latest.run.kind === 'final' && DONE_STATUSES.includes(latest.run.status) && shas.size > 0;
-    if (rendered && !animaticOk) {
+    if (rendered && deliveryMode === 'review' && !animaticOk) {
       diagnostics.push({ level: 'warning', code: 'render-bypassed-gate', path: `${latest.runId}/run.json`, message: '有终渲产物，但出片时 look / animatic 没有认可或豁免：这次终渲绕过了闸门，不计入状态', hint: '补齐认可后重新终渲' });
       rendered = false;
     }
@@ -229,8 +229,9 @@ export function filmStatus(target, { loaded = null } = {}) {
 
   const cmd = `node engine/production/film.js review ${L.filmDir === resolve(L.filmDir) ? '<作品>' : L.filmDir}`;
   // 卡住状态往上走的那一步（至多一步）；⛔1 结构确认只记录不阻断，单列为建议，不能当成交付或终渲的前置
-  const nextRequired = !lookOk ? `⛔2 风格：出风格帧 / 色彩脚本条给用户看，记录认可：${cmd} --gate look --decision approve --file <风格帧> --quote "<原话>" --source-ref "<出处>"`
-    : !animaticOk ? `⛔3 动态预演：按正片时间轴出半分辨率预演给用户看，记录认可：${cmd} --gate animatic --decision approve --file <预演片> --quote "<原话>" --source-ref "<出处>"`
+  const nextRequired = deliveryMode !== 'review' && !rendered ? '终渲：npm run film -- build <作品> --final（默认 automatic；机器 QA 照常执行）'
+    : deliveryMode === 'review' && !lookOk ? `⛔2 风格：出风格帧 / 色彩脚本条给用户看，记录认可：${cmd} --gate look --decision approve --file <风格帧> --quote "<原话>" --source-ref "<出处>"`
+    : deliveryMode === 'review' && !animaticOk ? `⛔3 动态预演：按正片时间轴出半分辨率预演给用户看，记录认可：${cmd} --gate animatic --decision approve --file <预演片> --quote "<原话>" --source-ref "<出处>"`
       : !rendered ? '终渲：npm run film -- render <作品> --final（工具接入前用 engine/render）；run.json 写 kind: "final"、status: "rendered"'
         : !qaPassed ? '机器 QA：对这次成片跑 tools/qa，报告写到 <run-id>/qa/report.json'
           : !accepted ? `⛔4 成片：把这次的成片给用户全速带声看完，记录认可：${cmd} --gate final --decision approve --file <成片> --quote "<原话>" --source-ref "<出处>"`
@@ -239,7 +240,7 @@ export function filmStatus(target, { loaded = null } = {}) {
   if (gates.structure.status === 'missing') next.push('（建议）⛔1 结构确认：把一句话、三候选结构与对标表给用户，记录原话（--gate structure）');
   if (nextRequired) next.push(nextRequired);
 
-  return { state, label: STATE_LABELS[state], film: { id: film.id, title: film.title, frameCount: film.output.frameCount, fps: film.output.fps, profile: film.output.profile }, filmDir: L.filmDir, gates, run: runInfo, qa: qaInfo, canFinal: animaticOk, diagnostics, next, nextRequired };
+  return { state, label: STATE_LABELS[state], film: { id: film.id, title: film.title, frameCount: film.output.frameCount, fps: film.output.fps, profile: film.output.profile }, filmDir: L.filmDir, gates, run: runInfo, qa: qaInfo, canFinal: deliveryMode !== 'review' || animaticOk, diagnostics, next, nextRequired };
 }
 
 /**
@@ -288,6 +289,7 @@ export function creativeAcceptanceOf(target, { runShas, loaded = null } = {}) {
 }
 
 export function assertFinalAllowed(target, opts = {}) {
+  if (opts.deliveryMode && !['automatic', 'review'].includes(opts.deliveryMode)) throw new GateError('deliveryMode 只能是 automatic 或 review');
   const s = filmStatus(target, opts);
   if (s.state === 'invalid') throw new GateError('film.json 不合格，不能终渲', { hint: s.nextRequired, status: s });
   if (s.canFinal) return s;

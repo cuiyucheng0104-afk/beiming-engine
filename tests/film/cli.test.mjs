@@ -71,7 +71,7 @@ test('闸门：没有 look / animatic 认可时 build --final 与 render --final
   const w = makeWork('c');
   works.push(w);
   for (const args of [['build', w.rel, '--final', '--profile', 'web-1080p24'], ['render', w.rel, '--final', '--frames', '0:2'], ['render', w.rel, '--final']]) {
-    const r = runCli([...args, '--json']);
+    const r = runCli([...args, '--delivery-mode', 'review', '--json']);
     assert.equal(r.code, 4, `${args.join(' ')} → ${r.code}：${r.stderr}`);
     assert.equal(r.json.error.code, 'contract.gate-blocked');
     assert.match(r.json.error.hint, /review approve look/);
@@ -99,7 +99,7 @@ test('审阅记录：approve 要原话、出处与审阅人；agent 的 note 与
   assert.equal(st.json.data.gates.look.state, 'missing', '代理审片与内部豁免说明都不算数');
   assert.equal(st.json.data.gates.look.comments, 2);
   assert.deepEqual(st.json.data.invalidRecords, []);
-  const fin = runCli(['build', w.rel, '--final', '--profile', 'web-1080p24', '--json']);
+  const fin = runCli(['build', w.rel, '--final', '--delivery-mode', 'review', '--profile', 'web-1080p24', '--json']);
   assert.equal(fin.code, 4, '内部豁免不放行终渲');
   assert.match(fin.json.error.message, /只有代理审片或内部豁免说明/);
   const names = fs.readdirSync(path.join(w.dir, 'review')).sort();
@@ -138,7 +138,7 @@ test('film new：参数先按同一套规则检查，再交给 new-film；--dry-
 test('build --waive：用法或契约有错时（档位拼错、坏画幅、--size 配 --final、步骤名不对、终渲档位不在 deliveries、终渲豁免没有原话）先退出，不写审片记录、不建运行目录', () => {
   const w = makeWork('c');
   works.push(w);
-  const waive = ['--waive', 'look,animatic', '--reason', '复核用例'];
+  const waive = ['--delivery-mode', 'review', '--waive', 'look,animatic', '--reason', '复核用例'];
   const cases = [
     [['--profile', 'no-such-profile'], 2, 'usage.profile-unknown'],
     [['--size', '1921x1080'], 2, null],

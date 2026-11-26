@@ -85,6 +85,8 @@
 
 ## 8. 入口预算
 
+`beiming/` 一级组件的入口由目录归属契约登记。每个 `README.md` 上限为 1500 token，计量按 UTF-8 字节数除以 3.5 向上取整。用 `npm run check:repo -- --only core.component-docs` 本地检查；同一规则也在 CI 中执行。
+
 新 agent 从 `AGENTS.md` → `routes/README.md` → 一份路线手册，不超过 3 份、300 行就要读到第一条可执行命令（北极星验收 1）。`npm run check:repo` 的 `core.entry-budget` 与 `core.reach` 两条规则执行这个预算：
 
 | 文件 | 上限 |
@@ -117,7 +119,7 @@
 | `stills`、`video`、`video:4k` | `engine/render/still.mjs`、`video.mjs`（《北冥》样片） | 渲染器 | 已接入 |
 | `offscreen`、`offscreen:compare`、`offscreen:bench`、`offscreen:farm` | `engine/offscreen/cli.mjs`、`tools/offscreen/compare.mjs`、`bench.mjs`、`farm.mjs` | 离屏出片 | 已接入：`render` 视频（默认 `--mode pro`：x264 High + rgba 读回，终渲交付；`--mode fast` 为 NVENC 预览档，无 NVENC 时退回 pro；`--encoder x264\|nvenc` 可显式覆盖，`--pix-fmt yuv420p` 走 GPU 打包；`--frame-hashes auto|on|off` 控制逐帧 sha256：`--json` 下 auto 仍计算，`off` 时 `frameHashes` 为 `null`）、`stills` 无损静帧、`probe` 契约与事件探测、`profile` GPU 分段计时、`batch` 单卡异构并发调度、对拍与并发基准；`npm run film -- check\|stills\|render\|animatic\|build <作品> [--renderer offscreen] [--mode pro\|fast] [--encoder x264\|nvenc]`（`backend=webgpu` 默认走离屏）；`offscreen:farm` 为切片分发编排器（WP3：按镜头切点分片、`--transport local` 多槽位并发、`ffmpeg concat -c copy` 无损合并并核验帧数/PTS/色彩标记/逐段 sha256，`offscreen render` 新增 `--gop` / `--timescale` 统一各片编码与时间基），详见 [离屏出片](offscreen/README.md) |
 | `tsl:index`、`tsl:index:check` | `tools/tsl-skill-index.mjs`（`--check`） | 离屏出片 | 已接入：生成 / 核对 beiming-tsl skill 的 TSL 模块符号索引（`skills/beiming-tsl/references/library-index.md`，从 `engine/offscreen/tsl/*.js` 静态生成），漂移退出 4 |
-| `film` | `tools/film/cli.mjs` | 出片编排 | 已接入：四条路线统一的 `npm run film -- build films/<名字>`（子命令 new / check / stills / animatic / build / mix / assemble / render / review / status / qa / plan；A/C 支持 `audio.telemetry: true` 导出 `kinematics.json` / `BEIMING_KINEMATICS`、`dialogue.json` 自动合成 `BEIMING_DIALOGUE_DIR`、`BEIMING_AUDIO_STEMS` 分轨收集，以及 `mix` 阶段 `engine.audio.qa` 前置快败硬门 `audio/qa.json`） |
+| `film` | `tools/film/cli.mjs` | 出片编排 | 已接入：四条路线统一的 `npm run film -- build films/<名字>`（子命令 new / check / stills / animatic / build / mix / assemble / render / review / status / qa / plan；终渲默认自动模式，`--delivery-mode review` 启用人工创作闸；A/C 支持 `audio.telemetry: true` 导出 `kinematics.json` / `BEIMING_KINEMATICS`、`dialogue.json` 自动合成 `BEIMING_DIALOGUE_DIR`、`BEIMING_AUDIO_STEMS` 分轨收集，以及 `mix` 阶段 `engine.audio.qa` 前置快败硬门 `audio/qa.json`） |
 | `beiming:build`、`build` | `tools/film/beiming.mjs` | 出片编排 | 已接入；《北冥》样片一键重建，`build` 是旧名，`sh build.sh` 是兼容壳 |
 | `c:events`、`c:build` | `engine/render/events.mjs`、`build.mjs` | 出片编排 | 已接入（旧入口；新作品用 `npm run film -- build`） |
 | `qa` | `tools/qa/cli.mjs` | 机器 QA | 已接入 |
@@ -171,7 +173,7 @@ npm run new -- <a|b|c|d> <名字> [--title 片名] [--profile 档位] [--backend
 - **名字**：小写字母、数字、连字符，字母或数字开头，最长 64；同时是目录名、film.json 的 `id` 与输出文件名。不得是 Windows 保留名，不得含上游项目名。片名用 `--title` 另给（不能含 `` " ' ` \ < > `` 与控制字符）。
 - **占位符**：模版里只允许 `{{NAME}}` 与 `{{TITLE}}`。占位符＝两层花括号包住的大写标识符，中间没有空格，所以 JSX 的 `style={{ color: P.ink }}` 不受影响；替换后还残留 `{{大写标识符}}` 就退出 4、什么都不写。
 - **复制**：模版的全部文件，包括点文件（B 模版的 `.gitignore`）；跳过 `out/`、`node_modules/`、`__pycache__/` 与模版自己 `.gitignore` 里列出的生成物目录。
-- **film.json v2**（附录 C6，与 `engine/production/film.js` 的 v1 升级同口径）：`schemaVersion` 2、`id`＝名字、`route`＝注册表 id、`backend`、`output`（交付档位：`--profile` > 模版声明 > 注册表默认 `web-1080p24`）、`shots`（模版没写就整片一个镜头 `S1`）、`events`、`audio`、`deliveries`、`style`、`credits`、`aigc`（D11）、`gates`（look、animatic、final 三道，D08），以及路线自己的段（B 的 `native`、C 的 `cuecheck`）。v1 的 `poster`（秒）换成 `posterFrame`（帧）。模版里有 `dur`、`fps`、`size`（v1 写法）时保留为兼容镜像，数值按 `output` 重写，供现有出片脚本读取；改时长或画幅要两处一起改。排版与 `engine/production/io.js` 的 `formatJson` 相同。
+- **film.json v2**（附录 C6，旧链的运行入口要求第 2 版）：`schemaVersion` 2、`id`＝名字、`route`＝注册表 id、`backend`、`output`（交付档位：`--profile` > 模版声明 > 注册表默认 `web-1080p24`）、`shots`（模版没写就整片一个镜头 `S1`）、`events`、`audio`、`deliveries`、`style`、`credits`、`aigc`（D11）、`gates`（look、animatic、final 三道，D08），以及路线自己的段（B 的 `native`、C 的 `cuecheck`）。v1 的 `poster`（秒）换成 `posterFrame`（帧）。模版里有 `dur`、`fps`、`size`（v1 写法）时保留为兼容镜像，数值按 `output` 重写，供现有出片脚本读取；改时长或画幅要两处一起改。排版与 `engine/production/io.js` 的 `formatJson` 相同。
 - **换帧率**：`--profile` 的帧率与模版不同时，镜头、事件、停顿、海报帧按比例换算并提示；按节拍（`beat`）写的事件不自动换算，退出 4。
 - **校验后落盘**：先写进 `films/.new-*` 暂存目录；有 `engine/production/film.js` 时在暂存目录上跑 `film.js check --json`，通过才整体改名为 `films/<名字>/`；不通过退出 4、校验器自身出错退出 1，两种情况都不留目录。`--dry-run` 不写任何文件，也不调用校验器。
 - **下一步**：取模版 film.json 的 `next`，没有就取注册表这条路线的 `next`；`--json` 的 `data.next` 给出 argv、环境变量与产物路径，编排器不用解析 shell。

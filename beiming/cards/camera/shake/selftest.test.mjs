@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-const PYTHON = fileURLToPath(new URL('../../../../tools/env/py.mjs', import.meta.url));
+const PYTHON = fileURLToPath(new URL('../../../jobs/python/py.mjs', import.meta.url));
 const ENTRY = fileURLToPath(new URL('./shake.py', import.meta.url));
 
 test('shake is causal, damped, order-independent, and strictly inert when disabled or given zero impulse', () => {

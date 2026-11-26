@@ -11,7 +11,7 @@ import { Buffer } from 'node:buffer';
 import { spawnSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
 import { basename, dirname } from 'node:path';
-import { FFMPEG, FFPROBE } from '../../engine/render/lib/ffmpeg.mjs';
+import { FFMPEG, FFPROBE } from './ffmpeg-bins.mjs';
 
 export class CompError extends Error {
   constructor(code, message, hint = '') {

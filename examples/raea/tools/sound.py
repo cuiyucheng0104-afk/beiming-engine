@@ -28,8 +28,9 @@ from engine.audio import ambience, dsp, mixing, synth  # noqa: E402
 
 FILM = Path(os.environ.get('BNE_FILM', Path(__file__).resolve().parents[1]))
 SPEC = json.loads((FILM / 'film.json').read_text(encoding='utf-8'))
-EV = {e['id']: e['frame'] / SPEC['fps'] for e in SPEC['events']}
-D = float(os.environ.get('BNE_DUR', SPEC['dur']))
+TIMING = SPEC['output']
+EV = {e['id']: e['frame'] / TIMING['fps'] for e in SPEC['events']}
+D = float(os.environ.get('BNE_DUR', TIMING['frameCount'] / TIMING['fps']))
 OUT = Path(os.environ.get('BNE_OUT', FILM / 'media' / 'mix.wav'))
 SR, n = dsp.SR, dsp.N(D)
 t = dsp.T(D)

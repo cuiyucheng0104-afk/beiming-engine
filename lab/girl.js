@@ -4,7 +4,7 @@
 // 查询参数：
 //   bg=a（默认，地平线亮区）| b（整张天空，按 cover 铺满画面）| c（平涂亮渐变，只看剪影）
 //   post=0 关掉简易后期；grain=1 加颗粒；layer=1 只看人物层（棋盘格底）；debug=1 标锚点；cam=0 关掉推镜
-import { drawGirl, drawGirlMotes, girlCamera, GIRL_SHOT } from '../src/girl.js';
+import { drawGirl, drawGirlMotes, girlCamera, GIRL_SHOT } from '../films/beiming-10s/src/girl.js';
 import { mulberry } from '../engine/core/math.js';
 import { frameOf } from '../engine/core/clock.js';
 

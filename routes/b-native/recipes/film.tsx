@@ -19,7 +19,8 @@ import film from './film.json';
 import data from './palette.json';
 
 const P = palette(data);
-const [W, H] = film.size, FPS = film.fps, DUR = film.dur, K = H / 1080;
+const { width: W, height: H, fps: FPS, frameCount: FRAMES } = film.output;
+const DUR = FRAMES / FPS, K = H / 1080;
 const CLIP = film.native.models[0].clip.duration;
 const SHOTS = [
   { until: 1, eye: [[-2.6, 1.55, 7.2], [-2.3, 1.5, 6.6]], at: [-1.1, .95, 0], fov: 32, ease: 'ss' },

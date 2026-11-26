@@ -1,5 +1,9 @@
 // 采集与离线 QA 共用错误类型，旧调用方仍能按类型和退出码处理。
-export const EXIT = Object.freeze({ OK: 0, RUNTIME: 1, USAGE: 2, ENV: 3, GATE: 4, BUSY: 5, TIMEOUT: 124, SIGINT: 130, SIGTERM: 143 });
+// EXIT 提供 QA 兼容的退出码名称，QaError 携带错误码、提示和原始异常。
+import { EXIT as BASE_EXIT } from '../../../tools/lib/cli.mjs';
+
+const { FAILURE, ENVIRONMENT, CONTRACT, ...COMMON_EXIT } = BASE_EXIT;
+export const EXIT = Object.freeze({ ...COMMON_EXIT, RUNTIME: FAILURE, ENV: ENVIRONMENT, GATE: CONTRACT });
 
 export class QaError extends Error {
   constructor(code, message, { hint = null, exitCode = EXIT.RUNTIME, cause } = {}) {

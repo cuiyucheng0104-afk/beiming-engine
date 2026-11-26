@@ -1,5 +1,7 @@
 # B · 北冥原生 · BNE 路线手册
 
+终渲默认自动交付模式：`npm run film -- build films/<名字> --final` 无需 look / animatic 用户原话，机器 QA 照常执行。需要逐步人工审阅时加 `--delivery-mode review`，沿用 look → animatic → final 记录；只有真实成片认可才可写 accepted。
+
 ## 这条路线是什么
 
 **北冥原生 · BNE**（Beiming Native Edition，北冥原生版）是本仓库的通用原生渲染路线，定位 **render anything**：作品写成一个 TSX 编排文件，由外部原生 GPU 运行时逐帧、确定性地渲出来；程序化造型、外部模型、绘画底板、视频、A / C 路线的页面作品都能进同一个原生场景，不必套北冥画风。**基于 `RAEA` 原生运行时（FSL-1.1-ALv2）**：BNE 是我方路线名，不是自研运行时；运行时与 SDK 归上游所有，不随仓库分发，本路线只作内部制作层（自制影片、向客户交付成片，决定 D03）。许可边界见下文「边界与常见坑」与 [docs/rights/fsl-boundary.md](../../docs/rights/fsl-boundary.md)。

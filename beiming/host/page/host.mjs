@@ -7,7 +7,7 @@ import { createServer } from 'node:http';
 import { dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
-import { chromeArgs, chromeExecutable } from '../../../engine/render/lib/gpu.mjs';
+import { chromeArgs, chromeExecutable } from './gpu.mjs';
 import { hashCardContents, validateCard } from '../../cards/index.mjs';
 import { caps } from '../../sources/three/caps.mjs';
 import { planFrame, planOpen, planQuery, planRender, SourceError } from '../../sources/three/plan.mjs';

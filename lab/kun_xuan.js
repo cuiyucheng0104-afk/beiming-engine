@@ -4,8 +4,8 @@
 // 可选参数：&view=side|top|far|eye|under|reveal|poster|tail|front（固定机位）&lod=0.5 &noink=1 &pass=1
 //   &roll= &yaw= &pitch=（鲲整体转角，弧度）&look=1（眼珠看镜头）&check=1（飘带 / 须 / 背鳍穿插自检，结果打在控制台）
 import * as THREE from 'three';
-import { createKun } from '../src/kun_xuan.js';
-import { PALETTE, setToonGlobals } from '../src/toon.js';
+import { createKun } from '../films/beiming-10s/src/kun_xuan.js';
+import { PALETTE, setToonGlobals } from '../films/beiming-10s/src/toon.js';
 import { labRenderer, kunStats, keyLight, BASE_VIEWS, baseExtra, pickView, eyeCloseup, frameTimes, labPipeline, labPixelRatio } from './kun_bench.js';
 
 const q = new URLSearchParams(location.search);

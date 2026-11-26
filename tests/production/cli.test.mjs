@@ -141,6 +141,10 @@ test('expect / export / upgrade / profiles / status / validate-result 的输出�
     assert.equal(up.status, 0);
     assert.equal(up.json.data.film.output.frameCount, 72);
     assert.equal(JSON.parse(readFileSync(t.file, 'utf8')).dur, 3);   // 预览不写
+    const legacy = runFilm(['export', t.dir, '--out', t.dir, '--json']);
+    assert.equal(legacy.status, 4);
+    assert.match(legacy.json.error.message, /schema-version-missing/);
+    writeFileSync(t.file, JSON.stringify({ ...up.json.data.film, aigc: { contains: false }, credits: [] }));
     const ex = runFilm(['export', t.dir, '--out', t.dir, '--json']);
     assert.equal(ex.status, 0);
     assert.deepEqual(ex.json.outputs.map(o => o.kind), ['timeline', 'events']);

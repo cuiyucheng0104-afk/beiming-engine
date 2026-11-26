@@ -15,7 +15,7 @@ import { release } from 'node:os';
 import { basename, join, relative, sep } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { chromium } from 'playwright-core';
-import { chromeArgs, chromeExecutable } from '../../engine/render/lib/gpu.mjs';
+import { chromeArgs, chromeExecutable } from '../host/page/gpu.mjs';
 import { aggregateL5Votes, filterL5SuggestedPredicates, reviewFailure, validateReview } from './agents.mjs';
 import { assetPaths } from './assets.mjs';
 import { branchFilter, deliver as compDeliver, parseFps, runTool, tools as compTools, verifyDeliveryBundle } from '../comp/index.mjs';

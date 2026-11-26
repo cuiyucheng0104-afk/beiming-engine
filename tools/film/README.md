@@ -6,7 +6,7 @@
 
 ## 1. 做一部片的顺序
 
-三道闸 look → animatic → final（决定 D08）。每道闸都要用户看过、按原话记录；**agent 不得自己批准，也不得替用户写原话**。
+默认 `--delivery-mode automatic`：`build --final` 无需用户原话，机器 QA 仍必须通过。显式加 `--delivery-mode review` 启用 look → animatic → final 三道人工闸；该模式每道闸都要用户看过、按原话记录；**agent 不得自己批准，也不得替用户写原话**。
 
 ```sh
 npm run new -- c my-film --title 晨渡                 # 1 新建（也可 npm run film -- new c my-film --title 晨渡）
@@ -15,13 +15,13 @@ npm run film -- stills films/my-film                  # 3 风格关键帧 + 联�
 npm run film -- review approve look films/my-film --quote "<用户原话>" --source "<会话 / 日期 / 第几条>" --reviewer "<审阅人>"
 npm run film -- animatic films/my-film                # 4 半分辨率动态预演（时长、切点同正片）→ 给用户看
 npm run film -- review approve animatic films/my-film --quote "…" --source "…" --reviewer "…"
-npm run film -- build films/my-film --final           # 5 终渲：先查闸门，再整条出片链 + 机器 QA 门
+npm run film -- build films/my-film --final           # 5 自动终渲 + 机器 QA；需要人工前置审阅时加 --delivery-mode review
 npm run film -- review approve final films/my-film --quote "…" --source "…" --reviewer "…"   # 之后 run.json 才是 accepted
 npm run film -- status films/my-film                  # 任何时候：闸门、最近运行、下一步
 ```
 
 - A 路线模版（film.json 写了 `fonts` 与 `texts`）只用本片的字体子集：新建后、以及改了 `texts` / `fonts` 之后先跑 `node tools/fonts/subset.mjs films/my-film`（要 Python fontTools 与字体缓存，见 routes/a-webgl/template/README.md）。没生成或过期时 `check` 的 fonts 一项不过，`build` / `stills` / `animatic` / `render` 在开运行目录之前退出码 4 并给出这条命令（与 `subset.mjs --check` 同一段代码，只核对、不代跑）。
-- 工作版（不加 `--final`）随时可出，不查闸门；终渲（`build --final`、`render --final`）没有 look、animatic 的用户认可或**带用户原话的**豁免时退出码 4，一帧不渲、不建运行目录。
+- 工作版（不加 `--final`）随时可出，不查闸门；人工审阅模式的终渲（加 `--delivery-mode review`）没有 look、animatic 的用户认可或**带用户原话的**豁免时退出码 4，一帧不渲、不建运行目录。
 - 用户明确说不用看时记豁免：`npm run film -- review waive look,animatic films/my-film --reason "<理由>" --quote "<用户原话>" --source "<出处>"`；也可以出片时一并记（`build … --waive look,animatic --reason … --quote … --source …`）。**没有 `--quote/--source` 的豁免只记一条内部说明（comment），不放行终渲**——自检（如 G1）用它出工作版。final 闸不能豁免。
 - agent 自己的审片结论用 `review note`（记为 comment），留证据、不放行任何闸。
 - 「已交付 / 用户已认可」只能在最近一次终渲的 run.json 是 `accepted` 时说；`status` 会如实分三件事写：已输出 / 技术检查 / 人工认可。
@@ -38,7 +38,7 @@ npm run film -- status films/my-film                  # 任何时候：闸门、
 | `build <作品> [--final] [--profile] [--size] [--renderer] [--encoder] [--mode]` | 整条出片链（§4）；`--renderer offscreen`（A、C 路线，`backend=webgpu` 时默认）把逐帧渲染换成离屏出片（`engine/offscreen/cli.mjs` 渲作品目录的 `offscreen.mjs`，默认 `--mode pro`：x264 High + rgba 读回，终渲交付；`--mode fast` 为 NVENC 预览档，无 NVENC 时退回 pro，见 `docs/offscreen/README.md` 7.11、7.19）；D 路线经 `pathtrace-steps.mjs` 直出无损 PNG 序列封装成片（D13）；`--encoder x264\|nvenc` 可显式覆盖编码器（`nvenc` 同时让光追封装与网页版编码走 NVIDIA 硬件编码）；`--from` / `--to` 只跑一段；输入没变的步骤复用缓存；`--profile` 换档位（画幅或帧率与 film.json 不同时 QA 读生效描述，§4）；`--size` 出改画幅的工作版（不是交付件，不跑交付 QA） | `master.mp4` `web.mp4` `player.html` `contact.jpg` `poster.jpg` `qa/`（换了档位另有 `film.effective.json`） |
 | `mix <作品>` | 只做声音：A、C、D 跑到声画拍点核对（`build --to cuecheck`，A/C 含可选遥测探测、`dialogue.json` 自动配音与前置声音 QA），B 跑原生素材准备（`--to prepare`） | `audio/mix.wav` `audio/stems/` `audio/qa.json` `audio/cuecheck.txt`（有对白另有 `audio/dialogue/`，开遥测另有 `kinematics.json`） |
 | `assemble <作品>` | 画面与声音复用缓存，只重做封装及之后（A、C、D `build --from mux`，B `--from web`） | 同 build |
-| `render <作品> --frames a:b \| --shot S [--clip] [--renderer] [--final]` | 只渲指定帧段或镜头，逐帧缓存（同一命令第二次 0 帧重渲）；支持 `--renderer offscreen` 与 D 路线光追单帧缓存；`--final` 先查闸门，不给帧段时等于 `build --final` | `frames/` `frames.json` `contact.jpg`（`--clip` 另有 `range.mp4`） |
+| `render <作品> --frames a:b \| --shot S [--clip] [--renderer] [--final]` | 只渲指定帧段或镜头，逐帧缓存（同一命令第二次 0 帧重渲）；支持 `--renderer offscreen` 与 D 路线光追单帧缓存；`--final --delivery-mode review` 先查闸门，不给帧段时等于 `build --final` | `frames/` `frames.json` `contact.jpg`（`--clip` 另有 `range.mp4`） |
 | `qa <作品> [--run <id>]` | 对已出的片子补跑机器 QA 门，回写那次的 run.json；作品描述与出片时同一口径（用那次的 `film.effective.json`）；`--size` 的工作版不审（用法错误） | `qa/` |
 | `review approve\|reject\|waive\|note\|status …` | 闸门审阅记录（§6）；`approve …` 是 `review approve …` 的简写 | `films/<名>/review/<闸>-<日期>.json`（随作品源码提交） |
 | `status <作品>` | 闸门、最近各类运行、下一步命令 | 无 |
@@ -95,7 +95,7 @@ films/<名>/out/
 - **机器 QA 门**：`node tools/qa/cli.mjs report <运行目录>/master.mp4 --film <作品描述> [--page <页面目录> --size <宽x高>] [--events <运行目录>/events.json] [--profile <档位>] --out <运行目录>/qa --json`：交付规格、画面异常、文字（页面型）、底板、声画同步、已知问题台账。硬门不通过时整个出片退出码 4，结论写进 run.json 的 `technicalAcceptance`（证据 `qa/report.json`，相对运行目录；`technicalAcceptance.film` 记 QA 读的是哪份作品描述）。QA 缺环境退出码 3；参数不被接受（版本不一致）记 not-run 并告警。页面型作品把视口 `--size` 明确交给 QA；film.json 没写 `events` 而页面导出了 `window.EV`（C 路线）时，把运行目录里的 `events.json` 交给声画同步组（QA 原本到作品目录找，编排器把这份导出写进了运行目录）。
 - **档位与作品描述**（复核 must 的修正）：机器 QA 有意要求作品描述的画幅、帧率与档位一致，解码帧数等于作品描述的 `frameCount`，文字组按作品描述的画幅开页面（docs/quality/QA-GATE.md §4.1）。所以 `--profile` 换成画幅或帧率与 film.json 不同的档位时（例如横屏作品出 `vertical-1080x1920-30`），编排器在运行目录写 `film.effective.json`：`output` 换成档位的 profile、宽高、帧率、帧数；帧率变了时镜头（首尾相接、最后一镜止于新帧数）、事件、停顿、海报帧、`qa` 的有意区间与豁免帧段按比例换算（与 `tools/new-film.mjs` 的 `rescaleFrames` 同口径），按秒写的不动；`id` 显式写上。QA 的 `--film` 指向它，run.json 的 `filmEffective` 记来源、哈希与改动；作品目录的 film.json 不改。换算后有镜头一帧不剩时出片前就拒绝（退出码 4）。`docs/quality/waivers/<id>.json` 里按帧号写的豁免不随帧率换算。B 路线的档位必须与 film.json 一致（原生运行时按 film.json 出片），不一致时出片前拒绝。
 - **改画幅的工作版（`--size`）**：不是交付件。交付 QA 按档位查画幅必然不过，所以不跑，`qa` 步骤记 skipped；编排器照常核对帧数、画幅、帧率与音轨（不符退出码 4），符合时退出码 0，run.json 的技术验收记 `not-run`、规格核对记 `specCheck`、`status` 记 `rendered`（作品描述包合入前记 `blocked`）、`deliverable: false`。不能与 `--final` 同用。《北冥》的 `--4k` 就是这一种。
-- **检查顺序**：build 先把用法与契约全部查完（作品描述、页面目录、档位、`--size` / `--final`、步骤名、终渲档位须在 film.json 的 `deliveries` 里），再写审片记录（`--waive`）、判闸门、开运行目录；前面任何一项不过都直接退出，`review/` 不会多出记录，也不建运行目录。`--final` 配没有用户原话的 `--waive` 是用法错误。
+- **检查顺序**：build 先把用法与契约全部查完（作品描述、页面目录、档位、`--size` / `--final`、步骤名、终渲档位须在 film.json 的 `deliveries` 里），再写审片记录（`--waive`）、判闸门、开运行目录；前面任何一项不过都直接退出，`review/` 不会多出记录，也不建运行目录。`--final --delivery-mode review` 配没有用户原话的 `--waive` 是用法错误。
 - **主产物核对**：完整解码计帧，帧数、画幅、帧率、音轨任一与作品描述不符退出码 4，核对记录写 `checks/output.json`；再记逐帧解码 md5（`frameHashes`，复现时逐帧比对）。
 
 ## 5. film.json 里编排器读的字段
@@ -191,7 +191,7 @@ films/<名>/out/
 
 ## 11. 《北冥》样片
 
-`npm run beiming:build -- [--4k] [--no-audio] [--workers N] [--json]`（= `node tools/film/beiming.mjs`；`sh build.sh` 是参数相同的 POSIX 兼容壳）= `film build films/beiming-10s --page . --out-root out/beiming --profile beiming-1040p24 --audio audio/build.sh`，再按旧文件名放到 `out/`：`video[_4k].mp4`、`beiming[_4k].mp4`、`beiming_web.mp4`、`beiming.html`、`contact_sheet.jpg`、`mix.wav`。实测新旧两条路出的 `out/video.mp4`、`out/mix.wav` 字节完全相同，`out/beiming.mp4` 的画面与声音逐帧相同、只多了 D11 的 AIGC comment。机器 QA 门对冻结的样片报出已知问题（文字停留、对比度、两个配乐起音，见 `docs/quality/known-issues.json`）时退出码 4，旧文件名照样放好；这些问题的豁免要用户批准（`docs/quality/waivers/beiming-10s.json`）。
+`npm run beiming:build -- [--4k] [--no-audio] [--workers N] [--json]`（= `node tools/film/beiming.mjs`；`sh build.sh` 是参数相同的 POSIX 兼容壳）= `film build films/beiming-10s --page films/beiming-10s --out-root out/beiming --profile beiming-1040p24 --audio audio/build.sh`，再按旧文件名放到 `out/`：`video[_4k].mp4`、`beiming[_4k].mp4`、`beiming_web.mp4`、`beiming.html`、`contact_sheet.jpg`、`mix.wav`。实测新旧两条路出的 `out/video.mp4`、`out/mix.wav` 字节完全相同，`out/beiming.mp4` 的画面与声音逐帧相同、只多了 D11 的 AIGC comment。机器 QA 门对冻结的样片报出已知问题（文字停留、对比度、两个配乐起音，见 `docs/quality/known-issues.json`）时退出码 4，旧文件名照样放好；这些问题的豁免要用户批准（`docs/quality/waivers/beiming-10s.json`）。
 
 ## 12. 测试
 

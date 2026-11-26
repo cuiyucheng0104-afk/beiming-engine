@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // 考题跑题器（B8）：一条命令跑完一道题（准备 → 做题 → 判分 → 落盘）。
-// 会话隔离与过程观测复用 tools/eval/lib（旧目录白名单）；旧目录不反向引用本目录。
+// 会话隔离与过程观测由本组件的 session/ 提供。
 //   node beiming/bench/runner.mjs run --question <题目文件> --root <仓库外目录> (--solver-cmd <命令> | --model <模型>)
 // 信任边界：做题进程和宿主是同一个系统用户。macOS 上 sandbox-exec 能用时，用它挡住原题、隐藏题所在目录、meta.json 和别的运行（seatbelt）；
 // 别的平台只换了工作目录和环境变量（process-cwd），这个用户读得到的文件做题进程照样读得到。实际级别记在 observation.json 的 isolation。
@@ -11,14 +11,14 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { types } from 'node:util';
-import { EvalError, contractError, envError, runCli, usageError } from '../../tools/eval/lib/cli.mjs';
-import { claudeCommand } from '../../tools/eval/lib/drive.mjs';
-import { runTool } from '../../tools/eval/lib/exec.mjs';
-import { readJsonIfExists, sha256File, sha256Text, walk, writeJson } from '../../tools/eval/lib/files.mjs';
-import { newRunId } from '../../tools/eval/lib/rundir.mjs';
-import { canonical, isInside } from '../../tools/eval/lib/paths.mjs';
-import { assertEvalRoot, platformInfo, resolveEvalRoot, sessionEnv, writeSessionConfig } from '../../tools/eval/lib/sandbox.mjs';
-import { loadTranscript } from '../../tools/eval/lib/transcript.mjs';
+import { EvalError, contractError, envError, runCli, usageError } from './session/cli.mjs';
+import { claudeCommand } from './session/drive.mjs';
+import { runTool } from './session/exec.mjs';
+import { readJsonIfExists, sha256File, sha256Text, walk, writeJson } from './session/files.mjs';
+import { newRunId } from './session/rundir.mjs';
+import { canonical, isInside } from './session/paths.mjs';
+import { assertEvalRoot, platformInfo, resolveEvalRoot, sessionEnv, writeSessionConfig } from './session/sandbox.mjs';
+import { loadTranscript } from './session/transcript.mjs';
 import { cutScene } from '../observe/index.mjs';
 import { checkAssertion, evaluateAssertion } from '../verify/predicates.mjs';
 import { projectPublicQuestion, validateQuestion } from './validate-question.mjs';

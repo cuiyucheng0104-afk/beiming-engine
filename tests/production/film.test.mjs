@@ -423,7 +423,7 @@ test('next 是模版专用字段：模版里按注册表的步骤格式校验，
   assert.ok(warnings(v(minimalFilm({ next: [step] }))).includes('next-in-film'));
 });
 
-test('v1 记录自动升级：frameCount = round(dur × fps)，整片一个镜头，poster 秒数换成帧', () => {
+test('显式升级 v1 记录：frameCount = round(dur × fps)，整片一个镜头，poster 秒数换成帧', () => {
   const { film, notes } = upgradeFilm({ route: 'c', title: 'x', dur: 2.99, fps: 24, size: [1920, 1080], poster: 1.5 }, { dirName: 'x' });
   assert.equal(film.output.frameCount, 72);
   assert.equal(film.output.profile, 'web-1080p24');
@@ -431,11 +431,9 @@ test('v1 记录自动升级：frameCount = round(dur × fps)，整片一个镜�
   assert.equal(film.posterFrame, 36);
   assert.ok(notes.some(n => n.includes('已取整')));
   const r = v({ route: 'c', title: 'x', dur: 3, fps: 24, size: [1920, 1080] }, { dirName: 'x' });
-  assert.equal(r.upgraded, true);
-  assert.deepEqual(errors(r), []);
-  assert.ok(warnings(r).includes('v1-upgraded'));
-  // v1 画幅对不上任何档位：判错并指出要写 output.profile
-  assert.ok(errors(v({ route: 'c', title: 'x', dur: 3, fps: 24, size: [1280, 720] }, { dirName: 'x' })).includes('profile-unmatched'));
+  assert.equal(r.upgraded, false);
+  assert.equal(r.film, null);
+  assert.deepEqual(errors(r), ['schema-version-missing']);
   // 不认识的版本拒绝自动解释；ProjectSpec 不是 film.json
   assert.ok(errors(v({ schemaVersion: 3 })).includes('schema-version-unknown'));
   assert.ok(errors(v({ schemaVersion: 1, projectId: 'x', execution: {} })).includes('projectspec-not-film'));
@@ -468,7 +466,7 @@ test('页面自带的 timeline.js 与 film.json 的帧数必须一致', () => {
   try { assert.deepEqual(errors(loadFilm(ok.dir)), []); } finally { ok.cleanup(); }
 });
 
-test('三条路线的模版按 --template 校验都通过（v1 自动升级读取）', () => {
+test('三条路线的 v2 模版按 --template 校验都通过', () => {
   for (const slug of ['a-webgl', 'b-native', 'c-style']) {
     const L = loadFilm(join(REPO, 'routes', slug, 'template'), { template: true });
     assert.deepEqual(errors(L), [], slug);

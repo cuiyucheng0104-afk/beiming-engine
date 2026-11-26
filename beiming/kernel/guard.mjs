@@ -8,34 +8,16 @@ import { parseArgs } from 'node:util';
 const newRoot = 'beiming';
 const legacyRoots = ['engine', 'tools', 'routes', 'films', 'site', 'cases'];
 const archives = new Set(['cases/vendor', 'cases/source']);
-const extensions = new Set(['.js', '.mjs', '.cjs', '.py']);
-// 以 / 结尾的条目按目录前缀匹配，其余条目要求完整路径相同。
-const legacyWhitelist = [
-  'engine/core/',
-  'engine/overlay/',
-  'engine/audio/',
-  'engine/style/',
-  'engine/assets/',
-  'engine/native/bridge/',
-  'engine/look/layers.js',
-  'engine/render/page.mjs',
-  'engine/render/still.mjs',
-  'engine/render/still/',
-  'engine/render/video.mjs',
-  'engine/render/video/',
-  'engine/render/shots.mjs',
-  'engine/render/events.mjs',
-  'engine/render/lib/gpu.mjs',
-  'engine/render/lib/ffmpeg.mjs',
-  'engine/render/lib/slots.mjs',
-  'engine/render/lib/errors.mjs',
-  'tools/lib/cli.mjs',
-  'tools/baseline/',
-  'tools/eval/',
-  'tools/lookdev/sweep.mjs',
-  'tools/remote/',
-  'tools/qa/',
-];
+const extensions = new Set(['.js', '.mjs', '.cjs', '.jsx', '.ts', '.mts', '.cts', '.tsx', '.py']);
+// 核心线当前冻结。仅保留现有工具的精确“调用文件 → 导入拼写”；拆仓检查忽略这张表。
+const pendingCoreImports = new Map([
+  ['beiming/sources/core/chassis/freeze.mjs', '../../../../tools/lib/cli.mjs'],
+  ['beiming/sources/core/chassis/imaging.mjs', '../../../../tools/lib/cli.mjs'],
+  ['beiming/sources/core/chassis/level2.mjs', '../../../../tools/lib/cli.mjs'],
+  ['beiming/sources/core/chassis/regress.mjs', '../../../../tools/lib/cli.mjs'],
+  ['beiming/sources/core/fncheck/run.mjs', '../../../../tools/lib/cli.mjs'],
+  ['beiming/sources/core/fncheck/gpu.mjs', '../../../../engine/render/lib/gpu.mjs'],
+]);
 const evalRoot = 'beiming/kernel/eval';
 const evalForbiddenPaths = ['beiming/sources', 'beiming/host', 'engine/render'];
 const evalForbiddenPackages = /^(?:three(?:-stdlib)?|@react-three\/[^/]+|(?:@playwright\/[^/]+|playwright(?:-core)?)|puppeteer(?:-core)?|bpy|@babylonjs\/[^/]+|babylonjs|pixi\.js|@pixi\/[^/]+|@webgpu\/[^/]+|gl|moderngl|opengl)(?:\/|$)/i;
@@ -383,6 +365,17 @@ function jsModuleSource(tokens, index) {
         ? index + 3
         : -1);
     if (parenIndex !== -1) {
+      const start = parenIndex + 1;
+      if (keyword === 'import' && isToken(tokens[start], 'word', 'new')
+        && isToken(tokens[start + 1], 'word', 'URL') && isToken(tokens[start + 2], 'symbol', '(')) {
+        const relative = constantString(tokens, start + 3);
+        const base = [',', 'import', '.', 'meta', '.', 'url', ')'];
+        if (relative && base.every((value, offset) => tokens[relative.end + offset]?.value === value)) {
+          let cursor = relative.end + base.length;
+          if (isToken(tokens[cursor], 'symbol', '.') && isToken(tokens[cursor + 1], 'word', 'href')) cursor += 2;
+          if (isToken(tokens[cursor], 'symbol', ')') || isToken(tokens[cursor], 'symbol', ',')) return relative.value;
+        }
+      }
       const argument = constantString(tokens, parenIndex + 1);
       const end = argument && tokens[argument.end];
       if (end?.kind === 'symbol' && (end.value === ')' || end.value === ',')) return argument.value;
@@ -392,6 +385,7 @@ function jsModuleSource(tokens, index) {
   }
   if (keyword === 'require') return;
   let cursor = index + 1;
+  if (isToken(tokens[cursor], 'word', 'type') && !isToken(tokens[cursor + 1], 'word', 'from')) cursor++;
   if (keyword === 'import' && tokens[cursor]?.kind === 'word') {
     cursor++;
     if (isToken(tokens[cursor], 'symbol', ',')) cursor++;
@@ -609,12 +603,6 @@ function* pythonReferences(repoRoot, file, record, rootNames, pythonInfo) {
   if (fromModule) yield moduleReference;
 }
 
-function isWhitelisted({ target, directory }) {
-  return legacyWhitelist.some((allowed) => (allowed.endsWith('/')
-    ? target.startsWith(allowed) || (directory && `${target}/` === allowed)
-    : target === allowed));
-}
-
 function safeDecode(text) {
   try {
     return decodeURIComponent(text);
@@ -730,8 +718,9 @@ export function checkArchitecture(repoRoot, options = {}) {
       if (directory !== newRoot && target !== undefined && isWithin(target, newRoot)) {
         addProblem('no-reverse-import', file, `旧目录引用了 ${target}（${specifier}）`);
       }
-      if (directory === newRoot && target !== undefined && !isWithin(target, newRoot) && !isWhitelisted(reference)) {
-        addProblem('legacy-whitelist', file, `引用目标未命中旧目录白名单（${target || '.'}）`);
+      if (directory === newRoot && target !== undefined && !isWithin(target, newRoot)
+        && (options?.standalone || pendingCoreImports.get(file) !== specifier)) {
+        addProblem('no-legacy-import', file, `新目录引用了目录外的仓库模块（${target || '.'}）`);
       }
       if (evalSource && (isForbiddenPackage(specifier, isPython)
         || (target !== undefined && evalForbiddenPaths.some((forbidden) => isWithin(target, forbidden))))) {
@@ -746,8 +735,8 @@ export function checkArchitecture(repoRoot, options = {}) {
 }
 
 function main() {
-  const { values } = parseArgs({ options: { root: { type: 'string' }, json: { type: 'boolean' } } });
-  const result = checkArchitecture(values.root ?? fileURLToPath(new URL('../../', import.meta.url)));
+  const { values } = parseArgs({ options: { root: { type: 'string' }, json: { type: 'boolean' }, standalone: { type: 'boolean' } } });
+  const result = checkArchitecture(values.root ?? fileURLToPath(new URL('../../', import.meta.url)), { standalone: values.standalone });
   const lines = values.json
     ? [JSON.stringify(result, null, 2)]
     : [
