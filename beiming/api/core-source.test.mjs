@@ -28,6 +28,9 @@ const E2E = process.env.BEIMING_CHASSIS_E2E === '1';
 const SIZE = [64, 36], SPP = 8, SEED = 7;
 const LAYERS = ['color.f32', 'objectId.u32'];
 
+// 假的 core-render 是 #! 脚本，Windows 起不了；墙钟预算杀进程树用的也是 POSIX 的信号与进程组。所以这几条在 Windows 上跳过
+const NO_FAKE = process.platform === 'win32' && '假的 core-render 是 #! 脚本，Windows 上起不了';
+
 /**
  * 假的 core-render，行为照场景包目录里的 fake.json：pack-info 答一行统计（triangles 没写就 4；写了 infoHang 时一直挂着不答）；
  * render-pack 在 --passes 目录写全 0 的颜色层、答一行统计；fake.json 写了 hang（一个目录）时不出帧：把自己和它起的孙进程的
@@ -277,7 +280,7 @@ test('场景包目录本身是符号链接：签锁同样拒（env.lock-required
 
 const BUDGET = { maxTriangles: 100, spp: 24, maxWallMs: 60_000 };
 
-test('顶层写 three、renderer 写 core 的镜头照核心镜头算：终渲档核验入队前拒（at 指到 renderer），草稿档渲染过准入、走 core 道', { timeout: 30_000 }, async (t) => {
+test('顶层写 three、renderer 写 core 的镜头照核心镜头算：终渲档核验入队前拒（at 指到 renderer），草稿档渲染过准入、走 core 道', { skip: NO_FAKE, timeout: 30_000 }, async (t) => {
   useRenderer(t, fakeRenderer(t));
   const { store, id, work } = await served(t, { rendererCore: true });
   assert.deepEqual(store.readFilm(id).shots.map((s) => [s.source, s.renderer?.source]), [['three', 'core'], ['three', undefined]]);
@@ -294,7 +297,7 @@ test('顶层写 three、renderer 写 core 的镜头照核心镜头算：终渲�
   assert.equal(loadQueue(store.filmDir(id)).getJob(job).request.kind, 'core');
 });
 
-test('草稿档里有核心镜头的渲染作业走 core 道，没有的走 draft 道；片子里有核心镜头的核验作业走 core 道', { timeout: 30_000 }, async (t) => {
+test('草稿档里有核心镜头的渲染作业走 core 道，没有的走 draft 道；片子里有核心镜头的核验作业走 core 道', { skip: NO_FAKE, timeout: 30_000 }, async (t) => {
   useRenderer(t, fakeRenderer(t));
   const { store, id, work } = await served(t);
   const kindOf = async (plan) => {
@@ -337,7 +340,7 @@ test('片子里有核心镜头的终渲档核验作业在入队之前就拒（co
   assert.equal(loadQueue(store.filmDir(id)).getJob(job).request.kind, 'core');
 });
 
-test('核心作业的准入：预算缺了、采样超档位上限或超声明、三角形数超声明都在入队之前拒，报登记过的码本身', { timeout: 30_000 }, async (t) => {
+test('核心作业的准入：预算缺了、采样超档位上限或超声明、三角形数超声明都在入队之前拒，报登记过的码本身', { skip: NO_FAKE, timeout: 30_000 }, async (t) => {
   useRenderer(t, fakeRenderer(t));
   const { store, id, work } = await served(t);
   const plan = [{ shot: 's01', frames: [0] }];
@@ -370,7 +373,7 @@ test('核心作业的准入：预算缺了、采样超档位上限或超声明�
   assert.equal(loadQueue(store.filmDir(id)).getJob(job).request.kind, 'core');
 });
 
-test('准入的 pack-info 挂住时，一次提交最多把服务端挡住 ADMIT_MS：到点拒、不进队列', { timeout: 30_000 }, async (t) => {
+test('准入的 pack-info 挂住时，一次提交最多把服务端挡住 ADMIT_MS：到点拒、不进队列', { skip: NO_FAKE, timeout: 30_000 }, async (t) => {
   useRenderer(t, fakeRenderer(t));
   const { store, id, work } = await served(t, { fake: { infoHang: true } });
   const t0 = performance.now();
@@ -394,7 +397,7 @@ test('准入拿真渲染程序的 pack-info 数三角形：两块板各两个三
   await work.wait(id, submit(4), 10);
 });
 
-test('核心作业到声明的墙钟预算被杀：先 SIGTERM 再 SIGKILL 整棵进程树；同卡排队的核心作业与并发的草稿照常完成', { timeout: 60_000 }, async (t) => {
+test('核心作业到声明的墙钟预算被杀：先 SIGTERM 再 SIGKILL 整棵进程树；同卡排队的核心作业与并发的草稿照常完成', { skip: NO_FAKE, timeout: 60_000 }, async (t) => {
   useRenderer(t, fakeRenderer(t));
   // 「声明 10 秒、到 10 秒被杀」按 1/10 缩放：声明 1 秒
   const WALL = 1000;
@@ -449,7 +452,7 @@ test('核心作业到声明的墙钟预算被杀：先 SIGTERM 再 SIGKILL 整�
   assert.deepEqual(jc.result, { code: 0, signal: null }, '同卡的草稿作业的进程没被连带杀掉');
 });
 
-test('经服务端提交的核心作业到声明的墙钟预算被杀：作业 failed，结论里是 timeout.budget', { timeout: 60_000 }, async (t) => {
+test('经服务端提交的核心作业到声明的墙钟预算被杀：作业 failed，结论里是 timeout.budget', { skip: NO_FAKE, timeout: 60_000 }, async (t) => {
   useRenderer(t, fakeRenderer(t));
   const hang = hangDir(t);
   // 锁是服务端签的（store.commit 照 lockContext），不是手写的
@@ -488,7 +491,7 @@ test('真渲染程序：经服务端签锁的片子，核心镜头的渲染作�
   assert.equal(rec.meta.source.version, lock.sources.core.version, '元数据里帧源的版本和锁里记的是同一个');
 });
 
-test('帧源 stop 收掉还在跑的 core-render 进程树：作业取消、测试收尾时不留孤儿进程', { timeout: 30_000 }, async (t) => {
+test('帧源 stop 收掉还在跑的 core-render 进程树：作业取消、测试收尾时不留孤儿进程', { skip: NO_FAKE, timeout: 30_000 }, async (t) => {
   const bin = fakeRenderer(t), hang = hangDir(t);
   const { workspace, film, lock } = coreWorkspace(t);
   fs.writeFileSync(workspace.resolve('shots/pack/fake.json'), JSON.stringify({ hang }));
