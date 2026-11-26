@@ -55,6 +55,14 @@ export function cargoPath() {
   throw missing('找不到 cargo（PATH 与 ~/.cargo/bin 里都没有）：装 Rust（rustup），内核的 rust-toolchain.toml 指定 1.100.0');
 }
 
+/**
+ * cargo 不许联网时（环境变量 CARGO_NET_OFFLINE 是 true 或 1）的参数：显式带 --offline，缺包就报错、不去 crates.io 取。
+ * cargo 自己也认这个变量，这里再写一遍，是让每一处调用都看得出它不联网。清构建目录（cargo clean）用不着网络，一律带。
+ */
+export function cargoNet(args) {
+  return /^(true|1)$/i.test(process.env.CARGO_NET_OFFLINE ?? '') || args[0] === 'clean' ? [args[0], '--offline', ...args.slice(1)] : args;
+}
+
 /** 上游的缓存在、提交号对、已跟踪的文件没被改过就直接用；不在时 allowFetch 为真才去取。对不上，拒绝往下走 */
 export function ensureUpstream({ allowFetch = true } = {}) {
   if (!fs.existsSync(UPSTREAM)) {
@@ -124,9 +132,15 @@ export function sourceKey(inject = []) {
 export function freshTarget(target, key, cwd = KERNEL) {
   const stamp = path.join(target, '.beiming-source');
   if (fs.existsSync(stamp) && fs.readFileSync(stamp, 'utf8') === key) return;
+  // 构建目录还不存在就没有可清的：第一次编时依赖可能还没进 cargo 的缓存，不带网络的 clean 会因此失败
+  if (!fs.existsSync(target)) {
+    fs.mkdirSync(target, { recursive: true });
+    fs.writeFileSync(stamp, key);
+    return;
+  }
   // cargo clean -p 一次只清一个编译档的目录：库测试那一档（debug）与出程序的那一档（release）各清一次
   for (const profile of [[], ['--release']]) {
-    const r = sh(cargoPath(), ['clean', '--locked', ...profile, '-p', 'beiming-core-path'], { cwd, stdio: ['ignore', 'ignore', 'pipe'], env: { ...process.env, CARGO_TARGET_DIR: target } });
+    const r = sh(cargoPath(), cargoNet(['clean', '--locked', ...profile, '-p', 'beiming-core-path']), { cwd, stdio: ['ignore', 'ignore', 'pipe'], env: { ...process.env, CARGO_TARGET_DIR: target } });
     if (r.status !== 0) throw new Error(`清不掉内核上次编的产物：\n${r.stderr.split('\n').slice(-10).join('\n')}`);
   }
   fs.mkdirSync(target, { recursive: true });
@@ -163,7 +177,7 @@ export function buildRenderer({ inject = [] } = {}) {
     }
   }
   freshTarget(target, key, path.join(root, 'path'));
-  const r = sh(cargoPath(), ['build', '--locked', '--release', '--bin', 'core-render'], { cwd: path.join(root, 'path'), stdio: ['ignore', 'ignore', 'pipe'], env: { ...process.env, CARGO_TARGET_DIR: target } });
+  const r = sh(cargoPath(), cargoNet(['build', '--locked', '--release', '--bin', 'core-render']), { cwd: path.join(root, 'path'), stdio: ['ignore', 'ignore', 'pipe'], env: { ...process.env, CARGO_TARGET_DIR: target } });
   if (r.status !== 0) throw new Error(`内核编不过：\n${r.stderr.split('\n').slice(-40).join('\n')}`);
   fs.mkdirSync(path.dirname(bin), { recursive: true });
   fs.copyFileSync(path.join(target, 'release', `core-render${EXE}`), `${bin}.tmp`);

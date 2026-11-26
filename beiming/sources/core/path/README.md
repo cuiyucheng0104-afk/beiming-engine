@@ -118,7 +118,7 @@ core-render render-pack <包目录> -o out.png [--frame k] [--spp N] [--width W 
 | 质量 | 界面属性 `denoising_quality` 默认 `HIGH`（视口是 `BALANCED`） | `High` | `High` |
 | 设备 | 界面属性 `denoising_use_gpu` 默认关：最终渲染在 CPU 上降噪，勾上才用渲染所在的显卡 | 库的默认设备（OIDN 挑最快的一个） | 不变 |
 
-所以要和 Blender 对拍降噪，Blender 那边要设 `denoising_prefilter = 'FAST'`、`denoising_quality = 'HIGH'`，两边的设备要一样（Blender 勾「在 GPU 上降噪」对这里的显卡设备，或这里改用 CPU 设备）。还没实测的：上面标「未读到」的每一行、`oidn()` 能不能编过（本机与工作站的 cargo 缓存里都没有 `oidn` 这个 crate）、编进去之后两边喂同一份带噪输入差多少。没编进 OIDN 的构建不受这次改动影响：小波降噪的输入与代码都没动，相机空间的法线只在编进了 OIDN 时才算。
+所以要和 Blender 对拍降噪，Blender 那边要设 `denoising_prefilter = 'FAST'`、`denoising_quality = 'HIGH'`，两边的设备要一样（Blender 勾「在 GPU 上降噪」对这里的显卡设备，或这里改用 CPU 设备）。还没实测的：上面标「未读到」的每一行、`oidn()` 能不能编过（两台机器的 cargo 缓存里现在都有 `oidn` 2.5.1 与它的依赖，是按 `Cargo.lock` 取的；`../chassis/build.mjs` 调 cargo 时，环境变量 `CARGO_NET_OFFLINE` 为真就带 `--offline`，清构建目录一律带）、编进去之后两边喂同一份带噪输入差多少。没编进 OIDN 的构建不受这次改动影响：小波降噪的输入与代码都没动，相机空间的法线只在编进了 OIDN 时才算。
 
 ### 链接 Blender 自带的 OIDN（构建档的设计，还没落地）
 
@@ -132,7 +132,7 @@ core-render render-pack <包目录> -o out.png [--frame k] [--spp N] [--width W 
 
 三处都只有动态库：没有头文件（`oidn.h`）、没有 pkg-config 的 `.pc`、没有 CMake 的配置文件。
 
-Rust 一侧用 `oidn` crate（`Cargo.lock` 钉 2.5.1）。从 crates.io 的索引能看到的（本机 cargo 的索引缓存里有这一条，crate 本身没有）：`links = "OpenImageDenoise"`；构建依赖 `pkg-config`（默认特性）；可选特性 `bundled` 会在构建时下载 OIDN 的二进制包（`ureq`、`sha2`、`flate2`、`tar`、`zip`），这里不许开；普通依赖 `bitflags`、`num_enum`。它的构建脚本没读到（crate 不在本机），照记忆：设了 `OIDN_DIR` 就加 `$OIDN_DIR/lib` 进链接路径、链接 `OpenImageDenoise`，没设才用 pkg-config 去找；C 接口的绑定是 crate 里写好的，不现场生成，所以不要头文件。这两点拿到 crate 之后先核，核不上就照实改这一节。
+Rust 一侧用 `oidn` crate（`Cargo.lock` 钉 2.5.1，两台机器的 cargo 缓存里都有）。从 crates.io 的索引能看到的：`links = "OpenImageDenoise"`；构建依赖 `pkg-config`（默认特性）；可选特性 `bundled` 会在构建时下载 OIDN 的二进制包（`ureq`、`sha2`、`flate2`、`tar`、`zip`），这里不许开；普通依赖 `bitflags`、`num_enum`。它的构建脚本没读到（crate 不在本机），照记忆：设了 `OIDN_DIR` 就加 `$OIDN_DIR/lib` 进链接路径、链接 `OpenImageDenoise`，没设才用 pkg-config 去找；C 接口的绑定是 crate 里写好的，不现场生成，所以不要头文件。这两点拿到 crate 之后先核，核不上就照实改这一节。
 
 构建档要做的：
 
@@ -141,15 +141,7 @@ Rust 一侧用 `oidn` crate（`Cargo.lock` 钉 2.5.1）。从 crates.io 的索�
 3. 2.3.3 一份另编：`Cargo.lock` 只能钉一个 `oidn` 版本，在 `out/` 下的源码拷贝里把它降到 2.3.3（crates.io 上有，依赖相同）再编，库目录指 Blender 4.5.16 的 `lib/`；排在 2.5.0 跑通之后。
 4. 许可：只从本机已装的 Blender 动态链接，库不进仓库、不随仓库分发。OIDN（Apache-2.0）的动态链接在 `docs/rights/register.md` 的 R15 已登记；它依赖的 TBB（Apache-2.0）还没登记，落地时补上。
 
-要先取到本机（两台机器都缺；5090 的 cargo 缓存里已有 `proc-macro-crate 3.5.0`，`toml_edit` 有 0.25.15 与 0.25.20、没有锁文件要的 0.25.17），来源都是 crates.io，校验和照 `Cargo.lock`：
-
-| crate | 版本 | 校验和（前 16 位） |
-|---|---|---|
-| `oidn` | 2.5.1 | `5c750490adf2813d` |
-| `num_enum` | 0.7.6 | `5d0bca838442ec21` |
-| `num_enum_derive` | 0.7.6 | `680998035259dcfc` |
-| `proc-macro-crate` | 3.5.0（只 Mac 缺） | `e67ba7e9b2b56446` |
-| `toml_edit` | 0.25.17+spec-1.1.0 | `e3641d5bbb5349a7` |
+`oidn` 2.5.1 与它的依赖（`num_enum`、`num_enum_derive` 0.7.6，`proc-macro-crate` 3.5.0，`toml_edit` 0.25.17+spec-1.1.0）已按 `Cargo.lock` 的校验和取进两台机器的 cargo 缓存，之后的构建一律不联网。
 
 ## 改之前
 
