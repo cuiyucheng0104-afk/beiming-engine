@@ -125,6 +125,10 @@ struct ShaderInputs {
 // 第一步：填着色点的几何量。不读材质。`sd` 要是刚取的零值（`var sd = ShadingPoint();`）。
 // 往指针里填、不按值返回：试过返回整个着色点，苹果显卡上编译出来的运算次序会变，像素末位不同。
 // 背面的判法沿用上游：几何法线与光线方向的点积不小于 0 就算背面（恰好垂直时 Cycles 算正面，这里算背面）。
+// 三角形上的着色点照 Cycles 的 triangle_point_from_uv（kernel/geom/triangle_intersect.h:123-143）用重心坐标重建：
+// tri_a + u·(tri_b − tri_a) + v·(tri_c − tri_a)，在顶点所在的空间里算，硬件求交的模型实例再乘实例的物体变换（Cycles 没把变换
+// 烘进几何的物体同样如此）。点落在自己的三角形上，阴影射线的自交测试（integrate_surface_ray_offset 的「测中不抬」）以此为前提；
+// 继续弹射的射线起点跟着变。过程几何照旧取 o + d·t
 fn shader_setup_from_hit(sd: ptr<function, ShadingPoint>, o: vec3<f32>, d: vec3<f32>, h: Hit) {
     (*sd).P = o + d * h.t;
     (*sd).wi = -d;
@@ -145,12 +149,15 @@ fn shader_setup_from_hit(sd: ptr<function, ShadingPoint>, o: vec3<f32>, d: vec3<
         var e1 = tri_verts[i * 3u + 1u].xyz - v0;
         var e2 = tri_verts[i * 3u + 2u].xyz - v0;
         var a = attrs[i];
+        var p = v0 + h.u * e1 + h.v * e2;
         if (has(F_INST) && h.inst != NO_INST) {
             let r = instance_at(h.inst);
+            p = inst_vec(r, p) + vec3<f32>(r.m0.w, r.m1.w, r.m2.w);
             e1 = inst_vec(r, e1);
             e2 = inst_vec(r, e2);
             a = inst_attr(r, a);
         }
+        (*sd).P = p;
         let w = 1.0 - h.u - h.v;
         ng = normalize(cross(e1, e2));
         n = normalize(a.n0.xyz * w + a.n1.xyz * h.u + a.n2.xyz * h.v);
