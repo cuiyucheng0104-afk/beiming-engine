@@ -132,6 +132,23 @@ core-render denoise --width W --height H --color c.f32 --albedo a.f32 --normal n
 
 三张输入与输出都是 RGB f32 小端、行主序、没有文件头，原样喂给 `oidn()`（不翻行序）；stdout 一行统计（设备、预过滤、质量、耗时）。
 
+### 和 Blender 对拍
+
+```sh
+node beiming/sources/core/chassis/oidn-parity.mjs [--device cpu|cuda|metal] [--prefilter accurate|fast|none] [--spp 16] [--width 320 --height 240]
+```
+
+本机的 Blender 现搭一个小场景（脚本在 `../chassis/oidn-parity.mjs` 的 `SCENE`：地面、漫反射方块、金属球、面光、弱环境光，16 采样、不自适应、种子 0），Cycles 用 OIDN、质量 `HIGH`、给定的预过滤与设备（`cpu` 关「在 GPU 上降噪」；`cuda`、`metal` 用那块显卡渲并在上面降噪），存多部件的多层 EXR（32 位、不压缩），取 `Noisy Image`、`Denoising Albedo`、`Denoising Normal` 与降噪后的 `Combined`。前三层按 Cycles 的行序翻过来喂给带 OIDN 的 `core-render denoise`（同设备、同预过滤、`HIGH`），结果翻回来和 `Combined` 逐分量比。判据：每个分量 |差| ≤ 1e-3 × max(1, |Combined|)。EXR 与场景都在临时目录里，不进仓库；记录写 `../chassis/oidn-parity/<平台>-<设备>-<预过滤>.json`（Blender 与 OIDN 的版本、库的 sha256、程序摘要、EXR 的 sha256、读数）。脚本先过 `verifyOidnLibs`：Blender 降噪用的库就是这边链接的那一份。
+
+| 机器 | Blender | 设备 | 预过滤 | 最大绝对差 | 最大相对差 | 判据 |
+|---|---|---|---|---|---|---|
+| 苹果 M5 Pro | 5.2.0 | CPU | `ACCURATE` | 1.49e-4 | 5.37e-6 | 过 |
+| 苹果 M5 Pro | 5.2.0 | CPU | `FAST` | 2.33e-4 | 6.80e-6 | 过 |
+| 苹果 M5 Pro | 5.2.0 | CPU | `NONE` | 2.48e-4 | 6.07e-6 | 过 |
+| 苹果 M5 Pro | 5.2.0 | Metal | `ACCURATE` | 0（逐位相同） | 0 | 过 |
+
+同一份带噪输入，降噪前后最大绝对差约 8.7（`ACCURATE`），所以这一帧的降噪确实动了画面。CPU 上留下的那点差（判据的 0.5%）没再追：Metal 逐位相同，说明参数与输入的取法一致；CPU 一侧的差可能来自 Cycles 读渲染缓冲时乘 1/采样数与 EXR 里存的均值在末位上的不同，没有验证。
+
 ### 链接 Blender 自带的 OIDN：带 OIDN 的构建档
 
 不起单独的降噪服务，降噪在 core-render 进程里做；链接的是 Blender 安装里自带的那一份 OIDN 动态库，按 sha256 钉住，与 Blender 降噪时用的逐字节是同一个库。这是另一个构建档，默认档不变。
@@ -140,7 +157,7 @@ core-render denoise --width W --height H --color c.f32 --albedo a.f32 --normal n
 node -e "import('./beiming/sources/core/chassis/build.mjs').then(m => console.log(m.buildOidnRenderer().bin))"
 ```
 
-- 找库：环境变量 `BEIMING_OIDN_LIB`（Blender 的 lib 目录）；没设时找 Blender（`BEIMING_BLENDER`、macOS 的 `/Applications/Blender.app`、PATH 里的 `blender`），取它真实路径旁的库目录：macOS 是 `Contents/Resources/lib/`，Linux 官方包是可执行文件同级的 `lib/`（`~/.local/bin/blender` 这类链接先解开）。
+- 找库：环境变量 `BEIMING_OIDN_LIB`（Blender 的 lib 目录）；没设时找 Blender（`BEIMING_BLENDER`、macOS 的 `/Applications/Blender.app`、PATH 里的 `blender`），取它真实路径旁的库目录：macOS 是 `Contents/Resources/lib/`，Linux 官方包是可执行文件同级的 `lib/`（PATH 里的 `blender` 是链接时先解开）。
 - 核对：[../chassis/oidn-lock.json](../chassis/oidn-lock.json) 按平台（`darwin-arm64`、`linux-x64`）列出库目录里全部 `libOpenImageDenoise*` 与 `libtbb*`（链接照它指向的内容）的 sha256，`build.mjs` 的 `verifyOidnLibs` 逐个比：多一个、少一个、对不上都拒绝，抛 env 类的错（退出码 3，码 `env.missing-tool`：错误码表里没有更贴切的）。构建前核一次；跑带 OIDN 的程序之前（对拍脚本）再核一次。
 - 链接：`oidn` crate 2.5.1 的构建脚本（`build.rs`，已读）没开 `bundled` 时，设了 `OIDN_DIR` 就把 `$OIDN_DIR/lib` 加进链接路径、链接 `OpenImageDenoise`，不走 pkg-config；C 接口的绑定是 crate 里写好的，不要头文件。所以 `OIDN_DIR` 设成库目录的上一级（库目录必须叫 `lib`），`cargo rustc --locked --release --features oidn --bin core-render -- -C link-arg=-Wl,-rpath,<库目录>`；不开 `bundled`（它会在构建时下载）。构建目录另用 `out/chassis/target-oidn`；程序名的摘要把锁文件这个平台的一项算进去，与默认档分开存。
 - 运行时找库：只靠编进程序的 rpath（`LC_RPATH` / `RUNPATH`，指向上面的库目录），不用 `DYLD_LIBRARY_PATH` / `LD_LIBRARY_PATH`。OIDN 的主库再按它自己的 rpath（macOS `@loader_path`、Linux `$ORIGIN`）从同一目录装核心库与设备库（macOS 有 CPU 与 Metal，Linux 有 CPU、CUDA、HIP、SYCL）。所以 Blender 升级或挪走之后这个程序就装不上库了，要重编；锁文件对不上时先改锁文件（换了 Blender 就是换了库，要重新对拍）。
