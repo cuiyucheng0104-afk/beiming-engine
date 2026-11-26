@@ -1,8 +1,8 @@
-// 北冥引擎 · 后期合成管线：手绘墨线 + 空气透视雾 + bloom + 调色 + Kuwahara 颜料笔触 + 纸纹 + 暗角 + 颗粒。
-// 每一道是一个独立模块（ids / ink / fog / bloom / grade / kuwahara / paper / compose / debug），这里按固定顺序串起来：
+// 北冥引擎 · 后期合成管线：手绘墨线 + 空气透视雾 + 暗场舞台光 + bloom + 调色 + Kuwahara 颜料笔触 + 纸纹 + 暗角 + 颗粒。
+// 每一道是一个独立模块（ids / ink / fog / stage / bloom / grade / kuwahara / paper / compose / debug），这里按固定顺序串起来：
 //   ① 主场景 → MSAA、HalfFloat 线性 HDR，带深度纹理
 //   ② ID 图（超采样 ss 倍）→ 边缘检测（深度 + ID，近的一侧拥有这条线）→ 笔画（抖动种子 floor(t*boilFps)）
-//   ③ 雾 → bloom → 调色 → OutputPass（色调映射 + sRGB）
+//   ③ 雾 → 舞台光（默认关）→ bloom → 调色 → OutputPass（色调映射 + sRGB）
 //   ④ Kuwahara（sRGB 空间）→ 叠墨线（在 Kuwahara 之后，不被抹糊）→ 纸纹 → 暗角 →（颗粒）→ 屏幕 / 目标
 // 所有随时间变化的东西只取决于 p.t，逐帧离线渲染可以任意跳帧。
 //
@@ -30,6 +30,8 @@
 //   bloom     { strength, threshold, radius, knee, tint }                         见 bloom.js
 //   grade     { exposure, warmth, lift, gamma, gain, saturation, shoulder }      见 grade.js
 //   fog       { color, colorHigh, density, start, max, baseHeight, falloff, cutoff, sky }   见 fog.js
+//   stage     { lights: [{ pos, color, range, intensity, glow, step1, step2, soft, flicker }], haze: [{ y, thick, density, color, start, end, scale, drift, noise, seed }] }
+//             暗场舞台光：局部暖光源 + 分层空气薄雾，默认关；见 stage.js（暗场调子的后期默认值 DARK_STAGE 也在那里）
 //   paper     { strength, scale, tex, mid, scaleMode, anchor }                    见 paper.js（scaleMode、anchor 默认关）
 //             混合是乘法：颜色 × (1 + 2 · strength · (纸纹 − 中性亮度))，正片取 0.12–0.14（不是 soft-light）
 //             scaleMode 'refHeight'：图片纸纹相对画高一样大，并按面积取样——原生 4K 缩回 1080 与 1080 直出相同（engine/look/gpu.test R63）
@@ -43,6 +45,7 @@
 //   target    输出到哪个 WebGLRenderTarget（默认 null = 屏幕）
 //   debug     'id' | 'depth' | 'edge' | 'line' | 'bloom' | 'paper' | 'kuwahara' | 'scene'   看中间缓冲
 // 哪些物体描边、怎么挡线，由物体的 userData 决定，见 ids.js。
+// 体积光（p.stage.shaft）的光源：场景里第一盏 userData.stageLight = true 且投影的聚光灯（SpotLight）；它的阴影图由主场景那一次渲染顺带生成。
 
 import * as THREE from 'three';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
@@ -51,6 +54,7 @@ import { createFullscreen, renderTarget } from './pass.js';
 import { createIdPass } from './ids.js';
 import { createInk } from './ink.js';
 import { createFogPass } from './fog.js';
+import { createStageLight } from './stage.js';
 import { createBloom } from './bloom.js';
 import { createGrade } from './grade.js';
 import { createKuwahara } from './kuwahara.js';
@@ -70,6 +74,7 @@ export const LOOK_BASE = {
   bloom: { strength: 0.5, threshold: 0.8, radius: 0.6, knee: 0.25, tint: '#ffffff' },
   grade: { exposure: 1, warmth: 0, lift: 0, gamma: 1, gain: 1, saturation: 1, shoulder: 1 },
   fog: null,
+  stage: null,
   paper: { strength: 0.1, scale: 1 },
   vignette: 0.2,
   grain: 0,
@@ -77,7 +82,7 @@ export const LOOK_BASE = {
 
 // 某一项写成数字时代表的字段（vignette / grain 本身就是数）；grade 不在表里：写数字报错
 const SCALAR = { outline: 'opacity', kuwahara: 'strength', bloom: 'strength', fog: 'density', paper: 'strength' };
-const ITEMS = ['outline', 'kuwahara', 'bloom', 'grade', 'fog', 'paper'];
+const ITEMS = ['outline', 'kuwahara', 'bloom', 'grade', 'fog', 'stage', 'paper'];
 const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
 function scalarItem(key, v, where) {
   if (typeof v !== 'number') return v;
@@ -123,12 +128,24 @@ export function lookParams(p, D = LOOK_BASE) {
 export function grainCellOf(size, k, kp) { return size === null || size === undefined ? kp : Math.max(1, Math.round(size * k)); }
 export function grainSeedOf(t, fps, hold) { const n = Math.floor(t * fps + 1e-6); return hold > 1 ? Math.floor(n / hold) : n; }
 
+const _lt = new THREE.Vector3();
+// 从场景里取体积光要的灯数据：阴影图、世界 → 阴影图的矩阵、灯位与照射方向、作用距离、内外锥角
+export function volLight(scene) {
+  let spot = null;
+  scene.traverse(o => { if (!spot && o.isSpotLight && o.userData.stageLight && o.castShadow) spot = o; });
+  const sh = spot?.shadow;
+  if (!sh?.map) return null;
+  spot.updateWorldMatrix(true, false); spot.target.updateWorldMatrix(true, false);
+  return { map: sh.map.texture, matrix: sh.matrix, pos: _lt.setFromMatrixPosition(spot.matrixWorld).clone(), dir: spot.target.getWorldPosition(new THREE.Vector3()).sub(_lt).normalize(),
+    range: spot.distance || 100, cosOuter: Math.cos(spot.angle), cosInner: Math.cos(spot.angle * (1 - spot.penumbra)), color: '#' + spot.color.getHexString() };
+}
+
 export function createLook(renderer, w, h, opts = {}) {
   const ss = opts.ss ?? 2, msaa = opts.msaa ?? 4, refHeight = opts.refHeight ?? 1080, fps = opts.fps ?? null;
   const D = lookDefaults(opts.defaults), fogColor = opts.fogColor;
 
   const fx = createFullscreen(renderer);
-  const ids = createIdPass(renderer), ink = createInk(fx), fog = createFogPass(fx), bloom = createBloom(fx, { refHeight });
+  const ids = createIdPass(renderer), ink = createInk(fx), fog = createFogPass(fx), stage = createStageLight(fx), bloom = createBloom(fx, { refHeight });
   const grade = createGrade(fx), kuwa = createKuwahara(fx), compose = createCompose(fx), debug = createDebugView(fx);
   const paper = createPaper(fx, renderer, { url: opts.paperUrl ?? null, refHeight });
   const out = new OutputPass();
@@ -144,7 +161,7 @@ export function createLook(renderer, w, h, opts = {}) {
       id: new THREE.WebGLRenderTarget(LW, LH, { type: THREE.HalfFloatType, ...NEAREST, depthTexture: new THREE.DepthTexture(LW, LH, THREE.FloatType) }),
       edge: renderTarget(LW, LH, NEAREST),
       line: renderTarget(LW, LH, { type: THREE.UnsignedByteType }),
-      fog: renderTarget(W, H), grade: renderTarget(W, H), out: renderTarget(W, H), kuwa: renderTarget(W, H),
+      fog: renderTarget(W, H), stage: renderTarget(W, H), grade: renderTarget(W, H), out: renderTarget(W, H), kuwa: renderTarget(W, H),
       paper: paper.target,
     };
   }
@@ -153,7 +170,7 @@ export function createLook(renderer, w, h, opts = {}) {
 
   function render(scene, camera, p = {}) {
     const t = p.t ?? 0, k = H / refHeight, kp = Math.max(1, Math.round(k));   // kp：图片纸纹 / 颗粒的整数像素倍率
-    const { outline: OL, kuwahara: KU, bloom: BL, grade: GR, fog: FG, paper: PA, vignette: VG, grain: GN, grainSize, grainHold } = lookParams(p, D);
+    const { outline: OL, kuwahara: KU, bloom: BL, grade: GR, fog: FG, stage: ST, paper: PA, vignette: VG, grain: GN, grainSize, grainHold } = lookParams(p, D);
     const target = p.target ?? null;
 
     const prevRT = renderer.getRenderTarget(), prevAuto = renderer.autoClear, prevAlpha = renderer.getClearAlpha();
@@ -177,9 +194,15 @@ export function createLook(renderer, w, h, opts = {}) {
         lineOn = true;
       }
 
-      // ③ 雾 → bloom → 调色 → OutputPass
+      // ③ 雾 → 舞台光 → bloom → 调色 → OutputPass
       let src = T.scene.texture;
       if (FG) { fog.render(src, T.scene.depthTexture, FG, camera, T.fog, fogColor); src = T.fog.texture; }
+      if (ST && (ST.lights?.length || ST.haze?.length || ST.dof || ST.shaft)) {   // 暗场舞台光（局部光、雾、体积光、景深）；见 stage.js
+        const vol = ST.shaft ? volLight(scene) : null;
+        if (ST.lights?.length || ST.haze?.length || ST.dof || vol) {
+          stage.render({ src, depth: T.scene.depthTexture, camera, p: ST, t, vol }, T.stage); src = T.stage.texture;
+        }
+      }
       const glow = BL && BL.strength > 0 ? bloom.render(src, BL) : null;
       grade.render({ src, bloom: glow, bloomAmount: BL ? BL.strength : 0, bloomTint: BL?.tint, grade: GR, protect: KU && KU.protect }, T.grade);
       out.render(renderer, T.out, T.grade);
@@ -203,7 +226,7 @@ export function createLook(renderer, w, h, opts = {}) {
 
   function dispose() {
     for (const k in T) if (k !== 'paper') T[k]?.dispose?.();
-    for (const m of [ids, ink, fog, bloom, grade, kuwa, compose, debug, paper, fx]) m.dispose();
+    for (const m of [ids, ink, fog, stage, bloom, grade, kuwa, compose, debug, paper, fx]) m.dispose();
     out.material.dispose();   // 不调 out.dispose()：它经 FullScreenQuad.dispose 删掉 three 全局共享的全屏几何体（见 pass.js）
   }
 

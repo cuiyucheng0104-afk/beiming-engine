@@ -4,7 +4,8 @@
 //
 //   parseFontsManifest(json) → manifest          规范化清单：每个字族的 chars 换成码位集合 cps
 //   missingChars(entry, text) → ['字', ...]      text 里不在该字族子集中的字（换行、制表符等控制字符不算）
-//   await loadFilmFonts(baseUrl) → fonts          浏览器：读 <baseUrl>/fonts.json、加载每个子集（unicode-range = 子集覆盖范围）
+//   await loadFilmFonts(baseUrl, { manifest, resolve }) → fonts   浏览器：读 <baseUrl>/fonts.json、加载每个子集（unicode-range = 子集覆盖范围）；
+//                                                  单文件构建传 { manifest：打进包里的清单, resolve(file)：子集的 data: URL }
 //     fonts.entry(family)                         清单里的一项；没有这个字族 → GlyphError
 //     fonts.assert(family, text, where)           缺字 → GlyphError，消息里列出缺的字、码位和修法
 //     fonts.list                                  清单原样
@@ -44,14 +45,19 @@ export function unicodeRange(cps) {
   return out.join(', ');
 }
 
-export async function loadFilmFonts(baseUrl) {
+// inline：单文件构建用（离线 file:// 下 fetch 不到）——manifest 是打进包里的 fonts.json，resolve(file) 给出每个子集的地址（data: URL）
+export async function loadFilmFonts(baseUrl, { manifest = null, resolve = null } = {}) {
   const base = new URL(String(baseUrl).endsWith('/') ? baseUrl : `${baseUrl}/`);
-  const where = new URL('fonts.json', base);
-  const r = await fetch(where);
-  if (!r.ok) throw new GlyphError(`找不到字体清单 ${where.pathname}（HTTP ${r.status}）：先跑 node tools/fonts/subset.mjs <作品目录> 生成本片的字体子集`);
-  const M = parseFontsManifest(await r.json());
+  let M = manifest;
+  if (!M) {
+    const where = new URL('fonts.json', base), r = await fetch(where);
+    if (!r.ok) throw new GlyphError(`找不到字体清单 ${where.pathname}（HTTP ${r.status}）：先跑 node tools/fonts/subset.mjs <作品目录> 生成本片的字体子集`);
+    M = await r.json();
+  }
+  M = parseFontsManifest(M);
   await Promise.all(M.fonts.map(async f => {
-    const face = new FontFace(f.family, `url(${new URL(f.file, base).href})`, {
+    const href = resolve ? resolve(f.file) : new URL(f.file, base).href;
+    const face = new FontFace(f.family, `url(${href})`, {
       weight: String(f.weight ?? '400'), style: f.style || 'normal', display: 'block', unicodeRange: unicodeRange(f.cps),
     });
     try { await face.load(); } catch (e) { throw new GlyphError(`字体子集 ${f.file} 加载失败（${e.message || e}）：文件坏了或被删了，重跑 tools/fonts/subset.mjs`); }

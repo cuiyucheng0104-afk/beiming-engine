@@ -3,6 +3,7 @@
 // 数据：engine/style/registry.json（登记表）+ 每个版本一份锁定文件（如 beiming-original.v1.json）；字段说明见
 // routes/directing/templates/STYLE-LOCK.md，本注册表另加 lookDefaults、lookPresets、shadingDefaults、allowedOverrides[].paths。
 //
+//   setStyleJsonLoader(fn)                        单文件构建（file:// 下 fetch 不到）用：fn(rel) 返回已经打进包里的 JSON；传 null 恢复
 //   parseStyleRef('beiming-original@v1')          → { id, version: 1 }（也接受 @1 与 { id, version }）
 //   parseLookPreset('beiming-original@v1/wide')  → { id, version, preset }
 //   styleKey({ id, version })                    → 'beiming-original@v1'
@@ -51,7 +52,15 @@ function nodeFs() {
   if (!get) throw new StyleError('no-sync-io', '同步读注册表只能在 Node ≥ 22.3 里用', '浏览器里用 await loadRegistry() / loadStyle()');
   return { fs: get('node:fs'), url: get('node:url') };
 }
+// 单文件构建（离线 file:// 打开、fetch 不到 engine/style/）用：给一个 rel → 已解析 JSON 的函数，后面的读写都走它
+let JSON_LOADER = null;
+export function setStyleJsonLoader(fn) {
+  JSON_LOADER = typeof fn === 'function' ? fn : null;
+  REG = null; STYLES.clear();
+}
+
 function readJsonSync(rel) {
+  if (JSON_LOADER) return JSON_LOADER(rel);
   const { fs, url } = nodeFs();
   const file = url.fileURLToPath(new URL(rel, HERE));
   let txt;
@@ -59,7 +68,7 @@ function readJsonSync(rel) {
   try { return JSON.parse(txt); } catch (e) { throw new StyleError('registry-bad-json', `${file} 不是合法 JSON：${e.message}`); }
 }
 async function readJson(rel) {
-  if (IS_NODE) return readJsonSync(rel);
+  if (IS_NODE || JSON_LOADER) return readJsonSync(rel);
   const u = new URL(rel, HERE);
   const r = await fetch(u);
   if (!r.ok) throw new StyleError('registry-missing', `读不到 ${u.pathname}（HTTP ${r.status}）`, '页面要经仓库根的静态服务打开，engine/style/ 才取得到');

@@ -124,6 +124,103 @@
         "https://raw.githubusercontent.com/google/fonts/89f5431ff0db41bd2fe3f7ba21a723a01622428b/ofl/barlow/Barlow-Medium.ttf",
         "https://cdn.jsdelivr.net/gh/google/fonts@89f5431ff0db41bd2fe3f7ba21a723a01622428b/ofl/barlow/Barlow-Medium.ttf"
       ]
+    },
+    {
+      "id": "barlow-condensed-black",
+      "family": "Barlow Condensed Black",
+      "style": "Regular",
+      "weight": 900,
+      "variable": false,
+      "version": "1.408",
+      "license": "OFL-1.1",
+      "licenseFile": "fonts/licenses/OFL-barlow.txt",
+      "licenseSha256": "186d750eb496a4c17a76385f82be6aea2ac1cf2de074a811d63786cf374ea73f",
+      "copyright": "Copyright 2017 The Barlow Project Authors (https://github.com/jpt/barlow)",
+      "reservedFontNames": [],
+      "file": "BarlowCondensed-Black.ttf",
+      "bytes": 110828,
+      "sha256": "e74b750df582c608f35db467b711b2b60d2217618e85e60b72b42dfd00446cab",
+      "codepoints": 525,
+      "coverage": "拉丁字母、数字与常用符号，没有汉字",
+      "role": "超大数字与西文标题（字重 900；WonderX 品牌字）",
+      "source": { "repo": "https://github.com/google/fonts", "commit": "5026800714d07231937d92eb4cceabf06e05d74e", "path": "ofl/barlowcondensed/BarlowCondensed-Black.ttf", "committed": "2018-12-05" },
+      "urls": [
+        "https://raw.githubusercontent.com/google/fonts/5026800714d07231937d92eb4cceabf06e05d74e/ofl/barlowcondensed/BarlowCondensed-Black.ttf",
+        "https://cdn.jsdelivr.net/gh/google/fonts@5026800714d07231937d92eb4cceabf06e05d74e/ofl/barlowcondensed/BarlowCondensed-Black.ttf"
+      ]
+    },
+    {
+      "id": "manrope",
+      "family": "Manrope",
+      "style": "Regular",
+      "weight": [200,800],
+      "variable": true,
+      "axes": [ {"tag":"wght","min":200,"default":200,"max":800} ],
+      "version": "4.505",
+      "license": "OFL-1.1",
+      "licenseFile": "fonts/licenses/OFL-manrope.txt",
+      "licenseSha256": "58172e0c0fac2cda8a37b348164bb55e44b0e69051e557e92b1d3f6910141f7b",
+      "copyright": "Copyright 2019 The Manrope Project Authors (https://github.com/googlefonts/manrope)",
+      "reservedFontNames": [],
+      "file": "Manrope[wght].ttf",
+      "bytes": 164700,
+      "sha256": "3ae11c49db0455a3cc33e37d380f20fdb8c7f8b41dc07625c177e3d87a9d6ae6",
+      "codepoints": 678,
+      "coverage": "拉丁字母（含扩展）、西里尔、希腊、数字与常用符号，没有汉字",
+      "role": "界面与西文（可变字重 200–800，作品里定成静态实例；WonderX 品牌字）",
+      "source": { "repo": "https://github.com/google/fonts", "commit": "5026800714d07231937d92eb4cceabf06e05d74e", "path": "ofl/manrope/Manrope[wght].ttf", "committed": "2026-09-14" },
+      "urls": [
+        "https://raw.githubusercontent.com/google/fonts/5026800714d07231937d92eb4cceabf06e05d74e/ofl/manrope/Manrope%5Bwght%5D.ttf",
+        "https://cdn.jsdelivr.net/gh/google/fonts@5026800714d07231937d92eb4cceabf06e05d74e/ofl/manrope/Manrope%5Bwght%5D.ttf"
+      ]
+    },
+    {
+      "id": "noto-serif-cjk-sc",
+      "family": "Noto Serif CJK SC",
+      "style": "Bold",
+      "weight": 700,
+      "variable": false,
+      "version": "2.003",
+      "license": "OFL-1.1",
+      "licenseFile": "fonts/licenses/OFL-noto-cjk.txt",
+      "licenseSha256": "6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2",
+      "copyright": "© 2017-2024 Adobe (http://www.adobe.com/).",
+      "reservedFontNames": [],
+      "file": "NotoSerifCJKsc-Bold.otf",
+      "bytes": 25521460,
+      "sha256": "8af07d4b6c2e82bcc72a30e066eaf295f11b9424f4aad2eaa9fe0e9c3b38fc73",
+      "codepoints": 44777,
+      "coverage": "CJK 统一表意文字全量 20992 个（简繁日韩）+ 拉丁、标点",
+      "role": "中文大标题与金句（衬线粗体；WonderX 品牌字）",
+      "source": { "repo": "https://github.com/notofonts/noto-cjk", "commit": "f8d157532fbfaeda587e826d4cd5b21a49186f7c", "path": "Serif/OTF/SimplifiedChinese/NotoSerifCJKsc-Bold.otf", "committed": "2024-07-30" },
+      "urls": [
+        "https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Serif/OTF/SimplifiedChinese/NotoSerifCJKsc-Bold.otf",
+        "https://cdn.statically.io/gh/notofonts/noto-cjk@f8d157532fbfaeda587e826d4cd5b21a49186f7c/Serif/OTF/SimplifiedChinese/NotoSerifCJKsc-Bold.otf"
+      ]
+    },
+    {
+      "id": "noto-sans-cjk-sc",
+      "family": "Noto Sans CJK SC",
+      "style": "Regular",
+      "weight": 400,
+      "variable": false,
+      "version": "2.004",
+      "license": "OFL-1.1",
+      "licenseFile": "fonts/licenses/OFL-noto-cjk.txt",
+      "licenseSha256": "6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2",
+      "copyright": "© 2014-2021 Adobe (http://www.adobe.com/).",
+      "reservedFontNames": [],
+      "file": "NotoSansCJKsc-Regular.otf",
+      "bytes": 16437364,
+      "sha256": "2c76254f6fc379fddfce0a7e84fb5385bb135d3e399294f6eeb6680d0365b74b",
+      "codepoints": 44810,
+      "coverage": "简体优先的 CJK 统一表意文字 20976 个（简繁日韩）+ 拉丁、标点",
+      "role": "中文正文、字幕、界面字（WonderX 品牌字）",
+      "source": { "repo": "https://github.com/notofonts/noto-cjk", "commit": "f8d157532fbfaeda587e826d4cd5b21a49186f7c", "path": "Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf", "committed": "2021-04-30" },
+      "urls": [
+        "https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf",
+        "https://cdn.jsdelivr.net/gh/notofonts/noto-cjk@f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf"
+      ]
     }
   ]
 }
