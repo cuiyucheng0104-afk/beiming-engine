@@ -631,6 +631,61 @@ FUNCTIONS.push(
   }),
 );
 
+// 阴影射线的起点（照 Cycles 的 integrate_surface_ray_offset，kernel/integrator/shade_surface.h:42-93）与它用的 ray_offset
+// （kernel/bvh/util.h:70）、ray_triangle_intersect_self（util/math_intersect.h:252-276），来源都是 Apache-2.0 的文件。三项都比到
+// 逐位相同（rel 0；abs 取 1e-30 只为让报告按差值大小排出最差的组）：ray_offset 是对浮点数的位做整数加法，抬的是 256 个末位，
+// 相对 1e-4 的容差看不见它。
+//   ray_offset                    P 的分量按对数均匀取在 1e-6 到 1e4、正负各半，三成的分量落在 |P| < 1/32 那一支；Ng 是单位向量
+//   ray_triangle_intersect_self   起点在三角形所在的平面上（双精度里正好在面上，重心坐标取法同三角形求交的四类：uniform、edge、
+//                                 vertex），方向与法线夹角的余弦不小于 0.05，正反两面各半。射线与平面交在起点本身，判的就是起点的
+//                                 重心坐标是不是都在容差以内；起点贴着边（|最小重心坐标| < TRI_BAND·κ）而两边判得不同的组不比，
+//                                 理由同三角形求交（显卡可能合成 FMA，U、V、W 的末几位不同）
+//   integrate_surface_ray_offset  同上的起点与方向，加三角形的几何法线（单精度里由顶点算、正反各半）：自交测中就原样返回起点，
+//                                 测不中抬 ray_offset。不比的组同上
+const SELF_KINDS = ['uniform', 'edge', 'vertex'];
+function selfCase(next) {
+  const c = triCase(next, SELF_KINDS[Math.floor(next() * 3)]);
+  // 起点放到射线打向的目标点（在面上），方向随机翻到另一面
+  const P = selfTarget(c);
+  const side = next() < 0.5 ? 1 : -1;
+  const tri = [c.tri_a, c.tri_b, c.tri_c].map(v => v.map(Math.fround));
+  const n = norm3(crs(add(tri[1], tri[0], -1), add(tri[2], tri[0], -1)));
+  return { ray_P: P, ray_D: mul(c.ray_D, side), tri_a: tri[0], tri_b: tri[1], tri_c: tri[2], Ng: next() < 0.5 ? n : mul(n, -1) };
+}
+/** triCase 的射线打向的目标点：起点沿方向走到平面 */
+function selfTarget(c) {
+  const n = crs(add(c.tri_b, c.tri_a, -1), add(c.tri_c, c.tri_a, -1));
+  return add(c.ray_P, c.ray_D, dot3(add(c.tri_a, c.ray_P, -1), n) / dot3(c.ray_D, n));
+}
+/** 起点（在面上）的重心坐标里最小的那个与条件数 κ（同 triCond）。P、A、B、C 的偏移见各项的输入次序 */
+function selfCond(P, A, B, C) {
+  const e1 = add(B, A, -1), e2 = add(C, A, -1), n = crs(e1, e2), nn = dot3(n, n), X = add(P, A, -1);
+  const b1 = dot3(crs(X, e2), n) / nn, b2 = dot3(crs(e1, X), n) / nn;
+  const size = Math.max(...[e1, e2, add(C, B, -1)].map(e => Math.hypot(...e)));
+  return { mb: Math.min(1 - b1 - b2, b1, b2), kappa: Math.max(size, Math.hypot(...P)) / size };
+}
+const selfBranch = mb => (Math.abs(mb) < 1e-5 ? '贴边或贴顶点' : mb < 0 ? '三角形外' : '三角形内');
+const EXACT = 1e-30;
+const exact = (name, inputs, out, more) => ({ ...entry(name, inputs, out, EXACT, { file: APACHE, ...more }), rel: 0 });
+const SELF_IN = [['ray_P', 'vec3f'], ['ray_D', 'vec3f'], ['tri_a', 'vec3f'], ['tri_b', 'vec3f'], ['tri_c', 'vec3f']];
+FUNCTIONS.push(
+  exact('ray_offset', [['P', 'vec3f'], ['Ng', 'vec3f']], 3, {
+    gen: next => ({ P: [0, 1, 2].map(() => (next() < 0.5 ? -1 : 1) * (next() < 0.3 ? logU(next, [1e-6, 1 / 32]) : logU(next, [1 / 32, 1e4]))), Ng: unit(next) }),
+    branch: i => `${[0, 1, 2].filter(k => Math.abs(i[k]) < 1 / 32).length} 个分量小于 1/32`,
+  }),
+  exact('ray_triangle_intersect_self', SELF_IN, 1, {
+    gen: selfCase,
+    branch: i => selfBranch(selfCond(at(i, 0), at(i, 6), at(i, 9), at(i, 12)).mb),
+    skip: (ref, test, i) => { const { mb, kappa } = selfCond(at(i, 0), at(i, 6), at(i, 9), at(i, 12)); return ref[0] !== test[0] && Math.abs(mb) < TRI_BAND * kappa; },
+  }),
+  exact('integrate_surface_ray_offset', [['ray_P', 'vec3f'], ['ray_D', 'vec3f'], ['Ng', 'vec3f'], ['tri_a', 'vec3f'], ['tri_b', 'vec3f'], ['tri_c', 'vec3f']], 3, {
+    file: LIGHT, gen: selfCase,
+    call: a => `integrate_surface_ray_offset(${a[0]}, ${a[2]}, ${a[0]}, ${a[1]}, ${a[3]}, ${a[4]}, ${a[5]})`,
+    branch: i => selfBranch(selfCond(at(i, 0), at(i, 9), at(i, 12), at(i, 15)).mb),
+    skip: (ref, test, i) => { const { mb, kappa } = selfCond(at(i, 0), at(i, 9), at(i, 12), at(i, 15)); return ref.some((x, k) => x !== test[k]) && Math.abs(mb) < TRI_BAND * kappa; },
+  }),
+);
+
 // 下面是点光、平行光的采样与求交后的求值（kernel/light/point.h 不是球形的那一条路、kernel/light/sun.h），与阴影射线避开明暗交界线的
 // 起点偏移（kernel/light/sample.h 的 shadow_ray_offset、shadow_ray_smooth_surface_offset），来源都是 Apache-2.0 的文件。
 // 几何量彼此相关，用 gen 逐组生成，全部用双精度算完再存成 float32。

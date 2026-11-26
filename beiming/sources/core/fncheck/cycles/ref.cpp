@@ -19,6 +19,8 @@
 #include "kernel/light/point.h"
 #include "kernel/light/sample.h"
 #include "kernel/light/sun.h"
+#include "kernel/bvh/util.h"
+#include "kernel/integrator/shade_surface.h"
 #include "kernel/sample/mapping.h"
 #include "util/projection.h"
 #include "util/math_intersect.h"
@@ -620,6 +622,35 @@ static const Entry table[] = {
        bool skip_self = true;
        put3(o, shadow_ray_offset(kg, &tri_sd, get3(i + 9), &skip_self));
        o[3] = float(skip_self);
+     }},
+    /* 阴影射线的起点（kernel/bvh/util.h 的 ray_offset，util/math_intersect.h 的 ray_triangle_intersect_self，
+     * kernel/integrator/shade_surface.h 的 integrate_surface_ray_offset）。最后一项照真的内核数据填一个三角形（物体 0、图元 0，
+     * 顶点在世界空间：SD_OBJECT_TRANSFORM_APPLIED），着色点只填它读的 type、object、prim、object_flag 与 Ng */
+    {"ray_offset", 6, 3, [](const float *i, float *o) { put3(o, ray_offset(get3(i), get3(i + 3))); }},
+    {"ray_triangle_intersect_self", 15, 1, [](const float *i, float *o) {
+       const float3 verts[3] = {get3(i + 6), get3(i + 9), get3(i + 12)};
+       o[0] = float(ray_triangle_intersect_self(get3(i), get3(i + 3), verts));
+     }},
+    {"integrate_surface_ray_offset", 18, 3, [](const float *i, float *o) {
+       ThreadKernelGlobalsCPU *g = reinterpret_cast<ThreadKernelGlobalsCPU *>(kg_storage);
+       tri_vindex_data[0] = make_packed_uint3(0, 1, 2);
+       for (int k = 0; k < 3; k++) {
+         tri_verts_data[k] = get3(i + 9 + 3 * k);
+       }
+       tri_object = {};
+       g->objects.data = &tri_object;
+       g->objects.width = 1;
+       g->tri_vindex.data = tri_vindex_data;
+       g->tri_vindex.width = 1;
+       g->tri_verts.data = tri_verts_data;
+       g->tri_verts.width = 3;
+       ShaderData sd = {};
+       sd.type = PRIMITIVE_TRIANGLE;
+       sd.object = 0;
+       sd.prim = 0;
+       sd.object_flag = SD_OBJECT_TRANSFORM_APPLIED;
+       sd.Ng = get3(i + 6);
+       put3(o, integrate_surface_ray_offset(kg, &sd, get3(i), get3(i + 3)));
      }},
     {"ray_triangle_intersect", 17, 4, [](const float *i, float *o) {
        float u = 0.0f, v = 0.0f, t = 0.0f;

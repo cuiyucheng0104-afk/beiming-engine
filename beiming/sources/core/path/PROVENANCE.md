@@ -180,6 +180,7 @@ Cycles 的原理化 BSDF 给金属与电介质高光的闭包用的是 `valid_re
 
 - `../shaders/util.wgsl` 的 `safe_asinf`（`util/math_base.h:552-555`）不再调内建 `asin`，换成自己写的级数（|x| ≤ 0.5 用泰勒级数，|x| > 0.5 用半角公式，π/2 拆高低两位）：Cycles 在处理器上用 C 库的 `asinf`，近乎正确舍入；显卡内建 `asin` 的误差随输入位置光滑变化，面光立体角的四个 `asin` 相加抵消时整片同号地偏。这是写法的替换，不是 Cycles 的式子；理由与三种写法的比较见 `STRUCTURES.md` 第 49 条。
 - `../shaders/area_light.wgsl` 的 `area_light_rect_sample`（`kernel/light/area.h:19-102`）：**对 Cycles 原式的有意偏离**。做概率密度 1/S 的那个 S 在远场换成 Van Oosterom–Strackee 的两个三角形（北冥新加的 `rect_solid_angle_pdf_S`），带分母大于 0 的守卫；采样映射与退到平面近似的判断照旧用原式。理由：原式的 S 在远场是大数相消，显卡上的舍入随位置光滑变化、像素抖动平均不掉（Cycles 在处理器上舍入近乎随机，平均得掉），见 `STRUCTURES.md` 第 50 条。函数级比对登记表（`../fncheck/registry.mjs` 的 `area_light_rect_sample_far`、`_near`）写着同样的理由；远场一项比的是标准答案程序里照原式在双精度里算的真值（`area_light_rect_solid_angle_f64`）。
+- `../shaders/util.wgsl`（Apache-2.0）加 `ray_triangle_intersect_self`（`util/math_intersect.h:252-276`）与 `ray_offset`（`kernel/bvh/util.h:64-88`），`../shaders/area_light.wgsl` 加 `integrate_surface_ray_offset`（`kernel/integrator/shade_surface.h:42-93`，只移三角形那一支；Cycles 从着色点取顶点、按物体的逆变换把射线变过去，这里顶点与变过去的射线作参数传进来），逐行移植。函数级比对加三项，逐位对 Cycles（标准答案程序调 Cycles 的同名函数，最后一项照真的内核数据填一个三角形）。
 
 ### 像素滤波与夹取
 

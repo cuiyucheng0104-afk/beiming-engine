@@ -5,13 +5,14 @@
 // 灯的采样、求值与求交，照 Cycles（Blender v5.2.3）逐行移植（Apache-2.0）：矩形面光（intern/cycles/kernel/light/area.h），
 // 点光（kernel/light/point.h，不是球形的那一条路：半径 0 或按半径取圆盘）、平行光（kernel/light/sun.h），它们用到的
 // kernel/light/common.h 与 kernel/sample/mapping.h 里的几个函数，以及阴影射线避开明暗交界线的起点偏移
-// （kernel/light/sample.h 的 shadow_ray_offset、shadow_ray_smooth_surface_offset）。
+// （kernel/light/sample.h 的 shadow_ray_offset、shadow_ray_smooth_surface_offset），与阴影射线跳过自己的图元之前决定抬不抬起点的
+// integrate_surface_ray_offset（kernel/integrator/shade_surface.h，只移三角形那一支）。
 // 矩形只移无聚拢（spread）、不在体积段里的那一条路：椭圆、聚光与体积段的分支不带。
 // Cycles 里灯的参数放在 KernelLight（kernel/types.h:1492-1527）里，这里一律改成显式参数：co（灯心）、axis_u、len_u、
 // axis_v、len_v、dir（灯面法向，灯朝这一侧发光）、invarea（面积的倒数，大于 0 表示矩形）。不定义灯的内存布局。
 // Cycles 的 LightSample（kernel/light/common.h:17-31）只取这条路会写的字段作返回值。
 // 用到 util.wgsl 的 safe_asinf、copysignf、safe_divide、len_ccl、normalize_ccl、safe_sqrtf、make_orthonormals、vector_angle、
-// ray_quad_intersect 与 microfacet.wgsl 的 sqr、M_1_PI_F、sample_uniform_disk。
+// ray_quad_intersect、ray_triangle_intersect_self、ray_offset 与 microfacet.wgsl 的 sqr、M_1_PI_F、sample_uniform_disk。
 
 // area.h:19-102 的两个输出：立体角测度的概率密度；sample_coord 为真时是灯上的采样点，否则原样是传入的 light_p
 struct RectSample {
@@ -415,4 +416,15 @@ fn shadow_ray_offset(sd_P: vec3f, sd_N: vec3f, sd_Ng: vec3f, L: vec3f, smooth_no
   }
 
   return ShadowOffset(P, skip_self);
+}
+
+// kernel/integrator/shade_surface.h:42-93: integrate_surface_ray_offset，只移三角形那一支（运动三角形、别的图元不带）。阴影射线
+// 跳过自己的图元时用：从起点沿射线方向对自己这个三角形做自交测试，测中（射线穿过自己的内部，不会先打中相邻的三角形）就不挪，
+// 测不中才照 ray_offset 抬。Cycles 从着色点取三角形的顶点，物体没把变换烘进几何时把射线变到物体空间再测；这里顶点与变到顶点
+// 那个空间的射线（local_ray_P、local_ray_D）由调用方传进来，顶点在世界空间时就是原射线。Ng 是着色点的几何法线（翻向来路）
+fn integrate_surface_ray_offset(ray_P: vec3f, Ng: vec3f, local_ray_P: vec3f, local_ray_D: vec3f, tri_a: vec3f, tri_b: vec3f, tri_c: vec3f) -> vec3f {
+  if (ray_triangle_intersect_self(local_ray_P, local_ray_D, tri_a, tri_b, tri_c)) {
+    return ray_P;
+  }
+  return ray_offset(ray_P, Ng);
 }

@@ -307,6 +307,21 @@ test('端到端：故意把一个 WGSL 函数改错一项，报出是哪个函�
 `, ['ray_triangle_intersect_pair'], 20, 1, TRI);
   // u、v 对调：逐组那一项不合格，防水一项不看 u、v，照旧合格
   await breakOne(t, util, usrc, 'return TriangleHit(true, min(U * rcp_uvw, 1.0), min(V * rcp_uvw, 1.0), t);', 'return TriangleHit(true, min(V * rcp_uvw, 1.0), min(U * rcp_uvw, 1.0), t);', ['ray_triangle_intersect'], 17, 4, TRI);
+  // 阴影射线的起点（ray_offset、自交测试、integrate_surface_ray_offset），各改错一项（只跑这三项）：
+  const SELF = ['ray_offset', 'ray_triangle_intersect_self', 'integrate_surface_ray_offset'];
+  // |P| < 1/32 那一支的 1/65536 改成 1/6553.6
+  await breakOne(t, util, usrc, 'let float_scale = 1.0 / 65536.0;', 'let float_scale = 1.0 / 6553.6;', ['ray_offset', 'integrate_surface_ray_offset'], 6, 3, SELF);
+  // 自交测试漏掉「三个都不大于 −eps」那一半（射线从背面穿过）
+  await breakOne(t, util, usrc, 'return (minUVW >= eps || maxUVW <= -eps);', 'return (minUVW >= eps);', ['ray_triangle_intersect_self', 'integrate_surface_ray_offset'], 15, 1, SELF);
+  // 测不中时不抬：只有 integrate_surface_ray_offset 不合格。抬的是 256 个末位，相对差只有 3e-5，最差一组的相对误差不过 1e-4，
+  // 所以不走 breakOne 的最后一条检查，只看判得出、判在哪一项
+  {
+    const r = await e2e(t, { n: 100_000, seed: 3, wgsl: { [light]: lsrc.replace('  return ray_offset(ray_P, Ng);\n}', '  return ray_P;\n}') }, names: SELF });
+    if (r) {
+      assert.equal(r.ok, false);
+      assert.deepEqual(r.results.filter(x => x.fails > 0).map(x => x.name), ['integrate_surface_ray_offset']);
+    }
+  }
 });
 
 // names：只跑这几项（不写就是全部）。只给着色器一侧的项时不碰宿主一侧，不编渲染程序

@@ -417,6 +417,55 @@ fn ray_triangle_intersect(ray_P: vec3f, ray_D: vec3f, ray_tmin: f32, ray_tmax: f
   return TriangleHit(true, min(U * rcp_uvw, 1.0), min(V * rcp_uvw, 1.0), t);
 }
 
+// util/math_intersect.h:252-276: ray_triangle_intersect_self。与 ray_triangle_intersect 同一套边测试（叉积的两个因子对调），
+// 容差放宽成「严格在三条边以内 FLT_EPSILON·|U+V+W|」：起点在三角形上、方向穿过三角形内部时为真（这条射线不会先打中相邻的三角形）
+fn ray_triangle_intersect_self(ray_P: vec3f, ray_D: vec3f, tri_a: vec3f, tri_b: vec3f, tri_c: vec3f) -> bool {
+  // Matches logic in ray_triangle_intersect, self intersection test to validate
+  // if a ray is going to hit self or might incorrectly hit a neighboring triangle.
+
+  // Calculate vertices relative to ray origin.
+  let v0 = tri_a - ray_P;
+  let v1 = tri_b - ray_P;
+  let v2 = tri_c - ray_P;
+
+  // Calculate triangle edges.
+  let e0 = v2 - v0;
+  let e1 = v0 - v1;
+  let e2 = v1 - v2;
+
+  // Perform edge tests.
+  let U = ray_triangle_dot(ray_triangle_cross(v2 + v0, e0), ray_D);
+  let V = ray_triangle_dot(ray_triangle_cross(v0 + v1, e1), ray_D);
+  let W = ray_triangle_dot(ray_triangle_cross(v1 + v2, e2), ray_D);
+
+  // FLT_EPSILON（C 标准库 float.h，2^-23）
+  let eps = 1.192092896e-07 * abs(U + V + W);
+  let minUVW = min(U, min(V, W));
+  let maxUVW = max(U, max(V, W));
+
+  // Note the extended epsilon compared to ray_triangle_intersect, to account
+  // for intersections with neighboring triangles that have an epsilon.
+  return (minUVW >= eps || maxUVW <= -eps);
+}
+
+// kernel/bvh/util.h:64-88: ray_offset（Ray Tracing Gems 第 6 章 "A Fast and Robust Method for Avoiding Self-Intersection"）：
+// 起点沿 Ng 挪 256·Ng 个末位（对浮点数的位做整数加法）；分量的绝对值小于 1/32 时改加 Ng/65536。2^-16 是 2 的幂，
+// 乘积没有舍入，显卡合不合成 FMA 结果都一样
+fn ray_offset(P: vec3f, Ng: vec3f) -> vec3f {
+  let int_scale = 256.0;
+  let of_i = vec3<i32>(i32(int_scale * Ng.x), i32(int_scale * Ng.y), i32(int_scale * Ng.z));
+
+  let p_i = vec3f(
+      bitcast<f32>(bitcast<i32>(P.x) + select(of_i.x, -of_i.x, P.x < 0.0)),
+      bitcast<f32>(bitcast<i32>(P.y) + select(of_i.y, -of_i.y, P.y < 0.0)),
+      bitcast<f32>(bitcast<i32>(P.z) + select(of_i.z, -of_i.z, P.z < 0.0)));
+  let origin = 1.0 / 32.0;
+  let float_scale = 1.0 / 65536.0;
+  return vec3f(select(p_i.x, P.x + float_scale * Ng.x, abs(P.x) < origin),
+               select(p_i.y, P.y + float_scale * Ng.y, abs(P.y) < origin),
+               select(p_i.z, P.z + float_scale * Ng.z, abs(P.z) < origin));
+}
+
 // util/math_fast.h:309-336: fast_atan2f（多项式近似，最大误差约 6.6e-6）。madd(a, b, c) 是 a·b + c（-ffp-contract=off 下不合成
 // FMA，这里照样分两步写）
 fn fast_atan2f(y: f32, x: f32) -> f32 {
