@@ -6,6 +6,7 @@
 // 层文件没有文件头，所以画面尺寸要给。文件名照 core-render 的写法（帧源接口契约 3.3）：一个通道的分量类型都相同时是「通道名.类型」；不同时第一个分量在
 // 「通道名.类型」，其余分量各在「通道名.分量名.类型」（objectId 的 id 在 objectId.u32、coverage 在 objectId.coverage.f32）。
 // 退出码：0 写好且往返逐位相同；4 往返不同、通道名不合契约或文件对不上通道声明；2 用法错误。
+import { Buffer } from 'node:buffer';
 import fs from 'node:fs';
 import path from 'node:path';
 import { CliError, defineCommand, isMain, runCli } from '../../../../tools/lib/cli.mjs';
