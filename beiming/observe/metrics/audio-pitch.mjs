@@ -5,8 +5,10 @@ function estimateWindow(pcm, start, size, minLag, maxLag) {
   for (let i = start; i < start + size; i++) energy += pcm[i] ** 2;
   if (energy <= 100 * size) return null;
 
-  const scores = new Float64Array(maxLag - minLag + 1);
-  for (let lag = minLag; lag <= maxLag; lag++) {
+  const first = minLag - 1;
+  const last = Math.min(maxLag + 1, pcm.length - start - size);
+  const scores = new Float64Array(last - first + 1);
+  for (let lag = first; lag <= last; lag++) {
     let product = 0;
     let shiftedEnergy = 0;
     for (let i = start; i < start + size; i++) {
@@ -14,26 +16,37 @@ function estimateWindow(pcm, start, size, minLag, maxLag) {
       product += pcm[i] * shifted;
       shiftedEnergy += shifted * shifted;
     }
-    scores[lag - minLag] = product / Math.sqrt(energy * shiftedEnergy + 1e-9);
+    scores[lag - first] = product / Math.sqrt(energy * shiftedEnergy + 1e-9);
   }
 
   let bestLag = null;
   let bestScore = 0;
-  for (let i = 0; i < scores.length; i++) {
+  for (let lag = minLag; lag <= maxLag; lag++) {
+    const i = lag - first;
     const score = scores[i];
-    const left = scores[i - 1];
-    const right = scores[i + 1];
-    if (score <= 0.85 || (i > 0 && score < left) || (i + 1 < scores.length && score < right)) continue;
+    const left = scores[i - 1], right = scores[i + 1];
+    if (score <= 0.85 || score < left || (lag < maxLag && score < right)) continue;
 
-    // Compare peak heights between samples, keeping the original integer lag for reporting.
-    // Near-identical peaks at multiples of a period resolve to the shortest period.
+    // Fit the peak position, then measure correlation on the fractionally shifted PCM.
+    // Interpolating only the peak height biases the comparison between different periods.
     let peak = score;
-    if (i > 0 && i + 1 < scores.length && left + right < 2 * score) {
-      peak += (left - right) ** 2 / (8 * (2 * score - left - right));
+    if (right !== undefined && score >= right && left + right < 2 * score) {
+      const delta = (right - left) / (2 * (2 * score - left - right));
+      const neighbor = Math.sign(delta);
+      const fraction = Math.abs(delta);
+      let product = 0;
+      let shiftedEnergy = 0;
+      for (let k = start; k < start + size; k++) {
+        const sample = pcm[k + lag];
+        const shifted = sample + fraction * (pcm[k + lag + neighbor] - sample);
+        product += pcm[k] * shifted;
+        shiftedEnergy += shifted * shifted;
+      }
+      peak = Math.max(score, product / Math.sqrt(energy * shiftedEnergy + 1e-9));
     }
-    if (peak > bestScore + 0.0001) {
+    if (peak > bestScore + 1e-6) {
       bestScore = peak;
-      bestLag = minLag + i;
+      bestLag = lag;
     }
   }
   return bestLag;

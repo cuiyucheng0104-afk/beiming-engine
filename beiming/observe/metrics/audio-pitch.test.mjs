@@ -63,3 +63,30 @@ test('both public entry points forward the three audio measurements', async () =
     assert.equal(observe[name], metrics[name]);
   }
 });
+
+function measureShortTone(rate, signal) {
+  const audio = Int16Array.from({ length: Math.ceil(rate * 0.15) }, (_, i) =>
+    Math.round(12000 * signal(2 * Math.PI * i / rate)));
+  return pitchF0(audio, { sampleRate: rate, startSec: 0, endSec: 0.14 });
+}
+
+test('near the first candidate lag, equal periodic peaks keep their fundamental', () => {
+  for (const [rate, hz] of [[44100, 448.9], [22050, 445.5], [22050, 448.9]]) {
+    const { value, details } = measureShortTone(rate, t => Math.sin(hz * t + 0.22));
+    assert.deepEqual(value.noteCounts, { A4: details.analyzedFrames }, `${rate} Hz / ${hz} Hz`);
+  }
+});
+
+test('harmonic mixtures retain both a high fundamental and a weak lower fundamental', () => {
+  for (const [hz, amplitude, note] of [[440, 0.18, 'A4'], [220, 0.01, 'A3']]) {
+    const { value, details } = measureShortTone(16000,
+      t => amplitude * Math.sin(hz * t + 0.22) + 0.8 * Math.sin(2 * hz * t + 0.61));
+    assert.deepEqual(value.noteCounts, { [note]: details.analyzedFrames });
+  }
+});
+
+test('a 150 Hz period rounded outside the last integer lag retains its in-band estimate', () => {
+  const { value, details } = measureShortTone(16000, t => Math.sin(150 * t));
+  assert.deepEqual(value.noteCounts, { D3: details.analyzedFrames });
+  assert.deepEqual(value.frequencyRangeHz, [16000 / 106, 16000 / 106]);
+});
