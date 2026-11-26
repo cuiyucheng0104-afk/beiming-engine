@@ -112,3 +112,10 @@ test('a grid anchor of 1.15 s starts listening at 1.35 s; off-grid anchors floor
   }}).value;
   assert.deepEqual(value.sceneTransitions.map(s => s.nextAudibleSec), [1.34, 1.35, 1.35]);
 });
+
+test('a 1.2 s fade anchor uses reference frame 6, while the preceding fractional frame uses 5', () => {
+  const counts = new Uint16Array(95).fill(100);
+  counts[5] = 1000;
+  const v = narrationTiming(new Int16Array(), {...emptyRoi, sceneInk: {counts, pauseStartsSec: [1.1999999, 1.2]}}).value;
+  assert.deepEqual(v.sceneTransitions.map(t => t.fadeStartFrame), [20, null]);
+});

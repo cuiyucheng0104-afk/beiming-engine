@@ -90,18 +90,25 @@ function numericSeries(series, valid, name) {
   for (const value of series) if (!valid(value)) throw new RangeError('Invalid value in ' + name);
 }
 
+// Compare on the seconds clock so rounding in seconds * rate cannot change sides.
+function gridFloor(seconds, rate) {
+  const nearest = Math.round(seconds * rate);
+  return seconds < nearest / rate ? nearest - 1 : nearest;
+}
+
 function sceneTransitions({ counts, pauseStartsSec }, audible) {
   numericSeries(counts, n => Number.isSafeInteger(n) && n >= 0, 'counts');
   numericSeries(pauseStartsSec, n => Number.isFinite(n) && n >= 0 && n < counts.length / 30, 'pauseStartsSec');
   return Array.from(pauseStartsSec, pauseStartSec => {
-    const reference = Math.floor((pauseStartSec - 1) * 30);
-    const limit = Math.min(counts.length, Math.floor((pauseStartSec + 1.6) * 30));
+    const anchorFrame = gridFloor(pauseStartSec, 30);
+    const reference = anchorFrame - 30;
+    const limit = Math.min(counts.length, anchorFrame + 48);
     let fadeStartFrame = null, fadeEndFrame = null;
     if (reference >= 0 && reference + 6 <= counts.length) {
       let baseline = 0;
       for (let i = reference; i < reference + 6; i++) baseline += counts[i];
       const threshold = baseline / 6 * 0.95;
-      for (let i = Math.max(0, Math.floor(pauseStartSec * 30) - 15); i < limit; i++) {
+      for (let i = Math.max(0, anchorFrame - 15); i < limit; i++) {
         if (counts[i] >= threshold) continue;
         fadeStartFrame = fadeEndFrame = i;
         for (let j = i + 1; j < Math.min(i + 40, limit); j++) {
@@ -110,10 +117,7 @@ function sceneTransitions({ counts, pauseStartsSec }, audible) {
         break;
       }
     }
-    // A decimal grid time can multiply to just below its own integer window (1.15 * 100).
-    const scaled = pauseStartSec * 100;
-    const nearest = Math.round(scaled);
-    const anchorWindow = nearest / 100 === pauseStartSec ? nearest : Math.floor(scaled);
+    const anchorWindow = gridFloor(pauseStartSec, 100);
     const firstAudible = audible.indexOf(1, anchorWindow + 20);
     const nextAudibleSec = firstAudible < 0 ? null : firstAudible / 100;
     return { pauseStartSec, fadeStartFrame, fadeEndFrame,
