@@ -34,6 +34,30 @@ test('color.count-event rejects invalid measurements and parameters', async () =
   await assert.rejects(colorCountEvent('', { color: '#0011aa' }), bad);
 });
 
+test('color.count-event reads only the array’s own numeric data slots', () => {
+  const bad = { code: 'usage.bad-argument' };
+  const coverage = [5, 5, 0];
+  coverage[Symbol.iterator] = function* () {};
+  assert.deepEqual(detectColorCountEvents(coverage).value, [2]);
+
+  const inherited = Array(1);
+  Object.setPrototypeOf(inherited, Object.assign(Object.create(Array.prototype), { 0: 5 }));
+  assert.throws(() => detectColorCountEvents(inherited), bad);
+
+  let reads = 0;
+  const getter = [5];
+  Object.defineProperty(getter, 0, { get() { reads++; return 5; } });
+  assert.throws(() => detectColorCountEvents(getter), bad);
+  assert.equal(reads, 0);
+
+  const proxy = new Proxy([5], { get() { reads++; return 5; } });
+  assert.throws(() => detectColorCountEvents(proxy), bad);
+  assert.equal(reads, 0);
+  const { proxy: revoked, revoke } = Proxy.revocable([5], {});
+  revoke();
+  assert.throws(() => detectColorCountEvents(revoked), bad);
+});
+
 const ffmpeg = ffmpegBins().ffmpeg;
 const hasFfmpeg = spawnSync(ffmpeg, ['-version']).status === 0;
 const roi = { x: 1, y: 1, width: 3, height: 3 };

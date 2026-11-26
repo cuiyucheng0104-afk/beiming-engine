@@ -11,8 +11,8 @@ const reading = await colorCountEvent(videoPath, {
 ```
 
 - `colorCountEvent(filePath, options)` 读取本地视频的第一条视频流。`color` 为 `#RRGGBB`，`similarity` 为 FFmpeg `colorkey` 的 `[0.01, 1]` 容差，默认 `0.16`。匹配依据是 8 位 RGB，输入 alpha 不参与匹配。
-- `roi` 默认取全画面，`exclude` 可指定一个在 ROI 内的角标矩形。二者都用 FFmpeg 应用显示旋转后解码像素格的左上坐标和整数宽高，右边界及下边界不计入。先在解码格式中按指定像素裁切，再转换 RGBA。角标里的匹配像素从分子扣除，占比仍以完整 ROI 像素数为分母。
-- `detectColorCountEvents(coveragePercent, options)` 可直接量已取得的逐帧占比，数值范围为 `[0, 100]`。两种入口均支持 `lagFrames`（默认 `2`）、`minCoveragePercent`（默认 `0.02`）和 `dropRatio`（默认 `0.5`）。默认在第 `n−2` 帧占比严格大于 `0.02%`，且第 `n` 帧占比严格小于第 `n−2` 帧的一半时命中。相邻命中合并，仅报第一帧。
+- `roi` 默认取全画面，`exclude` 可指定一个在 ROI 内的角标矩形。坐标以 FFmpeg 自动旋转后用于量测的单一解码画布（`displaySize`）为准，使用左上坐标和整数宽高，右边界及下边界不计入。跨帧更换分辨率的媒体可先规整成同一规格再量测。先在解码格式中按指定像素裁切，再转换 RGBA。角标里的匹配像素从分子扣除，占比仍以完整 ROI 像素数为分母。
+- `detectColorCountEvents(coveragePercent, options)` 接收已取得的逐帧占比。每帧在数组相应下标处须有自己的数值属性，范围为 `[0, 100]`。两种入口均支持 `lagFrames`（默认 `2`）、`minCoveragePercent`（默认 `0.02`）和 `dropRatio`（默认 `0.5`）。默认在第 `n−2` 帧占比严格大于 `0.02%`，且第 `n` 帧占比严格小于第 `n−2` 帧的一半时命中。相邻命中合并，仅报第一帧。
 - 结果 `value` 为事件帧号数组。`details.coveragePercent` 含所有帧的占比，`details.lastAboveThresholdFrame` 是最后一帧严格超过阈值的帧号，无此帧时为 `null`。视频入口还返回 `details.displaySize`、`details.roi` 和 `details.exclude`。
 - 帧号从 0 起，按解码显示顺序，变帧率时间戳不改变帧号。视频入口使用 `FFMPEG` 或 `PATH` 中的 FFmpeg，流式读取颜色掩码。缺工具返回 `value: null` 和 `details.code: 'tool-missing'`，解码失败抛错，无事件返回空数组。
 

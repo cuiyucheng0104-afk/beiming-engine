@@ -1,6 +1,6 @@
 import { execFile, spawn } from 'node:child_process';
 import { resolve } from 'node:path';
-import { promisify } from 'node:util';
+import { promisify, types } from 'node:util';
 import { ffmpegBins } from '../../../tools/env/lib/ffmpeg.mjs';
 
 const METRIC = 'metric:color.count-event';
@@ -39,7 +39,7 @@ function countEvents(coveragePercent, { lagFrames, minCoveragePercent, dropRatio
   let previousDrop = false;
   for (const [frame, current] of coveragePercent.entries()) {
     if (current > minCoveragePercent) lastAboveThresholdFrame = frame;
-    const before = coveragePercent[frame - lagFrames];
+    const before = frame >= lagFrames ? coveragePercent[frame - lagFrames] : 0;
     const drop = before > minCoveragePercent && current < before * dropRatio;
     if (drop && !previousDrop) value.push(frame);
     previousDrop = drop;
@@ -51,9 +51,16 @@ function countEvents(coveragePercent, { lagFrames, minCoveragePercent, dropRatio
 export function detectColorCountEvents(coveragePercent, options = {}) {
   checkOptions(options, EVENT_KEYS);
   const settings = eventOptions(options);
-  if (!Array.isArray(coveragePercent) || coveragePercent.length === 0) bad('须提供至少一帧占比');
-  const coverage = Array.from(coveragePercent);
-  for (const value of coverage) bounded(value, 0, 100, '帧占比');
+  if (types.isProxy(coveragePercent) || !Array.isArray(coveragePercent) || coveragePercent.length === 0) {
+    bad('须提供至少一帧占比的数组');
+  }
+  const coverage = [];
+  for (let frame = 0; frame < coveragePercent.length; frame++) {
+    const slot = Object.getOwnPropertyDescriptor(coveragePercent, frame);
+    if (!slot || !Object.hasOwn(slot, 'value')) bad(`第 ${frame} 帧缺少占比值`);
+    bounded(slot.value, 0, 100, '帧占比');
+    coverage.push(slot.value);
+  }
   return countEvents(coverage, settings);
 }
 
