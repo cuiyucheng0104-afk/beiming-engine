@@ -228,6 +228,7 @@
 - 旧作品站的生成物 `showcase/`（由 `site/` 与 `tools/build-showcase.py` 取代）。
 
 ### Fixed
+- 修复 Metal 离屏分段计时读数全为零的问题。时间戳标记会提交一个不读写资源的计算工作组，从而保留 GPU 计时记录。
 
 - 修复 `beiming/cards/m3-card-promotion.test.mjs` 把全库技术卡总数硬编码为 30 导致合入新增 M3 卡（如 T11）后回归失败的问题：改为动态校验全库卡数不低于 30 且 ID 唯一、指定的 17 张 B20+B7 实证卡均为 `measured`、看板总数与当前卡库一致，以及 D14 窗口后可见升级卡检索正常。
 - 核心帧源的路径追踪内核：网格两个三角形的公共边上相机射线不再从缝里穿过去（软件求交，即 Compute BVH 回退）。上游的三角形求交是 Möller–Trumbore（闭区间、无容差），换成照 Cycles（Blender v5.2.3）移植的 `ray_triangle_intersect`（Plücker 边测试，在 `beiming/sources/core/shaders/util.wgsl`）；三角形缓冲改存三个原顶点，着色处现算边向量，硬件求交的 BLAS 直接用原顶点建。函数级比对加两项（逐组对 Cycles、防水），第 2 级加「网格的公共边」（软件求交一个像素都不许少，带负对照），镜中的矩形纯光一项不再把平面挪开。苹果显卡的硬件求交器本身在公共边上漏，修不了，记为平台限制（`beiming/sources/core/path/STRUCTURES.md` 第 47 条），第 2 级只钉上限。
