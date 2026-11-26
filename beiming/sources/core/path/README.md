@@ -165,7 +165,7 @@ node -e "import('./beiming/sources/core/chassis/build.mjs').then(m => console.lo
 ```
 
 - 找库：环境变量 `BEIMING_OIDN_LIB`（Blender 的 lib 目录）；没设时找 Blender（`BEIMING_BLENDER`、macOS 的 `/Applications/Blender.app`、PATH 里的 `blender`），取它真实路径旁的库目录：macOS 是 `Contents/Resources/lib/`，Linux 官方包是可执行文件同级的 `lib/`（PATH 里的 `blender` 是链接时先解开）。
-- 核对：[../chassis/oidn-lock.json](../chassis/oidn-lock.json) 按平台（`darwin-arm64`、`linux-x64`）列出库目录里全部 `libOpenImageDenoise*` 与 `libtbb*`（链接照它指向的内容）的 sha256，`build.mjs` 的 `verifyOidnLibs` 逐个比：多一个、少一个、对不上都拒绝，抛 env 类的错（退出码 3，码 `env.missing-tool`：错误码表里没有更贴切的）。sha256 对不上这一种以后改报 `env.lib-mismatch`（缺库、缺平台照旧 `env.missing-tool`）：这个码在作业一路的分支里登记进错误码表，那边合入之后这里再改，现在先不动 `verifyOidnLibs`。构建前核一次；跑带 OIDN 的程序之前（对拍脚本）再核一次。
+- 核对：[../chassis/oidn-lock.json](../chassis/oidn-lock.json) 按平台（`darwin-arm64`、`linux-x64`）列出库目录里全部 `libOpenImageDenoise*` 与 `libtbb*`（链接照它指向的内容）的 sha256，`build.mjs` 的 `verifyOidnLibs` 逐个比：多一个、少一个、对不上都拒绝，抛 env 类的错（退出码 3）：sha256 对不上或多出锁文件里没有的库报 `env.lib-mismatch`（帧源接口契约 5.15），缺库、缺平台报 `env.missing-tool`。构建前核一次；跑带 OIDN 的程序之前（对拍脚本）再核一次。
 - 链接：`oidn` crate 2.5.1 的构建脚本（`build.rs`，已读）没开 `bundled` 时，设了 `OIDN_DIR` 就把 `$OIDN_DIR/lib` 加进链接路径、链接 `OpenImageDenoise`，不走 pkg-config；C 接口的绑定是 crate 里写好的，不要头文件。所以 `OIDN_DIR` 设成库目录的上一级（库目录必须叫 `lib`），`cargo rustc --locked --release --features oidn --bin core-render -- -C link-arg=-Wl,-rpath,<库目录>`；不开 `bundled`（它会在构建时下载）。构建目录另用 `out/chassis/target-oidn`；程序名的摘要把锁文件这个平台的一项算进去，与默认档分开存。
 - 运行时找库：只靠编进程序的 rpath（`LC_RPATH` / `RUNPATH`，指向上面的库目录），不用 `DYLD_LIBRARY_PATH` / `LD_LIBRARY_PATH`。OIDN 的主库再按它自己的 rpath（macOS `@loader_path`、Linux `$ORIGIN`）从同一目录装核心库与设备库（macOS 有 CPU 与 Metal，Linux 有 CPU、CUDA、HIP、SYCL）。所以 Blender 升级或挪走之后这个程序就装不上库了，要重编；锁文件对不上时先改锁文件（换了 Blender 就是换了库，要重新对拍）。
 

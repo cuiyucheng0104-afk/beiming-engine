@@ -31,7 +31,7 @@ test('读 Blender 的 EXR：不是 EXR、带压缩的都拒绝', () => {
   assert.throws(() => readBlenderExr(head), /压缩方式 3/);
 });
 
-test('OIDN 库的锁文件：目录里多一个、少一个、内容对不上都报 env 类的错', t => {
+test('OIDN 库的锁文件：内容对不上、多一个报 env.lib-mismatch，少一个报 env.missing-tool', t => {
   const entry = JSON.parse(fs.readFileSync(OIDN_LOCK, 'utf8')).platforms[`${process.platform}-${process.arch}`];
   if (!entry) return t.skip('锁文件里没有这个平台');
   const dir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-oidn-lock-')), 'lib');
@@ -39,12 +39,12 @@ test('OIDN 库的锁文件：目录里多一个、少一个、内容对不上都
   try {
     for (const f of Object.keys(entry.files)) fs.writeFileSync(path.join(dir, f), 'x');
     const err = (() => { try { verifyOidnLibs({ BEIMING_OIDN_LIB: dir }); } catch (e) { return e; } })();
-    assert.ok(err?.missing && err.code === 'env.missing-tool');
+    assert.ok(err?.missing && err.code === 'env.lib-mismatch');
     assert.match(err.message, /sha256 对不上/);
     fs.writeFileSync(path.join(dir, 'libOpenImageDenoise_device_extra.so'), 'x');
-    assert.throws(() => verifyOidnLibs({ BEIMING_OIDN_LIB: dir }), /锁文件里没有 libOpenImageDenoise_device_extra\.so/);
+    assert.throws(() => verifyOidnLibs({ BEIMING_OIDN_LIB: dir }), e => e.code === 'env.lib-mismatch' && /锁文件里没有 libOpenImageDenoise_device_extra\.so/.test(e.message));
     fs.rmSync(path.join(dir, Object.keys(entry.files)[0]));
-    assert.throws(() => verifyOidnLibs({ BEIMING_OIDN_LIB: dir }), new RegExp(`缺 ${Object.keys(entry.files)[0].replace(/\./g, '\\.')}`));
+    assert.throws(() => verifyOidnLibs({ BEIMING_OIDN_LIB: dir }), e => e.missing && e.code === 'env.missing-tool' && new RegExp(`缺 ${Object.keys(entry.files)[0].replace(/\./g, '\\.')}`).test(e.message));
   } finally {
     fs.rmSync(path.dirname(dir), { recursive: true, force: true });
   }

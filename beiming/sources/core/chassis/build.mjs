@@ -168,7 +168,8 @@ function blenderLibDir(env = process.env) {
 
 /**
  * 核对 OIDN 库：目录里全部 libOpenImageDenoise* 与 libtbb*（链接照它指向的内容）与锁文件这个平台的一项逐个比 sha256，多、少、
- * 对不上都抛 env 类的错（.missing，退出码 3）。返回 { dir, platform, entry }。构建前与运行带 OIDN 的程序前都要过这一道。
+ * 对不上都抛 env 类的错（.missing，退出码 3）：缺库报 env.missing-tool；库都在、但有 sha256 对不上或多出锁文件里没有的库报
+ * env.lib-mismatch（帧源接口契约 5.15：不得换一份库照常出帧）。返回 { dir, platform, entry }。构建前与运行带 OIDN 的程序前都要过这一道。
  */
 export function verifyOidnLibs(env = process.env) {
   const platform = `${process.platform}-${process.arch}`;
@@ -177,12 +178,13 @@ export function verifyOidnLibs(env = process.env) {
   const dir = blenderLibDir(env);
   if (!dir || !fs.existsSync(dir)) throw Object.assign(missing(`找不到 OIDN 的库目录（${dir ?? '没找到 Blender'}）：设 BEIMING_OIDN_LIB 指向 Blender 的 lib 目录，或 BEIMING_BLENDER 指向 Blender ${entry.blender}`), { code: 'env.missing-tool' });
   const have = fs.readdirSync(dir).filter(f => /^lib(OpenImageDenoise|tbb)/.test(f)).sort();
+  const absent = Object.keys(entry.files).filter(f => !have.includes(f)).map(f => `缺 ${f}`);
   const problems = [
-    ...Object.keys(entry.files).filter(f => !have.includes(f)).map(f => `缺 ${f}`),
+    ...absent,
     ...have.filter(f => !(f in entry.files)).map(f => `锁文件里没有 ${f}`),
     ...have.filter(f => f in entry.files && sha256(fs.readFileSync(path.join(dir, f))) !== entry.files[f]).map(f => `${f} 的 sha256 对不上`),
   ];
-  if (problems.length) throw Object.assign(missing(`OIDN 库与 oidn-lock.json（${platform}，Blender ${entry.blender} 自带的 OIDN ${entry.oidn}）对不上：${problems.join('；')}（目录 ${dir}）`), { code: 'env.missing-tool' });
+  if (problems.length) throw Object.assign(missing(`OIDN 库与 oidn-lock.json（${platform}，Blender ${entry.blender} 自带的 OIDN ${entry.oidn}）对不上：${problems.join('；')}（目录 ${dir}）`), { code: absent.length ? 'env.missing-tool' : 'env.lib-mismatch' });
   return { dir, platform, entry };
 }
 

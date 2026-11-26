@@ -68,7 +68,7 @@ await s.close(); await src.stop();
 
 作业跑起来以后，帧源起的每个 `core-render` 进程（`pack-info`、`render-pack`）都由 `beiming/jobs` 的 `runWithWatchdog` 管：独立进程组、受管进程树。出片链起帧源时带上作业声明的 `maxWallMs`（`startSource({ bin, maxWallMs })`，从起帧源算起），到点先 SIGTERM、过 150 ms 宽限 SIGKILL 整棵进程树，报 `timeout.budget`；只杀这个作业名下的进程，同一块卡上别的作业不受影响。显卡租约由作业拿：走调度器的 `core` 道（[调度器的道](../../jobs/DETAILS.md#调度器的道)），同一块卡上同时只跑一个核心作业，第二个排队，前一个被杀、还了租约才开跑。核对：`beiming/api/core-source.test.mjs` 用一个收到 SIGTERM 不退出、还起了孙进程的假渲染程序，声明 1 秒（把「声明 10 秒、到 10 秒被杀」按 1/10 缩放），到点被杀、两个进程都不在了，排队的核心作业和并发的草稿照常完成。
 
-`usage.budget-required`、`contract.over-budget`、`timeout.budget` 已登记进错误码表（`errors.json`），由帧源接口契约 5.15 点名（两份契约因此升到 `0.2.0-draft`）：服务端的失败信封、诊断和作业结论里报的就是码本身。同一节还登记了 `env.lib-mismatch`（本机动态库的 sha256 和钉住的不同），原生那一路接上之前它暂时报 `env.missing-tool`。
+`usage.budget-required`、`contract.over-budget`、`timeout.budget` 已登记进错误码表（`errors.json`），由帧源接口契约 5.15 点名（两份契约因此升到 `0.2.0-draft`）：服务端的失败信封、诊断和作业结论里报的就是码本身。同一节还登记了 `env.lib-mismatch`（本机动态库的 sha256 和钉住的不同）：核心渲染程序链接 OIDN 的构建档在库对不上时报它（`chassis/build.mjs` 的 `verifyOidnLibs`）。
 
 ## 元数据
 
