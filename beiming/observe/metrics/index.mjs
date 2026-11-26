@@ -1,8 +1,11 @@
 export { layoutEdges, pixelBbox, colorPalette, motionZoomPan, loopClosurePsnr } from './image-layout.mjs';
+export { colorCountEvent, detectColorCountEvents } from './color-count-event.mjs';
 export { deliverSpec, audioLoudness, blackFreezeDup, cutYdif, cutScene } from './video-audio.mjs';
 export { clipHighlightRatio, noiseResidual, aliasEdge, colorPaletteDe00, shapeIou, ENERGY_METRICS, runEnergyMetric } from './energy-rulers.mjs';
 export { videoNoiseResidual, videoAliasEdge } from './video-energy.mjs';
+export { lyricsMatch } from './lyrics-match.mjs';
 export { lumaPercentile, cutGhost, LUMA_GHOST_METRICS, runLumaGhostMetric } from './luma-ghost.mjs';
 export { stillMatch } from './still-match.mjs';
 export { flowField, imageFlip, FLOW_FLIP_METRICS, runFlowFlipMetric } from './flow-flip.mjs';
 export { regionalFlicker, onTwosCadence } from './temporal-cadence.mjs';
+export { narrationTiming } from './narration-timing.mjs';
