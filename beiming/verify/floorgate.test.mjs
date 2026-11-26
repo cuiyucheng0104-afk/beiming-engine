@@ -23,7 +23,7 @@ const contractProblems = (pack, judgings) => ['RP3', 'RP4'].flatMap((id) => chec
 test('阈值文件：k = 1.25，Welch α = 1%、每边 16 个种子；第 2 级的数学门和 level2.mjs 的 GATES 整个相同', () => {
   assert.equal(THRESHOLDS.k, 1.25);
   assert.equal(THRESHOLDS.floorMetric, 'seedVsSeedFlipMean');
-  assert.deepEqual(THRESHOLDS.welch, { alpha: 0.01, seeds: 16, blockSize: 8 });
+  assert.deepEqual(THRESHOLDS.welch, { alpha: 0.01, seeds: 16, blockSize: 8, equivalence: 2 ** -21 });
   assert.deepEqual(THRESHOLDS.floorLevels, [3, 4, 5, 7]);
   assert.deepEqual(THRESHOLDS.math.level2, { ...LEVEL2_GATES });
   // 合并门从源码里抠出来的和模块导出的一样
@@ -74,6 +74,7 @@ test('Welch 门：每边必须正好 16 个种子，α 取阈值文件里的 1%'
   const seeds = (n, off) => Array.from({ length: n }, (_, s) => frame(off + s / 100));
   assert.throws(() => welchGate(seeds(8, 0), seeds(8, 0)), /正好 16 个/);
   assert.equal(welchGate(seeds(16, 0), seeds(16, 0)).alpha, 0.01);
+  assert.equal(welchGate(seeds(16, 0), seeds(16, 0)).equivalence, 2 ** -21, '等价下限照阈值文件传给 Welch');
 });
 
 test('回归集：登记的条数不大于代码里现在的条数；runner 都在（没登记条数的项删案例这里看不出来）', () => {

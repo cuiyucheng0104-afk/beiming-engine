@@ -41,6 +41,7 @@ const transition = evaluateAssertion('no_ghost(120)', film, measured);
 - **结果**：`biasMap`（A 减 B 的均值差，偏差位置图）、`pMap`、`qMap`、`significantMask`（都是 `gridSize` 宽高的行主序平面）、`significantRatio`（校正后显著的单元比例）、`rawSignificantRatio`（未校正 p ≤ alpha 的比例）、`pHistogram`（`counts` 是 `bins` 个等宽桶的计数，`flat` 是平坦性判定，`lowTailP` 是判定用的 p 值，`effectiveAlpha` 是判定用的名义率）。`pass` 等于 `significantRatio <= alpha && pHistogram.flat`，两个条件缺一不可。
 - **`testedUnits` 与 `totalUnits`**：`totalUnits` 是网格单元总数，`testedUnits` 是参检单元数，差值是 `deterministicUnits`。两个比例、直方图和 BH 校正的分母都是 `testedUnits`。
 - **无噪声单元**：两边方差都是 0 且均值相等的单元（纯黑背景）记入 `deterministicUnits`，不参检，平面里 p 和 q 记 1；方差都是 0 而均值不等的单元 p 记 0，参检并必然显著。全图都不参检时 `pass` 为真，这只说明两组各统计单元样本逐位相等（块模式下指块聚合后的统计单元）。
+- **等价单元**：给了 `equivalence`（缺省 0，不给时行为逐位不变）时，均值差不为 0、但绝对值不超过 `equivalence` 乘两边均值绝对值的较大者的单元，记入 `equivalentUnits`，不参检，平面里 p 和 q 记 1，和无噪声的相等单元一样不进校正和直方图。不参检让分母变小，门只会更严，不会拿这些单元稀释显著比例。差恰好为 0 的单元照旧（无噪声的记 `deterministicUnits`，有噪声的照常检验）。`deterministicUnits` 等于 `totalUnits` 减 `testedUnits` 再减 `equivalentUnits`。
 
 ## 平坦性判定与校准实测
 
@@ -135,7 +136,8 @@ const w = welchGate(coreSeeds, cyclesSeeds);                                // �
 - **未定线**：`floor` 缺段、缺键或有一项是 `null`，返回 `unset`，不判过，也不产出 `judging`（RP3）。判了的返回 `judging: { metric, k, threshold }`，门值就是地板乘 k（RP4），可以直接放进参考包核对记录的 `judgings`。
 - **拒收**：`value` 不在 [0, 1] 内；地板不在 (0, 1] 内，地板是 0 说明两个种子出了同一张图，是坏包。
 - **只收 FLIP**：峰值信噪比越大越好，乘 k 没有意义，也不适合比带噪的图。
-- **Welch 不乘 k**：t 统计量已经除以换种子的标准误，本身就是相对噪声比的。`welchGate` 要每边正好 16 个种子，α = 1%、8×8 块，都照阈值文件。
+- **Welch 不乘 k**：t 统计量已经除以换种子的标准误，本身就是相对噪声比的。`welchGate` 要每边正好 16 个种子，α = 1%、8×8 块，等价下限 2^-21，都照阈值文件。
+- **等价下限为什么是 2^-21**：被比的两边都是单精度渲染器。像素值各自舍入到半个末位以内，运算次序、乘加融合不同还会再差一两个末位；近乎无噪声的块（白炉里粗糙度 0 的金属镜球、纯光照的平地板）种子间的离差比这还小，t 检验会把零点几个末位的系统差当成显著。2^-21 是 1 附近 4 个单精度末位，比实测见过的这类差（5e-8 到 7e-8）大一个量级、留出一倍余量，又比要抓的偏差（排查里见过的最小真偏差约 1e-6，掠射边 3e-6）小得多。
 - **第 2 级**的数学门登记在 `floor-gate.json` 的 `math.level2`，合并门逐项核对它和 `chassis/level2.mjs` 里 `export const GATES = { … };` 那一行的字面量相同：改这一行就得同时改阈值文件并签字。只锁这一行，`GATES` 在代码里怎么用（之后再赋值、判据里换成写死的数）这里看不出来，靠评审。**第 1 级**的门写在函数级比对的测试里，本门不锁，是已知缺口。
 
 ### 合并门：阈值写死、回归集只许涨

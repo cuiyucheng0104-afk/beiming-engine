@@ -814,3 +814,26 @@ test('V18-23: 奇数商半距向偶进位、非 2 的幂 K=3 偏差图单次舍�
   assert.match(details, /2\^-1021/, 'DETAILS.md 应写明快路径判据 divisor × 2^-1021');
   assert.match(details, /任意除数.*直接返回|对任意除数.*0/, 'DETAILS.md 应按实现顺序写明 maxAbs×n<2^1023 时零和对任意除数直接返回 0，非零和才要求 2 的幂除数与 divisor×2^-1021');
 });
+
+test('V18-24 等价下限：均值相对差在 equivalence 以内的单元不参检、单列计数；超过一点就照常检出；缺省 0 时行为不变', () => {
+  const width = 4, height = 4, k = 16;
+  // 近乎无噪声的块（种子之间只差 1e-9 量级的抖动），A 比 B 系统性地亮 rel（单精度渲染器运算次序不同就是这种差）
+  const group = (rel, base) => Array.from({ length: k }, (_, i) => ({ width, height, data: Float32Array.from({ length: 16 }, () => 0.75 * (1 + rel) + (i % 4) * 2 ** -30 + base) }));
+  const tol = 2 ** -21;
+  const tiny = verify.welchTest(group(tol / 4, 0), group(0, 0), { alpha: 0.01 });
+  assert.equal(tiny.pass, false, '缺省没有等价下限：系统性的亚末位差判显著');
+  assert.equal(tiny.equivalentUnits, 0);
+  assert.equal(tiny.equivalence, 0);
+  const within = verify.welchTest(group(tol / 4, 0), group(0, 0), { alpha: 0.01, equivalence: tol });
+  assert.deepEqual([within.testedUnits, within.equivalentUnits, within.deterministicUnits, within.pass], [0, 16, 0, true]);
+  const beyond = verify.welchTest(group(4 * tol, 0), group(0, 0), { alpha: 0.01, equivalence: tol });
+  assert.deepEqual([beyond.testedUnits, beyond.equivalentUnits, beyond.pass], [16, 0, false], '超过下限的差照常判显著');
+  // 差恰好为 0 的单元不归等价：无噪声的照旧记不参检，有噪声的照旧检验
+  const flat0 = Array.from({ length: k }, () => ({ width, height, data: new Float32Array(16).fill(0.5) }));
+  const zero = verify.welchTest(flat0, flat0, { equivalence: tol });
+  assert.deepEqual([zero.deterministicUnits, zero.equivalentUnits, zero.testedUnits], [16, 0, 0]);
+  const noisy = renderNoisyGroup(k, 4, 4, 5);
+  const same = verify.welchTest(noisy, noisy, { equivalence: tol });
+  assert.deepEqual([same.equivalentUnits, same.testedUnits], [0, 16]);
+  for (const bad of [-1e-9, 1, NaN, '1e-7']) assert.throws(() => verify.welchTest(noisy, noisy, { equivalence: bad }), /equivalence 须在/);
+});
