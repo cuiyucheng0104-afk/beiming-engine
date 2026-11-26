@@ -192,6 +192,16 @@ const MAIN = { len: [0.05, 5], dist: [0.02, 20], elev: [0.1, 1] };
 const WELL = { len: [0.1, 5], aspect: 3, dist: [0.1, 1], elev: [0.3, 1] };
 const RAY = { len: [0.3, 5], aspect: 3, dist: [0.1, 3], elev: [0.1, 1] };
 const TINY = { len: [1e-4, 3e-3], dist: [1e3, 1e4], elev: [0.1, 1] };
+const FAR = { len: [0.05, 5], aspect: 3, dist: [2, 15], elev: [0.1, 1] };
+const NEAR = { len: [0.1, 5], aspect: 3, dist: [0.02, 0.1], elev: [0.5, 1] };
+/** 报告用：双精度里 Van Oosterom–Strackee 两个三角形的分母有没有不大于 0 的（那个三角形的立体角不小于 π，被测一侧退回原式） */
+function vosGuarded(P, co, u, lu, v, lv) {
+  const d = add(co, P, -1), z0 = -Math.abs(dot3(d, crs(u, v))), xc = dot3(d, u), yc = dot3(d, v);
+  const [x0, x1, y0, y1] = [xc - lu / 2, xc + lu / 2, yc - lv / 2, yc + lv / 2];
+  const a = [x0, y0, z0], b = [x1, y0, z0], c = [x1, y1, z0], e = [x0, y1, z0], r = q => Math.hypot(...q);
+  const m = (p, q, w) => r(p) * r(q) * r(w) + dot3(p, q) * r(w) + dot3(p, w) * r(q) + dot3(q, w) * r(p);
+  return !(m(a, b, c) > 0 && m(a, c, e) > 0);
+}
 /** 掠射：灯在原点、轴对齐，着色点在灯所在平面外 1e-7 到 1e-3 倍「到最近的边所在直线的距离」，横向在矩形外 0.1 到 4 倍边长。
  *  四个 nz² 都大于 1 − 1e-6，稳走掠射的平面近似（阈值 0.99999）；灯心坐标为 0，dir = light_p − P 与 z0 都没有舍入 */
 function grazingGeom(next) {
@@ -241,6 +251,25 @@ FUNCTIONS.push(
   light('area_light_rect_sample_grazing', RECT_IN, 1, 0, {
     wgsl: 'area_light_rect_sample', ref: 'area_light_rect_sample_pdf', gen: grazingGeom, branch: rectBranchOf,
     call: a => `area_light_rect_sample(${a.join(', ')}, false).pdf`,
+  }),
+  // 做概率密度的 S 在远场（S 不小于 5e-5，四个角两两夹角小于 90°）换成了 Van Oosterom–Strackee 的两个三角形（area_light.wgsl 的 rect_solid_angle_pdf_S，
+  // 对 Cycles 原式的有意偏离）。理由：原式的 S 是四个量级到 π/2 的 asin 相加抵消出来的，远场只剩几个末位；Cycles 在处理器上
+  // 舍入近乎随机，像素抖动平均得掉，显卡上舍入随位置光滑变化，平均不掉（第 4 级低粗糙度高光的暗区出 ±7e-5 的弧纹【实测】）。
+  // 上面立体角一项照旧对单精度的 Cycles 比（abs 兜住原式自己的抵消误差）；下面两项分别守远场与近场：
+  //   _far   离灯 2 到 15 倍较长边（立体角 1.5e-4 到 0.3 sr，都在 5e-5 以上）：比双精度里照 Cycles 原式算的真值（标准答案程序的
+  //          area_light_rect_solid_angle_f64），rel 1e-4、abs 0。单精度的原式做不到：S 低于 5e-5 照旧用原式的那一段，相对真值差到
+  //          1e-2【实测：范围放到 30 倍边长时 100 万组里 92 组超出】
+  //   _near  离灯心 0.02 到 0.1 倍较长边、仰角正弦 0.5 以上（离灯面不到 0.1 倍边长，又不贴到掠射那一支的阈值上）：两个三角形之一
+  //          的立体角大于 π（分母不大于 0），或者四个角两两的夹角有大于 90° 的（近场），被测一侧退回原式的 S。守卫与远场的判断
+  //          漏掉时这里的 S 会算成 1e-28 这类数，或者差到 1e-4 以上（分母相消）；比单精度的 Cycles，abs 同上
+  light('area_light_rect_sample_far', RECT_IN, 1, 0, {
+    wgsl: 'area_light_rect_sample', ref: 'area_light_rect_solid_angle_f64', gen: next => lightGeom(next, FAR), branch: rectBranchOf,
+    call: a => `1.0 / area_light_rect_sample(${a.join(', ')}, false).pdf`,
+  }),
+  light('area_light_rect_sample_near', RECT_IN, 1, ABS_S, {
+    wgsl: 'area_light_rect_sample', ref: 'area_light_rect_sample_solid_angle', gen: next => lightGeom(next, NEAR),
+    branch: i => (vosGuarded(at(i, 0), at(i, 3), at(i, 6), i[9], at(i, 10), i[13]) ? '有一个三角形大于 π' : '两个三角形都小于 π'),
+    call: a => `1.0 / area_light_rect_sample(${a.join(', ')}, false).pdf`,
   }),
   // 正反两面各半；abs 只为采样点与方向
   light('area_light_sample', [['rand', 'vec2f'], ['P', 'vec3f'], ...LIGHT_IN], { ok: 1, P: 3, D: 3, t: 1, pdf: 1, eval_fac: 1 }, ABS_SAMPLE, {

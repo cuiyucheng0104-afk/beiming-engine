@@ -102,7 +102,7 @@ test('方向输入：由均匀数确定地生成，是单位向量，z 落在登
 
 test('面光几何输入：正交基、invarea 与着色点的位置按场景生成，确定且可复现', () => {
   const dot = (p, q) => dot3([...p], [...q]);
-  for (const [name, elev] of [['area_light_rect_sample', [0.3, 1]], ['area_light_rect_sample_solid_angle', [0.1, 1]], ['area_light_rect_sample_grazing', [0, 1e-3]]]) {
+  for (const [name, elev] of [['area_light_rect_sample', [0.3, 1]], ['area_light_rect_sample_solid_angle', [0.1, 1]], ['area_light_rect_sample_grazing', [0, 1e-3]], ['area_light_rect_sample_far', [0.1, 1]], ['area_light_rect_sample_near', [0.5, 1]]]) {
     const f = byName(name), w = width(f), a = makeInputs(f, 2000, 5);
     assert.deepEqual(Buffer.from(a.buffer), Buffer.from(makeInputs(f, 2000, 5).buffer));
     for (let g = 0; g < 2000; g++) {
@@ -160,6 +160,7 @@ const NEW = [
   'bsdf_microfacet_setup_fresnel_f82_tint', 'bsdf_microfacet_eval_ggx', 'bsdf_microfacet_ggx_eval',
   'bsdf_microfacet_sample_ggx', 'bsdf_microfacet_ggx_sample',
   'safe_asinf', 'ray_quad_intersect', 'area_light_rect_sample', 'area_light_rect_sample_solid_angle', 'area_light_rect_sample_tiny', 'area_light_rect_sample_grazing',
+  'area_light_rect_sample_far', 'area_light_rect_sample_near',
   'area_light_sample', 'area_light_eval_from_intersection', 'area_light_intersect',
   // 原理化 BSDF 非金属那一半
   'fresnel_dielectric_polarized', 'fresnel_dielectric_polarized_inside', 'fresnel_dielectric_ccl', 'fresnel_dielectric_ccl_inside', 'fresnel_dielectric_Fss',
@@ -270,6 +271,16 @@ test('端到端：故意把一个 WGSL 函数改错一项，报出是哪个函�
   await breakOne(t, light, lsrc, 'clamp(2.0 - (NgL + NL) / offset_cutoff, 0.0, 1.0)', 'clamp(1.9 - (NgL + NL) / offset_cutoff, 0.0, 1.0)', ['shadow_ray_offset'], 39, 4, LAMPS);
   // 面光：矩形右边界的 0.5 改成 0.51，走立体角那一支的四项不合格；平面近似的两项（tiny、grazing）概率密度不用 x1，照旧合格
   await breakOne(t, light, lsrc, 'let x1 = xc + 0.5 * len_u;', 'let x1 = xc + 0.51 * len_u;', ['area_light_rect_sample', 'area_light_rect_sample_solid_angle', 'area_light_sample', 'area_light_eval_from_intersection'], 16, 4);
+  // 做概率密度的 S（远场换成 Van Oosterom–Strackee）：只跑立体角的三项
+  const RECT_S = ['area_light_rect_sample_solid_angle', 'area_light_rect_sample_far', 'area_light_rect_sample_near'];
+  // 去掉远场的判断与分母的守卫，照没加守卫时的写法 atan(n/m)：近场（三角形大于 π，分母为负）与 MAIN 里的近处不合格，远场照旧
+  {
+    const vos = lsrc.slice(lsrc.indexOf('  if (!(min(min(ab, ac), min(min(bc, ad), cd)) > 0.0)) { return S; }'), lsrc.indexOf('  return 2.0 * (atan2(n, m1) + atan2(n, m2));'));
+    const unguarded = vos.replace('  if (!(min(min(ab, ac), min(min(bc, ad), cd)) > 0.0)) { return S; }\n', '').replace('  if (!(m1 > 0.0 && m2 > 0.0)) { return S; }\n', '');
+    await breakOne(t, light, lsrc.replace(vos, unguarded), '  return 2.0 * (atan2(n, m1) + atan2(n, m2));', '  return 2.0 * (atan(n / m1) + atan(n / m2));', ['area_light_rect_sample_solid_angle', 'area_light_rect_sample_near'], 16, 1, RECT_S);
+  }
+  // 第一个三角形的分母 (a·c)|b| 写成 (a·c)|a|：远场一项（对双精度真值）不合格；近场退回原式，照旧合格
+  await breakOne(t, light, lsrc, 'let m1 = ra * rb * rc + ab * rc + ac * rb + bc * ra;', 'let m1 = ra * rb * rc + ab * rc + ac * ra + bc * ra;', ['area_light_rect_sample_solid_angle', 'area_light_rect_sample_far'], 16, 1, RECT_S);
   // 辐射通量换成辐射亮度的 1/π 改成 0.32，只有带 eval_fac 的两项不合格
   await breakOne(t, light, lsrc, 'M_1_PI_F * invarea', '0.32 * invarea', ['area_light_sample', 'area_light_eval_from_intersection'], 20, 10);
   // 三角形求交：换回上游的 Möller–Trumbore（闭区间、无容差），防水一项不合格；逐组那一项在边界上本来就不比中没中，照旧合格。

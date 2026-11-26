@@ -84,7 +84,42 @@ fn area_light_rect_sample(P: vec3f, light_p: vec3f, axis_u: vec3f, len_u: f32, a
     let t = len_ccl(dir);
     return RectSample(safe_divide(-t * t * t, (z0 * len_u * len_v)), out_p);
   }
-  return RectSample(1.0 / S, out_p);
+  return RectSample(1.0 / rect_solid_angle_pdf_S(S, x0, x1, y0, y1, z0, len_u, len_v), out_p);
+}
+
+// 北冥（对 Cycles 的有意偏离）：做概率密度 1/S 的那个 S。采样映射与「S 小于 1e-5 退到平面」的判断照旧用上面 Cycles 原式的 S；
+// 远场换成 Van Oosterom–Strackee 的两个三角形 (a, b, c)、(a, c, d)：tan(Ω/2) = |a·(b×c)| / (|a||b||c| + (a·b)|c| + (a·c)|b| + (b·c)|a|)，
+// a、b、c、d 是灯的四个角在 Cycles 的局部坐标里的位置，三重积就是 |z0|·len_u·len_v（没有相消）。
+// 理由：原式的 S 是四个量级到 π/2 的 asin 相加抵消出来的，远场只剩几个末位；Cycles 在处理器上舍入近乎随机，像素抖动平均得掉，
+// 显卡上舍入随位置光滑变化，平均不掉，暗区出 ±7e-5 的弧纹【实测】。
+// 远场：S 不小于 RECT_VOS_MIN_S，且四个角两两的点积都是正的（从着色点看两两夹角小于 90°）。这时分母的四项同号、不相消，
+// 结果到几个末位；近场分母是几项相消出来的（三角形的立体角接近 π 时分母接近 0），单精度下反而不如原式，所以近场照旧用原式。
+// RECT_VOS_MIN_S 扫过 1e-5、5e-5、2e-4、1e-3【实测，第 4 级 r006、r013 低粗糙度高光四个取值点】：四档在三个点上读数相同，
+// 光面掠过地板那一帧 Welch 显著比例 2.1e-2、1.4e-2、1.5e-2、1.6e-2，取 5e-5。S 贴近 1e-5 时原式在 Cycles 一侧也只剩一两位，
+// 参考图里带着它，那里照原式反而对得上（推断）
+// 守卫：分母不大于 0（这个三角形的立体角不小于 π）时也退回原式；漏了它，贴近灯面时 S 会算成 1e-28 这类数
+const RECT_VOS_MIN_S: f32 = 5e-5;
+fn rect_solid_angle_pdf_S(S: f32, x0: f32, x1: f32, y0: f32, y1: f32, z0: f32, len_u: f32, len_v: f32) -> f32 {
+  if (S < RECT_VOS_MIN_S) { return S; }
+  let a = vec3f(x0, y0, z0);
+  let b = vec3f(x1, y0, z0);
+  let c = vec3f(x1, y1, z0);
+  let d = vec3f(x0, y1, z0);
+  let ab = dot(a, b);
+  let ac = dot(a, c);
+  let bc = dot(b, c);
+  let ad = dot(a, d);
+  let cd = dot(c, d);
+  if (!(min(min(ab, ac), min(min(bc, ad), cd)) > 0.0)) { return S; }
+  let ra = len_ccl(a);
+  let rb = len_ccl(b);
+  let rc = len_ccl(c);
+  let rd = len_ccl(d);
+  let n = abs(z0) * len_u * len_v;
+  let m1 = ra * rb * rc + ab * rc + ac * rb + bc * ra;
+  let m2 = ra * rc * rd + ac * rd + ad * rc + cd * ra;
+  if (!(m1 > 0.0 && m2 > 0.0)) { return S; }
+  return 2.0 * (atan2(n, m1) + atan2(n, m2));
 }
 
 // area.h:249-326 与 328-372 的输出，即 LightSample 里这条路会写的字段。ok 为假时其余字段为 0

@@ -27,6 +27,8 @@
 // 宿主侧的预计算表原文（static const float 数组），Cycles 的 scene/shader.cpp 也是这样包含它的
 #include "scene/shader.tables"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <vector>
@@ -503,6 +505,31 @@ static const Entry table[] = {
     {"area_light_rect_sample_solid_angle", 16, 1, [](const float *i, float *o) {
        float3 light_p = get3(i + 3);
        o[0] = 1.0f / area_light_rect_sample(get3(i), &light_p, get3(i + 6), i[9], get3(i + 10), i[13], get2(i + 14), false);
+     }},
+    /* 远场立体角的真值：area_light_rect_sample（kernel/light/area.h:28-57）求 S 的那几行原样照抄成双精度（不是 Cycles 的函数，
+     * 是它的式子在双精度里的值）。被测一侧在远场改用 Van Oosterom–Strackee 算 S（对 Cycles 原式的有意偏离，理由见登记表），
+     * 单精度的原式在这里只剩几个末位，拿它比不出被测一侧对不对，所以比真值 */
+    {"area_light_rect_solid_angle_f64", 16, 1, [](const float *i, float *o) {
+       const double P[3] = {i[0], i[1], i[2]}, L[3] = {i[3], i[4], i[5]}, x[3] = {i[6], i[7], i[8]}, y[3] = {i[10], i[11], i[12]};
+       const double len_u = i[9], len_v = i[13];
+       double z[3] = {x[1] * y[2] - x[2] * y[1], x[2] * y[0] - x[0] * y[2], x[0] * y[1] - x[1] * y[0]};
+       const double dir[3] = {L[0] - P[0], L[1] - P[1], L[2] - P[2]};
+       auto dot = [](const double *a, const double *b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; };
+       double z0 = dot(dir, z);
+       if (z0 > 0.0) {
+         z0 = -z0;
+       }
+       const double xc = dot(dir, x), yc = dot(dir, y);
+       const double x0 = xc - 0.5 * len_u, x1 = xc + 0.5 * len_u, y0 = yc - 0.5 * len_v, y1 = yc + 0.5 * len_v;
+       double nz[4] = {-y0, x1, y1, -x0};
+       for (double &c : nz) {
+         c /= std::sqrt(c * c + z0 * z0);
+       }
+       double S = 0.0;
+       for (int k = 0; k < 4; k++) {
+         S -= std::asin(std::clamp(-nz[k] * nz[(k + 1) % 4], -1.0, 1.0));
+       }
+       o[0] = float(S);
      }},
     {"area_light_sample", 20, 10, [](const float *i, float *o) {
        const KernelLight k = area_light(i + 5);
