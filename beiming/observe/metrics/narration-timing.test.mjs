@@ -64,3 +64,37 @@ test('matches the only blank when both ends of a clip already show captions', ()
   assert.equal(v.alignment.candidates, 1);
   assert.deepEqual(v.alignment.matches, [{ appearFrame: 9, onsetSec: 0.3, offsetSec: 0 }]);
 });
+
+const emptyRoi = { frames: new Uint8Array(), width: 1, height: 1 };
+
+test('scene ink uses the first threshold crossing and first minimum; audio uses the first audible window after 200 ms', () => {
+  const counts = new Uint16Array(90).fill(100);
+  counts[31] = 95;
+  counts[32] = 94;
+  counts[35] = counts[36] = 2;
+  const pcm = new Int16Array(32000);
+  pcm.fill(500, 160 * 119, 160 * 120);
+  pcm.fill(500, 160 * 125);
+  const v = narrationTiming(pcm, {...emptyRoi, sceneInk: {counts, pauseStartsSec: [1]}}).value;
+  assert.deepEqual(v.sceneTransitions, [{ pauseStartSec: 1, fadeStartFrame: 32, fadeEndFrame: 35,
+    fadeFrames: 3, nextAudibleSec: 1.25, pauseToFadeEndSec: 35 / 30 - 1, fadeEndToAudioSec: 1.25 - 35 / 30 }]);
+});
+
+test('no decline, incomplete reference and silence give missing observations', () => {
+  const counts = new Uint16Array(90).fill(100);
+  const v = narrationTiming(new Int16Array(32000), {...emptyRoi, sceneInk: {counts, pauseStartsSec: [0.1, 1]}}).value;
+  for (const t of v.sceneTransitions) {
+    assert.equal(t.fadeStartFrame, null);
+    assert.equal(t.nextAudibleSec, null);
+    assert.equal(t.fadeEndToAudioSec, null);
+  }
+});
+
+test('three-frame motion threshold is strict; joins 0.2s gaps and splits 0.3s gaps', () => {
+  const meanDifferences = [0, 3, 3, 0.6, 0.6, 0.6, 0, 3, 3, 0, 0, 0, 0, 0, 0, 1, 1, 1, 99];
+  const run = d => narrationTiming(new Int16Array(), {...emptyRoi,
+    regionalMotion: {meanDifferences: d, startSec: 2}}).value.motionIntervals;
+  assert.deepEqual(run(meanDifferences), [{startSec: 2, endSec: 2.3}, {startSec: 2.5, endSec: 2.6}]);
+  assert.deepEqual(run(new Uint8Array(10)), []);
+  assert.throws(() => run([0, NaN, 2]), RangeError);
+});

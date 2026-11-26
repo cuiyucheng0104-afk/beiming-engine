@@ -2,9 +2,10 @@
 const WINDOW = 160;
 const QUIET_ENERGY = WINDOW * 32768 ** 2 * 10 ** (-45 / 10);
 
-function readPauses(pcm) {
+function readPauses(pcm, keepAudible) {
   const pauses = [], onsetWindows = [];
   const count = Math.floor(pcm.length / WINDOW);
+  const audible = keepAudible ? new Uint8Array(count) : null;
   let quiet = 0;
   for (let i = 0; i <= count; i++) {
     if (i < count) {
@@ -14,6 +15,7 @@ function readPauses(pcm) {
         quiet++;
         continue;
       }
+      if (audible) audible[i] = 1;
     }
     if (quiet >= 25) {
       pauses.push({ startSec: (i - quiet) / 100, durationSec: quiet / 100 });
@@ -21,7 +23,7 @@ function readPauses(pcm) {
     }
     quiet = 0;
   }
-  return { pauses, onsetWindows };
+  return { pauses, onsetWindows, audible };
 }
 
 function readCaptions(frames, width, height) {
@@ -81,7 +83,58 @@ function align(blanks, onsets, videoFrames) {
     minSec: offsets[0] ?? null, maxSec: offsets.at(-1) ?? null };
 }
 
-export function narrationTiming(pcm, { frames, width, height, sampleRate = 16000, fps = 30 } = {}) {
+function numericSeries(series, valid, name) {
+  if (!Array.isArray(series) && !(ArrayBuffer.isView(series) && typeof series.length === 'number')) {
+    throw new TypeError('Expected a numeric sequence for ' + name);
+  }
+  for (const value of series) if (!valid(value)) throw new RangeError('Invalid value in ' + name);
+}
+
+function sceneTransitions({ counts, pauseStartsSec }, audible) {
+  numericSeries(counts, n => Number.isSafeInteger(n) && n >= 0, 'counts');
+  numericSeries(pauseStartsSec, n => Number.isFinite(n) && n >= 0 && n < counts.length / 30, 'pauseStartsSec');
+  return Array.from(pauseStartsSec, pauseStartSec => {
+    const reference = Math.floor((pauseStartSec - 1) * 30);
+    const limit = Math.min(counts.length, Math.floor((pauseStartSec + 1.6) * 30));
+    let fadeStartFrame = null, fadeEndFrame = null;
+    if (reference >= 0 && reference + 6 <= counts.length) {
+      let baseline = 0;
+      for (let i = reference; i < reference + 6; i++) baseline += counts[i];
+      const threshold = baseline / 6 * 0.95;
+      for (let i = Math.max(0, Math.floor(pauseStartSec * 30) - 15); i < limit; i++) {
+        if (counts[i] >= threshold) continue;
+        fadeStartFrame = fadeEndFrame = i;
+        for (let j = i + 1; j < Math.min(i + 40, limit); j++) {
+          if (counts[j] < counts[fadeEndFrame]) fadeEndFrame = j;
+        }
+        break;
+      }
+    }
+    const firstAudible = audible.indexOf(1, Math.floor(pauseStartSec * 100) + 20);
+    const nextAudibleSec = firstAudible < 0 ? null : firstAudible / 100;
+    return { pauseStartSec, fadeStartFrame, fadeEndFrame,
+      fadeFrames: fadeEndFrame === null ? null : fadeEndFrame - fadeStartFrame, nextAudibleSec,
+      pauseToFadeEndSec: fadeEndFrame === null ? null : fadeEndFrame / 30 - pauseStartSec,
+      fadeEndToAudioSec: fadeEndFrame === null || nextAudibleSec === null ? null : nextAudibleSec - fadeEndFrame / 30 };
+  });
+}
+
+function motionIntervals({ meanDifferences, startSec }) {
+  if (!Number.isFinite(startSec) || startSec < 0) throw new RangeError('Invalid motion startSec');
+  numericSeries(meanDifferences, n => Number.isFinite(n) && n >= 0 && n <= 255, 'meanDifferences');
+  const intervals = [];
+  let last = -Infinity;
+  for (let i = 0; i + 2 < meanDifferences.length; i += 3) {
+    if ((meanDifferences[i] + meanDifferences[i + 1] + meanDifferences[i + 2]) / 3 <= 0.6) continue;
+    const endSec = startSec + (i + 3) / 30;
+    if (i - last > 0.25 * 30) intervals.push({ startSec: startSec + i / 30, endSec });
+    else intervals.at(-1).endSec = endSec;
+    last = i;
+  }
+  return intervals;
+}
+
+export function narrationTiming(pcm, { frames, width, height, sampleRate = 16000, fps = 30, sceneInk, regionalMotion } = {}) {
   if (!(pcm instanceof Int16Array) || !(frames instanceof Uint8Array)) throw new TypeError('Expected Int16 PCM and Uint8 ROI');
   if (sampleRate !== 16000 || fps !== 30) throw new RangeError('Expected 16 kHz audio and 30 fps video');
   const size = width * height;
@@ -89,9 +142,11 @@ export function narrationTiming(pcm, { frames, width, height, sampleRate = 16000
     throw new RangeError('Invalid caption ROI dimensions or incomplete frame');
   }
   const videoFrames = frames.length / size;
-  const { pauses, onsetWindows } = readPauses(pcm);
+  const { pauses, onsetWindows, audible } = readPauses(pcm, sceneInk !== undefined);
   const { blanks, changeFrames } = readCaptions(frames, width, height);
   return { metric: 'metric:narration.timing', unit: 's',
-    value: { pauses, onsetsSec: onsetWindows.map(i => i / 100), changeFrames, blanks, alignment: align(blanks, onsetWindows, videoFrames) },
+    value: { pauses, onsetsSec: onsetWindows.map(i => i / 100), changeFrames, blanks, alignment: align(blanks, onsetWindows, videoFrames),
+      ...(sceneInk === undefined ? {} : { sceneTransitions: sceneTransitions(sceneInk, audible) }),
+      ...(regionalMotion === undefined ? {} : { motionIntervals: motionIntervals(regionalMotion) }) },
     details: { sampleRate, fps, width, height, audioWindows: Math.floor(pcm.length / WINDOW), videoFrames } };
 }
