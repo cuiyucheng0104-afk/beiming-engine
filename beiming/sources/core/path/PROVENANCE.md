@@ -82,14 +82,14 @@ Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee
 |---|---|---|
 | `src/api.rs` | `renderer/src/api.rs` | 删去切掉的几类 |
 | `src/bvh.rs` | `renderer/src/bvh.rs` | 没改 |
-| `src/denoise.rs` | `renderer/src/denoise.rs` | 小波降噪没改；`oidn()` 的参数改照 Cycles 的口径：不设 `hdr_scale`（库自己估），签名去掉曝光，法线由调用方给降噪特征的相机空间均值（见 [README.md](README.md)「降噪的口径」） |
+| `src/denoise.rs` | `renderer/src/denoise.rs` | 小波降噪没改；`oidn()` 改照 Cycles 的口径（见 [README.md](README.md)「降噪的口径」）：不设 `inputScale`（库自己估），签名去掉曝光、加上设备与预过滤，法线由调用方给降噪特征的相机空间均值；过滤器改走 `oidn::sys` 的 C 接口（`cleanAux` 照 OIDN 的参数名设，`ACCURATE` 先单独降噪反照率与法线），返回带原因的错误 |
 | `src/desc.rs` | `renderer/src/desc.rs` | 删去切掉的几类 |
 | `src/files.rs` | `renderer/src/files.rs` | 删去切掉的几类；预设的内嵌路径改指本目录的 `presets/` |
 | `src/gpu.rs` | `renderer/src/gpu.rs` | 删去切掉的几类；接进北冥的五个着色器（见下一节）；全局参数追加四块（第四块是像素滤波表，见下一节「像素滤波与夹取」）、成像的两个编译开关、材质表与物体扩展表的上传、输出缓冲的分配与读回（见下一节末）；加了守着内核结构的测试（见下一节「四样内部结构的冻结」）；显卡上限与特性的全文：`limits_json`、`features_json` 与 `Gpu::limits_report`（`info --limits` 打的那一份），加测试 `limits_json_takes_every_limit` |
 | `src/heap.rs` | `renderer/src/heap.rs` | 删去切掉的几类；多一张物体扩展表（见下一节末） |
 | `src/lib.rs` | `renderer/src/lib.rs` | 删去切掉的几类；文档里的程序名；填全局参数追加的四块 |
 | `src/ltree.rs` | `renderer/src/ltree.rs` | 删去切掉的几类 |
-| `src/main.rs` | `renderer/src/main.rs` | 删去切掉的几类；库名与程序名；`render-pack` 的像素滤波、夹取、滤光泽参数与关掉上游的亮度夹取（见下一节「像素滤波与夹取」）；比对外壳用的 `fncheck-host` 子命令；`info --limits`；`camera_normals`（降噪特征的法线换到 Cycles 降噪特征的相机空间，出层的 `denoiseNormal` 与编进 OIDN 时的引导用同一份） |
+| `src/main.rs` | `renderer/src/main.rs` | 删去切掉的几类；库名与程序名；`render-pack` 的像素滤波、夹取、滤光泽参数与关掉上游的亮度夹取（见下一节「像素滤波与夹取」）；比对外壳用的 `fncheck-host` 子命令；`info --limits`；`camera_normals`（降噪特征的法线换到 Cycles 降噪特征的相机空间，出层的 `denoiseNormal` 与编进 OIDN 时的引导用同一份）；编进 OIDN 时 `render-pack` 照 Cycles 的行序、CPU 设备、`ACCURATE` 预过滤降噪；`denoise` 子命令（现成的三张图走同一个 `oidn()`） |
 | `src/merged.rs` | `renderer/src/merged.rs` | 删去切掉的几类；加了锁住两侧格式与编号的测试（见下一节末与「四样内部结构的冻结」） |
 | `src/pipeline_cache.rs` | `renderer/src/pipeline_cache.rs` | 没改 |
 | `src/post.rs` | `renderer/src/post.rs` | 没改 |

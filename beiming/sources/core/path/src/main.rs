@@ -17,6 +17,8 @@
 //!                         (北冥：读场景包、渲一帧。读不对时 stderr 一行 {"error":{code,at,message}}，退出码照错误码的前缀。
 //!                         --passes：照输出通道出层，每个通道一个文件，加通道声明 passes.json，见 write_passes。
 //!                         像素滤波、夹取、滤光泽照 Cycles 的口径，见 CyclesFilm；上游的亮度夹取在这一路关掉)
+//!   core-render denoise --width W --height H --color c.f32 --albedo a.f32 --normal n.f32 -o out.f32 [--device cpu|cuda|metal|default]
+//!                         [--prefilter accurate|fast|none]   # 北冥：现成的三张图走同一个 OIDN 降噪（编进了 oidn 特性时），给对拍用
 //!   core-render fncheck-host <函数标识>   # 北冥：宿主一侧照 Cycles 移植的函数，给函数级比对外壳逐组算（stdin 进 f32，stdout 出 f32）
 //!   core-render serve [--presets DIR]      # JSON-lines jobs on stdin, keeps the GPU device and game runtimes warm
 //!   core-render setup <bundle.js>          # setup cost in the embedded runtime
@@ -319,6 +321,7 @@ fn main() -> Result<()> {
             }
         }
         "fncheck-host" => fncheck_host(args.get(2).map(String::as_str).unwrap_or(""))?,
+        "denoise" => denoise_files(&flag)?,
         _ => {
             eprintln!("usage: core-render render <bundle.js> -o out.png [--assets DIR] [--state f.json] [--camera JSON] [--spp N] | pack-info <pack dir> | render-pack <pack dir> -o out.png | serve | setup | info | fncheck-host <id>");
             std::process::exit(2);
@@ -496,6 +499,32 @@ fn camera_normals(frame: &gpu::Frame, params: &gpu::Params) -> Vec<Vec3> {
     frame.normal.iter().map(|n| { let n = Vec3::from(*n); Vec3::new(n.dot(right), n.dot(up), n.dot(fwd)) }).collect()
 }
 
+/// 北冥：`denoise`：拿现成的三张图（颜色、反照率、法线，各是 RGB f32 小端、行主序、没有文件头）走 render-pack 用的同一个
+/// `denoise::oidn()`，输出同样格式的一张图；stdout 一行统计。给对拍用：别家渲染器的带噪颜色与降噪特征喂进来，和它自己降噪的结果比。
+fn denoise_files(flag: &dyn Fn(&str) -> Option<String>) -> Result<()> {
+    let need = |k: &str| flag(k).ok_or_else(|| anyhow!("denoise 要 {k}"));
+    let (w, h): (usize, usize) = (need("--width")?.parse()?, need("--height")?.parse()?);
+    let device = flag("--device").unwrap_or_else(|| "cpu".into());
+    let prefilter = flag("--prefilter").unwrap_or_else(|| "accurate".into());
+    let dev = denoise::OidnDevice::parse(&device).ok_or_else(|| anyhow!("--device 只认 cpu、cuda、metal、default"))?;
+    let pre = denoise::Prefilter::parse(&prefilter).ok_or_else(|| anyhow!("--prefilter 只认 accurate、fast、none"))?;
+    let read = |k: &str| -> Result<Vec<Vec3>> {
+        let bytes = std::fs::read(need(k)?)?;
+        if bytes.len() != w * h * 12 {
+            return Err(anyhow!("{k} 有 {} 字节，{w}×{h} 的 RGB f32 要 {}", bytes.len(), w * h * 12));
+        }
+        Ok(bytemuck::pod_collect_to_vec::<u8, f32>(&bytes).chunks(3).map(|p| Vec3::new(p[0], p[1], p[2])).collect())
+    };
+    let (color, albedo, normal) = (read("--color")?, read("--albedo")?, read("--normal")?);
+    let t = Instant::now();
+    let out = denoise::oidn(w, h, &color, &albedo, &normal, dev, pre).map_err(|e| anyhow!(e))?;
+    let ms = t.elapsed().as_secs_f64() * 1000.0;
+    let raw: Vec<f32> = out.iter().flat_map(|c| [c.x, c.y, c.z]).collect();
+    std::fs::write(need("-o")?, bytemuck::cast_slice(&raw))?;
+    println!("{}", serde_json::json!({ "denoise": "oidn", "device": device, "prefilter": prefilter, "quality": "high", "width": w, "height": h, "denoise_ms": (ms * 10.0).round() / 10.0 }));
+    Ok(())
+}
+
 /// PREFIX-diffuse.raw, -specular.raw, -emission.raw (RGB f32 each).
 fn write_signals(prefix: &Path, diffuse: &[f32], specular: &[f32], emission: &[f32]) -> Result<()> {
     if let Some(parent) = prefix.parent() {
@@ -580,8 +609,18 @@ fn finish(g: &gpu::Gpu, mut sc: scene::Scene, job: &Job, init_ms: f64, mut timin
     let color = if denoise {
         let albedo: Vec<Vec3> = frame.albedo.iter().map(|c| Vec3::from(*c)).collect();
         let normal: Vec<Vec3> = frame.normal.iter().map(|c| Vec3::from(*c).normalize_or_zero()).collect();
-        // 北冥：OIDN 的法线是相机空间的均值（照 Cycles），只在编进了 OIDN 时算；小波降噪照旧用世界空间、逐像素归一的
-        let oidn = if cfg!(feature = "oidn") { denoise::oidn(w, h, &color, &albedo, &camera_normals(&frame, &params)) } else { None };
+        // 北冥：OIDN 的法线是相机空间的均值（照 Cycles），只在编进了 OIDN 时算；小波降噪照旧用世界空间、逐像素归一的。
+        // 设备与预过滤取 Cycles 最终渲染的默认：CPU、ACCURATE（质量 HIGH 在 oidn() 里）。Cycles 的渲染缓冲第一行是画面最下面
+        // 一行，这里的帧第一行是最上面一行；卷积网络对上下翻转不逐位不变，所以照 Cycles 的行序喂进去、出来再翻回
+        let oidn = if cfg!(feature = "oidn") {
+            let flip = |v: &[Vec3]| -> Vec<Vec3> { v.chunks(w).rev().flatten().copied().collect() };
+            denoise::oidn(w, h, &flip(&color), &flip(&albedo), &flip(&camera_normals(&frame, &params)), denoise::OidnDevice::Cpu, denoise::Prefilter::Accurate)
+                .map(|c| flip(&c))
+                .map_err(|e| eprintln!("oidn: {e}"))
+                .ok()
+        } else {
+            None
+        };
         match oidn {
             Some(c) => {
                 denoiser = "oidn";

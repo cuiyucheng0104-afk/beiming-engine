@@ -102,25 +102,35 @@ core-render render-pack <包目录> -o out.png [--frame k] [--spp N] [--width W 
 
 ## 降噪的口径
 
-`render-pack` 与 `render` 的 `--hdr`、PNG 是降噪之后的（`--no-denoise` 或预设里 `native.denoise` 为假时不降噪；`--passes` 的 `color` 永远不降噪）。编进了 OIDN（cargo 特性 `oidn`）时先试 `src/denoise.rs` 的 `oidn()`，拿不到设备或出错就退回自带的小波降噪，stats 的 `denoise` 记 `oidn` 或 `atrous`。仓库里现成的构建都没开这个特性（`../chassis/build.mjs` 不加 `--features`），所以到现在出的帧都是小波降噪。
+`render-pack` 与 `render` 的 `--hdr`、PNG 是降噪之后的（`--no-denoise` 或预设里 `native.denoise` 为假时不降噪；`--passes` 的 `color` 永远不降噪）。编进了 OIDN（cargo 特性 `oidn`，构建档见下一节）时先试 `src/denoise.rs` 的 `oidn()`，拿不到设备或出错就在 stderr 记一行 `oidn: …`、退回自带的小波降噪，stats 的 `denoise` 记 `oidn` 或 `atrous`。默认档（`../chassis/build.mjs` 的 `buildRenderer`，第 2 级与回归用的就是它）不编 OIDN，出的帧是小波降噪。
 
-`oidn()` 的参数对着 Cycles（Blender 5.2.3）最终渲染的降噪接法。能读到的 Cycles 源码只有内核里写降噪特征的 `kernel/film/denoising_passes.h` 与界面属性 `blender/addon/properties.py`；宿主一侧的 `integrator/denoiser_oidn.cpp`、`integrator/denoiser_oidn_gpu.cpp`、`device/` 下的 OIDN 设备接法、`scene/` 里 film 与 pass 的设置都没读到，那几行标「未读到」，写的是 OIDN 接口的默认值与对 Cycles 的记忆，要拿到源码核。
+降噪后的颜色不进出层：输出通道契约（`beiming/kernel/contracts/passes/`）第 1 节写明降噪之后的颜色不在那一套通道里，也没给它起名字，所以降噪后的线性颜色只从 `--hdr <文件>` 出（RGB f32 小端、行主序、没有文件头，与出层的层文件同一种写法；编进 OIDN 时就是 OIDN 的结果），`--passes` 里的 `color` 仍是未降噪的样本均值。同一次渲染里，`--hdr` 与把出层的 `color`（取 RGB）、`denoiseAlbedo`、`denoiseNormal` 喂给下面的 `denoise` 子命令（按 Cycles 的行序翻过去再翻回来）得到的结果逐位相同（Mac 上 `part_03B` 第 12 帧实测）。
+
+`oidn()` 照 Cycles（Blender 5.2）最终渲染的 OIDN 降噪接法。Cycles 宿主一侧的源码（`integrator/denoiser_oidn*.cpp`）本机仍没有；下表「Cycles」一栏里写「对拍」的，是由下面「和 Blender 对拍」的读数定下来的：照这一栏设，两边差在 1e-3 以内（Metal 逐位相同）；对 Cycles 的 `ACCURATE` 结果，这边不翻行序、或用 `FAST`、`NONE` 的设法，最大绝对差都在 2.6 以上。
 
 | 参数 | Cycles | 改之前（上游原样） | 现在 |
 |---|---|---|---|
-| 过滤器 | `RT`（未读到） | `RT` | `RT` |
+| 过滤器 | `RT` | `RT` | `RT`，经 C 接口建（见下） |
 | 输入的层 | 颜色、反照率、法线：界面属性 `denoising_input_passes` 默认 `RGB_ALBEDO_NORMAL` | 同 | 同 |
-| 法线 | 相机空间（`denoising_passes.h` 用 `worldtocamera` 变过去），样本累积的均值，乘不透明度与特征权重，不归一 | 世界空间，逐像素归一 | 相机空间的均值，不归一：与出层的 `denoiseNormal` 是同一份 |
+| 法线 | 相机空间（`denoising_passes.h` 用 `worldtocamera` 变过去），样本累积的均值，不归一 | 世界空间，逐像素归一 | 相机空间的均值，不归一：与出层的 `denoiseNormal` 是同一份 |
 | 反照率 | 首次命中处漫反射类闭包的反照率（`denoising_passes.h`） | 内核的反照率均值 | 不变（就是出层的 `denoiseAlbedo`） |
-| `hdr` | 开（未读到） | 开 | 开 |
-| `hdrScale`（2.x 叫 `inputScale`） | 不设，库从图上估（未读到） | 设成曝光系数 | 不设 |
-| `srgb` | 关（未读到） | 关 | 关 |
-| 输入乘不乘曝光 | 场景线性的样本均值，曝光在显示变换里（未读到） | 颜色不乘，但曝光经 `hdrScale` 进了降噪 | 不乘，也不进降噪 |
-| 预过滤、`cleanAux` | 界面属性 `denoising_prefilter` 默认 `ACCURATE`：先单独降噪反照率与法线，再按干净的辅助层降噪颜色；`FAST` 是颜色与辅助层一起降噪；`NONE` 当辅助层没有噪声。各档在 OIDN 上怎么设（`ACCURATE` 另开两个过滤器预过滤、`cleanAux` 开；`FAST` 关）未读到 | 不预过滤，`cleanAux` 取默认（关） | 不变：相当于 `FAST`。`ACCURATE` 还没做：要单独降噪辅助层的接口，没见到 crate 的源码，不敢写 |
-| 质量 | 界面属性 `denoising_quality` 默认 `HIGH`（视口是 `BALANCED`） | `High` | `High` |
-| 设备 | 界面属性 `denoising_use_gpu` 默认关：最终渲染在 CPU 上降噪，勾上才用渲染所在的显卡 | 库的默认设备（OIDN 挑最快的一个） | 不变 |
+| `hdr` / `srgb` | 开 / 关（对拍） | 开 / 关 | 开 / 关 |
+| `inputScale`（旧名 `hdrScale`） | 不设，库从图上估（对拍） | 设成曝光系数 | 不设（OIDN 2.5 的默认是 NaN，即自己估） |
+| 输入乘不乘曝光 | 场景线性的样本均值，曝光在显示变换里 | 颜色不乘，但曝光经 `hdrScale` 进了降噪 | 不乘，也不进降噪 |
+| 预过滤、`cleanAux` | 界面属性 `denoising_prefilter` 默认 `ACCURATE`：先各用一个 `RT` 过滤器原地降噪反照率与法线（同一质量），颜色那一遍开 `cleanAux`；`FAST` 不预过滤、`cleanAux` 关；`NONE` 不预过滤、`cleanAux` 开（对拍：三档在 Blender 与这边各设成同一档，CPU 上最大相对差都不到 7e-6） | 不预过滤，`cleanAux` 取默认（关） | `ACCURATE`（`render-pack`）；`denoise` 子命令三档都能选 |
+| 质量 | 界面属性 `denoising_quality` 默认 `HIGH` | `High` | `HIGH`，预过滤的两个过滤器也是 |
+| 设备 | 界面属性 `denoising_use_gpu` 默认关：最终渲染在 CPU 上降噪 | 库的默认设备（OIDN 挑最快的一个） | `render-pack` 固定 CPU；`denoise` 子命令 `--device cpu|cuda|metal|default` |
+| 行序 | 渲染缓冲第一行是画面最下面一行（对拍：不翻时最大绝对差 2.66） | 画面第一行是最上面一行 | 喂进去之前上下翻成 Cycles 的行序，出来再翻回 |
 
-所以要和 Blender 对拍降噪，Blender 那边要设 `denoising_prefilter = 'FAST'`、`denoising_quality = 'HIGH'`，两边的设备要一样（Blender 勾「在 GPU 上降噪」对这里的显卡设备，或这里改用 CPU 设备）。还没实测的：上面标「未读到」的每一行、`oidn()` 能不能编过（两台机器的 cargo 缓存里现在都有 `oidn` 2.5.1 与它的依赖，是按 `Cargo.lock` 取的；`../chassis/build.mjs` 调 cargo 时，环境变量 `CARGO_NET_OFFLINE` 为真就带 `--offline`，清构建目录一律带）、编进去之后两边喂同一份带噪输入差多少。没编进 OIDN 的构建不受这次改动影响：小波降噪的输入与代码都没动，相机空间的法线只在编进了 OIDN 时才算。
+`oidn` crate 2.5.1（源码在 cargo 缓存里，已读）的 `RayTracing` 不够用：它的 `clean_aux()` 设的参数名是 `clean_aux`，OIDN 2.5 只认 `cleanAux`（Blender 自带库里只有这个字串），设了等于没设；它也没有单独降噪辅助层的接口。所以 `oidn()` 只用 crate 的设备与缓冲（`Device::cpu()` 等、`create_buffer`、`read`），过滤器全走它带的 C 绑定 `oidn::sys`（`oidnNewFilter`、`oidnSetFilterImage`、`oidnSetFilterBool`、`oidnSetFilterInt`、`oidnCommitFilter`、`oidnExecuteFilter`），参数名照 OIDN：`hdr`、`srgb`、`cleanAux`、`quality`。
+
+现成的三张图也能直接降噪，给对拍用（编进了 OIDN 才有，否则报错退出）：
+
+```sh
+core-render denoise --width W --height H --color c.f32 --albedo a.f32 --normal n.f32 -o out.f32 [--device cpu] [--prefilter accurate]
+```
+
+三张输入与输出都是 RGB f32 小端、行主序、没有文件头，原样喂给 `oidn()`（不翻行序）；stdout 一行统计（设备、预过滤、质量、耗时）。
 
 ### 链接 Blender 自带的 OIDN（构建档的设计，还没落地）
 
