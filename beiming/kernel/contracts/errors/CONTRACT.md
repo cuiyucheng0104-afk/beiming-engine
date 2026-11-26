@@ -96,6 +96,7 @@
 | `contract.delivery-mismatch` | 交付核对或文件摘要不符 | 合成交付 |
 | `contract.immutable-key` | 改了创建之后不得改的键 | D15、5.6 |
 | `contract.output-conflict` | 开着原生运动模糊时要了和它冲突的输出 | F5 |
+| `contract.over-budget` | 作业声明的预算超过这一档的上限，或者镜头、场景包要的超过声明的预算（准入本身到了时限也报这个码） | 帧源接口契约（F）5.15 |
 | `contract.order-cycle` | 卡的先后要求排不出次序：成环，或提到了镜头里没有的卡 | CR 契约 5.2（CR9 不比码） |
 | `contract.patch-not-applicable` | 补丁里有一个操作不可作用 | PA4、5.6（PA4 不比码） |
 | `contract.runtime-shadows-param` | `ctx.cards.use` 的 `runtime` 里有键和这张卡声明的参数同名 | 镜头契约（S）管 `ctx.cards.use` 的那条不变量 |
@@ -110,11 +111,14 @@
 | `contract.unsupported-output` | 要了帧源没声明过的输出 | F3 |
 | `contract.unsupported-query` | 问了帧源没声明过的场景查询种类 | F8 |
 | `env.ffmpeg-missing` | 找不到 FFmpeg 可执行文件 | 感知组件联系表与切点条带，B14 变更单 |
+| `env.lib-mismatch` | 本机要加载的动态库的 sha256 和锁文件里钉住的不同；这里的锁文件是帧源钉库的那份，不是锁文件契约（LK）的锁 | 帧源接口契约（F）5.15 |
 | `env.lock-required` | 没有锁文件，镜头却要用只有锁文件里才有的东西 | F14 |
 | `env.missing-tool` | 找不到执行当前操作所需的外部工具（例如出帧或烘表需要 Blender） | 5.4、EN4 |
 | `failure.ffmpeg` | FFmpeg 进程执行失败 | 感知组件联系表与切点条带，B14 变更单 |
+| `timeout.budget` | 作业用完了声明的墙钟预算，起的进程树被杀 | 帧源接口契约（F）5.15 |
 | `timeout.ffmpeg` | FFmpeg 进程超过调用时限 | 感知组件联系表与切点条带，B14 变更单 |
 | `usage.bad-argument` | 调用的参数出了值域 | F23、5.6 第 1 步和第 3 步 |
+| `usage.budget-required` | 要求声明预算的作业没带预算，或者预算少一项、多一项、值出了值域 | 帧源接口契约（F）5.15 |
 
 ### 5.4 新错误码怎么加
 
@@ -197,3 +201,4 @@
 | 2026-11-20 | 5.6 开头和第 6 步 | 开头写明存着的片子本身合「JSON 文本」「重复的键」且不含读出来是无穷的数；两处 `params` 子树里的嵌套照算进 128 层上限、不受「不判值」豁免 |
 | 2026-11-20 | 5.6 第 4 步 | 按标识或实例名寻址的那一段本身（除那五个数组后面的 ASCII 十进制数字串算按下标之外）和映射键一样这一步都不判，有没有这一项、写法合不合 D 5.1 归第 5、6 步，和 D5「怎么查」及判定函数一致 |
 | 2026-11-21 | 5.3、`errors.json` | 按 B14 授权登记 `env.ffmpeg-missing`、`timeout.ffmpeg`、`failure.ffmpeg`，供感知组件返回符合 EN4 的失败信封 |
+| 2026-11-27 | 5.3、`errors.json` | 按变更单加 4 个码：`usage.budget-required`、`contract.over-budget`、`timeout.budget`、`env.lib-mismatch`，由帧源接口契约新立的 5.15 点名。核心帧源的预算准入、墙钟预算和原生库校验原来报的码没登记，信封里只能借近义码（EN4）。只往登记表里加码，结构、格式标识和前缀表都没动，已有的错误码表和已有的实现照旧合规，不升次版本（契约写法约定第 6 节） |

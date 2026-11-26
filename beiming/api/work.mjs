@@ -572,8 +572,7 @@ export function createWork({ store, library, reviewer, scheduler }) {
     const lane = core ? 'core' : kind === 'verify' ? 'verify' : tier === 'final' ? 'final' : 'draft';
     // 核验作业不要求声明预算：墙钟取这一档的上限，由服务端填进作业记录，执行器照它收 core-render
     if (core && kind === 'verify') payload = { ...payload, budget: { maxWallMs: WALL_MAX[tier] } };
-    // 核心作业入队之前过准入：没声明预算、声明的采样超档位上限、场景包的三角形数超声明，都不进队列。
-    // 新码不在错误码表里：信封里报登记过的近义码，原码记在诊断的 evidence
+    // 核心作业入队之前过准入：没声明预算、声明的采样超档位上限、场景包的三角形数超声明，都不进队列（帧源接口契约 5.15 的码）
     if (lane === 'core' && kind === 'render') {
       const shots = payload.plan.flatMap((p) => {
         const shot = film.shots.find((s) => s.id === p.shot);

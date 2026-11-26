@@ -17,7 +17,6 @@ import { PRESETS } from '../sources/core/chassis/build.mjs';
 import { platesPack, writePack } from '../sources/core/chassis/scenepack.mjs';
 import { ADMIT_MS, WALL_MAX, findRenderer, startSource } from '../sources/core/source.mjs';
 import { renderPlan, sourcePool } from './pipeline.mjs';
-import { isRegistered } from './envelope.mjs';
 import { createStore } from './store.mjs';
 import { createWork } from './work.mjs';
 
@@ -202,19 +201,20 @@ test('草稿档里有核心镜头的渲染作业走 core 道，没有的走 draf
   assert.deepEqual(job.payload.budget, { maxWallMs: WALL_MAX.draft });
 });
 
-test('核心作业的准入：预算缺了、采样超档位上限或超声明、三角形数超声明都在入队之前拒，诊断带原码', { timeout: 30_000 }, async (t) => {
+test('核心作业的准入：预算缺了、采样超档位上限或超声明、三角形数超声明都在入队之前拒，报登记过的码本身', { timeout: 30_000 }, async (t) => {
   useRenderer(t, fakeRenderer(t));
   const { store, id, work } = served(t);
   const plan = [{ shot: 's01', frames: [0] }];
   const reject = (budget) => {
     try { work.submit(id, 'render', { tier: 'draft', rev: 0, plan, ...(budget === undefined ? {} : { budget }) }); } catch (e) {
-      return { code: e.code, original: e.diagnostics?.[0]?.evidence, message: e.message };
+      return { code: e.code, diag: e.diagnostics?.[0]?.code, evidence: e.diagnostics?.[0]?.evidence, message: e.message };
     }
     return null;
   };
-  const missing = { code: 'usage.bad-argument', original: '原码 usage.budget-required' };
-  const over = { code: 'contract.bad-value', original: '原码 contract.over-budget' };
-  const pick = (r) => r && { code: r.code, original: r.original };
+  // 码登记过了：信封和诊断报的都是它本身，不借近义码，诊断里也没有「原码」
+  const missing = { code: 'usage.budget-required', diag: 'usage.budget-required', evidence: undefined };
+  const over = { code: 'contract.over-budget', diag: 'contract.over-budget', evidence: undefined };
+  const pick = (r) => r && { code: r.code, diag: r.diag, evidence: r.evidence };
   assert.deepEqual(pick(reject(undefined)), missing, '没声明预算');
   assert.deepEqual(pick(reject({ maxTriangles: 100, spp: 24 })), missing, '少一项');
   assert.deepEqual(pick(reject({ ...BUDGET, spp: 0 })), missing, '不是正整数');
@@ -240,8 +240,9 @@ test('准入的 pack-info 挂住时，一次提交最多把服务端挡住 ADMIT
   const t0 = performance.now();
   const e = (() => { try { work.submit(id, 'render', { tier: 'draft', rev: 0, plan: [{ shot: 's01', frames: [0] }], budget: BUDGET }); } catch (x) { return x; } return null; })();
   const took = performance.now() - t0;
-  t.diagnostic(`pack-info 挂住：提交 ${Math.round(took)} ms 后被拒，${e?.diagnostics?.[0]?.evidence}`);
-  assert.equal(e?.diagnostics?.[0]?.evidence, '原码 contract.over-budget', e?.message);
+  t.diagnostic(`pack-info 挂住：提交 ${Math.round(took)} ms 后被拒，${e?.code}`);
+  assert.equal(e?.code, 'contract.over-budget', e?.message);
+  assert.equal(e.diagnostics?.[0]?.code, 'contract.over-budget');
   assert.match(e.message, new RegExp(`准入的 ${ADMIT_MS} ms 里数不完`));
   assert.ok(took >= ADMIT_MS && took < ADMIT_MS + 2000, `到时限才拒：${Math.round(took)} ms`);
   assert.deepEqual(loadQueue(store.filmDir(id)).listJobs(), []);
@@ -328,8 +329,8 @@ test('经服务端提交的核心作业到声明的墙钟预算被杀：作业 f
   const { base, outcome } = work.view(id, job);
   t.diagnostic(`声明 ${WALL} ms：${Math.round(took)} ms 时作业 ${base.status}，结论码 ${outcome?.code}`);
   assert.equal(base.status, 'failed', JSON.stringify(outcome));
-  // 错误码表里登记了 timeout.budget 就报它本身；还没登记时报登记过的近义码，原码在信息里
-  assert.equal(outcome.code, isRegistered('timeout.budget') ? 'timeout.budget' : 'contract.bad-value');
+  assert.equal(outcome.code, 'timeout.budget');
+  assert.equal(outcome.diagnostics?.[0]?.code, 'timeout.budget');
   assert.match(outcome.message, /timeout\.budget/);
   assert.deepEqual(outcome.next.map((n) => n.verb), [`POST /v1/films/${id}/render`], '超时的提示是重新提交渲染，不叫人改片子');
   assert.ok(took >= WALL && took < WALL + 5000, `到预算才杀：用了 ${Math.round(took)} ms`);
