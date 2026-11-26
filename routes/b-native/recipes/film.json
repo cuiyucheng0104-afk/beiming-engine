@@ -29,6 +29,7 @@
         "to": "prop.glb", "module": "prop-model.mjs", "export": "createProp", "length": 1.6, "prefix": "prop",
         "args": { "period": 3, "colors": { "body": "#E8D9C4", "band": "#C8463C", "cap": "#2A2D52", "lamp": "#FFD9A0" } },
         "clip": { "name": "Idle", "pose": "pose", "duration": 3, "fps": 24, "loop": true },
+        "meta": { "source": "beiming-engine/routes/b-native/template/prop.js createProp" },
         "validate": { "animated": true, "clip": "Idle", "duration": 3, "nodes": ["prop-float", "prop-vane"] }
       }
     ]
