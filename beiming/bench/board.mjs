@@ -40,7 +40,7 @@ const SCORED = ['pass', 'fail', 'error', 'timeout', 'failed', 'expected-fail'];
 const CARD_STATUS = { read: 'read-only', 'read-only': 'read-only', candidate: 'candidate', reproduced: 'reproduced', measured: 'verified', verified: 'verified', 'film-verified': 'production-proven', 'production-proven': 'production-proven' };
 const STATUS_ORDER = ['read-only', 'candidate', 'reproduced', 'verified', 'production-proven'];
 const RULERS = ['noise.residual', 'clip.highlight-ratio', 'alias.edge'];
-const INPUT_KEYS = ['asOf', 'questions', 'results', 'cards', 'sourceCapabilities', 'ledger', 'jobs', 'parity', 'energy', 'blindPicks', 'pureFunctionGate', 'locality', 'rebuild', 'priors', 'packParity', 'harvest', 'history', 'scoreboardMetric', 'frameMeta', 'coreVsCycles'];
+const INPUT_KEYS = ['asOf', 'questions', 'results', 'cards', 'sourceCapabilities', 'ledger', 'jobs', 'parity', 'energy', 'blindPicks', 'pureFunctionGate', 'locality', 'rebuild', 'priors', 'packParity', 'harvest', 'history', 'scoreboardMetric', 'frameMeta', 'coreVsCycles', 'maskHiddenIds'];
 
 /* ---------------- 入参门禁 ---------------- */
 
@@ -303,7 +303,7 @@ function readHistory(input, at) {
 
 /* ---------------- 矩阵 ---------------- */
 
-function buildMatrix({ asOf, questions, results, cards, caps, previous }) {
+function buildMatrix({ asOf, questions, results, cards, caps, previous, maskHiddenIds = false }) {
   const byId = new Map(questions.map((q) => [q.id, { ...q, hasUnmeasured: false }]));
   for (const r of results) {
     const row = byId.get(r.questionId);
@@ -339,7 +339,20 @@ function buildMatrix({ asOf, questions, results, cards, caps, previous }) {
   const calibrationChanges = [];
 
   const sorted = [...byId.values()].sort((a, b) => a.level - b.level || cmp(a.id, b.id));
+  const idMap = new Map();
+  let hiddenSeq = 0;
+  const hiddenLevelSeq = new Map();
   const rows = sorted.map((row) => {
+    let publicId = row.id;
+    let publicTitle = row.hidden ? `隐藏题 ${row.id}` : row.title;
+    if (row.hidden && maskHiddenIds) {
+      hiddenSeq += 1;
+      const lvSeq = (hiddenLevelSeq.get(row.level) ?? 0) + 1;
+      hiddenLevelSeq.set(row.level, lvSeq);
+      publicId = `hidden-L${row.level}-${lvSeq}`;
+      publicTitle = `隐藏题 #${hiddenSeq}`;
+    }
+    idMap.set(row.id, publicId);
     const cells = columns.map(({ source, model }) => {
       const hit = latest.get(tupleKey(row.id, source, model));
       const runCount = row.hidden ? {} : { runs: hit?.runs ?? 0 };
@@ -351,13 +364,13 @@ function buildMatrix({ asOf, questions, results, cards, caps, previous }) {
       return { kind: 'scored', status, pass: status === 'pass', score, display: String(Math.round(score * 1000) / 1000), ...(row.hidden ? {} : { unmeasured }), ...runCount };
     });
     const calibration = row.calibration && { version: row.calibration.version, status: row.calibration.status };
-    const old = before.get(row.id);
+    const old = before.get(publicId) ?? before.get(row.id);
     const calibrationChanged = Boolean(calibration) && (row.calibration.updatedAt === asOf || (Boolean(old) && (old.version !== calibration.version || old.status !== calibration.status)));
-    if (calibrationChanged) calibrationChanges.push({ questionId: row.id, ...calibration, previous: old ? { version: old.version ?? null, status: old.status ?? null } : null });
+    if (calibrationChanged) calibrationChanges.push({ questionId: publicId, ...calibration, previous: old ? { version: old.version ?? null, status: old.status ?? null } : null });
     const { mean: rowMean, scoredCells } = stat(cells);
     return {
-      // 隐藏题只落总分和状态：题面、标题、needs、阻塞原因、逐项都不出
-      questionId: row.id, level: row.level, hidden: row.hidden, title: row.hidden ? `隐藏题 ${row.id}` : row.title,
+      // 隐藏题只落总分和状态：题面、标题、needs、阻塞原因、逐项都不出；maskHiddenIds 开启时连原始题号一并掩码
+      questionId: publicId, level: row.level, hidden: row.hidden, title: publicTitle,
       expectedFail: row.expectedFail || (!row.given && cells.some((cell) => cell.status === 'expected-fail')),
       calibration, calibrationChanged, cells, rowMean, scoredCells,
     };
@@ -368,7 +381,7 @@ function buildMatrix({ asOf, questions, results, cards, caps, previous }) {
     .map((value) => ({ [name]: value, ...stat(rows.flatMap((row) => row.cells.filter((_, i) => columns[i][name] === value))) }));
   const { mean: overallMean, scoredCells } = stat(all);
   return {
-    sorted, calibrationChanges,
+    sorted, idMap, calibrationChanges,
     matrix: {
       unsupportedReason: UNSUPPORTED_REASON,
       columns: columns.map((column, i) => ({ ...column, ...stat(rows.map((row) => row.cells[i])) })),
@@ -1036,12 +1049,13 @@ function checkBoard(board) {
 export function buildBoard(inputs) {
   const input = only(obj(intake(inputs, '入参'), '入参'), INPUT_KEYS, '入参');
   const asOf = day(input.asOf, 'asOf');
+  const maskHiddenIds = input.maskHiddenIds === undefined ? false : (typeof input.maskHiddenIds === 'boolean' ? input.maskHiddenIds : bad('maskHiddenIds 必须是布尔值'));
   const cards = readCards(input.cards);
   const jobs = readJobs(input.jobs);
   const earlier = readHistory(input.history, '/history');
   // 和前一天（不是当天上一次）比校准：同一天重跑结果不变
   const previous = earlier.filter((row) => row.asOf < asOf).sort((a, b) => cmp(a.asOf, b.asOf)).at(-1);
-  const { matrix, sorted, calibrationChanges } = buildMatrix({ asOf, questions: readQuestions(input.questions), results: readResults(input.results), cards, caps: readCapabilities(input.sourceCapabilities), previous });
+  const { matrix, sorted, idMap, calibrationChanges } = buildMatrix({ asOf, questions: readQuestions(input.questions), results: readResults(input.results), cards, caps: readCapabilities(input.sourceCapabilities), previous, maskHiddenIds });
   const rebuild = input.rebuild === undefined ? emptyObj() : only(obj(input.rebuild, '/rebuild'), ['exact', 'tolerance', 'nightlyLegacy'], '/rebuild');
   const scoreboardMetric = readScoreboardMetric(input.scoreboardMetric);
   const coreFrameShare = readFrameMeta(input.frameMeta);
@@ -1070,7 +1084,7 @@ export function buildBoard(inputs) {
     ...(scoreboardMetric ? { scoreboardMetric } : {}),
     ...(coreVsCycles ? { coreVsCycles } : {}),
   };
-  const datedIds = new Set(sorted.filter((q) => q.calibration?.updatedAt === asOf).map((q) => q.id));
+  const datedIds = new Set(sorted.filter((q) => q.calibration?.updatedAt === asOf).map((q) => idMap.get(q.id) ?? q.id));
   return freezeOut({ ...board, history: upsert(earlier, historyRow(board, datedIds)) });
 }
 
@@ -1227,7 +1241,14 @@ ${facts([
   const grid = h`<div class="scroll"><table>
 <caption>每格是这道题在这个帧源、这个做题模型上最新一次的得分（0 到 1）。写着「${UNSUPPORTED_REASON}」的格和没跑的格不进任何均分；做题出错、超时、预期失败记 0 分，照算。</caption>
 <thead><tr><th scope="col">考题</th>${matrix.columns.map((column) => h`<th scope="col">${who(column)}</th>`)}<th scope="col">行均分</th></tr></thead>
-<tbody>${matrix.rows.map((row) => h`<tr><th scope="row">${row.hidden ? `隐藏题 ${row.questionId}` : row.questionId} <small>${fmt(row.level, 0)} 级</small>${row.hidden ? '' : h` ${row.title ?? ''}`}${row.expectedFail ? h`<span class="badge">预期失败</span>` : ''}${row.calibrationChanged ? h`<span class="badge">今日校准变更</span>` : ''}</th>${row.cells.map(cellHtml)}<td>${fmt(row.rowMean)}</td></tr>`)}</tbody>
+<tbody>${matrix.rows.map((row) => {
+    const hiddenLabel = row.hidden
+      ? (typeof row.title === 'string' && /^隐藏题 #[1-9]\d*$/.test(row.title)
+        ? row.title
+        : `隐藏题 ${row.questionId}`)
+      : row.questionId;
+    return h`<tr><th scope="row">${hiddenLabel} <small>${fmt(row.level, 0)} 级</small>${row.hidden ? '' : h` ${row.title ?? ''}`}${row.expectedFail ? h`<span class="badge">预期失败</span>` : ''}${row.calibrationChanged ? h`<span class="badge">今日校准变更</span>` : ''}</th>${row.cells.map(cellHtml)}<td>${fmt(row.rowMean)}</td></tr>`;
+  })}</tbody>
 <tfoot><tr><th scope="row">列均分</th>${matrix.columns.map((column) => h`<td>${fmt(column.mean)}</td>`)}<td>${fmt(matrix.overallMean)}</td></tr></tfoot>
 </table></div>
 ${facts([
@@ -1453,6 +1474,7 @@ const BUILD = {
       priors: { type: 'list', placeholder: '文件,…', desc: '先验表（priors/0.1），可以写几份' },
       'core-vs-cycles': { type: 'string', placeholder: '文件或目录', desc: '核心对 Cycles（G 组与 V19）结果 JSON 文件或目录' },
       extra: { type: 'string', placeholder: '文件', desc: `别处来的数，一个 JSON 对象，键只能是 ${EXTRA_KEYS.join('、')}` },
+      'mask-hidden-ids': { type: 'boolean', desc: '将隐藏题原始题号掩码为匿名编号（hidden-L<级>-<序号> / 隐藏题 #<序号>）' },
     },
     notes: ['输入里有 lab://、原包或案例库路径、exams-hidden、本机路径、裸哈希，或题目没过校验时不写任何文件（exit 2 / 4）。', '标准输出是一行 JSON 摘要。'],
   },
@@ -1460,7 +1482,7 @@ const BUILD = {
     if (!opts['out-dir']) throw usageError('缺少 --out-dir', '写 --out-dir <目录>', 'usage.missing-argument');
     const outDir = path.resolve(cliPath(opts['out-dir'], '输出目录'));
     // 纯函数不读墙钟：没写日期时在这里取一次 UTC 当天
-    const inputs = { asOf: opts['as-of'] ?? new Date().toISOString().slice(0, 10) };
+    const inputs = { asOf: opts['as-of'] ?? new Date().toISOString().slice(0, 10), ...(opts['mask-hidden-ids'] ? { maskHiddenIds: true } : {}) };
     if (opts['questions-dir']) {
       inputs.questions = jsonFilesIn(cliPath(opts['questions-dir'], '题目目录'), '题目目录').filter(({ data }) => data?.format === QUESTION_FORMAT).map(({ raw, data, rel }) => {
         // 用原文校验：重复的键里夹带的泄露只有原文查得出。不回显逐条问题（隐藏题的内容可能在里面）

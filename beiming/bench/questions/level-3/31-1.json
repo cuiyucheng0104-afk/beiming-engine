@@ -1,7 +1,7 @@
 {
   "format":"question/0.1", "id":"31-1", "level":3,
   "title":"跨机位的硬表面标注与硬切",
-  "brief":"在 Blender 硬表面主体上叠加 three 透明二维标注，锚点取自每帧元数据。换机位重渲时不得改动一字节二维代码或标注配置：标注仍跟随主体，中心误差不超过 2 像素。第 72 帧硬切到第二镜头，切点不得有任何叠影。",
+  "brief":"在 Blender 硬表面主体上叠加 three 透明二维标注，锚点取自每帧元数据。换机位重渲时不得改动一字节二维代码或标注配置：标注仍跟随主体，中心误差不超过 2 像素。第 72 帧硬切到第二镜头，切点不得有任何叠影。请在工作目录保留 deliverable.mp4、verification/alternate.mp4、双机位逐帧锚点元数据（verification/frames-A.json 与 frames-B.json）及二维标注源码配置（source/overlay.mjs 与 source/overlay.json）。",
   "deliverable":{"size":[1280,720],"fps":"24/1","frames":120,"audio":"none"},
   "assets":{}, "refs":["bench/refs/level-3/31-1.json"],
   "basePredicates":["delivery(width=1280, height=720, fps=24, frames=120)", "cut_at(72)", "inside_frame(hero, 0.02) @ [0,72)", "no_ghost(72) @ [71,74)"],
@@ -16,5 +16,5 @@
   "budget":{"tokens":1800000,"wallMs":2400000,"gpuSeconds":300},
   "flags":{"hidden":false,"expectedFail":false,"blockedBy":[]},
   "calibration":{"status":"uncalibrated","source":"公开双机位锚点与逐帧合成像素对照。","noiseFloor":null,"version":0},
-  "ext":{"bench.code":"X7-1","bench.m3AcceptanceIncluded":true}
+  "ext":{"bench.code":"X7-1","bench.m3AcceptanceIncluded":true,"bench.evidenceFiles":["deliverable.mp4","verification/alternate.mp4","verification/frames-A.json","verification/frames-B.json","source/overlay.mjs","source/overlay.json"]}
 }

@@ -3,7 +3,7 @@
   "id": "42-1",
   "level": 4,
   "title": "峡谷吐息整镜：脊线运动、三层射流粒子与线性 HDR 后期链联调",
-  "brief": "在单镜内完整合成三维向心引导轨弧长延迟扫掠脊线、平行输运与曲率倾斜标架、闭式指数阻尼三层吐息粒子云、多发光体能量加权聚光池，以及半分辨率双边环境光遮蔽、多级泛光、体积光散射与 ACES 终混调色链输出 sRGB 成片。各代表采样帧的火舌亮峰归一化位置偏差、火舌主轴投影跨度相对误差、泛光横向自然衰减半径相对误差及相邻代表帧对联合火区帧间变化活力相对误差均须满足公开阈值表对应门限。",
+  "brief": "在单镜内完整合成三维向心引导轨弧长延迟扫掠脊线、平行输运与曲率倾斜标架、闭式指数阻尼三层吐息粒子云、多发光体能量加权聚光池，以及半分辨率双边环境光遮蔽、多级泛光、体积光散射与 ACES 终混调色链输出 sRGB 成片。各代表采样帧的火舌亮峰归一化位置偏差、火舌主轴投影跨度相对误差、泛光横向自然衰减半径相对误差及相邻代表帧对联合火区帧间变化活力相对误差均须满足公开阈值表对应门限。请在工作目录保留 deliverable.mp4 供宿主逐帧解码核验。",
   "deliverable": { "size": [1920, 1080], "fps": "60/1", "frames": 96, "audio": "none" },
   "assets": {},
   "refs": ["bench/refs/level-4/42-1.json", "bench/questions/level-4/gates-m4.json"],
@@ -68,5 +68,5 @@
     "noiseFloor": 0,
     "version": 1
   },
-  "ext": { "bench.code": "M4-SHOT", "bench.fullShot": true }
+  "ext": { "bench.code": "M4-SHOT", "bench.fullShot": true, "bench.evidenceFiles": ["deliverable.mp4"] }
 }

@@ -815,9 +815,30 @@ function scanSuiteLeaks(value) {
   return leaks;
 }
 
-function sanitizePlanForReport(plan) {
+function buildHiddenIdMap(items) {
+  const seen = new Map();
+  for (const item of items) {
+    const isHidden = item?.visibility === 'hidden' || item?.flags?.hidden === true;
+    const id = item?.questionId ?? item?.id;
+    const level = item?.level;
+    if (isHidden && typeof id === 'string' && Number.isInteger(level) && !seen.has(id)) {
+      seen.set(id, { id, level });
+    }
+  }
+  const sorted = [...seen.values()].sort((a, b) => a.level - b.level || a.id.localeCompare(b.id));
+  const perLevel = new Map();
+  const map = new Map();
+  for (const { id, level } of sorted) {
+    const seq = (perLevel.get(level) ?? 0) + 1;
+    perLevel.set(level, seq);
+    map.set(id, `hidden-L${level}-${seq}`);
+  }
+  return map;
+}
+
+function sanitizePlanForReport(plan, hiddenIdMap = null) {
   const cleanRun = (r) => ({
-    questionId: r.questionId,
+    questionId: r.visibility === 'hidden' && hiddenIdMap?.has(r.questionId) ? hiddenIdMap.get(r.questionId) : r.questionId,
     level: r.level,
     visibility: r.visibility,
     model: r.model,
@@ -833,7 +854,7 @@ function sanitizePlanForReport(plan) {
   };
 }
 
-function sanitizeResultForReport(result) {
+function sanitizeResultForReport(result, hiddenIdMap = null) {
   const hidden = result.visibility === 'hidden';
   const safeError = hidden
     ? (result.error ? '运行出错' : null)
@@ -842,7 +863,7 @@ function sanitizeResultForReport(result) {
         : result.error);
   return {
     format: result.format,
-    questionId: result.questionId,
+    questionId: hidden && hiddenIdMap?.has(result.questionId) ? hiddenIdMap.get(result.questionId) : result.questionId,
     level: result.level,
     source: result.source,
     model: result.model,
@@ -954,6 +975,7 @@ export async function runExamSuite({
   judge,
   cardsDir = null,
   priors = [],
+  maskHiddenIds = false,
 } = {}) {
   if (!['mini', 'full-1', 'full-2', 'full-3', 'full-4'].includes(mode)) {
     throw usageError(`未知卷型 ${String(mode)}`, '卷型可选 mini、full-1、full-2、full-3 或 full-4', 'usage.bad-argument');
@@ -976,6 +998,9 @@ export async function runExamSuite({
     throw usageError('boardDir 必须是目录', '检查 --board-dir 路径', 'usage.bad-argument');
   }
   assertSafeInt(concurrency, 'concurrency', 1);
+  if (typeof maskHiddenIds !== 'boolean') {
+    throw withErrorMeta(new TypeError('maskHiddenIds 必须是布尔值'), 'usage.bad-argument', EXIT.USAGE);
+  }
 
   const resolvedHiddenDir = hiddenDir !== null && hiddenDir !== undefined ? path.resolve(assertNonEmptyString(hiddenDir, 'hiddenDir')) : null;
   const discovered = discoverSuiteQuestions({ questionsDir, hiddenDir: resolvedHiddenDir });
@@ -1059,6 +1084,7 @@ export async function runExamSuite({
     actualWithinBudgetCap,
   };
 
+  const hiddenIdMap = maskHiddenIds ? buildHiddenIdMap([...allQuestions, ...evalResults, ...plan.runs, ...results]) : null;
   const { historyRows } = writeSuiteAtomic(
     resolvedBoardDir,
     ['board.json', 'history.json', 'index.html', 'suite-report.json'],
@@ -1070,6 +1096,7 @@ export async function runExamSuite({
         ...(cards !== undefined ? { cards } : {}),
         ...(priorsData !== undefined ? { priors: priorsData } : {}),
         ...(existingHistory.length ? { history: existingHistory } : {}),
+        ...(maskHiddenIds ? { maskHiddenIds: true } : {}),
       });
       const history = appendBoardHistory(existingHistory, board);
       const boardWithHistory = { ...board, format: BOARD_FORMAT, history };
@@ -1079,8 +1106,8 @@ export async function runExamSuite({
         format: SUITE_FORMAT,
         mode,
         asOf,
-        plan: sanitizePlanForReport(plan),
-        results: results.map(sanitizeResultForReport),
+        plan: sanitizePlanForReport(plan, hiddenIdMap),
+        results: results.map((r) => sanitizeResultForReport(r, hiddenIdMap)),
         summary,
         outputs: {
           boardJson: 'board.json',
@@ -1147,6 +1174,7 @@ const SHARED_OPTIONS = {
   'solver-cmd': { type: 'string', placeholder: '命令', desc: '做题命令（不填则使用 --model 无头 claude）' },
   'cards-dir': { type: 'string', placeholder: '目录', desc: '可选技术卡目录' },
   priors: { type: 'list', placeholder: '文件,…', desc: '可选先验表 JSON 文件列表' },
+  'mask-hidden-ids': { type: 'boolean', desc: '在公开看板与套卷报告中将隐藏题原始题号掩码为匿名编号' },
 };
 
 function requireCommonOpts(opts) {
@@ -1191,6 +1219,7 @@ const MINI = {
         solverCmd: opts['solver-cmd'],
         cardsDir: opts['cards-dir'] ?? null,
         priors: opts.priors,
+        maskHiddenIds: Boolean(opts['mask-hidden-ids']),
       });
       return {
         data: res,
@@ -1299,12 +1328,14 @@ async function runFullCli({ opts }, mode) {
       solverCmd: opts['solver-cmd'],
       cardsDir: opts['cards-dir'] ?? null,
       priors: opts.priors,
+      maskHiddenIds: Boolean(opts['mask-hidden-ids']),
     });
     const label = mode === 'full-4' ? '全卷四' : mode === 'full-3' ? '全卷三' : mode === 'full-2' ? '全卷二' : '全卷一';
-    const data = (mode === 'full-2' || mode === 'full-3' || mode === 'full-4') ? {
+    const cliHiddenMap = opts['mask-hidden-ids'] ? buildHiddenIdMap([...res.plan.runs, ...res.results]) : null;
+    const data = (mode === 'full-2' || mode === 'full-3' || mode === 'full-4' || cliHiddenMap) ? {
       ...res,
-      plan: sanitizePlanForReport(res.plan),
-      results: res.results.map(sanitizeResultForReport),
+      plan: sanitizePlanForReport(res.plan, cliHiddenMap),
+      results: res.results.map((r) => sanitizeResultForReport(r, cliHiddenMap)),
       outputs: Object.fromEntries(Object.entries(res.outputs).map(([key, file]) => [key, path.basename(file)])),
     } : res;
     return {

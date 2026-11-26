@@ -3,7 +3,7 @@
   "id": "41-2",
   "level": 4,
   "title": "多段扫掠脊线与平行输运标架运动学",
-  "brief": "沿三维向心样条引导轨与单调三次时间弧长映射扫掠多段柔性长体脊线，叠加带沿身传播延迟的推力脉冲位移场、随速度包络调制的侧向与垂向行波游动场，以及防天顶翻转的平行输运与曲率倾斜标架。全窗口逐帧逐弧长采样点的三维位置均方根误差与相邻弧长超额扭转角跳变均须满足公开阈值表对应门限。",
+  "brief": "沿三维向心样条引导轨与单调三次时间弧长映射扫掠多段柔性长体脊线（输入参数见公开参考文件 inputSpec），叠加带沿身传播延迟的推力脉冲位移场、随速度包络调制的侧向与垂向行波游动场，以及防天顶翻转的平行输运与曲率倾斜标架。全窗口逐帧逐弧长采样点的三维位置均方根误差与相邻弧长超额扭转角跳变均须满足公开阈值表对应门限。请在工作目录保留 deliverable.mp4 及逐帧三维节点采样表 spine-samples.json 供宿主独立复算。",
   "deliverable": { "size": [1920, 1080], "fps": "60/1", "frames": 24, "audio": "none" },
   "assets": {},
   "refs": ["bench/refs/level-4/41-2.json", "bench/questions/level-4/gates-m4.json"],
@@ -51,5 +51,5 @@
     "noiseFloor": 0,
     "version": 1
   },
-  "ext": { "bench.code": "M4-SS2", "bench.steppingStone": true }
+  "ext": { "bench.code": "M4-SS2", "bench.steppingStone": true, "bench.evidenceFiles": ["deliverable.mp4", "spine-samples.json"] }
 }
