@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { chromeArgs } from '../../../host/page/gpu.mjs';
+import { chromeArgs } from '../../../../engine/render/lib/gpu.mjs';
 import { FONT, pageConfig, stagePlan } from './config.mjs';
 import { create } from './three.mjs';
 

@@ -186,7 +186,7 @@
 - 旧链共用作品描述读取和命令行解析。三个原生例片与模版已迁至 film.json v2，旧文件可以显式执行 `film.js upgrade`。
 - 旧链的终渲默认运行机器 QA，人工创作闸通过 `--delivery-mode review` 启用。用户认可仍由审片记录确认。
 - 《北冥》10 秒样片源码与页面移入 `films/beiming-10s/`，保留原入口和已登记的金标准。
-- 把非核心旧链依赖迁入 `beiming/`，CI 阻止新增跨目录引用。拆仓检查会列出六条待核心线交接的引用。
+- 把非核心运行时的旧链依赖迁入 `beiming/`，CI 阻止新增跨目录引用。拆仓检查会列出六条核心工具引用及八条需要保留现有内容哈希的卡片自测引用。
 
 - CI 渲染测试分片将 `beiming/bench/` 从 `beiming-api` 拆分为独立域 `beiming-bench`，在 `.github/workflows/ci.yml` 的 `render` 矩阵中新增并行分片 `tests-beiming-bench`（同步更新 `tests-rest` 的 `--skip`、`tools/run-tests.mjs`、`tests/ci/` 测试与文档），消除合并分片在 SwiftShader 上逼近 900 秒时限偶发 `exit 124` 的瓶颈；`smoke-render` 汇总检查名、测试覆盖范围与超时门槛不变。
 - `beiming/api/agents.mjs` 的 `createOpenAiVisionReviewer` 与 `reviewerFromEnv` 为 L5 九票视觉审片新增可控有界并发调度（默认 `concurrency = 1` 保严格逐票高水位预算边界，支持显式传入 `1..16` 或通过 `BEIMING_REVIEW_CONCURRENCY` 环境变量开启并发加速）：全部选票按固定槽位保序归档，乱序 HTTP 返回不影响 `ballots` / `invalidBallots` 顺序与聚类聚合；开启并发且带 `budgetCheck` 时先放行首票完成高水位标定再按 `concurrency` 并发调度，并逐票核验 `settle` 回调（任一票缺 `settle` 或仅传有限 `maxTokens` 时退回串行不重叠执行）、防止在途临时预留截断 `max_tokens`、通过 `settledSeq` 重检异步 `budgetCheck` 期间已推进结算的过期拒绝、`Object.hasOwn` 读取视角键并在调度异常退出前排空全部在途票记账与结算，其余审片契约、账本口径与既有作品画面不变（见 [细则](beiming/api/DETAILS.md)）。

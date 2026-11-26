@@ -18,6 +18,17 @@ const pendingCoreImports = new Map([
   ['beiming/sources/core/fncheck/run.mjs', '../../../../tools/lib/cli.mjs'],
   ['beiming/sources/core/fncheck/gpu.mjs', '../../../../engine/render/lib/gpu.mjs'],
 ]);
+// 发行片单的卡指纹覆盖自测源码，保留已核验的原始字节；拆仓时重新验证这些卡。
+const lockedCardTests = new Map([
+  ['beiming/cards/assembly/explode/selftest.test.mjs', '../../../../tools/env/py.mjs'],
+  ['beiming/cards/assembly/schedule/selftest.test.mjs', '../../../../tools/env/py.mjs'],
+  ['beiming/cards/camera/fit/blender_selftest.test.mjs', '../../../../tools/env/py.mjs'],
+  ['beiming/cards/camera/shake/selftest.test.mjs', '../../../../tools/env/py.mjs'],
+  ['beiming/cards/mechanism/page-det2d/selftest.test.mjs', '../../../../engine/render/lib/gpu.mjs'],
+  ['beiming/cards/motion/snap/selftest.test.mjs', '../../../../tools/env/py.mjs'],
+  ['beiming/cards/post/bloom/selftest.test.mjs', '../../../../engine/render/lib/gpu.mjs'],
+  ['beiming/cards/post/volumetric/selftest.test.mjs', '../../../../engine/render/lib/gpu.mjs'],
+]);
 const evalRoot = 'beiming/kernel/eval';
 const evalForbiddenPaths = ['beiming/sources', 'beiming/host', 'engine/render'];
 const evalForbiddenPackages = /^(?:three(?:-stdlib)?|@react-three\/[^/]+|(?:@playwright\/[^/]+|playwright(?:-core)?)|puppeteer(?:-core)?|bpy|@babylonjs\/[^/]+|babylonjs|pixi\.js|@pixi\/[^/]+|@webgpu\/[^/]+|gl|moderngl|opengl)(?:\/|$)/i;
@@ -365,17 +376,6 @@ function jsModuleSource(tokens, index) {
         ? index + 3
         : -1);
     if (parenIndex !== -1) {
-      const start = parenIndex + 1;
-      if (keyword === 'import' && isToken(tokens[start], 'word', 'new')
-        && isToken(tokens[start + 1], 'word', 'URL') && isToken(tokens[start + 2], 'symbol', '(')) {
-        const relative = constantString(tokens, start + 3);
-        const base = [',', 'import', '.', 'meta', '.', 'url', ')'];
-        if (relative && base.every((value, offset) => tokens[relative.end + offset]?.value === value)) {
-          let cursor = relative.end + base.length;
-          if (isToken(tokens[cursor], 'symbol', '.') && isToken(tokens[cursor + 1], 'word', 'href')) cursor += 2;
-          if (isToken(tokens[cursor], 'symbol', ')') || isToken(tokens[cursor], 'symbol', ',')) return relative.value;
-        }
-      }
       const argument = constantString(tokens, parenIndex + 1);
       const end = argument && tokens[argument.end];
       if (end?.kind === 'symbol' && (end.value === ')' || end.value === ',')) return argument.value;
@@ -405,8 +405,20 @@ function jsModuleSource(tokens, index) {
   }
 }
 
-function* jsReferences(tokens) {
+function* jsReferences(tokens, checkScriptUrls) {
   for (const [index, token] of tokens.entries()) {
+    // new URL 得到的脚本还可以交给子进程或 Worker 加载，因此同时检查脚本资源。
+    const urlStart = isToken(token, 'word', 'new') && isToken(tokens[index + 1], 'word', 'URL')
+      && isToken(tokens[index + 2], 'symbol', '(');
+    if (urlStart) {
+      const relative = constantString(tokens, index + 3);
+      const base = [',', 'import', '.', 'meta', '.', 'url', ')'];
+      const imported = isToken(tokens[index - 1], 'symbol', '(') && isToken(tokens[index - 2], 'word', 'import');
+      if (relative && base.every((value, offset) => tokens[relative.end + offset]?.value === value)
+        && (imported || (checkScriptUrls && extensions.has(path.posix.extname(relative.value.split(/[?#]/, 1)[0]))))) {
+        yield relative.value;
+      }
+    }
     if (token.kind !== 'word' || !['import', 'require', 'export'].includes(token.value)) continue;
     // 对象成员上的同名方法不加载模块；module.require 与 module?.require 是唯一例外。
     if (isToken(tokens[index - 1], 'symbol', '.')) {
@@ -702,7 +714,7 @@ export function checkArchitecture(repoRoot, options = {}) {
     if (!parsed) {
       const tokens = tokenize(readFileSync(path.join(root, file), 'utf8'), isPython);
       parsed = {
-        imports: isPython ? [...pythonTokenImports(tokens)] : [...jsReferences(tokens)],
+        imports: isPython ? [...pythonTokenImports(tokens)] : [...jsReferences(tokens, directory === newRoot)],
         fields: evalSource ? [...forbiddenFields(tokens)] : [],
       };
     }
@@ -718,9 +730,11 @@ export function checkArchitecture(repoRoot, options = {}) {
       if (directory !== newRoot && target !== undefined && isWithin(target, newRoot)) {
         addProblem('no-reverse-import', file, `旧目录引用了 ${target}（${specifier}）`);
       }
-      if (directory === newRoot && target !== undefined && !isWithin(target, newRoot)
-        && (options?.standalone || pendingCoreImports.get(file) !== specifier)) {
-        addProblem('no-legacy-import', file, `新目录引用了目录外的仓库模块（${target || '.'}）`);
+      if (directory === newRoot && target !== undefined && !isWithin(target, newRoot)) {
+        const lockedTest = lockedCardTests.get(file) === specifier;
+        if (options?.standalone || (!lockedTest && pendingCoreImports.get(file) !== specifier)) {
+          addProblem(lockedTest ? 'locked-card-test-import' : 'no-legacy-import', file, `新目录引用了目录外的仓库模块（${target || '.'}）`);
+        }
       }
       if (evalSource && (isForbiddenPackage(specifier, isPython)
         || (target !== undefined && evalForbiddenPaths.some((forbidden) => isWithin(target, forbidden))))) {

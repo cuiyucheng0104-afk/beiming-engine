@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { launchBrowser } from '../../../host/page/gpu.mjs';
+import { launchBrowser } from '../../../../engine/render/lib/gpu.mjs';
 import { startServer } from '../../../host/page/host.mjs';
 import { scanCardLeaks, validateCard } from '../../validate-card.mjs';
 

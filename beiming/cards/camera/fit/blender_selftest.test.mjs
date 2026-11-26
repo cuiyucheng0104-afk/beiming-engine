@@ -79,7 +79,7 @@ function check(rows, params, eps) {
   assert.deepEqual(rows[0], rows[3]);
 }
 
-const PYTHON = fileURLToPath(new URL('../../../jobs/python/py.mjs', import.meta.url));
+const PYTHON = fileURLToPath(new URL('../../../../tools/env/py.mjs', import.meta.url));
 test('camera.fit Blender：独立进程中动态轨道与 JS 对拍，静态整圈回退及相机释放', () => {
   for (const params of [fixture, { ...fixture, view: 'orbit', elevationDeg: 15 }, { view: 'orbit', azimuthDeg: -60, elevationDeg: -20 }]) {
     check(run(process.execPath, [PYTHON, '-I', '-B', '-c', setup + fake + probe], params), params, 1e-12);

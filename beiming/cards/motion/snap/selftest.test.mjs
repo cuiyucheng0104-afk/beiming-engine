@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-const PYTHON = fileURLToPath(new URL('../../../jobs/python/py.mjs', import.meta.url));
+const PYTHON = fileURLToPath(new URL('../../../../tools/env/py.mjs', import.meta.url));
 const ENTRY = fileURLToPath(new URL('./snap.py', import.meta.url));
 
 test('snap holds its start pose, crosses contact, settles exactly, and does not overshoot in the zero control', () => {

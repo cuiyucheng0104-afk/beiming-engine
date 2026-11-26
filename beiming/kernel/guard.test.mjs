@@ -181,6 +181,21 @@ test('日常守卫仅容许冻结工具的精确引用；拆仓守卫逐条报�
   });
 });
 
+test('锁卡自测只保留原来的浏览器依赖，拆仓检查区分其签名影响', () => {
+  withFixture(({ root, put, setOwnership }) => {
+    setOwnership([...registered, 'cards']);
+    const spec = '../../../../engine/render/lib/gpu.mjs';
+    const file = 'beiming/cards/post/bloom/selftest.test.mjs';
+    put(file, `import '${spec}';`);
+    assert.deepEqual(checkArchitecture(root).problems, []);
+    const strict = checkArchitecture(root, { standalone: true });
+    assert.deepEqual(strict.problems.map(p => [p.file, p.rule]), [[file, 'locked-card-test-import']]);
+    put(file, "import '../../../../tools/lib/cli.mjs';");
+    put('beiming/cards/post/bloom/runtime.mjs', `import '${spec}';`);
+    assert.equal(problemsFor(root, 'no-legacy-import').length, 2);
+  });
+});
+
 test('真实仓库架构守卫通过', () => {
   const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
   const result = checkArchitecture(repoRoot);
@@ -268,6 +283,7 @@ test('补充边界：成员调用、正则与除号、目录入口、网址包�
     [legacyFile, "import(`${'../beiming/'}${`api/${'value'}`}.mjs`)", [R]],
     [apiFile, "require('../../engine/render/still'); import '../../engine/render/video/encode.mjs'", [W, W]],
     [apiFile, "import '../../engine/look/layers.js'", [W]],
+    [apiFile, "const script = new URL('../../tools/env/py.mjs', import.meta.url);", [W]],
     ['beiming/api/run.ts', "import type Input from '../../tools/types';", [W]],
     ['beiming/api/run.tsx', "export type { Input } from '../../tools/types';", [W]],
     [apiFile, "await import(new URL('../../tools/lib/cli.mjs', import.meta.url))", [W]],

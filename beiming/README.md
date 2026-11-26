@@ -19,7 +19,7 @@
 ## 三条依赖规则
 
 1. `kernel` 不依赖任何帧源和渲染库。
-2. 新旧目录之间禁止互相引用。[依赖检查](kernel/guard.mjs)仅对六条待核心线迁移的具体引用保留过渡例外。
+2. 新旧目录之间禁止互相引用。[依赖检查](kernel/guard.mjs)暂时保留六条核心工具引用和八条已锁定卡片的自测引用。
 3. 跨组件只通过契约说话。要别的组件改东西，提变更单，不直接改。
 
 CI 执行 `node beiming/kernel/guard.mjs`。拆仓验收用 `node beiming/kernel/guard.mjs --standalone`，逐条报告仍需迁移的引用。
