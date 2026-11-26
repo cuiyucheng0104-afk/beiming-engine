@@ -314,20 +314,25 @@ test('端到端：故意把一个 WGSL 函数改错一项，报出是哪个函�
       assert.deepEqual(b.segments.map(x => Math.abs(x.worst) > x.max), [false, true, true]);
     }
   }
-  // 改回内建 sin、cos：逐组比照旧合格（每组都在 1e-4 相对误差以内），两项分段平均偏差必须都判不过
+  // 改回内建 sin、cos：两项分段平均偏差必须都判不过。逐组比不作断言：苹果显卡上每组都在 1e-4 相对误差以内，
+  // 英伟达上内建的逐组就超（【实测】100 万组里三项各有 1617、415661、64 组不合格）
   {
     const builtin = usrc.replace(/fn sincosf\(x: f32\) -> vec2f \{[\s\S]*?\n\}/, 'fn sincosf(x: f32) -> vec2f {\n  return vec2f(sin(x), cos(x));\n}');
     assert.notEqual(builtin, usrc, 'util.wgsl 里找不到 sincosf');
     const r = await e2e(t, { n: 1_000_000, seed: 1, wgsl: { [util]: builtin }, names: ['sincosf', 'sinf_ulp_bias', 'cosf_ulp_bias'] });
     if (r) {
       assert.equal(r.ok, false);
-      assert.deepEqual(r.results.map(x => x.fails), [0, 0, 0]);
       for (const x of r.results.slice(1)) {
         t.diagnostic(`内建 ${x.name} 的分段平均偏差（末位）：${x.bias.segments.map(s => s.worst.toFixed(3)).join('，')}`);
         assert.ok(x.bias.fails > 0, x.name);
       }
     }
   }
+});
+
+// 上一项的后半，拆成单独一项：前半某个负对照在某台显卡上先断言失败时，这些照样跑
+test('端到端：故意把灯、三角形求交或阴影射线起点的 WGSL 改错一项，报出是哪个函数', { timeout: 600_000 }, async t => {
+  const util = 'shaders/util.wgsl', usrc = await readFile(`${CORE}/${util}`, 'utf8');
   const light = 'shaders/area_light.wgsl', lsrc = await readFile(`${CORE}/${light}`, 'utf8');
   // 点光、平行光与阴影射线的起点偏移，各改错一项（只跑这六项）：
   const LAMPS = ['point_light_sample', 'point_light_eval_from_intersection', 'sun_light_sample', 'sun_light_eval_from_intersection', 'shadow_ray_smooth_surface_offset', 'shadow_ray_offset'];
