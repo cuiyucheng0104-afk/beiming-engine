@@ -9,7 +9,8 @@ A 路线复用 toon、墨线、纸纹和 WebGL2 后期。十二幕共 8640 帧�
 ```sh
 npm ci
 npm run setup
-npm run standalone:fonts
+node tools/fonts/fetch.mjs --only barlow-condensed-black,manrope,noto-serif-cjk-sc,noto-sans-cjk-sc
+node tools/fonts/subset.mjs films/wonderx-m0
 node tools/env/py.mjs films/wonderx-m0/plates/make_plates.py
 npm run standalone:build -- films/wonderx-m0
 ```

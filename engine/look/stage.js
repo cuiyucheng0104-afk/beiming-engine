@@ -151,7 +151,7 @@ void main(){
   }
   // 局部光：屏幕空间法线（深度重建的世界坐标的偏导），跳变处（物体边缘）不给光
   vec3 nrm = normalize(cross(dx, dy));
-  nrm *= 1. - 2. * step(0., dot(nrm, vp));            // 一律朝向相机
+  nrm *= 1. - 2. * step(0., dot(nrm, wp - uCamWorld[3].xyz));            // 一律朝向相机
   float surf = (1. - sky) * (1. - step(.05, jump));
   for (int i = 0; i < N; i++) {
     if (float(i) >= uCount.x) break;

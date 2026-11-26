@@ -542,7 +542,13 @@ const near = [0, 0, 0], side = [2, 0, 0], far = [0, 0, -7], wallIn = [0, 1, -8.0
 const Z = grab({ haze: [{ y: 1, thick: .5, density: 1, color: '#ffffff', start: 10, end: 60, noise: 0 }] });
 const Z2 = grab({ haze: [{ y: 1, thick: .5, density: 1, color: '#ffffff', start: 10, end: 60, noise: .8, drift: .3, seed: 3 }] }), Z3 = grab({ haze: [{ y: 1, thick: .5, density: 1, color: '#ffffff', start: 10, end: 60, noise: .8, drift: .3, seed: 3 }] }, 2);
 window.RESULT = { off: same(A, B), det: same(C, C2), a: [at(A, near), at(A, side), at(A, far)], c: [at(C, near), at(C, side), at(C, far)], mid: at(mid, side) / at(A, side),
-  haze: [at(A, wallIn), at(Z, wallIn), at(A, wallOut), at(Z, wallOut), at(A, groundNear), at(Z, groundNear)], noisy: !same(Z, Z2), drift: !same(Z2, Z3), logs: [] };`;
+  haze: [at(A, wallIn), at(Z, wallIn), at(A, wallOut), at(Z, wallOut), at(A, groundNear), at(Z, groundNear)], noisy: !same(Z, Z2), drift: !same(Z2, Z3), logs: [] };
+scene.clear();
+const wall = mk(8, 8, [0,0,0], [0,0,0]); wall.material.side = THREE.DoubleSide;
+window.RESULT.facing = [1,-1].map(sign => {
+  cam.position.set(2*sign, 0, 8*sign); cam.lookAt(0,0,0); cam.updateMatrixWorld();
+  return [sign,-sign].map(z => at(grab({lights:[{pos:[0,0,2*z],range:6,color:'#ffffff',intensity:2}]}), [0,0,0]));
+});`;
 gpuTest('R65 暗场舞台光：默认关时逐字节不变；局部暖光只亮受光面、距离外不变；分层雾只落在高度带与视距窗里；结果确定', async t => {
   const r = await run('r65', STAGE_PROBE, { w: 64, h: 64 });
   t.diagnostic(`R65 亮度 不开舞台光 ${r.a.map(v => v.toFixed(1))} / 开 ${r.c.map(v => v.toFixed(1))}（近、侧、远）；step1 .95 时侧点 ${r.mid.toFixed(2)}×；雾 墙带内 ${r.haze[0].toFixed(1)}→${r.haze[1].toFixed(1)}、带外 ${r.haze[2].toFixed(1)}→${r.haze[3].toFixed(1)}、视距窗内近处 ${r.haze[4].toFixed(1)}→${r.haze[5].toFixed(1)}`);
@@ -556,6 +562,8 @@ gpuTest('R65 暗场舞台光：默认关时逐字节不变；局部暖光只亮�
   assert.ok(r.haze[1] > r.haze[0] + 20, `高度带里的墙面被雾提亮（${r.haze[0].toFixed(1)} → ${r.haze[1].toFixed(1)}）`);
   assert.ok(Math.abs(r.haze[3] - r.haze[2]) <= 1, `高度带外的墙面不变（${r.haze[2].toFixed(1)} → ${r.haze[3].toFixed(1)}）`);
   assert.ok(Math.abs(r.haze[5] - r.haze[4]) <= 1, `视距近于 start 的点不加雾（${r.haze[4].toFixed(1)} → ${r.haze[5].toFixed(1)}）`);
+  t.diagnostic(`正反机位（灯在相机侧 / 背面）：${JSON.stringify(r.facing)}`);
+  for (const [front, back] of r.facing) assert.ok(front > back + 10, `相机侧要更亮：${front} / ${back}`);
   assert.ok(r.noisy && r.drift, '带噪声的雾与不带的不同；t 变了雾会漂');
 });
 

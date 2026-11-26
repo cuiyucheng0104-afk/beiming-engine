@@ -1,6 +1,7 @@
 // 在有显示器的 Chrome 中，从 file:// 离线打开终包；每次在 rAF 中渲染一帧，再等真实 GPU 完成。
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import os from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
@@ -12,12 +13,15 @@ const env={...process.env};
 if(discrete){args.push('--use-angle=vulkan','--enable-features=Vulkan,DefaultANGLEVulkan,VulkanFromANGLE','--use-vulkan=native');
   Object.assign(env,{__NV_PRIME_RENDER_OFFLOAD:'1',__GLX_VENDOR_LIBRARY_NAME:'nvidia',VK_ICD_FILENAMES:'/usr/share/vulkan/icd.d/nvidia_icd.json'});}
 const browser=await chromium.launch({executablePath:process.env.BEIMING_CHROME||'/usr/bin/google-chrome-stable',headless:false,args,env});
+const isolated=await fs.mkdtemp(path.join(os.tmpdir(),'wonderx-offline-'));
 try {
+  const single=path.join(isolated,'index.html');
+  await fs.copyFile(path.join(dir,'out/standalone/index.html'),single);
   const page=await browser.newPage({viewport:null,offline:true});const external=[],errors=[];
   page.on('pageerror',err=>{errors.push(err.message);console.error(err.message);});
   page.on('console',msg=>{if(msg.type()==='error'){errors.push(msg.text());console.error(msg.text().slice(0,600));}});
   page.on('request',r=>{if(/^https?:/.test(r.url())) external.push(r.url());});
-  await page.goto(pathToFileURL(path.join(dir,'out/standalone/index.html')).href+'?bench');
+  await page.goto(pathToFileURL(single).href+'?bench');
   await page.waitForFunction(()=>window.READY,null,{timeout:60000});
   if(process.argv.includes('--fullscreen')) await page.waitForFunction(()=>innerWidth===screen.width && innerHeight===screen.height,null,{timeout:20000});
   const info=await page.evaluate(()=>{
@@ -44,8 +48,24 @@ try {
   await page.setViewportSize({width:960,height:540});await page.evaluate(()=>render(TIMELINE.shot('A08').t0,{tier:'low'}));
   const resize=await page.locator('#stage').evaluate(el=>[el.width,el.height]);
   assert.deepEqual(resize,[Math.round(960*.65),Math.round(540*.65)]);
-  const sha256=createHash('sha256').update(await fs.readFile(path.join(dir,'out/standalone/index.html'))).digest('hex');
-  const report={...info,sha256,brush,version:browser.version(),external,errors,results,determinism,contextRestored:true,resize};
+  // 将合成阻塞到第一次 M、A 之后，检查的是真实主 GainNode，不是 UI 状态。
+  await page.addInitScript(() => {
+    const gate = new Promise(resolve => { window.releaseSynth = resolve; });
+    const start = OfflineAudioContext.prototype.startRendering;
+    OfflineAudioContext.prototype.startRendering = async function() { await gate; return start.call(this); };
+    const gain = AudioContext.prototype.createGain;
+    AudioContext.prototype.createGain = function() { const node = gain.call(this); window.masterProbe ??= node; return node; };
+  });
+  await page.goto(pathToFileURL(single).href);
+  await page.waitForFunction(()=>window.READY);
+  await page.keyboard.press('m'); await page.keyboard.press('a');
+  assert.equal(await page.evaluate(()=>window.masterProbe.gain.value),0);
+  await page.evaluate(()=>window.releaseSynth());
+  await page.waitForFunction(()=>document.querySelector('.bne-deck-ui').shadowRoot.querySelectorAll('.stem').length===3);
+  assert.equal(await page.evaluate(()=>window.masterProbe.gain.value),0);
+  await page.keyboard.press('m'); await page.waitForFunction(()=>window.masterProbe.gain.value>.99);
+  const sha256=createHash('sha256').update(await fs.readFile(single)).digest('hex');
+  const report={...info,sha256,brush,coldMute:true,version:browser.version(),external,errors,results,determinism,contextRestored:true,resize};
   await fs.writeFile(path.join(dir,`out/bench-${discrete?'discrete':'default'}.json`),JSON.stringify(report,null,2)+'\n');
   if(external.length||errors.length||determinism[0]!==determinism[1])throw Error('离线、控制台或确定性检查失败');
-}finally{await browser.close();}
+}finally{await browser.close();await fs.rm(isolated,{recursive:true,force:true});}

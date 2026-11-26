@@ -6,6 +6,15 @@ import { viteSingleFile } from 'vite-plugin-singlefile';
 
 import { CliError, defineCommand, isMain, runCli } from '../lib/cli.mjs';
 
+export const isFilmEntry = (id, entry) => id.replaceAll('\\', '/') === entry.replaceAll('\\', '/');
+
+export function checkEmbedded(html, embedded) {
+  if (!html.includes('window.__WX_ASSETS=') || !embedded.manifest.fonts.length ||
+      !Object.values(embedded).filter(v => typeof v === 'string').every(uri => html.includes(uri))) {
+    throw new CliError('contract.assets', '终包缺少内联资源或字体');
+  }
+}
+
 async function pack(root) {
   const outDir=path.join(root,'out/standalone');
   const json=async file=>JSON.parse(await fs.readFile(file,'utf8'));
@@ -19,8 +28,14 @@ async function pack(root) {
   const bill=[];
   async function add(file,mime) {
     const data=await fs.readFile(path.join(root,file));
+    if (!data.length || (mime === 'font/woff2' && data.toString('ascii',0,4) !== 'wOF2')) throw new CliError('contract.assets', `无效的 ${file}`);
     embedded[file]=`data:${mime};base64,${data.toString('base64')}`;
     bill.push({file,raw:data.length,inline:Buffer.byteLength(embedded[file])});
+  }
+  for (const spec of embedded.film.fonts) {
+    if (!manifest.fonts.some(f => f.family === spec.family && String(f.weight) === String(spec.weight))) {
+      throw new CliError('contract.font', `清单缺少必需字族 ${spec.family}（${spec.weight}）`);
+    }
   }
   for(const f of manifest.fonts) await add(`fonts/${f.file}`,'font/woff2');
   for(const file of ['clouds_far','proscenium','paper']) await add(`plates/${file}.webp`,'image/webp');
@@ -30,9 +45,10 @@ async function pack(root) {
   if(three.version!=='0.170.0') throw Error(`需要 three 0.170.0，当前为 ${three.version}`);
   await build({root,logLevel:'silent',configFile:false,base:'./',publicDir:false,plugins:[{
     name:'offline-assets',transformIndexHtml:{order:'pre',handler:html=>html.replace(/<script type="importmap">[\s\S]*?<\/script>/,'')},
-    transform(code,id){if(id===path.join(root,'main.js')) return `window.__WX_ASSETS=${JSON.stringify(embedded).replaceAll('<','\\u003c')};\n${code}`;},
+    transform(code,id){if(isFilmEntry(id,path.join(root,'main.js'))) return `window.__WX_ASSETS=${JSON.stringify(embedded).replaceAll('<','\\u003c')};\n${code}`;},
   },viteSingleFile()],build:{target:'es2022',outDir,emptyOutDir:false,modulePreload:false,assetsInlineLimit:Infinity,license:false}});
   const html=await fs.readFile(path.join(outDir,'index.html'),'utf8');
+  checkEmbedded(html, embedded);
   if (!/<meta charset="utf-8">/i.test(html.slice(0, 1024))) throw new CliError('contract.encoding', '离线 HTML 的前 1024 字节缺 UTF-8 声明');
   if(/<(?:script|link|img|video|iframe)\b[^>]*\s(?:src|href)=["'](?!data:)/i.test(html)||/<video\b|data:video\/mp4/i.test(html)) throw new CliError('contract.offline','单文件依赖检查失败');
   const bytes=Buffer.byteLength(html); if(bytes>5500000) throw new CliError('contract.size',`超过 5.5 MB 硬顶，文件 ${bytes} B`);

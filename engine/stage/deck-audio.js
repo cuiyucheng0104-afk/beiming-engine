@@ -38,6 +38,7 @@ export function createDeckAudio() {
 
   // 播放与时钟状态
   let isPlaying = false;
+  let masterMuted = false;
   let playbackStartAudioTime = 0;
   let playbackStartOffset = 0;
 
@@ -47,7 +48,7 @@ export function createDeckAudio() {
     try {
       audioCtx = new AudioCtx();
       masterGain = audioCtx.createGain();
-      masterGain.gain.value = 1;
+      masterGain.gain.value = masterMuted ? 0 : 1;
 
       // 透明安全限幅器：-0.5 dBFS 阈值，20:1 压缩比，1ms 建立，50ms 释放，防止爆音
       if (typeof audioCtx.createDynamicsCompressor === 'function') {
@@ -199,10 +200,11 @@ export function createDeckAudio() {
   }
 
   function setMasterMute(muted) {
+    masterMuted = !!muted;
     if (!masterGain || !audioCtx) return;
     const now = audioCtx.currentTime;
     masterGain.gain.cancelScheduledValues(now);
-    masterGain.gain.setTargetAtTime(muted ? 0 : 1, now, 0.008);
+    masterGain.gain.setTargetAtTime(masterMuted ? 0 : 1, now, 0.008);
   }
 
   function setVoEnabled(enabled) {
