@@ -16,6 +16,8 @@ const flight = {
 const parts = [
   { id: 'left.pin', group: 'outer', rest_pos: [-2, -1, 1] },
   { id: '__proto__', group: 'center', rest_pos: [0, 0, 0] },
+  { id: 'missing', rest_pos: [0, 0, 0] },
+  { id: 'empty', group: '', rest_pos: [0, 0, 0] },
   { id: 'right.pin', group: 'outer', rest_pos: [2, 1, -1] },
 ];
 const shots = {
@@ -26,6 +28,7 @@ const shots = {
 };
 const spreads = {
   centroid: {},
+  groups: { scale_m: 0, group_offsets: { '': [1, 2, 3], undefined: [4, 5, 6] } },
   weighted: { axis_weights: [0, 2, 1], scale_m: 1.5, group_offsets: { center: [0.5, 0, 0] } },
   explicit: { center: [2, -3, 4], group_offsets: { outer: [1, 0, -0.5] } },
 };
@@ -43,6 +46,9 @@ test('E6: offsets stagger groups, flight contacts, rebounds and settles', () => 
 
 test('E6: weighted axes, centred part, group offset and input-order independence', () => {
   assert.deepEqual(evalExplode(parts, 1).__proto__, [0, 0, 0]);
+  const groups = evalExplode(parts, 1, spreads.groups);
+  assert.deepEqual(groups.missing, [0, 0, 0]);
+  assert.deepEqual(groups.empty, [1, 2, 3]);
   const out = evalExplode(parts, 1, spreads.weighted);
   assert.deepEqual(out.__proto__, [0.5, 0, 0]);
   assert.equal(out['right.pin'][0], 2);
@@ -54,7 +60,7 @@ test('E6: weighted axes, centred part, group offset and input-order independence
 
 test('E6: reject malformed positions, duplicate identifiers and invalid intervals', () => {
   for (const bad of [{ fly_frames: 0 }, { settle_frames: -1 }, { start_offset: [1, NaN, 3] },
-    { rest_pos: Array(3) }, { overshoot: Infinity }]) {
+    { rest_pos: Array(3) }, { rest_rot_deg: undefined }, { start_rot_deg: undefined }, { overshoot: Infinity }]) {
     assert.throws(() => evalSnapMotion(0, { ...flight, ...bad }));
   }
   assert.throws(() => evalExplode([parts[0], parts[0]], 0));

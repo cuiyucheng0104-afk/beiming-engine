@@ -11,7 +11,10 @@ function vector(value) {
   return Array.from(value, number);
 }
 
-/** Sample one scheduled part. t0 and fly_frames come directly from the E5 schedule. */
+/**
+ * Sample an E5 schedule row at a frame. rest_rot_deg and start_rot_deg are
+ * required XYZ Euler triples in degrees. start_rot_deg is an absolute pose.
+ */
 export function evalSnapMotion(frame, {
   t0, fly_frames, rest_pos, rest_rot_deg, start_offset, start_rot_deg, overshoot = 0.045, settle_frames = 6,
 }) {
@@ -78,7 +81,7 @@ export function evalExplode(parts, progress, {
 } = {}) {
   const seen = new Set();
   if (!Array.isArray(parts)) throw new TypeError('expected a list of parts');
-  const rows = parts.map(({ id, rest_pos, group = '' }) => {
+  const rows = parts.map(({ id, rest_pos, group }) => {
     if (typeof id !== 'string' || !/^[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*$/.test(id) || seen.has(id)) {
       throw new TypeError('expected unique entity identifiers');
     }
@@ -93,7 +96,7 @@ export function evalExplode(parts, progress, {
   return Object.fromEntries(rows.map(({ id, position, group }) => {
     const delta = position.map((v, k) => v - origin[k]);
     const length = Math.hypot(...delta);
-    const offset = group_offsets && Object.hasOwn(group_offsets, group) ? vector(group_offsets[group]) : zero;
+    const offset = typeof group === 'string' && group_offsets && Object.hasOwn(group_offsets, group) ? vector(group_offsets[group]) : zero;
     return [id, position.map((v, k) => {
       const radial = length ? delta[k] / length : 0;
       return v + fraction * (scale_m * radial * weights[k] + offset[k]);
