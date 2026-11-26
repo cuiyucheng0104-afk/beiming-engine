@@ -51,6 +51,7 @@ function sumAxis(rows, axis) {
     for (let y of partials) {
       if (Math.abs(x) < Math.abs(y)) [x, y] = [y, x];
       const high = x + y;
+      if (!Number.isFinite(high)) throw new RangeError('centroid sum overflow');
       const low = y - (high - x);
       if (low !== 0) partials[count++] = low;
       x = high;
@@ -75,6 +76,12 @@ function sumAxis(rows, axis) {
   return high;
 }
 
+function centroid(rows) {
+  // E5 sorts ASCII identifiers before fsum so a permutation cannot change overflow.
+  const ordered = [...rows].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  return zero.map((_, k) => sumAxis(ordered, k) / rows.length);
+}
+
 /** Return each part's world position for a clamped unitless explosion progress. */
 export function evalExplode(parts, progress, {
   axis_weights = [1, 1, 1], scale_m = 1, center = null, group_offsets = {},
@@ -92,7 +99,7 @@ export function evalExplode(parts, progress, {
   const weights = vector(axis_weights);
   if (number(scale_m) < 0 || weights.some(w => w < 0)) throw new RangeError('negative explosion scale or weight');
   if (!rows.length || !fraction) return Object.fromEntries(rows.map(({ id, position }) => [id, position]));
-  const origin = center === null ? zero.map((_, k) => sumAxis(rows, k) / rows.length) : vector(center);
+  const origin = center === null ? centroid(rows) : vector(center);
   return Object.fromEntries(rows.map(({ id, position, group }) => {
     const delta = position.map((v, k) => v - origin[k]);
     const length = Math.hypot(...delta);

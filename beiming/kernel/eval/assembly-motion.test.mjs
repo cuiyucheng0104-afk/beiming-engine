@@ -116,3 +116,29 @@ test('E6: JS independently evaluates all E5 float32 reference tracks', async t =
   }
   t.diagnostic(comparisons + ' positions, maximum Euclidean error ' + maxPositionError + ' m');
 });
+
+test('E6: centroid uses E5 identifier order and rejects an overflowing canonical sum', async () => {
+  const example = [['a', 1e308], ['c', 1e308], ['b', -1e308], ['d', 0]]
+    .map(([id, x]) => ({ id, rest_pos: [x, 0, 0] }));
+  const overflowing = example.map((p, i) => ({ ...p, id: 'abcd'[i] }));
+  const solve = `
+import json, runpy, sys
+explode = runpy.run_path(sys.argv[1])["eval_explode"]
+example, overflowing = json.loads(sys.argv[2])
+print(json.dumps(explode(example, 1)["d"]))
+try:
+    explode(overflowing, 1)
+except OverflowError:
+    pass
+else:
+    raise AssertionError("E5 should reject an overflowing canonical sum")
+`;
+  const path = relative => fileURLToPath(new URL(relative, import.meta.url));
+  const { stdout } = await promisify(execFile)(process.execPath, [path('../../jobs/python/py.mjs'), '-I', '-B', '-c',
+    solve, path('../../sources/blender/choreo.py'), JSON.stringify([example, overflowing])]);
+  const expected = JSON.parse(stdout);
+  assert.deepEqual(expected, [-1, 0, 0]);
+  assert.deepEqual(evalExplode(example, 1).d, expected);
+  assert.deepEqual(evalExplode([...example].reverse(), 1).d, expected);
+  assert.throws(() => evalExplode(overflowing, 1), RangeError);
+});
