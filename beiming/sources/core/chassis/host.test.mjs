@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import { OUT, sourceKey } from './build.mjs';
 import { readLimits } from './limits.mjs';
 import { passesToExr, readPasses } from './passes-exr.mjs';
-import { packDigest } from './rerender.mjs';
+import { checkPack, packDigest } from './rerender.mjs';
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-host-'));
 process.on('exit', () => fs.rmSync(TMP, { recursive: true, force: true }));
@@ -62,6 +62,41 @@ test('出层目录转 EXR：尺寸不对、通道名不在登记表里都报出�
   fs.writeFileSync(path.join(dir, 'passes.json'), JSON.stringify(t));
   fs.copyFileSync(path.join(dir, 'depth.f32'), path.join(dir, 'zdepth.f32'));
   assert.match(passesToExr(dir, size).problems.join(), /zdepth\.Z 不在输出通道契约的登记表里/);
+});
+
+test('负对照：写好 EXR 之后改坏一个通道的一个字节，往返比较必须报出来', () => {
+  const dir = path.join(TMP, 'tamper'), size = [4, 3];
+  fakePasses(dir, size);
+  // 不压缩时文件的最后一个字节是最后一条扫描线里最后一个通道的最后一个像素
+  const r = passesToExr(dir, size, { tamper: b => { b[b.length - 1] ^= 1; return b; } });
+  assert.equal(r.problems.length, 1);
+  assert.match(r.problems[0], /^\S+ 往返不逐位相同$/);
+});
+
+test('负对照：两遍里第二遍改了一个通道文件，same 为假、differ 正好列出它（假程序，不渲）', { skip: process.platform === 'win32' && '假程序是带 #! 的脚本' }, () => {
+  const tpl = path.join(TMP, 'fake-passes'), size = [3, 2];
+  fakePasses(tpl, size);
+  const pack = path.join(TMP, 'fake-pack');
+  fs.mkdirSync(pack, { recursive: true });
+  fs.writeFileSync(path.join(pack, 'pack.json'), JSON.stringify({ id: 'pack:fake@1', frames: { count: 2 } }));
+  // 照 render-pack 的参数写 PNG、线性颜色与出层；第二次调用时把 depth.f32 的第一个字节改掉
+  const bin = path.join(TMP, 'fake-render.cjs');
+  fs.writeFileSync(bin, `#!${process.execPath}
+const fs = require('fs'), path = require('path');
+const a = process.argv.slice(2), get = k => a[a.indexOf(k) + 1];
+const count = path.join(__dirname, 'fake-render.count');
+const n = fs.existsSync(count) ? Number(fs.readFileSync(count, 'utf8')) : 0;
+fs.writeFileSync(count, String(n + 1));
+fs.writeFileSync(get('-o'), 'png');
+fs.writeFileSync(get('--hdr'), 'hdr');
+fs.cpSync(${JSON.stringify(tpl)}, get('--passes'), { recursive: true });
+if (n === 1) { const f = path.join(get('--passes'), 'depth.f32'), b = fs.readFileSync(f); b[0] ^= 1; fs.writeFileSync(f, b); }
+console.log(JSON.stringify({ hwrt: false, denoise: 'atrous', timings_ms: { trace_ms: 1 } }));
+`, { mode: 0o755 });
+  const item = checkPack(bin, pack, path.join(TMP, 'fake-work'), { frame: 0, spp: 1, size, seed: 0, modes: ['sw'] });
+  assert.equal(item.modes.sw.same, false);
+  assert.deepEqual(item.modes.sw.differ, ['passes/depth.f32']);
+  assert.equal(item.exr.roundTrip, true);
 });
 
 test('场景包的内容摘要：与目录在哪无关，改一个字节就变', () => {

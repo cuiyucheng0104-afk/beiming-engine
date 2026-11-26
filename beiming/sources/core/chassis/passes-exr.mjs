@@ -47,13 +47,14 @@ export function readPasses(dir, [width, height]) {
   return { channels, table };
 }
 
-/** 写 EXR 并读回逐字节比。返回 { bytes, names, problems }：problems 空就是往返逐位相同、名字都合契约 */
-export function passesToExr(dir, [width, height], { compression = 0 } = {}) {
+/** 写 EXR 并读回逐字节比。返回 { bytes, names, problems }：problems 空就是往返逐位相同、名字都合契约。
+ *  tamper 只给负对照用：拿写好的字节、返回读回时用的字节（测试借它改坏一个通道，看比较抓不抓得到） */
+export function passesToExr(dir, [width, height], { compression = 0, tamper } = {}) {
   const p = readPasses(dir, [width, height]);
   const names = Object.keys(p.channels).sort();
   const problems = names.filter(n => !isPassChannel(n)).map(n => `通道名 ${n} 不在输出通道契约的登记表里`);
   const bytes = writeExr({ width, height, channels: p.channels, compression });
-  const back = readExr(bytes, { requiredChannels: names });
+  const back = readExr(tamper ? tamper(Buffer.from(bytes)) : bytes, { requiredChannels: names });
   if (Object.keys(back.channels).length !== names.length) problems.push(`读回 ${Object.keys(back.channels).length} 个通道，写进去 ${names.length} 个`);
   for (const n of names) {
     const a = p.channels[n], b = back.channels[n];
