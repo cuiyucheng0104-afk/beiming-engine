@@ -77,3 +77,82 @@ test('music.align requires both media paths and keeps structured validation erro
     assert.match(result.error.message, /music/);
   }
 });
+
+test('music.align rejects an unrepresentable step without blocking the caller', { skip }, t => {
+  const dir = mkdtempSync(join(tmpdir(), 'music-align-step-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const path = join(dir, 'audio.wav');
+  encode('-f', 'lavfi', '-i', 'sine=f=70:r=8000:d=0.2', path);
+  const child = spawnSync(process.execPath, ['--input-type=module', '-e', `
+    import { align } from './beiming/observe/index.mjs';
+    const path = process.argv[1];
+    console.log(JSON.stringify(align({ music: { filmPath: path, trackPath: path, stretchStep: Number.MIN_VALUE } })));
+  `, path], { cwd: new URL('../../', import.meta.url), timeout: 2000, killSignal: 'SIGKILL', encoding: 'utf8' });
+  assert.ifError(child.error);
+  assert.equal(child.status, 0, child.stderr);
+  const result = JSON.parse(child.stdout);
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, 'usage.bad-argument');
+  assert.match(result.error.message, /stretchStep/);
+});
+
+test('music.align rejects oversized grids before opening media', () => {
+  const paths = { filmPath: 'missing-film.wav', trackPath: 'missing-track.wav' };
+  for (const spec of [
+    { stretchRange: [1, Number.MAX_VALUE] },
+    { stretchRange: [1e-10, 1] },
+    { stretchRange: Object.assign(Array(2), { 0: 1 }) },
+    { stretchRange: [0.99, 1.03], stretchStep: 0.000001 },
+    { maxOffsetSec: Number.MAX_VALUE },
+  ]) {
+    const result = align({ music: { ...paths, ...spec } });
+    assert.equal(result.ok, false);
+    assert.equal(result.error.code, 'usage.bad-argument');
+    assert.match(result.error.message, /music/);
+  }
+});
+
+test('music.align never admits an offset past the requested 20 ms grid boundary', { skip }, t => {
+  const dir = mkdtempSync(join(tmpdir(), 'music-align-offset-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const trackPath = join(dir, 'track.wav');
+  const filmPath = join(dir, 'delayed.wav');
+  const pulse = '0.3*sin(2*PI*70*t)*(between(t,0.06,0.08)+0.6*between(t,0.32,0.36)+between(t,0.81,0.86))';
+  encode('-f', 'lavfi', '-i', `aevalsrc='${pulse}':s=8000:d=1`, trackPath);
+  encode('-i', trackPath, '-af', 'adelay=20:all=1', filmPath);
+  const spec = { filmPath, trackPath, stretchRange: [1, 1] };
+  for (const maxOffsetSec of [0.015, 0.02 - Number.EPSILON]) {
+    const result = align({ music: { ...spec, maxOffsetSec } });
+    assert.equal(result.ok, true, JSON.stringify(result));
+    assert.equal(result.music.offsetSec, 0, JSON.stringify(result.music));
+  }
+  assert.equal(align({ music: { ...spec, maxOffsetSec: 0.02 } }).music.offsetSec, 0.02);
+  assert.equal(align({ stretch: { ...spec, maxOffsetSec: 0.015 } }).stretch.offsetSec, 0.02);
+});
+
+test('music.align bounds decoded duration and work while accepting a narrow preset', { skip }, t => {
+  const dir = mkdtempSync(join(tmpdir(), 'music-align-budget-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const trackPath = join(dir, 'track.wav');
+  const longPath = join(dir, 'long.wav');
+  const stimulus = '0.25*sin(2*PI*70*t)*(1+sin(2*PI*3*t)):s=8000';
+  encode('-f', 'lavfi', '-i', `aevalsrc=${stimulus}:d=100`, trackPath);
+  encode('-f', 'lavfi', '-i', 'anullsrc=r=8000:cl=mono:d=301', longPath);
+  const spec = { filmPath: trackPath, trackPath };
+  const overwork = align({ music: spec });
+  assert.equal(overwork.ok, false);
+  assert.equal(overwork.error.code, 'usage.bad-argument');
+  assert.match(overwork.error.message, /music/);
+
+  const bounded = { ...spec, stretchRange: [1, 1], stretchStep: 0.000001, maxOffsetSec: 0 };
+  const result = align({ music: bounded });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(result.music.reliable, true);
+  assert.equal(result.music.offsetSec, 0);
+  assert.equal(result.music.stretch, 1);
+
+  const overlong = align({ music: { ...bounded, filmPath: longPath } });
+  assert.equal(overlong.ok, false);
+  assert.equal(overlong.error.code, 'usage.bad-argument');
+  assert.match(overlong.error.message, /300/);
+});
