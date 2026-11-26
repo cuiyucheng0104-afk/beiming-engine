@@ -4,7 +4,6 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { ffmpegBins } from '../../../tools/env/lib/ffmpeg.mjs';
 import { colorCountEvent, detectColorCountEvents } from './color-count-event.mjs';
 
 test('color.count-event applies strict thresholds and returns the first frame of each run', () => {
@@ -58,7 +57,7 @@ test('color.count-event reads only the array’s own numeric data slots', () => 
   assert.throws(() => detectColorCountEvents(revoked), bad);
 });
 
-const ffmpeg = ffmpegBins().ffmpeg;
+const ffmpeg = (process.env.FFMPEG ?? '').trim() || 'ffmpeg';
 const hasFfmpeg = spawnSync(ffmpeg, ['-version']).status === 0;
 const roi = { x: 1, y: 1, width: 3, height: 3 };
 const exclude = { x: 2, y: 2, width: 1, height: 1 };

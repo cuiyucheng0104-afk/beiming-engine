@@ -1,7 +1,7 @@
 import { execFile, spawn } from 'node:child_process';
 import { resolve } from 'node:path';
+import { env } from 'node:process';
 import { promisify, types } from 'node:util';
-import { ffmpegBins } from '../../../tools/env/lib/ffmpeg.mjs';
 
 const METRIC = 'metric:color.count-event';
 const UNIT = 'frames';
@@ -166,7 +166,7 @@ export async function colorCountEvent(filePath, options = {}) {
   const requested = options.roi === undefined ? null : rectangle(options.roi, 'roi');
   const exclude = options.exclude === undefined ? null : rectangle(options.exclude, 'exclude');
   if (requested && exclude && !contains(requested, exclude)) bad('exclude 须落在 roi 内');
-  const { ffmpeg } = ffmpegBins();
+  const ffmpeg = (env.FFMPEG ?? '').trim() || 'ffmpeg';
   const path = resolve(filePath);
   try {
     const display = await displayRegion(ffmpeg, path);
