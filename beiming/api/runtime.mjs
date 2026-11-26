@@ -92,26 +92,48 @@ function engineCodeDirs(source) {
   return dirs;
 }
 
+const SCENE_PROBE_PLAN = 'beiming/sources/scene-probe-plan.mjs';
+const SCENE_PROBE_MEASURE = 'beiming/sources/scene-probe-measure.mjs';
+const BLENDER_PROBE_DEPS = new Set([
+  SCENE_PROBE_MEASURE,
+  'beiming/host/page/measure.js',
+  'beiming/sources/three/hosts.mjs',
+]);
+
+function engineCodeFiles(source) {
+  if (source === 'three') return [SCENE_PROBE_PLAN, SCENE_PROBE_MEASURE];
+  if (source === 'blender') return [SCENE_PROBE_PLAN, ...BLENDER_PROBE_DEPS];
+  return [];
+}
+
 const NODE_ONLY_ESM_EXACT = new Set([
   'beiming/host/page/host.mjs',
   'beiming/sources/blender/caps.mjs',
   'beiming/sources/blender/host.mjs',
+  SCENE_PROBE_PLAN,
 ]);
 const DUAL_LOADED_THREE_EXACT = new Set([
   'beiming/sources/three/caps.mjs',
+  'beiming/sources/three/hosts.mjs',
   'beiming/sources/three/plan.mjs',
   'beiming/sources/three/source.js',
 ]);
 const isKernelEvalMjs = (rel) => rel.startsWith('beiming/kernel/eval/') && rel.endsWith('.mjs');
-const isTrackedInProcessRel = (rel) => isKernelEvalMjs(rel) || NODE_ONLY_ESM_EXACT.has(rel) || DUAL_LOADED_THREE_EXACT.has(rel);
+const isTrackedInProcessRel = (rel) => isKernelEvalMjs(rel) || NODE_ONLY_ESM_EXACT.has(rel) || DUAL_LOADED_THREE_EXACT.has(rel) || BLENDER_PROBE_DEPS.has(rel);
 // 仅在 Node 进程静态加载、不被浏览器/子进程按请求从磁盘现读的 ESM 文件
 const isNodeOnlyEsmRel = (source, rel) => (
   NODE_ONLY_ESM_EXACT.has(rel) || (source !== 'three' && isKernelEvalMjs(rel))
+  || (source === 'blender' && BLENDER_PROBE_DEPS.has(rel))
 );
 // 同时被 Node 启动静态导入且被页面宿主按请求从磁盘读给浏览器的双端加载文件（three 帧源）
 const isDualLoadedRel = (source, rel) => (
   source === 'three' && (DUAL_LOADED_THREE_EXACT.has(rel) || isKernelEvalMjs(rel))
 );
+
+function runtimeFileDigest(abs) {
+  const bytes = readFileSync(abs);
+  return { length: bytes.length, sha256: sha256(bytes) };
+}
 
 // 启动期只读快照：本 Node 进程静态导入并缓存在 ESM 模块表中的运行时文件摘要（仅在 effective=true 且 root===REPO 时用于标识本进程实际产出的像素版本）
 const LOADED_IN_PROCESS_DIGESTS = (() => {
@@ -119,9 +141,14 @@ const LOADED_IN_PROCESS_DIGESTS = (() => {
   for (const dir of ['beiming/kernel/eval', 'beiming/host/page', 'beiming/sources/three', 'beiming/sources/blender']) {
     for (const item of collectRuntimeFiles(join(REPO, dir), REPO)) {
       if (isTrackedInProcessRel(item.rel)) {
-        const bytes = readFileSync(item.abs);
-        map.set(item.rel, Object.freeze({ length: bytes.length, sha256: sha256(bytes) }));
+        map.set(item.rel, Object.freeze(runtimeFileDigest(item.abs)));
       }
+    }
+  }
+  for (const rel of [SCENE_PROBE_PLAN, SCENE_PROBE_MEASURE]) {
+    const abs = join(REPO, rel);
+    if (statSync(abs, { throwIfNoEntry: false })?.isFile()) {
+      map.set(rel, Object.freeze(runtimeFileDigest(abs)));
     }
   }
   return map;
@@ -152,8 +179,7 @@ export function engineCodeDigest(source, { root = REPO, effective = false } = {}
     if (existsOnDisk) {
       for (const item of collectRuntimeFiles(absDir, root)) {
         if (useInProcess && isNodeOnlyEsmRel(src, item.rel)) continue;
-        const bytes = readFileSync(item.abs);
-        entriesByRel.set(item.rel, { length: bytes.length, sha256: sha256(bytes) });
+        entriesByRel.set(item.rel, runtimeFileDigest(item.abs));
       }
     }
     if (useInProcess) {
@@ -167,6 +193,18 @@ export function engineCodeDigest(source, { root = REPO, effective = false } = {}
             entriesByRel.set(`${rel}#in-process`, snap);
           }
         }
+      }
+    }
+  }
+  // 场景探针的共享依赖按源登记，避免扫描 sources 整棵树或改变核心帧源的缓存键。
+  for (const rel of engineCodeFiles(src)) {
+    if (useInProcess && isNodeOnlyEsmRel(src, rel)) {
+      const snap = LOADED_IN_PROCESS_DIGESTS.get(rel);
+      if (snap) entriesByRel.set(rel, snap);
+    } else {
+      const abs = join(root, rel);
+      if (statSync(abs, { throwIfNoEntry: false })?.isFile()) {
+        entriesByRel.set(rel, runtimeFileDigest(abs));
       }
     }
   }

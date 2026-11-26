@@ -189,6 +189,25 @@ const allReds = (res) => res.records.map((r) => Number(readFileSync(r.color).rea
 
 /* ---------------- 1. engineCodeDigest 与 liveCardsDigest 单元测试 ---------------- */
 
+test('O11 探针共享依赖使 three 和 Blender 的缓存签名更新', () => {
+  const root = makeEngineRoot('scene-probe-digest');
+  const digest = (source) => runtime.engineCodeDigest(source, { root });
+  const legacy = digest('legacy-page');
+  for (const file of [
+    'beiming/sources/scene-probe-plan.mjs',
+    'beiming/sources/scene-probe-measure.mjs',
+    'beiming/host/page/measure.js',
+    'beiming/sources/three/hosts.mjs',
+  ]) {
+    writeText(root, file, '// v1\n');
+    const before = [digest('three'), digest('blender')];
+    writeText(root, file, '// v2\n');
+    assert.notEqual(digest('three'), before[0], file);
+    assert.notEqual(digest('blender'), before[1], file);
+    assert.equal(digest('legacy-page'), legacy, file);
+  }
+});
+
 test('engineCodeDigest 实时无缓存、按帧源隔离、跳过非运行时文件并防改名与空目录碰撞', () => {
   assert.equal(typeof runtime.engineCodeDigest, 'function', 'runtime.mjs 必须导出 engineCodeDigest');
   const root = makeEngineRoot('unit-digest');
