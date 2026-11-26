@@ -120,6 +120,37 @@ core-render render-pack <包目录> -o out.png [--frame k] [--spp N] [--width W 
 
 所以要和 Blender 对拍降噪，Blender 那边要设 `denoising_prefilter = 'FAST'`、`denoising_quality = 'HIGH'`，两边的设备要一样（Blender 勾「在 GPU 上降噪」对这里的显卡设备，或这里改用 CPU 设备）。还没实测的：上面标「未读到」的每一行、`oidn()` 能不能编过（本机与工作站的 cargo 缓存里都没有 `oidn` 这个 crate）、编进去之后两边喂同一份带噪输入差多少。没编进 OIDN 的构建不受这次改动影响：小波降噪的输入与代码都没动，相机空间的法线只在编进了 OIDN 时才算。
 
+### 链接 Blender 自带的 OIDN（构建档的设计，还没落地）
+
+不起单独的降噪服务，降噪在 core-render 进程里做；链接的是 Blender 安装里自带的那一份 OIDN 动态库，按 sha256 钉住，与 Blender 降噪时用的逐字节是同一个库。
+
+| 机器 | 库在哪 | 版本 | 文件与 sha256 |
+|---|---|---|---|
+| 苹果 M5 Pro | Blender 5.2.0 的 `Blender.app/Contents/Resources/lib/` | 2.5.0（`otool -L` 报的 current version；装载名 `@rpath/libOpenImageDenoise.dylib`） | `libOpenImageDenoise.dylib` `f5b32f2f72bcc9797861845c78a48e1e3db45872c5e00db4c2517f2b67a24e92`，`_core` `042318cf91982a50a54aa3a94940508b2b83a9ad953782329898d6a9ef6b212b`，`_device_cpu` `0390327a30062ac90653fa15e9dec931c6d0b83ac3e92eded405fbb70ab936e3`，`_device_metal` `4e9937ed9c8f9244627a3b014f526d4f707c2be29a2fb2aed4c88a9ed191592a`；`libtbb.dylib` `c777383fc753a2cdcda8c3b4c26b3b91629891502e79db1042bb0d4add902926` |
+| RTX 5090（Linux） | Blender 5.2.3 官方 Linux 包的 `lib/` | 2.5.0 | `libOpenImageDenoise.so.2.5.0` `640b85e907e420ca4c4c1a320a0c648dd80d746e38e30cd6915c081eede682a1`（`.so`、`.so.2` 是指向它的链接），`_core` `b25bebf5e9ba5058fdecdcabe5c9e990398c072ce2ef7ee5c217636300cc6ed2`，`_device_cpu` `43bac84a37fe6b2083dbf230c10a9166514a5f7432d92c052c97970c51936809`，`_device_cuda` `baa354f85b236ba55719f6f2e6f42c3e43e490b40188685a3b6a7388e2368cd7`；`libtbb.so.12.17` 同目录 |
+| RTX 5090（Linux），对 Blender 4.5 | Blender 4.5.16 官方 Linux 包的 `lib/` | 2.3.3 | `libOpenImageDenoise.so.2.3.3` `9a220453d6a7ea32a036559e6579768a312653c9da12b819282f91bf8b2acc11`，`_core` `5ee271c174239386fa68fcad392a0f3e054aefeb9bc36741d409553b06fc09a3`，`_device_cuda` `82521b91a0efb74b5bddbd0976e4cfb42438cb593635120a8727adbfd79edfe8` |
+
+三处都只有动态库：没有头文件（`oidn.h`）、没有 pkg-config 的 `.pc`、没有 CMake 的配置文件。
+
+Rust 一侧用 `oidn` crate（`Cargo.lock` 钉 2.5.1）。从 crates.io 的索引能看到的（本机 cargo 的索引缓存里有这一条，crate 本身没有）：`links = "OpenImageDenoise"`；构建依赖 `pkg-config`（默认特性）；可选特性 `bundled` 会在构建时下载 OIDN 的二进制包（`ureq`、`sha2`、`flate2`、`tar`、`zip`），这里不许开；普通依赖 `bitflags`、`num_enum`。它的构建脚本没读到（crate 不在本机），照记忆：设了 `OIDN_DIR` 就加 `$OIDN_DIR/lib` 进链接路径、链接 `OpenImageDenoise`，没设才用 pkg-config 去找；C 接口的绑定是 crate 里写好的，不现场生成，所以不要头文件。这两点拿到 crate 之后先核，核不上就照实改这一节。
+
+构建档要做的：
+
+1. `../chassis/build.mjs` 加一个开关（比如 `buildRenderer({ oidn: <库目录> })`）：编之前逐个核对上表的 sha256，对不上就拒绝；把 `OIDN_DIR` 设成库目录的上一级（两处 Blender 的布局正好是 `<上一级>/lib/`），`cargo build --locked --release --features oidn`；`RUSTFLAGS` 加 `-C link-arg=-Wl,-rpath,<库目录>`，运行时不靠 `DYLD_LIBRARY_PATH` / `LD_LIBRARY_PATH` 就找得到（OIDN 的核心库再从同一目录装设备库：Mac 上是 `_device_metal`，5090 上是 `_device_cuda`）。
+2. 程序的名字（`sourceKey`）把「开了 oidn」和库的 sha256 算进去，与不开的构建分开存；编好后跑一次 `info`，再出一帧看 stats 的 `denoise` 是不是 `oidn`。
+3. 2.3.3 一份另编：`Cargo.lock` 只能钉一个 `oidn` 版本，在 `out/` 下的源码拷贝里把它降到 2.3.3（crates.io 上有，依赖相同）再编，库目录指 Blender 4.5.16 的 `lib/`；排在 2.5.0 跑通之后。
+4. 许可：只从本机已装的 Blender 动态链接，库不进仓库、不随仓库分发。OIDN（Apache-2.0）的动态链接在 `docs/rights/register.md` 的 R15 已登记；它依赖的 TBB（Apache-2.0）还没登记，落地时补上。
+
+要先取到本机（两台机器都缺；5090 的 cargo 缓存里已有 `proc-macro-crate 3.5.0`，`toml_edit` 有 0.25.15 与 0.25.20、没有锁文件要的 0.25.17），来源都是 crates.io，校验和照 `Cargo.lock`：
+
+| crate | 版本 | 校验和（前 16 位） |
+|---|---|---|
+| `oidn` | 2.5.1 | `5c750490adf2813d` |
+| `num_enum` | 0.7.6 | `5d0bca838442ec21` |
+| `num_enum_derive` | 0.7.6 | `680998035259dcfc` |
+| `proc-macro-crate` | 3.5.0（只 Mac 缺） | `e67ba7e9b2b56446` |
+| `toml_edit` | 0.25.17+spec-1.1.0 | `e3641d5bbb5349a7` |
+
 ## 改之前
 
 - 每个文件第一行的来源注释保留。
