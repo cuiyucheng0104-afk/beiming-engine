@@ -290,6 +290,20 @@ test('端到端：故意把一个 WGSL 函数改错一项，报出是哪个函�
       assert.ok(Math.abs(b.segments[0].worst) > b.segments[0].max);
     }
   }
+  // 去掉 π/2 低位那一步 fma：逐组比照旧合格，分段平均偏差后两段（|x| > 0.5 走半角公式的那一支）必须判不过
+  {
+    const from = 'r = M_PI_2_F - fma(2.0, asinf_series(sqrt((1.0 - ax) * 0.5)), 4.371139e-8);';
+    const noLow = usrc.replace(from, 'r = M_PI_2_F - 2.0 * asinf_series(sqrt((1.0 - ax) * 0.5));');
+    assert.notEqual(noLow, usrc, `util.wgsl 里找不到：${from}`);
+    const r = await e2e(t, { n: 1_000_000, seed: 1, wgsl: { [util]: noLow }, names: ['safe_asinf', 'safe_asinf_ulp_bias'] });
+    if (r) {
+      assert.equal(r.ok, false);
+      assert.deepEqual(r.results.map(x => x.fails), [0, 0]);
+      const b = r.results[1].bias;
+      t.diagnostic(`去掉低位那一步 fma 的分段平均偏差（末位）：${b.segments.map(x => x.worst.toFixed(3)).join('，')}`);
+      assert.deepEqual(b.segments.map(x => Math.abs(x.worst) > x.max), [false, true, true]);
+    }
+  }
   // 改回内建 sin、cos：逐组比照旧合格（每组都在 1e-4 相对误差以内），两项分段平均偏差必须都判不过
   {
     const builtin = usrc.replace(/fn sincosf\(x: f32\) -> vec2f \{[\s\S]*?\n\}/, 'fn sincosf(x: f32) -> vec2f {\n  return vec2f(sin(x), cos(x));\n}');
