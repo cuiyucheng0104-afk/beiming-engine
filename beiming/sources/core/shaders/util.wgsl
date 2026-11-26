@@ -127,6 +127,13 @@ fn inverse_len(a: vec3f) -> f32 {
   return fma(y * 0.5, fma(-l2 * y, y, 1.0), y);
 }
 
+// 着色法线的单位化（插值法线、法线贴图）：内建 normalize 与 a / len_ccl(a) 在显卡上同 1/|H| 一样偏向一边（【实测】|N| − 1 的平均偏差，
+// 英伟达上 −0.094 个末位、苹果显卡上 0.05 个，见 fncheck/registry.mjs 的 NLEN_BIAS）。|N| 的偏差原样进 cos_NH = dot(N, H)，经 bsdf_D_ggx
+// 放大的倍数与 inverse_len 那里相同，曲面网格上的抛光金属会整片同号地偏。所以乘 inverse_len（北冥的写法）；a 为零时给零向量
+fn normalize_unbiased(a: vec3f) -> vec3f {
+  return a * inverse_len(a);
+}
+
 // util/math_float3.h:332-340: normalize(float3)
 fn normalize_ccl(a: vec3f) -> vec3f {
   return a / len_ccl(a);

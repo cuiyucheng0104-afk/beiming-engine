@@ -489,6 +489,8 @@ static const Entry table[] = {
     {"sincosf", 1, 2, [](const float *i, float *o) { o[0] = sinf(i[0]); o[1] = cosf(i[0]); }},
     {"sinf", 1, 1, [](const float *i, float *o) { o[0] = sinf(i[0]); }},
     {"cosf", 1, 1, [](const float *i, float *o) { o[0] = cosf(i[0]); }},
+    /* 着色法线的单位化：triangle_smooth_normal（kernel/geom/triangle.h:162）用的 safe_normalize */
+    {"safe_normalize", 3, 3, [](const float *i, float *o) { put3(o, safe_normalize(get3(i))); }},
     {"ray_quad_intersect", 20, 7, [](const float *i, float *o) {
        float3 P = zero_float3();
        float t = 0.0f, u = 0.0f, v = 0.0f;

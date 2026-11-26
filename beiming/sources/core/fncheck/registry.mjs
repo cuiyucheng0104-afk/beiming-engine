@@ -437,6 +437,24 @@ FUNCTIONS.push(
   peak('bsdf_microfacet_eval_ggx_generalized_schlick', [['ior', 'f32'], ['f0', 'vec3f'], ['f90', 'vec3f'], ['exponent', 'f32'], ['reflection_tint', 'vec3f'], ['transmission_tint', 'vec3f']],
     next => { const ior = linU(next, [1.1, 2]); return { ior, f0: v3(next, 0.01, 1), f90: [1, 1, 1], exponent: -ior, reflection_tint: v3(next, 0.1, 1), transmission_tint: [0, 0, 0] }; }),
 );
+// 着色法线的单位化（util.wgsl 的 normalize_unbiased，path/shaders/shader.wgsl 的插值法线与法线贴图用它）：对 Cycles 的 safe_normalize
+// （triangle_smooth_normal 用的那个）量 |N| − 1 的平均偏差，以 1 以下的末位 2⁻²⁴ 计（单位与上面 cos_NH 的相同：|N| 的偏差原样进
+// cos_NH = dot(N, H)）。方向在整个球面上按面积均匀取，长度在 [0.25, 4) 按对数均匀取、分 4 小段（一段一个二进制量级），100 万组；
+// 逐组照常比。门槛照实测定（种子 1，小段平均的绝对值最大者）：
+//   写法                               苹果显卡     英伟达 RTX 5090
+//   乘 inverse_len（现用）                −0.004       −0.005
+//   内建 normalize                         0.050       −0.094
+//   a / len_ccl(a)（normalize_ccl 的式子）  0.048       −0.095
+// 门槛 0.03，同上面那两项：现用的写法有 6 倍余量，内建的两台都超出（fncheck.test.mjs 的负对照「改回内建 normalize」）
+const NLEN = [0.25, 4];
+const NLEN_BIAS = [{ lo: NLEN[0], hi: NLEN[1], bins: 4, max: 0.03 }];
+FUNCTIONS.push(
+  entry('normalize_unbiased_len_bias', [['a', 'vec3f']], 3, 0, {
+    file: APACHE, wgsl: 'normalize_unbiased', ref: 'safe_normalize', ulpBias: NLEN_BIAS,
+    gen: next => { const L = logU(next, NLEN), z = 2 * next() - 1, phi = 2 * Math.PI * next(), rho = Math.sqrt(1 - z * z); return { a: [L * rho * Math.cos(phi), L * rho * Math.sin(phi), L * z] }; },
+    biasOf: (r, t, i) => [Math.hypot(i[0], i[1], i[2]), (Math.hypot(t[0], t[1], t[2]) - Math.hypot(r[0], r[1], r[2])) / ULP_BELOW_1],
+  }),
+);
 
 
 // 下面是原理化 BSDF 非金属那一半（电介质高光：GGX 加广义 Schlick，只有反射；漫反射；发光值；滤光泽）与它们用到的

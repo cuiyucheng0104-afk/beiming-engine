@@ -189,6 +189,7 @@ const NEW = [
   'bsdf_microfacet_setup_fresnel_f82_tint', 'bsdf_microfacet_eval_ggx', 'bsdf_microfacet_ggx_eval',
   'bsdf_microfacet_sample_ggx', 'bsdf_microfacet_ggx_sample',
   'bsdf_microfacet_eval_ggx_peak_bias', 'bsdf_microfacet_eval_ggx_generalized_schlick_peak_bias',
+  'normalize_unbiased_len_bias',
   'safe_asinf', 'safe_asinf_ulp_bias', 'sincosf', 'sinf_ulp_bias', 'cosf_ulp_bias', 'ray_quad_intersect', 'area_light_rect_sample', 'area_light_rect_sample_solid_angle', 'area_light_rect_sample_tiny', 'area_light_rect_sample_grazing',
   'area_light_rect_sample_far', 'area_light_rect_sample_near',
   'area_light_sample', 'area_light_eval_from_intersection', 'area_light_intersect',
@@ -397,9 +398,9 @@ test('端到端：故意把一个 WGSL 函数改错一项，报出是哪个函�
 });
 
 // names：只跑这几项（不写就是全部）。只给着色器一侧的项时不碰宿主一侧，不编渲染程序
-// GGX 两处求值的 1/|H|（util.wgsl 的 inverse_len，理由见那里），两个负对照，都只看镜面峰平均偏差那两项（它们不逐组比）。
-// 单独一项：上面那一项里别的负对照在某台显卡上先断言失败时，这两个照样跑
-test('端到端：GGX 求值的 1/|H| 改回原式或故意偏半个末位，镜面峰平均偏差判不过', { timeout: 600_000 }, async t => {
+// GGX 两处求值的 1/|H|（util.wgsl 的 inverse_len，理由见那里），两个负对照，都只看镜面峰平均偏差那两项（它们不逐组比）；
+// 着色法线的 normalize_unbiased 一个负对照。单独一项：上面几项里别的负对照在某台显卡上先断言失败时，这几个照样跑
+test('端到端：GGX 求值的 1/|H| 改回原式或故意偏半个末位、着色法线改回内建 normalize，平均偏差判不过', { timeout: 600_000 }, async t => {
   const file = 'shaders/microfacet.wgsl', util = 'shaders/util.wgsl';
   const src = await readFile(`${CORE}/${file}`, 'utf8'), usrc = await readFile(`${CORE}/${util}`, 'utf8');
   // 改回原式 safe_divide(1.0, len_ccl(H))，两台都必须判不过（【实测】英伟达上偏 −0.089 个末位，苹果显卡上 0.05，门槛 0.03）；
@@ -420,6 +421,16 @@ test('端到端：GGX 求值的 1/|H| 改回原式或故意偏半个末位，镜
       assert.equal(x.fails, 0);
       assert.ok(x.bias.fails > 0, `${what} ${x.name}`);
     }
+  }
+  // 着色法线的 normalize_unbiased 改回内建 normalize：|N| − 1 的平均偏差两台都必须判不过（【实测】英伟达上 −0.094、苹果显卡上 0.05，门槛 0.03）
+  const nsite = 'return a * inverse_len(a);';
+  assert.equal(usrc.split(nsite).length, 2, `util.wgsl 里找不到：${nsite}`);
+  const r = await e2e(t, { n: 1_000_000, seed: 1, wgsl: { [util]: usrc.replace(nsite, 'return normalize(a);') }, names: ['normalize_unbiased_len_bias'] });
+  if (r) {
+    assert.equal(r.ok, false);
+    const [x] = r.results;
+    t.diagnostic(`内建 normalize 的 |N| − 1 平均偏差（末位）：${x.bias.segments.map(g => g.worst.toFixed(3)).join('，')}（${r.adapter?.vendor}）`);
+    assert.ok(x.bias.fails > 0);
   }
 });
 

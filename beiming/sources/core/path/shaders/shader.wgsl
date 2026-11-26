@@ -160,7 +160,8 @@ fn shader_setup_from_hit(sd: ptr<function, ShadingPoint>, o: vec3<f32>, d: vec3<
         (*sd).P = p;
         let w = 1.0 - h.u - h.v;
         ng = normalize(cross(e1, e2));
-        n = normalize(a.n0.xyz * w + a.n1.xyz * h.u + a.n2.xyz * h.v);
+        // 着色法线不用内建 normalize：它在显卡上偏向一边，经 GGX 的 1 − cos_NH² 放大（util.wgsl 的 normalize_unbiased）
+        n = normalize_unbiased(a.n0.xyz * w + a.n1.xyz * h.u + a.n2.xyz * h.v);
         (*sd).object = object_of(a);
     }
     (*sd).inst = select(NO_INST, h.inst, !is_proc(h) && has(F_INST));
@@ -430,7 +431,7 @@ fn msample_color(m: Material, i: MatIn, slot: u32, uv: vec2<f32>, uv_per_m: f32)
 fn tangent_normal(i: MatIn, tn: vec3<f32>) -> vec3<f32> {
     let w = i.t * tn.x + i.b * tn.y + i.n * tn.z;
     if (dot(w, w) < 1e-12) { return i.n; }
-    let nn = normalize(w);
+    let nn = normalize_unbiased(w);
     return select(i.n, nn, dot(nn, i.ng) > 0.0);
 }
 
@@ -464,7 +465,7 @@ fn mat_in_at(ti: u32, u: f32, v: f32, view: vec3<f32>, lod: f32) -> MatIn {
     let e2 = tri_verts[ti * 3u + 2u].xyz - v0;
     let p = v0 + e1 * u + e2 * v;
     let ng = normalize(cross(e1, e2));
-    var n = normalize(a.n0.xyz * w + a.n1.xyz * u + a.n2.xyz * v);
+    var n = normalize_unbiased(a.n0.xyz * w + a.n1.xyz * u + a.n2.xyz * v);
     let t = normalize(a.t.xyz - n * dot(n, a.t.xyz) + vec3<f32>(1e-9));
     let oi = object_of(a);
     return MatIn(p, n, ng, t, cross(n, t) * a.t.w, mesh_uv(a, m, u, v), mesh_lod(a, m), view, object_at(oi * OBJECT_STRIDE).xyz, object_at(oi * OBJECT_STRIDE + 1u).xyz,
@@ -564,7 +565,8 @@ fn surface(o: vec3<f32>, d: vec3<f32>, h: Hit, width: f32) -> SurfaceEval {
     }
     let w = 1.0 - h.u - h.v;
     var ng = normalize(cross(e1, e2));
-    var n = normalize(a.n0.xyz * w + a.n1.xyz * h.u + a.n2.xyz * h.v);
+    // 着色法线不用内建 normalize：它在显卡上偏向一边，经 GGX 的 1 − cos_NH² 放大（util.wgsl 的 normalize_unbiased）
+    var n = normalize_unbiased(a.n0.xyz * w + a.n1.xyz * h.u + a.n2.xyz * h.v);
     let mi = bitcast<u32>(a.uv.w);
     let m = material_at(mi);
     let front = dot(ng, d) < 0.0;
@@ -609,13 +611,13 @@ fn surface(o: vec3<f32>, d: vec3<f32>, h: Hit, width: f32) -> SurfaceEval {
             let t = normalize(tp);
             let b = cross(n, t) * a.t.w;
             let pn = t * (tn.x * m.params.w) + b * (tn.y * m.params.w) + n * tn.z;
-            if (dot(pn, pn) > 1e-12 && dot(pn, ng) > 0.0) { n = normalize(pn); }
+            if (dot(pn, pn) > 1e-12 && dot(pn, ng) > 0.0) { n = normalize_unbiased(pn); }
         }
     }
     if (has(F_FUNC) && m.tex1.w > 0) {
         let oi = object_of(a);
         var t = normalize(a.t.xyz - n * dot(n, a.t.xyz) + vec3<f32>(1e-9));
-        let nv = normalize(a.n0.xyz * w + a.n1.xyz * h.u + a.n2.xyz * h.v) * select(-1.0, 1.0, front || dot(a.n0.xyz, ng) > 0.0);
+        let nv = normalize_unbiased(a.n0.xyz * w + a.n1.xyz * h.u + a.n2.xyz * h.v) * select(-1.0, 1.0, front || dot(a.n0.xyz, ng) > 0.0);
         let i = MatIn(p, select(-nv, nv, dot(nv, ng) >= 0.0), ng, t, cross(n, t) * a.t.w, mesh_uv(a, m, h.u, h.v), mesh_lod(a, m), -d,
                       object_at(oi * OBJECT_STRIDE).xyz, object_at(oi * OBJECT_STRIDE + 1u).xyz, P.time.x, P.time.y, P.time.z,
                       log2(max(width, 1e-7)) - 0.5 * log2(max(abs(dot(ng, d)), 1e-3)), state.bounce, object_at(oi * OBJECT_STRIDE).w, near,

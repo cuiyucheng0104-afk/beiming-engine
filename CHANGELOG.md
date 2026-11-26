@@ -291,6 +291,7 @@
 - 测试判断「有没有无头浏览器」改用与 `npm test` 的 `requires: browser` 同一个探测（`tests/ci/browser.mjs`）：原先用 `chromium.executablePath()` 指向完整 Chromium，而渲染器与 CI 装的是 chromium-headless-shell，渲染管线、生产管线、重排切点、确定性与金标准、例片资产桥共 5 个测试文件在 CI 里一直显示「跳过」而没有运行；`tests/ci/browser-skip.test.mjs` 防止再写回去。
 - 例片资产桥测试 `tests/native/bridge.test.mjs`：GLB 总字节数含贴图的 PNG 编码，随平台变化，改为与 sha256 一样只在登记过哈希的平台上比对（与 `examples/raea/expected-assets.json` 的 `$note` 一致），其余结构摘要仍在任何平台比对；基准文件未改。
 - 核心帧源的 GGX 两处求值（`beiming/sources/core/shaders/microfacet.wgsl`）里半向量的 1/|H| 改调 `util.wgsl` 新加的 `inverse_len`（内建 `inverseSqrt` 再做一次牛顿迭代），不照 Cycles 原式写成 `safe_divide(1.0, len_ccl(H))`：显卡上原式的 1/sqrt 偏向一边，`bsdf_D_ggx` 的 1 − cos_NH² 相消把它放大约 4/alpha² 倍，英伟达上平行光照抛光金属的高光整片偏暗约 3.6e-4，改后判过。`polar_to_cartesian` 改调已有的 `sincosf`，不用内建 `cos`、`sin`（苹果显卡上同一个取值点对参考的差别消失）。函数级比对加 `bsdf_microfacet_eval_ggx_peak_bias`、`bsdf_microfacet_eval_ggx_generalized_schlick_peak_bias`：镜面峰上（alpha 0.005 到 0.1）由概率密度折回的 cos_NH 平均偏差，以末位计，门槛 0.03；现用的写法两台都不到 0.005，改回原式英伟达上 −0.089、苹果显卡上 0.05，都判不过。比对外壳的 `ulpBias` 可以按登记的 `biasOf` 给多输入、多输出的项分段、折算。
+- 核心帧源的着色法线（`beiming/sources/core/path/shaders/shader.wgsl` 的插值法线与法线贴图）不用内建 `normalize`，改调 `util.wgsl` 新加的 `normalize_unbiased`（乘 `inverse_len`）：显卡内建的 `normalize` 让 |N| 偏向一边，经 GGX 同一处相消放大，曲面网格上的抛光金属高光会整片偏（英伟达上偏暗）。函数级比对加 `normalize_unbiased_len_bias`：对 Cycles 的 `safe_normalize` 量 |N| − 1 的平均偏差，以末位计，门槛 0.03；现用的写法两台都不到 0.005，内建的英伟达上 −0.094、苹果显卡上 0.05，都判不过。曲面网格上的渲染结果末位会变。`fncheck.test.mjs` 里「改回内建 sin、cos」的负对照不再断言逐组照旧合格（英伟达上内建的逐组就超），灯、三角形求交与阴影射线起点的负对照拆成单独一项。
 
 ## [1.0.0] - 2026-11-04
 
