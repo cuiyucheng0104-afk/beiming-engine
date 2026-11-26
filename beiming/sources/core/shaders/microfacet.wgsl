@@ -240,7 +240,8 @@ fn bsdf_microfacet_eval_ggx(N: vec3f, wi: vec3f, wo: vec3f, alpha: f32, f0: vec3
   }
 
   var H = wi + wo;
-  let inv_len_H = safe_divide(1.0, len_ccl(H));
+  // 1/|H| 不照原式写成 safe_divide(1.0, len_ccl(H))：理由见 util.wgsl 的 inverse_len
+  let inv_len_H = inverse_len(H);
   H *= inv_len_H;
 
   let cos_HI = dot(H, wi);
@@ -562,7 +563,8 @@ fn bsdf_microfacet_eval_ggx_generalized_schlick(N: vec3f, wi: vec3f, wo: vec3f, 
   }
 
   var H = wi + wo;
-  let inv_len_H = safe_divide(1.0, len_ccl(H));
+  // 1/|H| 不照原式写成 safe_divide(1.0, len_ccl(H))：理由见 util.wgsl 的 inverse_len
+  let inv_len_H = inverse_len(H);
   H *= inv_len_H;
 
   let cos_HI = dot(H, wi);

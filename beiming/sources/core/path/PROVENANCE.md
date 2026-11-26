@@ -185,6 +185,13 @@ Cycles 的原理化 BSDF 给金属与电介质高光的闭包用的是 `valid_re
 - `shaders/light.wgsl` 的 `shadow_ray`（替掉 `shadow_origin`）：阴影射线照 `kernel/light/sample.h:225-311` 的 `light_sample_to_surface_shadow_ray` 与 `shade_surface.h:439-441`（直接光）接着调的 `integrate_surface_ray_offset` 建，不再沿几何法线挪开（上游的 `offset_origin`）；`shaders/intersect.wgsl` 加 `trace_self`，软件求交跳过自己的图元，`shaders/trace_hw.wgsl` 的 `trace_opaque` 在同一个查询语句里步过自己（`kernel/bvh/util.h` 的 `intersection_skip_self` 的效果；做法见 `STRUCTURES.md` 第 51 条）。
 - `shaders/shader.wgsl` 的 `shader_setup_from_hit`：三角形上的着色点照 `kernel/geom/triangle_intersect.h:123-143` 的 `triangle_point_from_uv`（`triangle_shader_setup` 在 172 行调它）用命中的重心坐标重建，`tri_a + u·(tri_b − tri_a) + v·(tri_c − tri_a)`，不再取上游的 `o + d·t`。`shade_surface.h:42-93` 的 `integrate_surface_ray_offset`「自交测中就不抬」以这个点落在自己的三角形上为前提。有意偏离与前提：Cycles 把只被一个物体用的静态网格的变换烘进顶点（`SD_OBJECT_TRANSFORM_APPLIED`），在世界空间里插值；北冥的软件求交同样在铺进世界空间的三角形上插值，硬件求交的模型实例在模型空间插值再乘实例矩阵（重心坐标是硬件在模型空间里给的，与它配套），舍入次序与 Cycles 不逐位相同。硬件求交那条路自交测试用宿主一侧算的逆矩阵行（`proc_point`、`proc_dir`）把射线变进模型空间，驱动求交用它自己从实例矩阵求的逆，两者不保证逐位相同（Cycles 的注释要求逐位相同）；驱动的逆在命中时可以从已确定的命中取到（`world_to_object`），没有带进着色点；实测影响见 `STRUCTURES.md` 第 52 条。过程几何照旧取 `o + d·t`。继续弹射的射线与上游顶替那一路的起点从这个点挪开（挪法不变），跟着变。
 
+### GGX 求值的半向量与圆盘映射
+
+两处单精度的写法，第 4 级平行光照抛光金属的对拍里查出来的；都是写法的替换，不是 Cycles 的式子。
+
+- `../shaders/microfacet.wgsl` 的 `bsdf_microfacet_eval_ggx` 与 `bsdf_microfacet_eval_ggx_generalized_schlick`（`kernel/closure/bsdf_microfacet.h:726`）：半向量的 1/|H| 不照原式写成 `safe_divide(1.0, len_ccl(H))`，改调 `../shaders/util.wgsl` 新加的 `inverse_len`（内建 `inverseSqrt` 再做一次牛顿迭代，|H| 为零时给 0，与原式相同）。Cycles 在处理器上 `sqrtf` 与除法都正确舍入；显卡上照原式写，1/sqrt 被编成近似指令，结果偏向一边，`bsdf_D_ggx` 的 1 − cos_NH² 在半向量贴近法线时相消，把 cos_NH 的偏差放大约 4/alpha² 倍，抛光金属上整片高光同号地偏。理由与读数见 `STRUCTURES.md` 第 54 条。函数级比对加 `bsdf_microfacet_eval_ggx_peak_bias`、`bsdf_microfacet_eval_ggx_generalized_schlick_peak_bias`（镜面峰上 cos_NH 的平均偏差，以末位计）守着这个选择，负对照是改回原式必须判不过。
+- `../shaders/util.wgsl` 的 `polar_to_cartesian`（`util/projection.h:30-33`）不调内建 `cos`、`sin`，改调已有的 `sincosf`：Cycles 在处理器上用 C 库的 `cosf`、`sinf`；显卡内建的误差随输入位置光滑变化，同心圆映射（平行光的锥、点光与面光的圆盘、GGX 可见法线采样）取的点整片同向地挪。调用方只有 `sample_uniform_disk`，phi 在 [−π/4, 3π/4]，在 `sincosf` 的有效范围里。理由同 `STRUCTURES.md` 第 53 条。
+
 ### 像素滤波与夹取
 
 照 Cycles（同一提交）把像素滤波与贡献的夹取接进内核，只在 `render-pack` 一路由命令行打开（参数见 [README.md](README.md)「读场景包」）。不加这些参数时内核与加它们之前逐字相同，渲染结果逐位不变。

@@ -115,6 +115,18 @@ fn len_ccl(a: vec3f) -> f32 {
   return sqrt(dot(a, a));
 }
 
+// 1/|a|，a 为零时给 0：GGX 求值里半向量的 safe_divide(1.0f, len(H))（kernel/closure/bsdf_microfacet.h:726）。Cycles 在处理器上
+// sqrtf 与除法都正确舍入，误差在相邻的输入之间像随机数；显卡上照原式写，1/sqrt 被编成近似指令，结果偏向一边（【实测】镜面峰上
+// cos_NH 的平均偏差，英伟达上 −0.089 个末位、苹果显卡上 0.05 个，见 fncheck/registry.mjs 的 PEAK_BIAS）。bsdf_D_ggx 的 1 − cos_NH²
+// 在半向量贴近法线时相消，cos_NH 的偏差被放大约 4/alpha² 倍：alpha = 0.017 的抛光金属上，峰顶一个末位就是高光亮度的 8e-4，整片
+// 高光同号地偏，像素抖动平均不掉。所以用内建 inverseSqrt 再做一次牛顿迭代（北冥的写法，不是 Cycles 的式子）：
+// y ← y + y/2·(1 − |a|²·y²)，两步都经 fma，近似指令的误差压到舍入误差以下（两台显卡上都不到 0.005 个末位）
+fn inverse_len(a: vec3f) -> f32 {
+  let l2 = dot(a, a);
+  let y = select(0.0, inverseSqrt(l2), l2 > 0.0);
+  return fma(y * 0.5, fma(-l2 * y, y, 1.0), y);
+}
+
 // util/math_float3.h:332-340: normalize(float3)
 fn normalize_ccl(a: vec3f) -> vec3f {
   return a / len_ccl(a);
@@ -197,9 +209,13 @@ fn to_global(p: vec3f, X: vec3f, Y: vec3f, Z: vec3f) -> vec3f {
   return p.x * X + p.y * Y + p.z * Z;
 }
 
-// util/projection.h:30-33: polar_to_cartesian
+// util/projection.h:30-33: polar_to_cartesian。Cycles 在处理器上调 C 库的 cosf、sinf；这里用上面自己写的 sincosf，不用内建：
+// 显卡内建的 cos、sin 偏差是位置的光滑函数、一段里同号（理由同 safe_asinf），同心圆映射给平行光的锥、点光与面光的圆盘、GGX 可见
+// 法线采样取点，取点整片同向地挪，像素抖动平均不掉（【实测】第 4 级平行光照抛光金属那一个取值点，苹果显卡对参考的 Welch 读数
+// 由 1.1e-3 降到 0，英伟达上不变）。调用方只有 sample_uniform_disk，phi 在 [−π/4, 3π/4]，在 sincosf 的有效范围（|x| 不过几个 π）里
 fn polar_to_cartesian(r: f32, phi: f32) -> vec2f {
-  return vec2f(r * cos(phi), r * sin(phi));
+  let sc = sincosf(phi);
+  return vec2f(r * sc.y, r * sc.x);
 }
 
 // util/projection.h:35-38: disk_to_hemisphere
