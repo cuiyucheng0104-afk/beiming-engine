@@ -99,3 +99,12 @@ test('off-grid periods keep their pitch when a second harmonic is twice as stron
   const { value, details } = pitchF0(audio, { sampleRate: 16000, startSec: 0, endSec: 0.07 });
   assert.deepEqual(value.noteCounts, { D4: details.analyzedFrames });
 });
+
+test('8 kHz harmonic mixtures retain their off-grid pitch and weak fundamentals', () => {
+  for (const [hz, ratio] of [[316.8, 4.444], [352.5, 4.444], [217.4, 80]]) {
+    const { value, details } = measureShortTone(8000,
+      t => (Math.sin(hz * t) + ratio * Math.sin(2 * hz * t + 0.61)) / (1 + ratio));
+    assert.equal(value.voicedFrames, details.analyzedFrames);
+    for (const estimate of value.frequencyRangeHz) assert.ok(Math.abs(estimate / hz - 1) < 0.025);
+  }
+});

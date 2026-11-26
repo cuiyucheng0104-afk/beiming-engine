@@ -55,7 +55,7 @@ function estimateWindow(pcm, start, size, minLag, maxLag) {
       peak = Math.max(score, product / Math.sqrt(energy * shiftedEnergy + 1e-9));
     }
     // Quantization and finite sampling leave near-equal peaks on harmonic mixtures.
-    if (peak > bestScore + 1e-5) {
+    if (peak > bestScore + 5e-5) {
       bestScore = peak;
       bestLag = lag;
     }
