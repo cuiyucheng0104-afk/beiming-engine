@@ -51,6 +51,19 @@ await s.close(); await src.stop();
 
 成片档的拒绝与帧源契约的 F25 冲突：F25 不看档位，宿主与作者模式都声明过时 `open` 就该成功；错误码表里 `contract.unsupported-mode` 也只指宿主或作者模式。所以帧源核对记录里只记 draft 档的 `open`，这一条待契约改（给只进看板的帧源留出 `final` 的例外，或者登记专用码）。
 
+## 作业准入与预算
+
+经服务端提交的渲染作业，要渲的镜头里有 `source: core` 的（草稿档；终渲档照上表在 `open` 时拒），请求体要带 `budget: { maxTriangles, spp, maxWallMs }`，入队之前由 `admitBudget` 判，不过就不进队列：
+
+| 不过的情形 | 错误码 |
+|---|---|
+| 没带 `budget`、少一项或多一项、值不是正整数（`maxWallMs` 不超过 2³¹−1） | `usage.budget-required` |
+| 声明的 `spp` 超过这一档的上限 `SPP_MAX`（草稿档是终稿档的默认采样数 64） | `contract.over-budget` |
+| 镜头生效的每像素采样数（取值次序同 `planRender`）超过声明的 `spp` | `contract.over-budget` |
+| 场景包在要渲的某一帧上画出来的三角形数（`core-render pack-info --frame k` 那一行统计的 `triangles`）超过 `maxTriangles` | `contract.over-budget` |
+
+这两个码还没登记进错误码表（`errors.json`，按错误码契约 5.4 要先提变更单）：服务端的失败信封里报登记过的近义码（`usage.bad-argument`、`contract.bad-value`），原码写在诊断的 `evidence`（`原码 …`）。
+
 ## 元数据
 
 - `source.renderer` 是 `core`，`host` 是 `offscreen`，`version` 是内核源码的内容摘要（`chassis/build.mjs` 的 `sourceKey`，编好的程序按它命名）。帧源契约 3.4 的表里 core 的 `version` 写的是锁文件锁定的提交号，两者对不上：带锁文件 `open` 会被拒，待契约定用哪一个。

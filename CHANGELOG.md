@@ -12,6 +12,7 @@
 这一段汇总从 v1.0 到工业级交付升级完成前的全部变更，按合入顺序归类。升级以 [docs/decisions/2026-11-10-industrial-baseline.md](docs/decisions/2026-11-10-industrial-baseline.md) 的 D01–D13 为准，拆成多个工作包推进，目标是让仓库成为按 A、B、C、D 四条路线组织的技术模版仓库：agent 读完入口文档就能选对路线，按模版建作品，用统一的命令出片；成片先过机器 QA 与人工创作闸门，才标为交付；每个 PR 都有测试、无显卡冒烟出片与 Windows 路径检查把关。各工作包合入时，在下面的分类里追加自己的条目。
 
 ### Added
+- 核心帧源作业的准入：渲染请求要带 `budget`（每帧三角形数、每像素采样数、墙钟毫秒三项上限），没带、采样超草稿档上限或超声明、场景包某一帧的三角形数（`core-render pack-info`）超声明，都在入队之前拒；新码 `usage.budget-required`、`contract.over-budget` 还没登记进错误码表，信封里报近义码，原码在诊断里。
 - 作业调度器新增 `core` 道：草稿档里有核心帧源镜头的渲染作业走这一道，同一块卡上同时只跑一个，第二个排队，不被终渲抢占；其他道的并发与抢占不变。
 - 出片链接上核心帧源：场景包镜头（`source: core`）经 `beiming/api/pipeline.mjs` 的帧源池出草稿档的帧，只用编好的渲染程序 `core-render`，没有就报 `env.missing-tool`；终渲档仍在打开会话时以 `contract.unsupported-mode` 拒绝。
 - 题库新增 M4 B19 第 4 级整镜公开题 `42-1`（峡谷吐息整镜）、离线评分器 `evaluate-b19.mjs`、标准答案工程 `solutions/level-4/42-1/film.json` 与 `run-b19.mjs` 9 项逐卡关闭负对照，接入 `exam.mjs`（19 道公开题核验）与 `suite.mjs full-4`（全卷四精确 28 次计分调度），并完成 FX15 M4 技术卡跨题复用涨分实证。

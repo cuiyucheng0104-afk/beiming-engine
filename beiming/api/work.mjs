@@ -9,6 +9,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { loadQueue, openShotCache } from '../jobs/index.mjs';
+import { admitBudget } from '../sources/core/source.mjs';
 import { audioLoudness, blackFreezeDup, buildContactSheet, buildCutStrips, cutScene, cutYdif, deliverSpec, pngSize, query, videoAliasEdge, videoNoiseResidual } from '../observe/index.mjs';
 import { artifactUrl } from './client.mjs';
 import { ROUTES } from './contract.mjs';
@@ -563,6 +564,20 @@ export function createWork({ store, library, reviewer, scheduler }) {
     const film = store.readFilm(id);
     const core = kind === 'render' && (payload.plan ?? []).some((p) => film.shots.find((s) => s.id === p.shot)?.source === 'core');
     const lane = kind === 'verify' ? 'verify' : tier === 'final' ? 'final' : core ? 'core' : 'draft';
+    // 核心作业入队之前过准入：没声明预算、声明的采样超档位上限、场景包的三角形数超声明，都不进队列。
+    // 新码不在错误码表里：信封里报登记过的近义码，原码记在诊断的 evidence
+    if (lane === 'core') {
+      const shots = payload.plan.flatMap((p) => {
+        const shot = film.shots.find((s) => s.id === p.shot);
+        return shot?.source === 'core' ? [{ shot, frames: p.frames.map((f) => f - shot.in) }] : [];
+      });
+      try {
+        admitBudget({ budget: payload.budget, tier, filmDir: store.filmDir(id), shots });
+      } catch (e) {
+        if (typeof e?.code !== 'string') throw e;
+        throw new ApiError(e.code, e.message, { diagnostics: [diagnostic({ code: e.code, message: e.message })] });
+      }
+    }
     const jobId = store.nextJobId(id);
     const q = queue(id);
     q.enqueue({ id: jobId, kind: lane, handler: kind, payload: { film: id, ...payload }, rev: payload.rev });

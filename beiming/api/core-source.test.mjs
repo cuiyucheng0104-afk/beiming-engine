@@ -1,5 +1,7 @@
 // 核心帧源接进出片链：一个最小场景包经队列里的作业（renderPlan、sourcePool）出一帧，和直接调 core-render render-pack 出的层逐字节相同；
-// 终渲档照帧源原来的规则被拒；没有编好的渲染程序时出片链报 env.missing-tool、不现编。
+// 终渲档照帧源原来的规则被拒；没有编好的渲染程序时出片链报 env.missing-tool、不现编；
+// 核心作业的准入（预算缺了、采样超档位上限或超声明、场景包三角形数超声明，都在入队之前拒）。准入用一个假的渲染程序
+// （按场景包目录里的 fake.json 答 pack-info），不要显卡；拿真程序的 pack-info 对一遍的那条，有编好的程序才跑。
 // 要渲染程序与显卡的那条：设了 BEIMING_CHASSIS_E2E=1、又有编好的程序（sources/core/source.mjs 的 findRenderer）才跑，否则跳过；不现编。
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -19,6 +21,28 @@ import { createWork } from './work.mjs';
 const E2E = process.env.BEIMING_CHASSIS_E2E === '1';
 const SIZE = [64, 36], SPP = 8, SEED = 7;
 const LAYERS = ['color.f32', 'objectId.u32'];
+
+/** 假的 core-render：pack-info 照场景包目录里 fake.json 的 triangles 答一行统计（没有就 4）；别的子命令退出 9 */
+function fakeRenderer(t) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-core-fake-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const bin = path.join(dir, 'core-render');
+  fs.writeFileSync(bin, `#!${process.execPath}
+const fs = require('node:fs'), path = require('node:path');
+const [cmd, dir] = process.argv.slice(2);
+const cfg = fs.existsSync(path.join(dir, 'fake.json')) ? JSON.parse(fs.readFileSync(path.join(dir, 'fake.json'), 'utf8')) : {};
+if (cmd === 'pack-info') { console.log(JSON.stringify({ format: 'core-pack-info/0.1', id: 'pack:fake@1', frames: 1, triangles: cfg.triangles ?? 4 })); process.exit(0); }
+process.exit(9);
+`, { mode: 0o755 });
+  return bin;
+}
+
+/** 这条测试里 BEIMING_CORE_RENDER 指向 bin，测完复原 */
+function useRenderer(t, bin) {
+  const prev = process.env.BEIMING_CORE_RENDER;
+  process.env.BEIMING_CORE_RENDER = bin;
+  t.after(() => { if (prev === undefined) delete process.env.BEIMING_CORE_RENDER; else process.env.BEIMING_CORE_RENDER = prev; });
+}
 
 function rendererOrSkip(t) {
   if (!E2E) { t.skip('没设 BEIMING_CHASSIS_E2E=1'); return null; }
@@ -122,13 +146,57 @@ function served(t) {
   return { store, id, work: createWork({ store, library: {}, reviewer: null, scheduler: new Scheduler() }) };
 }
 
+const BUDGET = { maxTriangles: 100, spp: 24, maxWallMs: 60_000 };
+
 test('草稿档里有核心镜头的渲染作业走 core 道，没有的走 draft 道', { timeout: 30_000 }, async (t) => {
+  useRenderer(t, fakeRenderer(t));
   const { store, id, work } = served(t);
   const kindOf = async (plan) => {
-    const job = work.submit(id, 'render', { tier: 'draft', rev: 0, plan });
+    const job = work.submit(id, 'render', { tier: 'draft', rev: 0, plan, budget: BUDGET });
     await work.wait(id, job, 10);
     return loadQueue(store.filmDir(id)).getJob(job).request.kind;
   };
   assert.equal(await kindOf([{ shot: 's01', frames: [0] }]), 'core');
   assert.equal(await kindOf([{ shot: 's02', frames: [1] }]), 'draft');
+});
+
+test('核心作业的准入：预算缺了、采样超档位上限或超声明、三角形数超声明都在入队之前拒，诊断带原码', { timeout: 30_000 }, async (t) => {
+  useRenderer(t, fakeRenderer(t));
+  const { store, id, work } = served(t);
+  const plan = [{ shot: 's01', frames: [0] }];
+  const reject = (budget) => {
+    try { work.submit(id, 'render', { tier: 'draft', rev: 0, plan, ...(budget === undefined ? {} : { budget }) }); } catch (e) {
+      return { code: e.code, original: e.diagnostics?.[0]?.evidence, message: e.message };
+    }
+    return null;
+  };
+  const missing = { code: 'usage.bad-argument', original: '原码 usage.budget-required' };
+  const over = { code: 'contract.bad-value', original: '原码 contract.over-budget' };
+  const pick = (r) => r && { code: r.code, original: r.original };
+  assert.deepEqual(pick(reject(undefined)), missing, '没声明预算');
+  assert.deepEqual(pick(reject({ maxTriangles: 100, spp: 24 })), missing, '少一项');
+  assert.deepEqual(pick(reject({ ...BUDGET, spp: 0 })), missing, '不是正整数');
+  assert.deepEqual(pick(reject({ ...BUDGET, extra: 1 })), missing, '多一项');
+  assert.deepEqual(pick(reject({ ...BUDGET, spp: 65 })), over, '超过草稿档的上限 64');
+  assert.match(reject({ ...BUDGET, spp: 16 }).message, /每像素采样数是 24，超过声明的 16/);
+  fs.writeFileSync(store.workspace(id).resolve('shots/pack/fake.json'), JSON.stringify({ triangles: 101 }));
+  const tris = reject(BUDGET);
+  assert.deepEqual(pick(tris), over, '三角形数超声明');
+  assert.match(tris.message, /101 个三角形，超过声明的 100/);
+  assert.deepEqual(loadQueue(store.filmDir(id)).listJobs(), [], '被拒的作业都没进队列');
+  // 三角形数等于声明的照收
+  fs.writeFileSync(store.workspace(id).resolve('shots/pack/fake.json'), JSON.stringify({ triangles: 100 }));
+  const job = work.submit(id, 'render', { tier: 'draft', rev: 0, plan, budget: { ...BUDGET, spp: 64 } });
+  await work.wait(id, job, 10);
+  assert.equal(loadQueue(store.filmDir(id)).getJob(job).request.kind, 'core');
+});
+
+test('准入拿真渲染程序的 pack-info 数三角形：两块板各两个三角形，声明 3 个被拒、4 个照收', { timeout: 30_000 }, async (t) => {
+  let bin;
+  try { bin = findRenderer(); } catch (e) { t.skip(e.message); return; }
+  useRenderer(t, bin);
+  const { id, work } = served(t);
+  const submit = (maxTriangles) => work.submit(id, 'render', { tier: 'draft', rev: 0, plan: [{ shot: 's01', frames: [0] }], budget: { ...BUDGET, maxTriangles } });
+  assert.throws(() => submit(3), /画出来 4 个三角形，超过声明的 3/);
+  await work.wait(id, submit(4), 10);
 });

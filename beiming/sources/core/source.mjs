@@ -3,7 +3,7 @@
 // 直接读场景包算，不问渲染器。镜头条目是 build-script 模式，entry 指向场景包（目录或它的 pack.json，相对片子描述所在的目录）。
 // 只进看板、不出成片：env.tier 是 final 时 open 报错。装载之前的判定（宿主、作者模式、锁、卡、资产、叠加层）和场景查询的写法
 // 与 three 帧源共用 ../three/plan.mjs；元数据的算式与页面宿主共用 ../../host/page/measure.js。
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
@@ -44,6 +44,15 @@ export function findRenderer() {
   throw new SourceError('env.missing-tool', `没有编好的渲染程序 core-render（${basename(bin)}）：先用 chassis/build.mjs 的 buildRenderer 编一份（要 cargo），或设 BEIMING_CORE_RENDER 指向编好的程序`);
 }
 
+const lastJson = (text) => JSON.parse(text.trim().split('\n').at(-1));
+/** core-render 退出码不是 0：stderr 最后一行是 {"error":{code,at,message}} 就报那个码，否则原样报错 */
+function failure(stderr, cmd, code) {
+  const lines = stderr.trim().split('\n');
+  let e;
+  try { e = JSON.parse(lines.at(-1)).error; } catch { /* 不是带码的错 */ }
+  return e?.code ? new SourceError(e.code, `场景包 ${e.at}：${e.message}`) : new Error(`core-render ${cmd} 退出码 ${code}：${lines.slice(-5).join('\n')}`);
+}
+
 /** 起一次 core-render；退出码不是 0 时，stderr 最后一行是 {"error":{code,at,message}} 就报那个码，否则原样报错。
  *  给了 seed 时内核的种子就是它（THREERT_SEED），外层环境里的 THREERT_SEED、THREERT_HWRT 不传下去 */
 function run(bin, args, seed) {
@@ -56,11 +65,8 @@ function run(bin, args, seed) {
     child.stderr.on('data', (b) => err.push(b));
     child.on('error', fail);
     child.on('close', (code) => {
-      const stderr = Buffer.concat(err).toString('utf8').trim();
-      if (code === 0) return ok(JSON.parse(Buffer.concat(out).toString('utf8').trim().split('\n').at(-1)));
-      let e;
-      try { e = JSON.parse(stderr.split('\n').at(-1)).error; } catch { /* 不是带码的错 */ }
-      fail(e?.code ? new SourceError(e.code, `场景包 ${e.at}：${e.message}`) : new Error(`core-render ${args[0]} 退出码 ${code}：${stderr.split('\n').slice(-5).join('\n')}`));
+      if (code === 0) return ok(lastJson(Buffer.concat(out).toString('utf8')));
+      fail(failure(Buffer.concat(err).toString('utf8'), args[0], code));
     });
   });
 }
@@ -171,6 +177,49 @@ export function planRender(c, shot, size, tier, opts, want, locked) {
     // 没要颜色层就是「只要元数据」：不出像素
     layers: want.includes('color') ? want.filter((n) => n !== 'meta') : [],
   };
+}
+
+// ------------------------------------------------------------------------------------------------ 作业准入
+
+/** 每档每像素采样数的上限：草稿档不超过终稿档的默认采样数（终稿档在 open 时就拒，不进准入） */
+export const SPP_MAX = { draft: caps('').final.samples };
+const BUDGET_KEYS = { maxTriangles: Number.MAX_SAFE_INTEGER, spp: 2 ** 32 - 1, maxWallMs: 2 ** 31 - 1 };
+
+/**
+ * 核心作业的准入，入队之前判。budget 是作业声明的 { maxTriangles, spp, maxWallMs }，三项都是正整数（maxWallMs 不超过 2³¹−1）：
+ * 缺一项、多一项或值不对报 usage.budget-required。之后报 contract.over-budget 的三种：声明的 spp 超过这一档的上限（SPP_MAX）；
+ * 镜头生效的采样数（planRender 的取值次序，这次调用不给 opts）超过声明的 spp；场景包在要渲的帧上画出来的三角形数
+ * （core-render pack-info 一行统计里的 triangles，每帧一次）超过 maxTriangles。
+ * shots 是 [{ shot: 镜头条目, frames: [镜头局部帧号] }]，场景包相对 filmDir；bin 不给时用 findRenderer()（没有报 env.missing-tool）。
+ * 交回 { triangles: 各帧里最多的那一帧的三角形数, samples: 生效采样数里最大的 }。
+ */
+export function admitBudget({ budget, tier, filmDir, shots, bin }) {
+  if (!record(budget) || Object.keys(budget).some((k) => !Object.hasOwn(BUDGET_KEYS, k))
+    || Object.entries(BUDGET_KEYS).some(([k, max]) => !Number.isSafeInteger(budget[k]) || budget[k] < 1 || budget[k] > max)) {
+    throw new SourceError('usage.budget-required', `核心作业要声明预算 budget：{ maxTriangles, spp, maxWallMs } 三项正整数，给的是 ${show(budget)}`);
+  }
+  const over = (message) => new SourceError('contract.over-budget', message);
+  const limit = SPP_MAX[tier];
+  if (limit === undefined) throw new SourceError('contract.unsupported-mode', `${NOT_YET}（这次的档位是 ${show(tier)}）`);
+  if (budget.spp > limit) throw over(`声明的每像素采样数 ${budget.spp} 超过 ${tier} 档的上限 ${limit}`);
+  const c = caps('');
+  let triangles = 0, samples = 0;
+  for (const { shot, frames } of shots) {
+    const { samples: n } = planRender(c, shot, [1, 1], tier, {}, ['color'], {});
+    if (n > budget.spp) throw over(`镜头 ${shot.id} 的每像素采样数是 ${n}，超过声明的 ${budget.spp}`);
+    samples = Math.max(samples, n);
+    const dir = packDir(filmDir, renderingOf(shot).entry);
+    for (const f of new Set(frames)) {
+      bin ??= findRenderer();
+      const r = spawnSync(bin, ['pack-info', dir, '--frame', String(f), '--presets', PRESETS], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', timeout: budget.maxWallMs, killSignal: 'SIGKILL' });
+      if (r.error) throw r.error.code === 'ENOENT' ? new SourceError('env.missing-tool', `起不了渲染程序 ${basename(bin)}`) : r.error;
+      if (r.status !== 0) throw failure(r.stderr, 'pack-info', r.status ?? r.signal);
+      const info = lastJson(r.stdout);
+      if (info.triangles > budget.maxTriangles) throw over(`镜头 ${shot.id} 第 ${f} 帧场景包画出来 ${info.triangles} 个三角形，超过声明的 ${budget.maxTriangles}`);
+      triangles = Math.max(triangles, info.triangles);
+    }
+  }
+  return { triangles, samples };
 }
 
 // ------------------------------------------------------------------------------------------------ 帧源
