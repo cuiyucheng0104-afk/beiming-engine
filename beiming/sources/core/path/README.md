@@ -146,8 +146,12 @@ node beiming/sources/core/chassis/oidn-parity.mjs [--device cpu|cuda|metal] [--p
 | 苹果 M5 Pro | 5.2.0 | CPU | `FAST` | 2.33e-4 | 6.80e-6 | 过 |
 | 苹果 M5 Pro | 5.2.0 | CPU | `NONE` | 2.48e-4 | 6.07e-6 | 过 |
 | 苹果 M5 Pro | 5.2.0 | Metal | `ACCURATE` | 0（逐位相同） | 0 | 过 |
+| RTX 5090（Linux） | 5.2.3 | CPU | `ACCURATE` | 1.49e-4 | 6.29e-6 | 过 |
+| RTX 5090（Linux） | 5.2.3 | CPU | `FAST` | 1.91e-4 | 6.09e-6 | 过 |
+| RTX 5090（Linux） | 5.2.3 | CPU | `NONE` | 1.49e-4 | 5.85e-6 | 过 |
+| RTX 5090（Linux） | 5.2.3 | CUDA | `ACCURATE` | 0（逐位相同） | 0 | 过 |
 
-同一份带噪输入，降噪前后最大绝对差约 8.7（`ACCURATE`），所以这一帧的降噪确实动了画面。CPU 上留下的那点差（判据的 0.5%）没再追：Metal 逐位相同，说明参数与输入的取法一致；CPU 一侧的差可能来自 Cycles 读渲染缓冲时乘 1/采样数与 EXR 里存的均值在末位上的不同，没有验证。
+同一份带噪输入，降噪前后最大绝对差约 8.7（`ACCURATE`），所以这一帧的降噪确实动了画面。5090 上 `render-pack` 同包同帧（`part_03B` 第 12 帧）默认档与 OIDN 档的出层逐位相同，stats 的 `denoise` 分别是 `atrous` 与 `oidn`。CPU 上留下的那点差（两台机器都约是判据的 0.5%）没再追：Metal 与 CUDA 都逐位相同，说明参数与输入的取法一致；CPU 一侧的差可能来自 Cycles 读渲染缓冲时乘 1/采样数与 EXR 里存的均值在末位上的不同，没有验证。
 
 ### 链接 Blender 自带的 OIDN：带 OIDN 的构建档
 
