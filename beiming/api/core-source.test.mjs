@@ -2,7 +2,8 @@
 // 终渲档照帧源原来的规则被拒；没有编好的渲染程序时出片链报 env.missing-tool、不现编；
 // 核心作业的准入（预算缺了、采样超档位上限或超声明、场景包三角形数超声明，都在入队之前拒）。准入用一个假的渲染程序
 // （按场景包目录里的 fake.json 答 pack-info），不要显卡；拿真程序的 pack-info 对一遍的那条，有编好的程序才跑。
-// 要渲染程序与显卡的那条：设了 BEIMING_CHASSIS_E2E=1、又有编好的程序（sources/core/source.mjs 的 findRenderer）才跑，否则跳过；不现编。
+// 作业的墙钟预算用完时看门狗杀 core-render 的进程树（假程序与真程序各一条），同一块卡上排队的、并发的作业照常完成。
+// 要渲染程序与显卡的两条：设了 BEIMING_CHASSIS_E2E=1、又有编好的程序（sources/core/source.mjs 的 findRenderer）才跑，否则跳过；不现编。
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -14,7 +15,7 @@ import { test } from 'node:test';
 import { loadQueue, openWorkspace, processIsAlive, Scheduler } from '../jobs/index.mjs';
 import { PRESETS } from '../sources/core/chassis/build.mjs';
 import { platesPack, writePack } from '../sources/core/chassis/scenepack.mjs';
-import { findRenderer } from '../sources/core/source.mjs';
+import { findRenderer, startSource } from '../sources/core/source.mjs';
 import { renderPlan, sourcePool } from './pipeline.mjs';
 import { createStore } from './store.mjs';
 import { createWork } from './work.mjs';
@@ -270,4 +271,26 @@ test('核心作业到声明的墙钟预算被杀：先 SIGTERM 再 SIGKILL 整�
   assert.ok(at['next:start'] >= at['hang:end'], '第二个核心作业等第一个被杀、还了租约才开跑');
   assert.equal(jc.status, 'succeeded');
   assert.deepEqual(jc.result, { code: 0, signal: null }, '同卡的草稿作业的进程没被连带杀掉');
+});
+
+test('真渲染程序：墙钟预算用完时正在渲的 core-render 被杀，同一块卡上另一个会话照常出帧', { timeout: 120_000 }, async (t) => {
+  const bin = rendererOrSkip(t);
+  if (!bin) return;
+  const WALL = 2000;
+  const { workspace, film } = coreWorkspace(t);
+  const input = (size) => ({ film: film.id, output: { size, fps: '24/1' }, shot: { ...film.shots[0], tiers: undefined, seed: SEED } });
+  const env = (name) => ({ lock: null, tier: 'draft', workspace: workspace.resolve(`intermediate/${name}`), filmDir: workspace.root });
+  const victim = await startSource({ bin, maxWallMs: WALL }), other = await startSource({ bin });
+  const t0 = performance.now();
+  // 一帧 1920×1080、每像素二十万个样本：远远渲不完，到点被杀
+  const a = (await victim.open(input([1920, 1080]), env('a'))).render(0, { samples: 200_000, scale: 1 }, ['color']).then(() => null, (e) => e);
+  const b = (await other.open(input([480, 270]), env('b'))).render(0, { samples: 256, scale: 1 }, ['color']);
+  const [killed, done] = await Promise.all([a, b]);
+  const took = performance.now() - t0;
+  t.diagnostic(`声明 ${WALL} ms：${Math.round(took)} ms 时被杀的会话报 ${killed?.code}，另一个会话在 ${done.meta.source.gpu}（${done.meta.source.backend}）上出了帧`);
+  assert.equal(killed?.code, 'timeout.budget', killed?.message);
+  assert.ok(took < WALL + 5000, `到点就杀：${Math.round(took)} ms`);
+  assert.ok(killed.killed.length > 0 && killed.killed.every((pid) => !processIsAlive(pid)), `被杀的进程都不在了：${killed.killed}`);
+  assert.deepEqual(killed.survivors, []);
+  assert.match(done.meta.hash.color, /^sha256:/);
 });
