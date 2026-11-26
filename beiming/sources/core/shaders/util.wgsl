@@ -32,9 +32,38 @@ fn inversesqrtf(f: f32) -> f32 {
   return select(0.0, 1.0 / sqrt(f), f > 0.0);
 }
 
-// util/math_base.h:552-555: safe_asinf
+// util/math_base.h:552-555: safe_asinf。Cycles 在处理器上调 C 库的 asinf，结果近乎正确舍入，误差在相邻的输入之间像随机数；
+// 显卡内建的 asin 偏差是位置的光滑函数（苹果显卡上一段输入里平均偏 0.3 到 2 个末位，同号），矩形面光的立体角是四个 asin
+// 相加抵消出来的，这种偏差像素抖动平均不掉。所以不用内建，照教科书的写法自己算（北冥的写法，不是 Cycles 的式子）：
+// |x| ≤ 0.5 用 asin 的泰勒级数（到 x²⁵，截断误差不到 1e-10 倍），|x| > 0.5 用 asin(x) = π/2 − 2·asin(√((1 − |x|)/2))，
+// π/2 拆成单精度的高位与低位（低位 −4.371139e-8），低位先经 fma 并进 2·asin(…)：写成 (高位 − 2·asin) + 低位的话，显卡编译器
+// 会把两个常数合并掉。【实测】苹果显卡上对 C 库 asinf 的段内平均偏差：|x| ≤ 0.5 不到 0.02 个末位（与 C 库相同），0.5 到 0.85 约
+// 0.3 到 0.7 个末位（低位在 fma 的舍入里丢了），0.9 以上不到 0.1；内建 asin 在 1e-4 附近偏 2 个末位、0.3 附近偏 1.1 个
+fn asinf_series(x: f32) -> f32 {
+  let t = x * x;
+  var p = 0.0064472103;
+  p = p * t + 0.0073125259;
+  p = p * t + 0.0083903358;
+  p = p * t + 0.0097616095;
+  p = p * t + 0.0115518009;
+  p = p * t + 0.0139648438;
+  p = p * t + 0.0173527644;
+  p = p * t + 0.0223721591;
+  p = p * t + 0.0303819444;
+  p = p * t + 0.0446428571;
+  p = p * t + 0.075;
+  p = p * t + 0.16666667;
+  return x + x * (t * p);
+}
+
 fn safe_asinf(a: f32) -> f32 {
-  return asin(clamp(a, -1.0, 1.0));
+  let x = clamp(a, -1.0, 1.0);
+  let ax = abs(x);
+  var r = asinf_series(ax);
+  if (ax > 0.5) {
+    r = M_PI_2_F - fma(2.0, asinf_series(sqrt((1.0 - ax) * 0.5)), 4.371139e-8);
+  }
+  return copysignf(r, x);
 }
 
 // C 标准库的 copysignf（Cycles 在 CPU 上直接用它）：WGSL 没有，按位取 b 的符号位，±0 与 NaN 的符号也照搬

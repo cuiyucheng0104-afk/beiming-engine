@@ -252,6 +252,8 @@ test('端到端：故意把一个 WGSL 函数改错一项，报出是哪个函�
   const BUMP = ['ensure_valid_specular_reflection', 'bump_shadowing_term'];
   await breakOne(t, file, src, 'let threshold = min(0.9 * Iz, 0.01);', 'let threshold = min(0.9 * Iz, 0.1);', ['ensure_valid_specular_reflection'], 9, 3, BUMP);
   await breakOne(t, util, usrc, 'let bump_alpha2 = saturate(0.125 * tan2_d);', 'let bump_alpha2 = saturate(0.15 * tan2_d);', ['bump_shadowing_term'], 11, 1, BUMP);
+  // safe_asinf（自己写的级数，不用内建 asin）：x³ 项的系数 3/40 改成 0.076（只跑这一项）
+  await breakOne(t, util, usrc, 'p = p * t + 0.075;', 'p = p * t + 0.076;', ['safe_asinf'], 1, 1, ['safe_asinf']);
   const light = 'shaders/area_light.wgsl', lsrc = await readFile(`${CORE}/${light}`, 'utf8');
   // 点光、平行光与阴影射线的起点偏移，各改错一项（只跑这六项）：
   const LAMPS = ['point_light_sample', 'point_light_eval_from_intersection', 'sun_light_sample', 'sun_light_eval_from_intersection', 'shadow_ray_smooth_surface_offset', 'shadow_ray_offset'];

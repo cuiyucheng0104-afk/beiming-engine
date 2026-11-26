@@ -219,7 +219,8 @@ const atPole = (p, P, axis_u, len_u) => Math.abs(dot3(add(p, P, -1), axis_u)) < 
 // abs 给在 S 上：【实测】MAIN 里超出 1e-4·S 的差最大 2.1e-6，取 48 个 π/2 处的 ULP（约 5.7e-6）
 const ABS_S = 48 * 2 ** -23;
 FUNCTIONS.push(
-  // asin 在 ±1 附近导数无界，取在 clamp 两侧各外延 0.2，覆盖截断那一支
+  // asin 在 ±1 附近导数无界，取在 clamp 两侧各外延 0.2，覆盖截断那一支。被测一侧不是内建 asin，是 util.wgsl 里自己写的级数
+  // （内建 asin 的误差随位置光滑变化，理由见那里）；【实测】苹果显卡上对 C 库 asinf 最大 3.4e-7 相对误差
   entry('safe_asinf', [['a', 'f32', [-1.2, 1.2]]], 1, 0, { file: APACHE }),
   // 概率密度在 WELL 里直接比，abs 只为采样点
   light('area_light_rect_sample', RECT_IN, { pdf: 1, P: 3 }, ABS_SAMPLE, {

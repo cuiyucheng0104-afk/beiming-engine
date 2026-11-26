@@ -626,6 +626,10 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 
 48. 场景包那一路的顶点法线照搬 Cycles 内部的存储精度：Cycles 把顶点法线与角法线存成两个 16 位整数的八面体编码（`util/types_normal.h` 的 `packed_normal`，同步时编码：`blender/mesh.cpp:672`、`:765`），渲染静态 BVH 时只被一个物体用的网格把物体变换烘进几何、法线解码后乘逆转置再编码一次（`scene/object.cpp:1172-1238` 的 `apply_static_transforms`，`scene/mesh.cpp:552-585` 的 `Mesh::apply_transform`），着色时用 SIMD 版解码（`packed_normal_decode_simd`，`geom/attribute.h` 的 `attribute_data_fetch_normals`）。轴对齐的法线因此偏开约 2^-16 弧度，低粗糙度的高光对这么大的偏差就敏感。宿主一侧（`src/pack.rs` 的 `kernel_geometry`，函数在 `src/packed_normal.rs`）上传前照这三步过一遍，内核与着色器不动：内核仍存模型空间的法线、按实例矩阵变换，所以烘过的世界空间法线 nw 换回模型空间存（normalize(Lᵀ·nw)，L 是实例矩阵的线性部分），乘回去只差单精度的舍入。位置不烘（照 Cycles 烘进世界空间试过，第 4 级读数没有可见改善）。镜像的行与共用网格的行只编码再解码。场景脚本那一路不变。
 
+**灯**
+
+49. `safe_asinf`（`../shaders/util.wgsl`）不用显卡内建的 `asin`：Cycles 在处理器上调 C 库的 `asinf`，近乎正确舍入，误差在相邻输入之间像随机数；内建 `asin` 的偏差是输入位置的光滑函数（苹果显卡上一段输入里同号地平均偏 0.3 到 2 个末位）。矩形面光的立体角是四个 `asin` 相加抵消出来的，这种偏差进了画面就是一片一片的弧纹，像素抖动平均不掉。改成自己算：|x| ≤ 0.5 用泰勒级数，|x| > 0.5 用 π/2 − 2·asin(√((1 − |x|)/2))，π/2 的低位经 `fma` 并进去。三种写法（内建、级数加半角、`atan2`）对 C 库的段内平均偏差比过，取这一种；函数级比对照旧对 Cycles（`safe_asinf` 一项）。
+
 ## 编号登记表
 
 **要新号向核心帧源的负责人要；改登记表不算变更。** 拿到号之后：在这里登记，在着色器（与 Rust 一侧）加常数，运行 `freeze.mjs --update` 把新常数补进冻结标记。
