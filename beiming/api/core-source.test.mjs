@@ -19,7 +19,7 @@ import { caps as coreCaps } from '../sources/core/caps.mjs';
 import { PRESETS, sourceKey } from '../sources/core/chassis/build.mjs';
 import { platesPack, writePack } from '../sources/core/chassis/scenepack.mjs';
 import { ADMIT_MS, WALL_MAX, findRenderer, startSource } from '../sources/core/source.mjs';
-import { readIndex, renderPlan, sourcePool } from './pipeline.mjs';
+import { layerL1, readIndex, renderPlan, shotSources, sourcePool } from './pipeline.mjs';
 import { ensureLut, loadCardLibrary } from './runtime.mjs';
 import { createStore } from './store.mjs';
 import { createWork } from './work.mjs';
@@ -240,6 +240,29 @@ test('草稿档里有核心镜头的渲染作业走 core 道，没有的走 draf
   const job = loadQueue(store.filmDir(id)).getJob(verify);
   assert.equal(job.request.kind, 'core');
   assert.deepEqual(job.payload.budget, { maxWallMs: WALL_MAX.draft });
+});
+
+test('核验作业的 L1 不把核心镜头的场景包目录当镜头代码读：entry 是目录时不报 EISDIR', async (t) => {
+  const { store, id } = await served(t);
+  const film = store.readFilm(id);
+  assert.deepEqual(shotSources(film, store.filmDir(id)), {}, '场景包目录不进镜头代码');
+  assert.equal(typeof layerL1(film, store.filmDir(id), 0).ok, 'boolean');
+});
+
+test('片子里有核心镜头的终渲档核验作业也走 core 道：不填墙钟预算，到核心帧源照终渲档的规则拒（contract.unsupported-mode）', { timeout: 60_000 }, async (t) => {
+  // 帧源在 open 时就拒，不起渲染程序：给一个不存在的程序路径也一样
+  const { store, id, work } = await served(t, { sign: true });
+  useRenderer(t, path.join(store.dataDir, 'no-such-renderer'));
+  const job = work.submit(id, 'verify', { tier: 'final', rev: 0 });
+  await work.wait(id, job, 30);
+  const rec = loadQueue(store.filmDir(id)).getJob(job);
+  assert.equal(rec.request.kind, 'core', '看片子里有没有核心镜头，不看档位');
+  assert.equal(rec.payload.budget, undefined, '终渲档没有墙钟上限，不填');
+  const { base, outcome } = work.view(id, job);
+  t.diagnostic(`终渲档核验作业 ${base.status}：${outcome?.code} ${outcome?.message}`);
+  assert.equal(base.status, 'failed', JSON.stringify(outcome));
+  assert.equal(outcome.code, 'contract.unsupported-mode');
+  assert.match(outcome.message, /还没过门/);
 });
 
 test('核心作业的准入：预算缺了、采样超档位上限或超声明、三角形数超声明都在入队之前拒，报登记过的码本身', { timeout: 30_000 }, async (t) => {

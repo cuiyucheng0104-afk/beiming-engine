@@ -535,7 +535,8 @@ export function shotSources(film, filmDir) {
   const out = {};
   for (const s of film.shots ?? []) {
     const r = s.renderer ?? s;
-    if (typeof r.entry === 'string' && existsSync(join(filmDir, r.entry))) out[s.id] = { [r.entry]: readFileSync(join(filmDir, r.entry), 'utf8') };
+    // 核心镜头的 entry 可以是场景包目录：目录不是镜头代码，不读（读了是 EISDIR，核验作业在 L1 就崩）
+    if (typeof r.entry === 'string' && statSync(join(filmDir, r.entry), { throwIfNoEntry: false })?.isFile()) out[s.id] = { [r.entry]: readFileSync(join(filmDir, r.entry), 'utf8') };
   }
   return out;
 }
