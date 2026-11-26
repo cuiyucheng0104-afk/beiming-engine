@@ -1,0 +1,170 @@
+{
+ "format": "core-rerender/0.1",
+ "gpu": {
+  "adapter": "NVIDIA GeForce RTX 5090",
+  "backend": "Vulkan",
+  "driver": "NVIDIA"
+ },
+ "kernel": "96817b4eb4afc63c",
+ "upstreamCommit": "c946cc96bdb08979224e851a7fc67a066b1b456b",
+ "packs": [
+  {
+   "id": "pack:part-03b-l-1@1",
+   "contentSha256": "84d4a8e13df8afac4ef270dbd1553f5e4acfb5fe10487050d67ce0bda2e3f744",
+   "frame": 12,
+   "spp": 256,
+   "width": 1280,
+   "height": 720,
+   "seed": 0,
+   "modes": {
+    "sw": {
+     "same": true,
+     "differ": [],
+     "hwrt": false,
+     "denoise": "atrous",
+     "traceMs": [
+      379.8,
+      328.5
+     ],
+     "files": {
+      "out.png": "a620f00bc9103517004c89559dfc3982098e490d34348f9116d6cf2af2429a95",
+      "hdr.raw": "8fe525e8d17e4ea07d4aafb5185574bafdeda9f04fdc6273ea1487215f103174",
+      "passes/color.f32": "9ffc23d87b7a813ae5154c3ceae5803036ef648ba36ba317934be9e412579d87",
+      "passes/denoiseAlbedo.f32": "527fabab7c06fc3960f01bd64263e6442b97476de738e24bf9ece96e39eaa519",
+      "passes/denoiseNormal.f32": "aa86ec124992af15c68bec3bb30f8333fd77f1ef79025653c360621625488b4c",
+      "passes/depth.f32": "f3515d731382010bc8c6cedee7566d647266e3b2b55bcaad97a682618d5f2b4b",
+      "passes/normal.f32": "6851d92919134bb0d6ff511574ca7590e8dd9e1c974df6a317d5d8477f542a19",
+      "passes/objectId.coverage.f32": "2c5c37523682a14d10d45e9932e7f5d0dcfdb489409fe7414efe52329d5b81f0",
+      "passes/objectId.u32": "e26c16c953b9ebda165f1f2c701c9bda9e7d04be4b6b74d44df7fb72e21d113e",
+      "passes/passes.json": "3327b31ac2f63a9500ed05100fa0c508f52f749b62b82586f2f2299d71ef61ef"
+     }
+    },
+    "hw": {
+     "same": true,
+     "differ": [],
+     "hwrt": true,
+     "denoise": "atrous",
+     "traceMs": [
+      136,
+      131.1
+     ],
+     "files": {
+      "out.png": "fc544cbf7ee7f4a796aa34ca4354a3a0864ffd3b4f27f8bfe51282c0668eb280",
+      "hdr.raw": "f95347ad8955512250b49efcdd70a67dea758029433ec25e770e43af4e4d496b",
+      "passes/color.f32": "2854c9aed5c1d10695e18fcca891c4fb9c7af56ce56a68b2e65f9be5ee3193a9",
+      "passes/denoiseAlbedo.f32": "6e40ae830f012221366f0baeeeae0d3fe086225bad65aa10253d42659659e283",
+      "passes/denoiseNormal.f32": "875f0858fa7f968dd43901a4ca5ba469e383bc7257064addf2c52fdf5f26128d",
+      "passes/depth.f32": "de3b9c391bbbfab37b98a85709d9916235b1c2767f98973b4ba7d7f19e7ff81b",
+      "passes/normal.f32": "32f02f1138e4e1dfb19b5db86ff401658266df00a917bd7e84a34f343a2c5c9a",
+      "passes/objectId.coverage.f32": "91126f0b3770c0998e7bdda273b3540b7ec4b8e96850024ede38841231cbf049",
+      "passes/objectId.u32": "e26c16c953b9ebda165f1f2c701c9bda9e7d04be4b6b74d44df7fb72e21d113e",
+      "passes/passes.json": "3327b31ac2f63a9500ed05100fa0c508f52f749b62b82586f2f2299d71ef61ef"
+     }
+    }
+   },
+   "exr": {
+    "from": "sw",
+    "sha256": "494662cafe84a0085438ac866984f8a439894c36a2bcf9103c8b750fecea2007",
+    "channels": [
+     "color.A",
+     "color.B",
+     "color.G",
+     "color.R",
+     "denoiseAlbedo.B",
+     "denoiseAlbedo.G",
+     "denoiseAlbedo.R",
+     "denoiseNormal.X",
+     "denoiseNormal.Y",
+     "denoiseNormal.Z",
+     "depth.Z",
+     "normal.X",
+     "normal.Y",
+     "normal.Z",
+     "objectId.coverage",
+     "objectId.id"
+    ],
+    "roundTrip": true,
+    "problems": []
+   }
+  },
+  {
+   "id": "pack:head-03@1",
+   "contentSha256": "39984f7940382dd350537fb192f45bb00c9d042ec92aca203fa23fe12814168c",
+   "frame": 0,
+   "spp": 256,
+   "width": 1280,
+   "height": 720,
+   "seed": 0,
+   "modes": {
+    "sw": {
+     "same": true,
+     "differ": [],
+     "hwrt": false,
+     "denoise": "atrous",
+     "traceMs": [
+      900.7,
+      898.4
+     ],
+     "files": {
+      "out.png": "b36f22194beaf662f2e3589802364d78b12cbb92511a8234fc8aca4f015dc713",
+      "hdr.raw": "75304faca1a43798bf2cdba7b62fd0cd5f2144696674f5620910a74a7beca0f6",
+      "passes/color.f32": "3666737e8920771d8444d4702a1f85aa69587bf6b96cd2e3de1211b4dd972dcf",
+      "passes/denoiseAlbedo.f32": "f71a401d39094175bd4967603342ea0723ea9def575b308cd1cb5787fc7be544",
+      "passes/denoiseNormal.f32": "504a29db4465aba261d5f47843b3b9335a6b6c602aca3692531271dd2e2724bc",
+      "passes/depth.f32": "e815b1f73d9152ec8d80713f38ca1ef5003a11aa9ca85a545d28cffa65ddaa43",
+      "passes/normal.f32": "b6b8d8a154db0da96a15778e0d5b1e30b1bace78c5dd68e59309556b5c12deac",
+      "passes/objectId.coverage.f32": "91baafec78738683932bfcfcb62b78efc9478c57219cffad22956f9b10144eaa",
+      "passes/objectId.u32": "ab91d9e8b3a851058d36e9946b3a22b5e154d214107a4d57aa1d0d53ab75b4ca",
+      "passes/passes.json": "3327b31ac2f63a9500ed05100fa0c508f52f749b62b82586f2f2299d71ef61ef"
+     }
+    },
+    "hw": {
+     "same": true,
+     "differ": [],
+     "hwrt": true,
+     "denoise": "atrous",
+     "traceMs": [
+      112,
+      113.9
+     ],
+     "files": {
+      "out.png": "6c9e0e61f4a9ba9e5ad0bc73025bcd4c75291968cdef7062ec31b2c93f1b0032",
+      "hdr.raw": "d743b75893dc0d92b4774bfb00d6f325e7e4eebfb81972e3cbf0d936e4f5b766",
+      "passes/color.f32": "ff43e911e13a297bb05ca5840ac7a1b66cb4d563e3b5870c593c3b557e575285",
+      "passes/denoiseAlbedo.f32": "3bff9036536ed0ed58babe121e9776c0f41989182744263e094ea1f751a1299c",
+      "passes/denoiseNormal.f32": "fd74d99cc3a969772c050e3d52164b2cc8901f61c2920bb4bcec0aeefb8ac946",
+      "passes/depth.f32": "9045702545488b358622150c12714f09037befe0ec447708b742d70b38c7e5fb",
+      "passes/normal.f32": "2d6e3aa2d5d60b81b62fb65c45e162020747f1525489e0cef6cfb08b84ed6650",
+      "passes/objectId.coverage.f32": "9345c9b2f2077039ac71132516a93093c787a36d98f1e11c40a30e8471abfc43",
+      "passes/objectId.u32": "9a53390fbb13bfecb199f4205d6532cec28c7f918c0a74f7c309c42e35e7d699",
+      "passes/passes.json": "3327b31ac2f63a9500ed05100fa0c508f52f749b62b82586f2f2299d71ef61ef"
+     }
+    }
+   },
+   "exr": {
+    "from": "sw",
+    "sha256": "424849d52293d41b858c837885b164b02ac66cb2bba5c5515efcb6da568a9d54",
+    "channels": [
+     "color.A",
+     "color.B",
+     "color.G",
+     "color.R",
+     "denoiseAlbedo.B",
+     "denoiseAlbedo.G",
+     "denoiseAlbedo.R",
+     "denoiseNormal.X",
+     "denoiseNormal.Y",
+     "denoiseNormal.Z",
+     "depth.Z",
+     "normal.X",
+     "normal.Y",
+     "normal.Z",
+     "objectId.coverage",
+     "objectId.id"
+    ],
+    "roundTrip": true,
+    "problems": []
+   }
+  }
+ ]
+}
