@@ -38,7 +38,7 @@ export function stillMatch(query, candidates, options = {}) {
   const area = width * height;
   if (!Number.isSafeInteger(area * 255)) bad('像素数超出量测范围');
   if (!Number.isSafeInteger(exclusionRadius) || exclusionRadius < 0) bad('exclusionRadius 须为非负整数');
-  if (maxPan !== undefined && (!Number.isSafeInteger(maxPan) || maxPan < 0)) bad('maxPan 须为非负整数');
+  if (maxPan !== undefined && (!Number.isSafeInteger(maxPan) || maxPan < 0 || maxPan > 64)) bad('maxPan 须为 0 到 64 的整数');
   const still = grayFrame(query, area, '剧照');
 
   if (types.isProxy(candidates)) bad('候选帧不能是代理');

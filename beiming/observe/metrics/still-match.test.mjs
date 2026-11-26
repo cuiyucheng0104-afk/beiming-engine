@@ -45,6 +45,12 @@ test('still.match estimates integer displacement from the query to the chosen fr
   assert.deepEqual(identity.details.offset, { dx: 0, dy: 0, meanAbsError: 0 });
 });
 
+test('still.match limits the optional nearby displacement search to 64 pixels', () => {
+  assert.deepEqual(stillMatch(query, query, { ...options, maxPan: 64 }).details.offset,
+    { dx: 0, dy: 0, meanAbsError: 0 });
+  assert.throws(() => stillMatch(query, query, { ...options, maxPan: 65 }), { code: 'usage.bad-argument' });
+});
+
 test('still.match rejects empty, malformed or mismatched gray input', () => {
   const bad = { code: 'usage.bad-argument' };
   for (const invalid of [[], Array(1), [null], [flat(0), new Uint8Array(3)], new Uint8Array(0),

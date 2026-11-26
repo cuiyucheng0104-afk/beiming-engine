@@ -8,7 +8,7 @@ const reading = stillMatch(queryGray, candidateFrames, { width: 48, height: 27 }
 
 - `queryGray` 是行优先的 `Uint8Array` 或 `Buffer`，每像素一个灰度码值。`candidateFrames` 可以是同类帧的数组，也可以在一个紧密缓冲里按帧连续存放。每帧含 `width * height` 字节，缓冲不带行填充和帧头。接口接收已经按同一口径裁切、缩放并转灰度的帧。
 - 逐帧取对应像素绝对差的平均值（MAE），差值相同取更早的帧。`value` 是从 0 开始的最佳帧号。`details.best` 与 `details.runnerUp` 均含 `frame` 和 `meanAbsError`。分离次优帧与最佳帧的帧距须严格大于 `exclusionRadius`，默认 `10`。没有合格候选时 `runnerUp` 为 `null`。
-- 显式给非负整数 `maxPan` 时，`details.offset` 返回从剧照到最佳候选帧的整像素平移 `{ dx, dy, meanAbsError }`。正 `dx` 向右，正 `dy` 向下。偏移复用 `motionZoomPan` 的重叠区取样并固定缩放为 `1`，不会改变全帧 MAE 排名。省略 `maxPan` 时 `offset` 为 `null`。
+- `maxPan` 接受 `0` 到 `64` 的整数，用于核验附近的整像素平移。`details.offset` 返回从剧照到最佳候选帧的 `{ dx, dy, meanAbsError }`。正 `dx` 向右，正 `dy` 向下。偏移复用 `motionZoomPan` 的重叠区取样并固定缩放为 `1`，全帧 MAE 排名按前述规则计算。长边超过 48 像素时，估计器会欠采样，可能漏掉稀疏结构。残差为零只代表采到的像素吻合。省略 `maxPan` 时 `offset` 为 `null`。
 
 ## 案例 29 复算
 
