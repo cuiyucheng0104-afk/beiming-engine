@@ -51,7 +51,7 @@ void main(){
     outColor = q.y < 0. || q.y > 1. ? vec3(.025,.045,.057) : texture2D(baseImage,q).rgb;
   }
   if(mode == 6) outColor = c.rgb * c.a;
-  if(mode == 5) outColor = mix(a.rgb,b.rgb,.18);
+  if(mode == 5) outColor = mix(a.rgb,c.rgb,.18);
   gl_FragColor = vec4(outColor,1.);
 }`;
 
@@ -168,7 +168,7 @@ export function buildMaterials(fx) {
         fx.draw(brush,right);
         return [left.texture,right.texture];
       }
-      if (['transition','alpha','blend'].includes(id) || id.startsWith('wave-')) drawPlate(next,1,t);
+      if (id === 'transition' || id.startsWith('wave-')) drawPlate(next,1,t);
       if (['alpha','blend','displace','transition','strata'].includes(id)) drawPlate(map,2,t);
       if (id === 'trail') drawPlate(history,0,Math.max(0,t-4/48));
       if (id === 'chroma') drawPlate(history,3,t);
@@ -181,7 +181,7 @@ export function buildMaterials(fx) {
         present(left,bloom.render(source.texture,{threshold:.54,knee:.1,radius:.55}),0,t);
       } else {
         const mode = id==='transition' || id.startsWith('wave-') ? 1 : id === 'cover' ? 4 : ['alpha','blend'].includes(id) ? 5 : 0;
-        present(left,source.texture,mode,t);
+        present(left,mode === 5 ? map.texture : source.texture,mode,t);
       }
       const mat = effects[effect];
       const changes = {uTime:t,u_time:t,progress:t,uProgress:t,uMode:['wave-radial','wave-horizontal','wave-vertical'].indexOf(id)};
