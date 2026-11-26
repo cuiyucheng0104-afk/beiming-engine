@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { closeSync, mkdirSync, mkdtempSync, openSync, readFileSync, readSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { encodePng } from '../observe/sheet.mjs';
