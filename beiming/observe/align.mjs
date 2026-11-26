@@ -121,9 +121,14 @@ function extractEnvelopeFromMedia(filePath, stepSec, sampleRate, music) {
   if (typeof filePath !== 'string' || !filePath) throw new Error('音视频路径不能为空');
   // Decode one extra window to detect an overlong source without reading its entire PCM.
   const maxSamples = MUSIC_MAX_DURATION_SEC * sampleRate;
-  const musicArgs = music ? ['-af', 'lowpass=f=150', '-t', String(MUSIC_MAX_DURATION_SEC + stepSec)] : [];
+  const timelineArgs = music ? ['-copyts', '-start_at_zero'] : [];
+  // Pad and trim against container PTS, allowing 5 ms of timestamp quantization.
+  const musicArgs = music ? [
+    '-map', '0:a:0', '-af', 'lowpass=f=150,aresample=async=1:first_pts=0:min_hard_comp=0.005',
+    '-t', String(MUSIC_MAX_DURATION_SEC + stepSec),
+  ] : [];
   const pcm = runFfmpeg([
-    '-nostdin', '-v', 'error', '-i', resolve(filePath), '-vn', '-ac', '1',
+    '-nostdin', '-v', 'error', ...timelineArgs, '-i', resolve(filePath), '-vn', '-ac', '1',
     '-ar', String(sampleRate), ...musicArgs, '-f', 's16le', '-',
   ], music ? (maxSamples + sampleRate) * 2 : PCM_MAX_BYTES);
   const totalSamples = Math.floor(pcm.length / 2);

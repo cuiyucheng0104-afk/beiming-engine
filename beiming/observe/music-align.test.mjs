@@ -69,6 +69,67 @@ test('music.align uses the full reference track energy when the film clips the e
   assert.ok(result.music.corr > 0 && result.music.corr < 0.5, JSON.stringify(result.music));
 });
 
+test('music.align measures an audio PTS delay from the container start', { skip }, t => {
+  const dir = mkdtempSync(join(tmpdir(), 'music-align-pts-start-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const trackPath = join(dir, 'track.wav');
+  const filmPath = join(dir, 'film.mkv');
+  const pictureOnlyPath = join(dir, 'picture-only.mkv');
+  const pulse = '0.2*sin(2*PI*70*t)*(between(t,0.28,0.4)+0.7*between(t,1.1,1.22)+between(t,2.8,2.96))';
+  encode('-f', 'lavfi', '-i', `aevalsrc='${pulse}':s=8000:d=4`, trackPath);
+  encode('-f', 'lavfi', '-i', 'color=s=32x24:r=25:d=5', '-c:v', 'ffv1', pictureOnlyPath);
+  encode('-i', pictureOnlyPath, '-itsoffset', '0.6', '-i', trackPath, '-map', '0:v:0', '-map', '1:a:0',
+    '-c', 'copy', '-output_ts_offset', '3', filmPath);
+  const spec = { filmPath, trackPath, fps: 25, stretchRange: [1, 1], maxOffsetSec: 1 };
+  const result = align({ music: spec, stretch: spec });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(result.music.offsetSec, 0.6, JSON.stringify(result.music));
+  assert.equal(result.music.offsetFrames, 15);
+  assert.ok(result.music.corr > 0.99, JSON.stringify(result.music));
+  assert.equal(result.stretch.offsetSec, 0, JSON.stringify(result.stretch));
+
+  const missing = align({ music: { ...spec, filmPath: pictureOnlyPath } });
+  assert.equal(missing.ok, false);
+  assert.equal(missing.error.code, 'failure.ffmpeg');
+});
+
+test('music.align keeps a gap between audio packets on the container timeline', { skip }, t => {
+  const dir = mkdtempSync(join(tmpdir(), 'music-align-pts-gap-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const trackPath = join(dir, 'track.wav');
+  const filmPath = join(dir, 'film.mkv');
+  const pulse = (start, end) => '0.2*sin(2*PI*70*t)*(between(t,0.28,0.4)+0.7*between(t,0.8,0.92)'
+    + `+between(t,${start},${end}))`;
+  encode('-f', 'lavfi', '-i', `aevalsrc='${pulse(2.8, 2.96)}':s=8000:d=4`, trackPath);
+  // A 40 ms PTS gap at 1.2 s puts the film's final pulse back at 2.8 s.
+  encode('-f', 'lavfi', '-i', 'color=s=32x24:r=25:d=4', '-f', 'lavfi', '-i', `aevalsrc='${pulse(2.76, 2.92)}':s=8000:d=3.96`,
+    '-af', "asetnsamples=n=160:p=0,asetpts='PTS+320*gte(N,9600)'", '-map', '0:v:0', '-map', '1:a:0',
+    '-c:v', 'ffv1', '-c:a', 'pcm_s16le', filmPath);
+  const result = align({ music: { filmPath, trackPath, stretchRange: [1, 1], maxOffsetSec: 0 } });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(result.music.overlapRatio, 1);
+  assert.ok(result.music.corr > 0.99, JSON.stringify(result.music));
+});
+
+test('music.align selects the first audio stream in each file', { skip }, t => {
+  const dir = mkdtempSync(join(tmpdir(), 'music-align-streams-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const trackPath = join(dir, 'track.mka');
+  const filmPath = join(dir, 'film.mkv');
+  const pulse = '0.2*sin(2*PI*70*t)*(between(t,0.28,0.4)+0.7*between(t,1.1,1.22)+between(t,2.8,2.96))';
+  const main = `aevalsrc='${pulse}':s=8000:d=4`;
+  const other = 'anullsrc=r=8000:cl=stereo:d=5';
+  encode('-f', 'lavfi', '-i', main, '-f', 'lavfi', '-i', other, '-map', '0:a:0', '-map', '1:a:0',
+    '-disposition:a:0', '0', '-disposition:a:1', 'default', '-c:a', 'pcm_s16le', trackPath);
+  encode('-f', 'lavfi', '-i', 'color=s=32x24:r=25:d=5', '-f', 'lavfi', '-i', main, '-f', 'lavfi', '-i', other,
+    '-map', '0:v:0', '-map', '1:a:0', '-map', '2:a:0', '-af:a:0', 'adelay=600:all=1',
+    '-disposition:a:0', '0', '-disposition:a:1', 'default', '-c:v', 'ffv1', '-c:a', 'pcm_s16le', filmPath);
+  const result = align({ music: { filmPath, trackPath, stretchRange: [1, 1], maxOffsetSec: 1 } });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(result.music.offsetSec, 0.6, JSON.stringify(result.music));
+  assert.ok(result.music.corr > 0.99, JSON.stringify(result.music));
+});
+
 test('music.align requires both media paths and keeps structured validation errors', () => {
   for (const music of [null, {}, { filmPath: 'clip.mkv' }, { filmPath: '', trackPath: 'track.wav' }]) {
     const result = align({ music });
