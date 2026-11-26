@@ -13,6 +13,7 @@ import { caps } from '../../sources/three/caps.mjs';
 import { planFrame, planOpen, planQuery, planRender, SourceError } from '../../sources/three/plan.mjs';
 import { coverage2x, HALF_FLOATS } from '../../sources/three/source.js';
 import { writeExr } from '../../verify/exr/exr.mjs';
+import { sceneProbeKind, planProbe, planProbes, withProbeCaps } from '../../sources/scene-probe-plan.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 // 页面只拿得到这两处：本系统的代码，和 0.187.0 的 three；另外只读放行仓库锁定的字体子集（fonts/ 下的 woff2，以及 routes/c-style/fonts/ 下的 woff2 与 fonts.json，许可和脚本拿不到）
@@ -128,7 +129,7 @@ export async function startSource({ cards = [] } = {}) {
     if (!SERVED.some((dir) => `${filmDir}/`.startsWith(dir))) throw new SourceError('usage.bad-argument', 'env.filmDir 不在页面宿主放行的目录里');
 
     const page = await browser.newPage();
-    let manifest;
+    let manifest, names, probes;
     try {
       const errors = [];
       page.on('pageerror', (e) => errors.push(e.message));
@@ -138,6 +139,8 @@ export async function startSource({ cards = [] } = {}) {
       // 固定装载脚本半路失败时，它到那时为止记的账跟着错一起交回（load）
       if (!opened.ok) throw Object.assign(new SourceError(opened.code, opened.message), opened.load ? { load: opened.load } : {});
       manifest = opened.manifest;
+      names = manifest.entities.map((e) => e.name);
+      probes = planProbes('three', input.shot.params?.sceneProbes, manifest.frames, names);
     } catch (e) {
       await page.close();
       throw e;
@@ -152,7 +155,7 @@ export async function startSource({ cards = [] } = {}) {
         // 进页面之前先在这边判一遍：Date、Map 这类实例过序列化会变成 {}，显式 null 也不能被吞成没写。
         // 进页面的是判过的那份纯数据快照，不是调用方的原对象：原型上的值、不可枚举的键过序列化会丢，两边要读到同一份
         const { renderOpts } = planRender(CAPS, input.shot, input.output.size, env.tier, opts, want, locked);
-        const res = await page.evaluate(([frame, o, w]) => window.__session.render(frame, o, w), [f, renderOpts, want]);
+        const res = await page.evaluate(([frame, o, w, p]) => window.__session.render(frame, o, w, p), [f, renderOpts, want, probes]);
         if (!res.ok) throw new SourceError(res.code, res.message);
         const dir = `r${pad(renders++, 3)}-f${pad(f, 4)}`, layers = {}, channels = {};
         const save = async (file, bytes) => { await writeFile(join(env.workspace, file), bytes); return { file, hash: `sha256:${sha256(bytes)}` }; };
@@ -188,6 +191,10 @@ export async function startSource({ cards = [] } = {}) {
        */
       async query(f, q) {
         planFrame(manifest.frames, f);
+        if (sceneProbeKind(q)) {
+          const plan = planProbe('three', q, manifest.frames, names);
+          return page.evaluate(([frame, p]) => window.__session.probe(frame, p), [f, plan]);
+        }
         const res = await page.evaluate(([frame, snap]) => window.__session.query(frame, snap), [f, planQuery(CAPS, q, manifest.entities.map((e) => e.name)).q]);
         if (!res.ok) throw new SourceError(res.code, res.message, res.next);
         return res.result;
@@ -201,5 +208,5 @@ export async function startSource({ cards = [] } = {}) {
     };
   }
 
-  return { caps: () => caps(library), open, stop: async () => { await browser.close(); await server.close(); } };
+  return { caps: () => withProbeCaps(caps(library)), open, stop: async () => { await browser.close(); await server.close(); } };
 }

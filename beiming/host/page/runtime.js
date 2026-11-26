@@ -10,6 +10,8 @@ import { caps } from '../../sources/three/caps.mjs';
 import { planOpen } from '../../sources/three/plan.mjs';
 import { createThreeSource } from '../../sources/three/source.js';
 import { monotonicMs } from './clock.js';
+import { querySceneProbe } from './scene-probes.js';
+import { withProbeMeta } from '../../sources/scene-probe-measure.mjs';
 import { answerQuery, clipStats, lumaStats, measureEntity, pickAnchors, placeAnchors } from './measure.js';
 
 const META_KEYS = ['texts', 'anchors', 'readings'];
@@ -190,6 +192,7 @@ export async function openSession({ input, env, filmBase, cards = {} }) {
     };
   }
 
+  let sceneLoaded;
   const services = {
     now: monotonicMs,
 
@@ -221,7 +224,8 @@ export async function openSession({ input, env, filmBase, cards = {} }) {
       if (!built.object.camera.isPerspectiveCamera) throw new Error('页面宿主现在只量透视相机');
       // 交了 meta 的卡实例，按 create 的次序
       const reporters = instances.filter((i) => typeof i.handle?.meta === 'function').sort((a, b) => account.cards.indexOf(a.row) - account.cards.indexOf(b.row));
-      return { ...built, size: [...output.size], entry, reporters };
+      sceneLoaded = { ...built, size: [...output.size], entry, reporters };
+      return sceneLoaded;
     },
 
     apply(loaded, f, sub) {
@@ -350,14 +354,15 @@ export async function openSession({ input, env, filmBase, cards = {} }) {
     manifest: () => session.manifest(),
 
     /** 渲一帧。带错误码的错作为结果交回（错误码过得了页面和 node 之间那道序列化），别的错照常抛 */
-    async render(f, opts, want) {
+    async render(f, opts, want, probes = []) {
       try {
         const res = await session.render(f, opts, want);
+        const readings = probes.map((plan) => querySceneProbe(sceneLoaded, f, plan, res.meta.size));
         const layers = {};
         for (const [name, l] of Object.entries(res.layers)) layers[name] = { type: l.type, components: l.components, size: l.size, base64: base64(l.data) };
         // 场景参考通路另交的（半浮点的成片、2 倍编号层）也编成 base64，宽高 node 一侧照颜色层的算
         const extra = res.extra && Object.fromEntries(Object.entries(res.extra).map(([name, data]) => [name, base64(data)]));
-        return { ok: true, meta: res.meta, layers, ...(extra && { extra }) };
+        return { ok: true, meta: withProbeMeta(res.meta, readings), layers, ...(extra && { extra }) };
       } catch (e) {
         if (!e.code) throw e;
         return { ok: false, code: e.code, message: e.message };
@@ -373,6 +378,8 @@ export async function openSession({ input, env, filmBase, cards = {} }) {
         return { ok: false, code: e.code, message: e.message, next: e.next };
       }
     },
+
+    probe: (f, plan) => querySceneProbe(sceneLoaded, f, plan),
 
     close: () => session.close(),
   };
