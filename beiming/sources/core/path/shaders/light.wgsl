@@ -766,7 +766,7 @@ fn env_sampled() -> bool { return P.counts2.y != 0u && (P.env.x > 0.5 || luminan
 // The sky's light sample at a surface (`o`: its shadow rays' origin): one direction by the map, MIS against the BSDF.
 // 北冥：参数从 (Surface, Lobes, 视线) 换成着色点；材质求值经上游顶替专用的 surface_shader_bsdf_eval_legacy。
 // 移植的闭包：求值经 surface_shader_bsdf_eval（照 Cycles 不多查几何法线），权重照 Cycles 的 light_sample_mis_weight_nee
-// （power_heuristic），阴影射线的起点同 direct_light 里逐盏的灯（shadow_origin）。
+// （power_heuristic），阴影射线同 direct_light 里逐盏的灯（shadow_ray）。
 fn env_light(sd: ShadingPoint, o: vec3<f32>) -> vec3<f32> {
     let l = sample_env(rng_legacy(D_ENV));
     if (sd.closure[0].kind != CLOSURE_LEGACY) {
@@ -774,7 +774,8 @@ fn env_light(sd: ShadingPoint, o: vec3<f32>) -> vec3<f32> {
         if (!any(e.sum > vec3<f32>(0.0))) { return vec3<f32>(0.0); }
         let pdf_e = env_pdf(l);
         if (!(pdf_e > 0.0)) { return vec3<f32>(0.0); }
-        let vis = sky_tr(shadow_origin(shadow_tri(sd.object, sd.prim, sd.inst, sd.u, sd.v), sd.P, sd.N, sd.Ng, l), l, rng_legacy(D_ENV_VIS));
+        let tri = shadow_tri(sd.object, sd.prim, sd.inst, sd.u, sd.v);
+        let vis = shadow_ray_sky(tri, shadow_ray(tri, sd.P, sd.N, sd.Ng, l, sd.P, true), rng_legacy(D_ENV_VIS));
         if (!any(vis > vec3<f32>(0.0))) { return vec3<f32>(0.0); }
         state.legacy.split_frac = e.glossy / max(e.sum, vec3<f32>(1e-12));
         return env_radiance(l) * e.sum * power_heuristic(pdf_e, e.pdf) / pdf_e * tr3(vis);
@@ -807,23 +808,31 @@ fn light_receiver_set(object: u32) -> u32 {
     return object_ext_at(object).receiver_light_set;
 }
 
-// 阴影射线避开明暗交界线的起点偏移要的三角形（Cycles 的 shadow_ray_offset 读 sd 与物体、三角形的内核数据）：物体的
-// shadow_terminator_geometry_offset（0：不挪；场景包的物体是 0.1，别的入口是 0）、着色点的重心坐标、世界空间的三个顶点与顶点法线。
-// 经实例放置的三角形只做线性部分：偏移只用到顶点之差（Cycles 在物体空间算抛物线、再把插值的法线变到世界空间，物体不等比缩放时
-// 与这里差一点）。三维向量排在标量后面（进函数的结构里三维向量后面不要紧跟标量）
-struct ShadowTri { cutoff: f32, u: f32, v: f32, V0: vec3<f32>, V1: vec3<f32>, V2: vec3<f32>, N0: vec3<f32>, N1: vec3<f32>, N2: vec3<f32> };
+// 阴影射线的起点要的三角形。prim、inst：着色点的三角形与放置它的实例记录（跳过自己的图元、自交测试用）；tri 为假（过程几何）时
+// 其余字段无意义。M0..M2：三角形缓冲里的原顶点（没经实例时就在世界空间，经实例时在模型空间：求交在哪个空间测，自交测试就在
+// 哪个空间测）。避开明暗交界线的起点偏移（Cycles 的 shadow_ray_offset 读 sd 与物体、三角形的内核数据）另要：物体的
+// shadow_terminator_geometry_offset（cutoff，0：不挪；场景包的物体是 0.1，别的入口是 0）、着色点的重心坐标、世界空间的三个顶点
+// V0..V2 与顶点法线。经实例放置的三角形 V0..V2 只做线性部分：偏移只用到顶点之差（Cycles 在物体空间算抛物线、再把插值的法线变到
+// 世界空间，物体不等比缩放时与这里差一点）。三维向量排在标量后面（进函数的结构里三维向量后面不要紧跟标量）
+struct ShadowTri { cutoff: f32, u: f32, v: f32, prim: u32, inst: u32, tri: bool, M0: vec3<f32>, M1: vec3<f32>, M2: vec3<f32>, V0: vec3<f32>, V1: vec3<f32>, V2: vec3<f32>, N0: vec3<f32>, N1: vec3<f32>, N2: vec3<f32> };
 
-// 着色点所在三角形的 ShadowTri（只收标量：不新加按值收着色点的函数层）。过程几何、偏移为 0 的物体 cutoff 记 0
+// 着色点所在三角形的 ShadowTri（只收标量：不新加按值收着色点的函数层）。过程几何 tri 记假；偏移为 0 的物体 cutoff 记 0
 fn shadow_tri(object: u32, prim: u32, inst: u32, u: f32, v: f32) -> ShadowTri {
     var t = ShadowTri();
     if (has(F_PROC) && (prim & PROC_BIT) != 0u) { return t; }
+    t.tri = true;
+    t.prim = prim;
+    t.inst = inst;
+    t.M0 = tri_verts[prim * 3u].xyz;
+    t.M1 = tri_verts[prim * 3u + 1u].xyz;
+    t.M2 = tri_verts[prim * 3u + 2u].xyz;
     t.cutoff = object_ext_at(object).shadow_terminator_geometry_offset;
     if (!(t.cutoff > 0.0)) { return t; }
     t.u = u;
     t.v = v;
-    t.V0 = tri_verts[prim * 3u].xyz;
-    t.V1 = tri_verts[prim * 3u + 1u].xyz;
-    t.V2 = tri_verts[prim * 3u + 2u].xyz;
+    t.V0 = t.M0;
+    t.V1 = t.M1;
+    t.V2 = t.M2;
     var a = attrs[prim];
     if (has(F_INST) && inst != NO_INST) {
         let r = instance_at(inst);
@@ -838,18 +847,59 @@ fn shadow_tri(object: u32, prim: u32, inst: u32, u: f32, v: f32) -> ShadowTri {
     return t;
 }
 
-// 一条阴影射线的起点：先照 Cycles 的 shadow_ray_offset（../../shaders/area_light.wgsl，只对平滑着色的三角形：cutoff > 0）把着色点 P
-// 往交界线外挪，再沿几何法线挪开（offset_origin，代替 Cycles 跳过自己的图元）。往哪一侧挪：Cycles 跳过自己时（skip_self）往光离开
-// 几何面的那一侧，方向在几何面下面时穿过自己这个面（同材质采样的射线）；shadow_ray_offset 说要打中自己这个面时往光的反方向挪
-fn shadow_origin(t: ShadowTri, P: vec3<f32>, N: vec3<f32>, Ng: vec3<f32>, L: vec3<f32>) -> vec3<f32> {
-    var p = P;
-    var skip_self = true;
+// 一条阴影射线：起点、方向、最远距离，与要不要跳过自己的图元。照 Cycles 的 light_sample_to_surface_shadow_ray
+// （kernel/light/sample.h:225-311）与 integrate_surface_direct_light 里接着的 integrate_surface_ray_offset（shade_surface.h:439-441）：
+// 先照 shadow_ray_offset（../../shaders/area_light.wgsl，只对平滑着色的三角形：cutoff > 0）把着色点 P 往交界线外挪；方向与距离从
+// 挪过的点到灯上那一点（平行光：方向就是 L，不设上限）；跳过自己时（skip_self：shadow_ray_offset 说要打中自己这个面时为假）再照
+// integrate_surface_ray_offset 决定抬不抬（自交测中不抬，测不中抬 ray_offset 的 256 个末位），方向与距离不跟着改，求交时跳过
+// 自己的图元（trace_self）。过程几何不是三角形：照旧沿几何法线挪开（offset_origin），不跳过自己（过程几何一个图元是一整个形体，
+// 跳过它就没了自己投在自己身上的影子）
+struct ShadowRay { tmax: f32, skip_self: bool, P: vec3<f32>, D: vec3<f32> };
+fn shadow_ray(t: ShadowTri, P: vec3<f32>, N: vec3<f32>, Ng: vec3<f32>, L: vec3<f32>, light_P: vec3<f32>, distant: bool) -> ShadowRay {
+    var r = ShadowRay();
+    r.P = P;
+    r.skip_self = true;
     if (t.cutoff > 0.0) {
         let off = shadow_ray_offset(P, N, Ng, L, true, t.cutoff, t.V0, t.V1, t.V2, t.N0, t.N1, t.N2, t.u, t.v);
-        p = off.P;
-        skip_self = off.skip_self;
+        r.P = off.P;
+        r.skip_self = off.skip_self;
     }
-    return offset_origin(p, select(Ng, -Ng, (dot(L, Ng) < 0.0) != !skip_self));
+    if (!t.tri) { r.P = offset_origin(r.P, select(Ng, -Ng, (dot(L, Ng) < 0.0) != !r.skip_self)); }
+    r.D = L;
+    r.tmax = INF;
+    if (!distant) {
+        // util/math_float3.h:548-552: safe_normalize_len
+        r.tmax = len_ccl(light_P - r.P);
+        r.D = select(light_P - r.P, (light_P - r.P) / r.tmax, r.tmax != 0.0);
+    }
+    r.skip_self = r.skip_self && t.tri;
+    if (r.skip_self) {
+        var lp = r.P;
+        var ld = r.D;
+        if (has(F_INST) && t.inst != NO_INST) {
+            let ir = instance_at(t.inst);
+            lp = proc_point(ir, lp);
+            ld = proc_dir(ir, ld);
+        }
+        r.P = integrate_surface_ray_offset(r.P, Ng, lp, ld, t.M0, t.M1, t.M2);
+    }
+    return r;
+}
+
+// 阴影射线的可见性（light_vis），跳过自己的图元时把它记进 trace_self、测完清掉
+fn shadow_ray_vis(t: ShadowTri, r: ShadowRay, shadows: bool, rd: u32) -> vec3<f32> {
+    if (r.skip_self) { trace_self = vec2<u32>(t.prim, t.inst); }
+    let vis = light_vis(shadows, r.P, r.D, r.tmax, rd);
+    trace_self = TRACE_SELF_NONE;
+    return vis;
+}
+
+// 阴影射线朝环境的可见性（sky_tr），跳过自己的图元同上
+fn shadow_ray_sky(t: ShadowTri, r: ShadowRay, rd: u32) -> vec3<f32> {
+    if (r.skip_self) { trace_self = vec2<u32>(t.prim, t.inst); }
+    let vis = sky_tr(r.P, r.D, rd);
+    trace_self = TRACE_SELF_NONE;
+    return vis;
 }
 
 // 这盏灯写进 film 的第几个灯组（LIGHTGROUP_NONE：不进灯组）
@@ -1003,15 +1053,8 @@ fn direct_light(sd: ShadingPoint) -> vec3<f32> {
         var c = e.sum * (le * (ls.eval_fac / ls.pdf * power_heuristic(ls.pdf, e.pdf)));
         if (!sun) { c *= local_w; }
         if (all(c == vec3<f32>(0.0))) { continue; }
-        // 阴影射线：起点见 shadow_origin，到灯上那一点为止（平行光不设上限）
-        let so = shadow_origin(tri, sd.P, sd.N, sd.Ng, ls.D);
-        var dir = ls.D;
-        var tmax = INF;
-        if (!sun) {
-            tmax = len_ccl(ls.P - so);
-            dir = (ls.P - so) / tmax;
-        }
-        let vis = light_vis(li.ext.w >= 0.5, so, dir, tmax, rd_vis);
+        // 阴影射线：见 shadow_ray，到灯上那一点为止（平行光不设上限）
+        let vis = shadow_ray_vis(tri, shadow_ray(tri, sd.P, sd.N, sd.Ng, ls.D, ls.P, sun), li.ext.w >= 0.5, rd_vis);
         if (!any(vis > vec3<f32>(0.0))) { continue; }
         c *= tr3(vis);
         // （上游 --signals 的高光份额，照 surface_shader_bsdf_eval_legacy 的写法）

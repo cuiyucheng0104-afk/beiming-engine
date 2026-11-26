@@ -242,7 +242,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 
 上游顶替专用、灯移植完后删的两个：`surface_shader_bsdf_eval_legacy(sd, wo, k) → { eval, spec_frac }`（上游的灯光函数专用的求值，`k` 是上游每盏灯的高光倍率，只对上游顶替有效）与 `surface_shader_bsdf_sample_legacy(sd)`。
 
-灯光函数里收着色点的是上游留下的五个（`direct_light`、`local_lights`、`sample_emitter_ris`、`env_light`、`sun_light`）与 `light_origin`（1.2.3 起 `light_mis`、`pdf_spec` 删掉）；照 Cycles 新写的灯的辅助函数只收标量（`shadow_tri`、`shadow_origin`、`light_linked`、`light_receiver_set`、`light_lightgroup`、`local_atten`、`film_add_direct`、`film_add_forward`），逐盏的直接光原地写在 `direct_light` 里，不另加收着色点的一层。灯记录（`Light`，6 个 vec4：上游的五个，加照 Cycles 的 `cy`，整数格：eval_fac 与平行光 one_minus_cosangle 的位、灯光链接的成员掩码、灯组槽位与 `SHADER_USE_MIS`，见 `src/scene.rs` 的 `GpuLight`）的格式与「把灯压成记录的那一个函数」都归做灯的人独占，这里不定。
+灯光函数里收着色点的是上游留下的五个（`direct_light`、`local_lights`、`sample_emitter_ris`、`env_light`、`sun_light`）与 `light_origin`（1.2.3 起 `light_mis`、`pdf_spec` 删掉）；照 Cycles 新写的灯的辅助函数只收标量（`shadow_tri`、`shadow_ray`、`shadow_ray_vis`、`shadow_ray_sky`、`light_linked`、`light_receiver_set`、`light_lightgroup`、`local_atten`、`film_add_direct`、`film_add_forward`），逐盏的直接光原地写在 `direct_light` 里，不另加收着色点的一层。灯记录（`Light`，6 个 vec4：上游的五个，加照 Cycles 的 `cy`，整数格：eval_fac 与平行光 one_minus_cosangle 的位、灯光链接的成员掩码、灯组槽位与 `SHADER_USE_MIS`，见 `src/scene.rs` 的 `GpuLight`）的格式与「把灯压成记录的那一个函数」都归做灯的人独占，这里不定。
 
 ## 光线负载
 
@@ -305,7 +305,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 
 ### 求交
 
-上游的接口原样冻结：`trace(o, d, tmax_in, mode) → Hit { t, tri, u, v, inst }`，硬件与软件两条求交路径返回同一个结构；没打到时 `tri` 是 `0xffffffff`。调用处从 `Ray` 里取字段。软件求交的三角形求交是照 Cycles 移植的、防水的那一个，三角形缓冲存三个原顶点（「与 Cycles、与上游不一样的地方」第 46 条）；苹果显卡的硬件求交在公共边上漏是平台限制（第 47 条）。
+上游的接口原样冻结：`trace(o, d, tmax_in, mode) → Hit { t, tri, u, v, inst }`，硬件与软件两条求交路径返回同一个结构；没打到时 `tri` 是 `0xffffffff`。调用处从 `Ray` 里取字段。要跳过的图元（Cycles 的 `Ray.self`）不进参数，放在模块级的私有变量 `trace_self` 里，只有阴影射线设它（第 51 条）。软件求交的三角形求交是照 Cycles 移植的、防水的那一个，三角形缓冲存三个原顶点（「与 Cycles、与上游不一样的地方」第 46 条）；苹果显卡的硬件求交在公共边上漏是平台限制（第 47 条）。
 
 以后要的新问法各加一个新函数，不改已有的。现在定了签名的一个：
 
@@ -582,7 +582,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 21. `Ray` 的两个向量排在最后；相机光线没有单独的函数与文件。
 22. `trace_local` 的返回值带一个 `lcg_state`（用过之后的小随机数状态）。
 23. 弹射上限、轮盘起始深度、夹取没有接到 `integrator` 块：仍读上游的字段。
-24. 射线的起点沿法线挪开（上游的做法；Cycles 不挪，靠「不打中自己」的图元号）。所以凡是要和光源采样一侧配多重重要性采样权重的地方，要用没挪动的着色点，不能用 `ray.P`：它是路径状态的 `mis_origin_P`（1.2.2 起，替掉上游的 `bm_x`、`mis_x`）。阴影射线到灯上那一点为止（不缩短）；材质一侧拿「遮挡物离着色点本身的距离」（`hit.t` 加两个起点之差在方向上的分量）与灯距比，两侧是同一条判法。阴影射线往哪一侧挪：光离开几何面的那一侧（方向在几何面下面时穿过自己这个面，同材质采样的射线，对应 Cycles 跳过自己的图元）；`shadow_ray_offset` 说要打中自己这个面时往光的反方向挪（`light.wgsl` 的 `shadow_origin`）。
+24. 射线的起点沿法线挪开（上游的做法；Cycles 不挪，靠「不打中自己」的图元号）。所以凡是要和光源采样一侧配多重重要性采样权重的地方，要用没挪动的着色点，不能用 `ray.P`：它是路径状态的 `mis_origin_P`（1.2.2 起，替掉上游的 `bm_x`、`mis_x`）。阴影射线到灯上那一点为止（不缩短）；材质一侧拿「遮挡物离着色点本身的距离」（`hit.t` 加两个起点之差在方向上的分量）与灯距比，两侧是同一条判法。阴影射线不再沿法线挪开（1.2.3 之后）：照 Cycles 先 `shadow_ray_offset`，再照 `integrate_surface_ray_offset` 决定抬不抬（自交测中不抬，测不中抬 `ray_offset` 的 256 个末位），求交时跳过自己的图元（`light.wgsl` 的 `shadow_ray`，见第 51 条）；过程几何照旧挪开。
 
 **随机维度**
 
@@ -631,6 +631,8 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 49. `safe_asinf`（`../shaders/util.wgsl`）不用显卡内建的 `asin`：Cycles 在处理器上调 C 库的 `asinf`，近乎正确舍入，误差在相邻输入之间像随机数；内建 `asin` 的偏差是输入位置的光滑函数（苹果显卡上一段输入里同号地平均偏 0.3 到 2 个末位）。矩形面光的立体角是四个 `asin` 相加抵消出来的，这种偏差进了画面就是一片一片的弧纹，像素抖动平均不掉。改成自己算：|x| ≤ 0.5 用泰勒级数，|x| > 0.5 用 π/2 − 2·asin(√((1 − |x|)/2))，π/2 的低位经 `fma` 并进去。三种写法（内建、级数加半角、`atan2`）对 C 库的段内平均偏差比过，取这一种；函数级比对照旧对 Cycles（`safe_asinf` 一项）。
 
 50. 矩形面光（`../shaders/area_light.wgsl` 的 `area_light_rect_sample`）做概率密度 1/S 的那个 S，在远场不用 Cycles 的原式：原式的 S 是四个 `asin` 相加抵消出来的，远场只剩几个末位，Cycles 在处理器上舍入近乎随机、像素抖动平均得掉，显卡上舍入随位置光滑变化，平均不掉（第 4 级低粗糙度高光的暗区出 ±7e-5 的弧纹）。远场（原式的 S 不小于 5e-5，且四个角从着色点看两两夹角小于 90°）改用 Van Oosterom–Strackee 的两个三角形（`rect_solid_angle_pdf_S`；三重积在灯的局部坐标里就是 |z0|·len_u·len_v，分母四项同号），带「两个分母都大于 0」的守卫；近场与 S 小于 5e-5 照旧用原式。采样映射与「S 小于 1e-5 退到平面」的判断不变，照旧用原式的 S。阈值扫过 1e-5、5e-5、2e-4、1e-3 定的。函数级比对：远场一项比双精度里照原式算的真值，近场一项（两个三角形之一大于 π）比单精度的 Cycles。
+
+51. 阴影射线的起点与跳过自己（直接光逐盏的灯与环境一支；材质采样继续弹射的射线、发光三角与上游顶替那一路照旧沿法线挪开）照 Cycles：`shadow_ray_offset` 之后，跳过自己时照 `integrate_surface_ray_offset`（`kernel/integrator/shade_surface.h:42-93`）从着色点沿射线方向对自己的三角形做自交测试，测中不抬、测不中抬 `ray_offset`（`kernel/bvh/util.h:70`）；方向与距离从 `shadow_ray_offset` 挪过的点算，不跟着抬改。求交时跳过自己的图元：不改 `trace` 的签名，要跳过的（全局三角下标, 实例记录）放在 `intersect.wgsl` 的私有变量 `trace_self` 里，`shadow_ray_vis`、`shadow_ray_sky` 测前设、测完清。软件求交在叶子里跳过它。硬件求交（`trace_hw.wgsl` 的 `trace_opaque`）强制不透明、遍历器不报三角形的候选，没法在候选里跳过；改成同一个查询语句里再查：最近命中是自己时从它的距离往后的下一个 f32 再查一次；任意命中先找到自己时，先查它之前、再查它之后。与 Cycles 不一样的地方：恰好与自己同一个距离上的别的面跟着被跳过（Cycles 留着它）。经实例放置的三角形，自交测试在模型空间做（射线照实例矩阵变过去，与硬件求交同一个空间）。过程几何的一个图元是一整个形体，跳过它就没了自己投在自己身上的影子，所以照旧沿几何法线挪开、不跳过。
 
 ## 编号登记表
 
@@ -892,7 +894,7 @@ node beiming/sources/core/chassis/level2.mjs            # 对 Cycles 的读数�
 移植闭包、做灯、做图案节点三条线会同时动内核。下面几件事落在两条线的交界上，先说定归谁：
 
 - **多闭包的直接光归移植闭包的人（1.2.0 已做）。** 上游的灯光函数拿材质求值经 `surface_shader_bsdf_eval_legacy`，它对移植的闭包改成调 `surface_shader_bsdf_eval` 对全部闭包求和；`light_mis` 对移植的闭包的密度改成经闭包分发。这是「新代码不碰名字带 `legacy` 的函数」的点名例外，只限这两处。
-- **凹凸阴影项与阴影终止偏移**（Cycles 做在它的求值入口里，要用着色点）做在收着色点的分发函数里（`surface_shader_bsdf_eval` 那一层），不做在 `bsdf_eval(c, wi, wo)` 里：后者只收一个闭包，签名不为它改。凹凸阴影项 1.2.1 已做（求值一侧 `bsdf_eval_mis_bump_one`、采样一侧 `surface_shader_bsdf_sample_closure`）；阴影终止的着色偏移（`shift_cos_in`）还没做（Blender 的默认值 0 时它不起作用）。阴影终止的几何偏移（阴影射线的起点，`kernel/light/sample.h` 的 `shadow_ray_offset`）1.2.3 已做，在 `light.wgsl` 的 `shadow_origin`。
+- **凹凸阴影项与阴影终止偏移**（Cycles 做在它的求值入口里，要用着色点）做在收着色点的分发函数里（`surface_shader_bsdf_eval` 那一层），不做在 `bsdf_eval(c, wi, wo)` 里：后者只收一个闭包，签名不为它改。凹凸阴影项 1.2.1 已做（求值一侧 `bsdf_eval_mis_bump_one`、采样一侧 `surface_shader_bsdf_sample_closure`）；阴影终止的着色偏移（`shift_cos_in`）还没做（Blender 的默认值 0 时它不起作用）。阴影终止的几何偏移（阴影射线的起点，`kernel/light/sample.h` 的 `shadow_ray_offset`）1.2.3 已做，在 `light.wgsl` 的 `shadow_ray`。
 - **主循环里的「穿过光滑玻璃」（1.2.0 已改）**：只有奇异的透射一瓣（`LABEL_TRANSMIT | LABEL_SINGULAR`，上游顶替的光滑玻璃）算穿过；移植的闭包的奇异反射一瓣照 Cycles 带着乘了 1e6 的概率密度走普通的一支（多重重要性采样的密度、最小密度照记），并照 Cycles 的 `path_state_next` 置 `PATH_RAY_MIS_SKIP`：这个着色点上光源一侧对奇异的一瓣求值为 0，所以下一次打到发光面、天空、太阳盘、矩形纯光（`bm_rect_hits`）时权重取 1，不按 `power_heuristic` 加权。
 - **阴影链接与发光网格的成员集**由做灯的人另开一张表（见「物体扩展表」）。**直接光调用处的夹取**改成逐盏夹（1.2.2 已做，见「输出通道」）。
 - **图案节点的结果在闭包移植完之前只到得了已移植的闭包。** 倒角改的是 `ShaderInputs.N`、遮蔽改的是底色，而上游顶替的闭包与上游的灯光函数读的是 `sd.legacy.surface`。过渡期不许为了让效果到达上游顶替而去写 `legacy` 的表面量；图案节点先在已移植的闭包上验。
