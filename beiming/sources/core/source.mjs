@@ -12,7 +12,7 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import process from 'node:process';
 import { answerQuery, clipStats, lumaStats, measureEntity } from '../../host/page/measure.js';
-import { runWithWatchdog } from '../../jobs/watchdog.mjs';
+import { killProcessTree, runWithWatchdog } from '../../jobs/watchdog.mjs';
 import { renderingOf } from '../../kernel/eval/input.mjs';
 import { SourceError, declared, planFrame, planOpen, planQuery } from '../three/plan.mjs';
 import { HOST, caps } from './caps.mjs';
@@ -57,19 +57,21 @@ function failure(stderr, cmd, code) {
 /** 起一次 core-render；退出码不是 0 时，stderr 最后一行是 {"error":{code,at,message}} 就报那个码，否则原样报错。
  *  给了 seed 时内核的种子就是它（THREERT_SEED），外层环境里的 THREERT_SEED、THREERT_HWRT 不传下去。
  *  进程由 jobs 的看门狗管（受管进程树）：给了 deadline（performance.now() 的毫秒）时，到点先 SIGTERM、过宽限 SIGKILL 整棵进程树，
- *  报 timeout.budget。显卡租约由作业拿（调度器的 core 道），这里不另要 */
-async function run(bin, args, seed, deadline) {
+ *  报 timeout.budget。显卡租约由作业拿（调度器的 core 道），这里不另要。procs 是帧源的在跑进程集合，stop 时照它收 */
+async function run(bin, args, seed, deadline, procs) {
   const { THREERT_SEED: _s, THREERT_HWRT: _h, ...env } = process.env;
   if (seed !== undefined) env.THREERT_SEED = String(seed);
   const frameTimeoutMs = deadline === undefined ? undefined : Math.min(2 ** 31 - 1, Math.max(1, Math.ceil(deadline - performance.now())));
   try {
     return await runWithWatchdog({ quotas: frameTimeoutMs === undefined ? {} : { frameTimeoutMs } }, ({ watchdog }) => watchdog.runFrame(0, () => new Promise((ok, fail) => {
       const child = watchdog.spawnManaged(bin, [...args, '--presets', PRESETS], { stdio: ['ignore', 'pipe', 'pipe'], env });
+      procs.add(child);
       const out = [], err = [];
       child.stdout.on('data', (b) => out.push(b));
       child.stderr.on('data', (b) => err.push(b));
       child.on('error', fail);
       child.on('close', (code, signal) => {
+        procs.delete(child);
         if (code === 0) return ok(lastJson(Buffer.concat(out).toString('utf8')));
         fail(failure(Buffer.concat(err).toString('utf8'), args[0], code ?? signal));
       });
@@ -236,7 +238,7 @@ export function admitBudget({ budget, tier, filmDir, shots, bin }) {
 /**
  * 起帧源。bin 是渲染程序 core-render（不给时取环境变量 BEIMING_CORE_RENDER，再没有就按 chassis/build.mjs 现编或取编好的那份）。
  * maxWallMs 是作业声明的墙钟预算：从起帧源算起，这个帧源起的每个 core-render 进程到点就被看门狗杀掉（timeout.budget）；不给不限时。
- * 返回 { caps, open, stop }。
+ * 返回 { caps, open, stop }；stop 强杀这个帧源还在跑的 core-render 进程树（作业取消、测试收尾时不留孤儿进程）。
  */
 export async function startSource({ bin = process.env.BEIMING_CORE_RENDER, maxWallMs } = {}) {
   if (maxWallMs !== undefined && (!Number.isSafeInteger(maxWallMs) || maxWallMs < 1)) throw bad(`maxWallMs 必须是正整数，给的是 ${show(maxWallMs)}`);
@@ -246,6 +248,7 @@ export async function startSource({ bin = process.env.BEIMING_CORE_RENDER, maxWa
   }
   // shortcut: 版本是工作树里内核源码的摘要；bin 是从别处给的时它不一定就是这份源码编的
   const CAPS = caps(sourceKey());
+  const procs = new Set();
 
   async function open(input, env) {
     const missingEnv = ENV_KEYS.filter((k) => !record(env) || env[k] === undefined);
@@ -255,7 +258,7 @@ export async function startSource({ bin = process.env.BEIMING_CORE_RENDER, maxWa
     const { shot, output } = input, { entry } = renderingOf(shot);
     if (typeof entry !== 'string' || !entry) throw bad('build-script 模式的镜头要写 entry：场景包的目录或它的 pack.json');
     const dir = packDir(env.filmDir, entry);
-    const info = await run(bin, ['pack-info', dir], undefined, deadline);
+    const info = await run(bin, ['pack-info', dir], undefined, deadline, procs);
     const frames = shot.out - shot.in;
     if (frames > info.frames) throw bad(`场景包 ${info.id} 只有 ${info.frames} 帧，镜头要 ${frames} 帧`);
     const pack = loadPack(dir);
@@ -285,7 +288,7 @@ export async function startSource({ bin = process.env.BEIMING_CORE_RENDER, maxWa
           const sub = `r${pad(renders++, 3)}-f${pad(f, 4)}`, out = join(resolve(env.workspace), sub);
           await mkdir(out, { recursive: true });
           const [w, h] = plan.size;
-          res = await run(bin, ['render-pack', dir, '--frame', String(f), '--spp', String(plan.samples), '--width', String(w), '--height', String(h), '--no-denoise', '-o', join(out, 'preview.png'), '--passes', out], locked.seed, deadline);
+          res = await run(bin, ['render-pack', dir, '--frame', String(f), '--spp', String(plan.samples), '--width', String(w), '--height', String(h), '--no-denoise', '-o', join(out, 'preview.png'), '--passes', out], locked.seed, deadline, procs);
           for (const name of plan.layers) {
             const [file, components] = LAYERS[name];
             layers[name] = { file: `${sub}/${file}`, shape: [h, w, components.length], components, hash: sha256(await readFile(join(out, file))) };
@@ -338,5 +341,9 @@ export async function startSource({ bin = process.env.BEIMING_CORE_RENDER, maxWa
     };
   }
 
-  return { caps: () => structuredClone(CAPS), open, stop: async () => {} };
+  const stop = async () => {
+    // spawnManaged 在 POSIX 上起的是进程组长，整组一起杀
+    for (const child of procs) if (child.pid) killProcessTree(child.pid, { processGroup: process.platform !== 'win32' });
+  };
+  return { caps: () => structuredClone(CAPS), open, stop };
 }

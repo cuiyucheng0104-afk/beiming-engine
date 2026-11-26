@@ -60,6 +60,17 @@ function useRenderer(t, bin) {
   t.after(() => { if (prev === undefined) delete process.env.BEIMING_CORE_RENDER; else process.env.BEIMING_CORE_RENDER = prev; });
 }
 
+/** 挂住的假程序用的目录：测完（也包括测失败、超时）按 pids.json 把假程序与它的孙进程补一次 SIGKILL，再删目录，不留孤儿进程 */
+function hangDir(t) {
+  const hang = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-core-hang-'));
+  t.after(() => {
+    const file = path.join(hang, 'pids.json');
+    for (const pid of fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : []) if (processIsAlive(pid)) process.kill(pid, 'SIGKILL');
+    fs.rmSync(hang, { recursive: true, force: true });
+  });
+  return hang;
+}
+
 function rendererOrSkip(t) {
   if (!E2E) { t.skip('没设 BEIMING_CHASSIS_E2E=1'); return null; }
   try { return findRenderer(); } catch (e) { t.skip(e.message); return null; }
@@ -144,8 +155,9 @@ test('没有编好的渲染程序：出片链起核心帧源报 env.missing-tool
   await pool.stop();
 });
 
-/** 服务端的数据目录里放一部片子：film.json 与场景包，提交成修订 0（不签锁：作业在执行器里因为没有 film.lock 失败，够看它走哪一道） */
-function served(t) {
+/** 服务端的数据目录里放一部片子：film.json 与场景包，提交成修订 0。不给 lock 时不签锁：作业在执行器里因为没有 film.lock 失败，够看它走哪一道；
+ *  给了就照写成 film.lock 一起提交（服务端签锁的 lockContext 里还没有 core 帧源，签不出带核心镜头的锁，这里手写执行器认的那几项） */
+function served(t, { lock } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-core-api-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const store = createStore(dir), id = 'f_001';
@@ -158,6 +170,10 @@ function served(t) {
       { id: 's02', in: 1, out: 2, source: 'three', host: 'page', mode: 'cards-data', colorRef: 'display' },
     ],
   }));
+  if (lock) {
+    fs.writeFileSync(ws.resolve('film.lock'), JSON.stringify(lock));
+    store.writeMeta(id, { id });
+  }
   ws.commitRevision(0);
   return { store, id, work: createWork({ store, library: {}, reviewer: null, scheduler: new Scheduler() }) };
 }
@@ -221,8 +237,7 @@ test('核心作业到声明的墙钟预算被杀：先 SIGTERM 再 SIGKILL 整�
   useRenderer(t, fakeRenderer(t));
   // 「声明 10 秒、到 10 秒被杀」按 1/10 缩放：声明 1 秒
   const WALL = 1000;
-  const hang = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-core-hang-'));
-  t.after(() => fs.rmSync(hang, { recursive: true, force: true }));
+  const hang = hangDir(t);
   const { workspace, film, lock } = coreWorkspace(t);
   fs.writeFileSync(workspace.resolve('shots/pack/fake.json'), JSON.stringify({ hang }));
   workspace.commitRevision(1);
@@ -273,6 +288,21 @@ test('核心作业到声明的墙钟预算被杀：先 SIGTERM 再 SIGKILL 整�
   assert.deepEqual(jc.result, { code: 0, signal: null }, '同卡的草稿作业的进程没被连带杀掉');
 });
 
+test('帧源 stop 收掉还在跑的 core-render 进程树：作业取消、测试收尾时不留孤儿进程', { timeout: 30_000 }, async (t) => {
+  const bin = fakeRenderer(t), hang = hangDir(t);
+  const { workspace, film, lock } = coreWorkspace(t);
+  fs.writeFileSync(workspace.resolve('shots/pack/fake.json'), JSON.stringify({ hang }));
+  const src = await startSource({ bin });
+  const s = await src.open({ film: film.id, output: film.output, shot: film.shots[0] }, { lock, tier: 'draft', workspace: workspace.resolve('intermediate/stop'), filmDir: workspace.root });
+  const rendering = s.render(0, {}, ['color']).then(() => null, (e) => e);
+  while (!fs.existsSync(path.join(hang, 'pids.json'))) await new Promise((r) => setTimeout(r, 20));
+  const pids = JSON.parse(fs.readFileSync(path.join(hang, 'pids.json'), 'utf8'));
+  await src.stop();
+  assert.ok(await rendering, '渲到一半被 stop 的 render 报错，不当成出了帧');
+  for (let i = 0; i < 50 && pids.some((pid) => processIsAlive(pid)); i++) await new Promise((r) => setTimeout(r, 20));
+  assert.deepEqual(pids.map((pid) => processIsAlive(pid)), [false, false], '渲染进程与它的孙进程都不在了');
+});
+
 test('真渲染程序：墙钟预算用完时正在渲的 core-render 被杀，同一块卡上另一个会话照常出帧', { timeout: 120_000 }, async (t) => {
   const bin = rendererOrSkip(t);
   if (!bin) return;
@@ -281,6 +311,8 @@ test('真渲染程序：墙钟预算用完时正在渲的 core-render 被杀，�
   const input = (size) => ({ film: film.id, output: { size, fps: '24/1' }, shot: { ...film.shots[0], tiers: undefined, seed: SEED } });
   const env = (name) => ({ lock: null, tier: 'draft', workspace: workspace.resolve(`intermediate/${name}`), filmDir: workspace.root });
   const victim = await startSource({ bin, maxWallMs: WALL }), other = await startSource({ bin });
+  // 测失败（没杀掉、超时）时也收掉两个帧源在跑的 core-render，不让它留在显卡上一直渲
+  t.after(() => Promise.all([victim.stop(), other.stop()]));
   const t0 = performance.now();
   // 一帧 1920×1080、每像素二十万个样本：远远渲不完，到点被杀
   const a = (await victim.open(input([1920, 1080]), env('a'))).render(0, { samples: 200_000, scale: 1 }, ['color']).then(() => null, (e) => e);
