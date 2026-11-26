@@ -1,0 +1,65 @@
+{
+  "format": "card/0.1",
+  "id": "post.beiming-look-actor",
+  "version": "1.0.0",
+  "kind": "post",
+  "title": "北冥画风 · 人物近景",
+  "intent": "读取人物近景的锁定画风参数和镜头覆盖范围",
+  "visibleToAgent": false,
+  "livesIn": [
+    "data"
+  ],
+  "impl": [
+    {
+      "livesIn": "data",
+      "entry": "cards/post/beiming-look-actor/evaluate.mjs",
+      "shape": "evaluate",
+      "hosts": [],
+      "selftest": "cards/c14-style-presets.test.mjs"
+    }
+  ],
+  "params": {},
+  "ports": {
+    "in": [],
+    "out": [
+      {
+        "name": "lookPreset",
+        "type": "tracks.lookPreset"
+      }
+    ],
+    "order": {
+      "before": [],
+      "after": []
+    },
+    "requires": []
+  },
+  "conditions": {
+    "appliesWhen": [
+      "人物近景：Canvas 2D 人物画在抠像面片上，人物自己画轮廓，屏幕墨线关；脸用小笔触、天空用大笔触"
+    ],
+    "notWhen": [
+      "需要直接处理帧像素时"
+    ]
+  },
+  "calibration": "probe-gray-chart",
+  "verify": {
+    "selftest": "与已登记镜头预设及覆盖路径逐字段比较，修改一次回读后再次取值",
+    "predicates": []
+  },
+  "provenance": {
+    "cases": [],
+    "note": "beiming-original@v1/actor"
+  },
+  "status": [
+    {
+      "level": "read",
+      "host": "node",
+      "source": "beiming-original@v1",
+      "gpu": "none",
+      "date": "2026-11-27"
+    }
+  ],
+  "exams": [
+    "cal:post.beiming-look-actor"
+  ]
+}

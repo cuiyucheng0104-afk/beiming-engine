@@ -1,0 +1,65 @@
+{
+  "format": "card/0.1",
+  "id": "post.beiming-look-wide",
+  "version": "1.0.0",
+  "kind": "post",
+  "title": "北冥画风 · 远景",
+  "intent": "读取远景的锁定画风参数和镜头覆盖范围",
+  "visibleToAgent": false,
+  "livesIn": [
+    "data"
+  ],
+  "impl": [
+    {
+      "livesIn": "data",
+      "entry": "cards/post/beiming-look-wide/evaluate.mjs",
+      "shape": "evaluate",
+      "hosts": [],
+      "selftest": "cards/c14-style-presets.test.mjs"
+    }
+  ],
+  "params": {},
+  "ports": {
+    "in": [],
+    "out": [
+      {
+        "name": "lookPreset",
+        "type": "tracks.lookPreset"
+      }
+    ],
+    "order": {
+      "before": [],
+      "after": []
+    },
+    "requires": []
+  },
+  "conditions": {
+    "appliesWhen": [
+      "大远景、远景：长焦压缩，主体在约 300–3000 m（镜头 A：鲲 2914 m、渡船 928 m）"
+    ],
+    "notWhen": [
+      "需要直接处理帧像素时"
+    ]
+  },
+  "calibration": "probe-gray-chart",
+  "verify": {
+    "selftest": "与已登记镜头预设及覆盖路径逐字段比较，修改一次回读后再次取值",
+    "predicates": []
+  },
+  "provenance": {
+    "cases": [],
+    "note": "beiming-original@v1/wide"
+  },
+  "status": [
+    {
+      "level": "read",
+      "host": "node",
+      "source": "beiming-original@v1",
+      "gpu": "none",
+      "date": "2026-11-27"
+    }
+  ],
+  "exams": [
+    "cal:post.beiming-look-wide"
+  ]
+}

@@ -1,0 +1,170 @@
+{
+  "ref": "beiming-original@v1/hero-sunrise",
+  "look": {
+    "defaults": {
+      "outline": {
+        "width": 2.6,
+        "color": "#2A2D52",
+        "wobble": 1.2,
+        "boilFps": 12,
+        "warp": 70,
+        "pressure": 0.35,
+        "breakup": 0.1,
+        "inner": 0.55,
+        "silhouette": 0.12,
+        "depthThreshold": 0.03,
+        "near": 4,
+        "far": 80,
+        "farScale": 0.55,
+        "opacity": 1,
+        "tint": 0.15,
+        "darken": 0.5,
+        "fogFade": 0.9
+      },
+      "kuwahara": {
+        "radius": 5,
+        "strength": 1,
+        "q": 8,
+        "farRadius": 5,
+        "farStart": 40,
+        "farEnd": 120,
+        "protect": [
+          1.05,
+          1.6
+        ]
+      },
+      "bloom": {
+        "strength": 0.55,
+        "threshold": 0.72,
+        "radius": 0.65,
+        "knee": 0.25,
+        "tint": "#ffffff"
+      },
+      "grade": {
+        "exposure": 1,
+        "warmth": 0.12,
+        "lift": [
+          0.035,
+          0.022,
+          0.06
+        ],
+        "gamma": 1,
+        "gain": 1,
+        "saturation": 1.04,
+        "shoulder": 0.9
+      },
+      "fog": null,
+      "paper": {
+        "strength": 0.12,
+        "scale": 1
+      },
+      "vignette": 0.22,
+      "grain": 0
+    },
+    "params": {
+      "outline": {
+        "width": 2.6,
+        "near": 90,
+        "far": 700,
+        "farScale": 0.55,
+        "wobble": 1.2,
+        "tint": 0.15
+      },
+      "kuwahara": {
+        "radius": 4,
+        "farRadius": 7,
+        "farStart": 900,
+        "farEnd": 3000,
+        "strength": 1
+      },
+      "bloom": {
+        "strength": 1.05,
+        "threshold": 0.6,
+        "radius": 0.8,
+        "knee": 0.25
+      },
+      "grade": {
+        "exposure": 1.2,
+        "warmth": 0.2,
+        "lift": [
+          0.05,
+          0.04,
+          0.05
+        ],
+        "gamma": 0.96,
+        "gain": 1.02,
+        "saturation": 1.1,
+        "shoulder": 0.9
+      },
+      "paper": {
+        "strength": 0.13
+      },
+      "vignette": 0.16,
+      "grain": 0.65,
+      "fog": null
+    },
+    "problems": [],
+    "refHeight": 1080,
+    "fogColor": "#9C8FD8",
+    "paper": {
+      "asset": "assets/plates/paper.png",
+      "note": "外部纸纹图：均值 0.5、标准差 0.11、按输出像素 1:1 平铺；缺图时引擎退回程序化纸纹，观感不同（craft/video.md §3.3）"
+    },
+    "toonGlobals": {
+      "fillGain": 0.62,
+      "exposure": 1.12,
+      "$comment": "hero 态是 fillGain 1、exposure 1（films/beiming-10s/src/shotC.js:197）"
+    }
+  },
+  "overridePaths": {
+    "kuwahara.radius": [
+      1.6,
+      4
+    ],
+    "kuwahara.farRadius": [
+      6,
+      7.5
+    ],
+    "kuwahara.farStart": "any",
+    "kuwahara.farEnd": "any",
+    "outline.width": [
+      2.3,
+      2.6
+    ],
+    "outline.near": "any",
+    "outline.far": "any",
+    "outline.farScale": [
+      0.5,
+      0.6
+    ],
+    "paper.strength": [
+      0.12,
+      0.14
+    ],
+    "vignette": [
+      0.16,
+      0.26
+    ],
+    "bloom.strength": [
+      0.55,
+      1.05
+    ],
+    "bloom.threshold": [
+      0.6,
+      0.72
+    ],
+    "bloom.radius": [
+      0.65,
+      0.8
+    ],
+    "grade.exposure": [
+      1,
+      1.2
+    ],
+    "grade.warmth": [
+      0.12,
+      0.2
+    ],
+    "grade.lift": "any"
+  }
+}

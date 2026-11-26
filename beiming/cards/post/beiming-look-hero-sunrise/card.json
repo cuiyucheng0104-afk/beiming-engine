@@ -1,0 +1,65 @@
+{
+  "format": "card/0.1",
+  "id": "post.beiming-look-hero-sunrise",
+  "version": "1.0.0",
+  "kind": "post",
+  "title": "北冥画风 · 主体近景（日光态）",
+  "intent": "读取主体近景（日光态）的锁定画风参数和镜头覆盖范围",
+  "visibleToAgent": false,
+  "livesIn": [
+    "data"
+  ],
+  "impl": [
+    {
+      "livesIn": "data",
+      "entry": "cards/post/beiming-look-hero-sunrise/evaluate.mjs",
+      "shape": "evaluate",
+      "hosts": [],
+      "selftest": "cards/c14-style-presets.test.mjs"
+    }
+  ],
+  "params": {},
+  "ports": {
+    "in": [],
+    "out": [
+      {
+        "name": "lookPreset",
+        "type": "tracks.lookPreset"
+      }
+    ],
+    "order": {
+      "before": [],
+      "after": []
+    },
+    "requires": []
+  },
+  "conditions": {
+    "appliesWhen": [
+      "hero 的日光态（光的剧本 sunrise：假暖退场、真暖登场）。不单独用：每帧 mixLook(hero, hero-sunrise, k)，k 由事件驱动从 0 到 1"
+    ],
+    "notWhen": [
+      "需要直接处理帧像素时"
+    ]
+  },
+  "calibration": "probe-gray-chart",
+  "verify": {
+    "selftest": "与已登记镜头预设及覆盖路径逐字段比较，修改一次回读后再次取值",
+    "predicates": []
+  },
+  "provenance": {
+    "cases": [],
+    "note": "beiming-original@v1/hero-sunrise"
+  },
+  "status": [
+    {
+      "level": "read",
+      "host": "node",
+      "source": "beiming-original@v1",
+      "gpu": "none",
+      "date": "2026-11-27"
+    }
+  ],
+  "exams": [
+    "cal:post.beiming-look-hero-sunrise"
+  ]
+}
