@@ -13,7 +13,8 @@ import { writePack } from './scenepack.mjs';
 const ROOT = process.env.BEIMING_CORE_LADDER_ROOT;
 const E2E = process.env.BEIMING_CHASSIS_E2E === '1';
 
-test('取值点：按（场景包, 帧）归组，只判 l4/a 与 l4/b；对照包按参考包清单认出来；同一组指向不同参考包时拒收', (t) => {
+// 参考包的目录名就是地址（sha256:…），Windows 的文件名不许有冒号，参考包根目录在那里建不出来
+test('取值点：按（场景包, 帧）归组，只判 l4/a 与 l4/b；对照包按参考包清单认出来；同一组指向不同参考包时拒收', { skip: process.platform === 'win32' && '参考包目录名带冒号，Windows 上建不出来' }, (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'level4-cov-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const pt = (id, pack, frame, ref) => ({ id, params: {}, scenePackDir: `scene-packs/${pack}`, frame, size: [8, 4], ref });
