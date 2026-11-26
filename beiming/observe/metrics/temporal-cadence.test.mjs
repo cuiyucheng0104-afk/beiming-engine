@@ -78,5 +78,10 @@ test('crop coordinates follow the decoded display orientation', { skip }, async 
   const crop = { x: 4, y: 72, width: 20, height: 20 };
   const expected = await onTwosCadence(baked, { crop });
   assert.deepEqual(await onTwosCadence(rotated, { crop }), expected);
+  const oddCrop = { x: 5, y: 88, width: 27, height: 31 };
+  const alignedCrop = { x: 4, y: 88, width: 26, height: 30 };
+  const aligned = await onTwosCadence(baked, { crop: alignedCrop });
+  assert.deepEqual(await onTwosCadence(baked, { crop: oddCrop }), aligned);
+  assert.deepEqual(await onTwosCadence(rotated, { crop: oddCrop }), aligned);
   await assert.rejects(onTwosCadence(rotated, { crop: { ...crop, x: 70, y: 4 } }), RangeError);
 });

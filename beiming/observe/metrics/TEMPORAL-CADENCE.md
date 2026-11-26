@@ -10,7 +10,7 @@ regionalFlicker 的 startFrame 指定第一个可报告的帧号，默认 1。�
 
 ## 一拍二与五帧相位
 
-onTwosCadence 适用于已知由 24 fps 原片按帧复制为 30 fps 的素材。输出帧 n 对应源帧 floor(4n/5)。cuts 是升序排列的内部切点，默认整片一段。可传 crop 对象，含 x、y、width、height，单位为像素，裁剪采用 FFmpeg 的原视频色度对齐规则。
+onTwosCadence 适用于已知由 24 fps 原片按帧复制为 30 fps 的素材。输出帧 n 对应源帧 floor(4n/5)。cuts 是升序排列的内部切点，默认整片一段。可传 crop 对象，含 x、y、width、height，按自动旋转后的显示画面给出像素坐标，裁剪采用 FFmpeg 的原视频色度对齐规则。
 
 每段的 start 包含在内，end 是下一段首帧或总帧数。统计跳过段首转场与复制帧，依据上一源帧的全片奇偶性，将本帧相对上一帧的亮度平均绝对差 YDIF 分组。oddToEven 和 evenToOdd 各取排序后下标 floor(N/2) 的样本，ratio 的分母下限为 0.01。静止段两组均为零时比值为零，任一组缺样时比值为 null。details.phaseMedians 按全片输出帧号模 5 分组，排除每段首帧，保留复制帧；另外报告相位 1 中 YDIF 小于 0.1 的帧数和样本数。
 

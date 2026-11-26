@@ -76,7 +76,8 @@ export async function onTwosCadence(filePath, { cuts = [], crop } = {}) {
       }
       const { width, height } = await displaySize(filePath);
       if (x + w > width || y + h > height) throw new RangeError('Invalid crop');
-      filter = 'crop=' + [w,h,x,y].join(':');
+      // Keep conversion to yuv444p after the source-format crop, including on autorotated video.
+      filter = 'crop=' + [w,h,x,y].join(':') + ',scale=iw:ih';
     }
     diffs = await signal(filePath, filter, 'YDIF');
   }
