@@ -1,7 +1,7 @@
 {
   "format": "question/0.1", "id": "3-1", "level": 3,
   "title": "硬表面机甲模块依次装配",
-  "brief": "零件装配最终落位已由装配烘焙给定，不要求自由建模。从底件开始依次飞入并扣合，末两秒完全静止。每个零件与它正下方的支承面贴合；棚灯须照清三个零件，全片滑窗取景，机位离地至少 2 厘米。",
+  "brief": "零件装配最终落位已由装配烘焙给定，不要求自由建模。从底件开始依次飞入并扣合，末两秒完全静止。每个零件与它正下方的支承面贴合；棚灯须照清三个零件，全片滑窗取景，机位离地至少 2 厘米。请在工作目录保留 deliverable.mp4 及可独立复算三维几何与接触的场景文件（assembly.blend 或 assembly.py）。",
   "deliverable": {"size": [1920, 1080], "fps": "30/1", "frames": 180, "audio": "none"},
   "assets": {}, "refs": ["bench/refs/level-3/3-1.json"],
   "basePredicates": [
@@ -20,5 +20,5 @@
   "budget":{"tokens":1800000,"wallMs":2400000,"gpuSeconds":300},
   "flags":{"hidden":false,"expectedFail":false,"blockedBy":[]},
   "calibration":{"status":"uncalibrated","source":"公开几何与离线技术卡对照；尚未做人群校准。","noiseFloor":null,"version":0},
-  "ext":{"bench.code":"03B-1","bench.m3AcceptanceIncluded":true}
+  "ext":{"bench.code":"03B-1","bench.m3AcceptanceIncluded":true,"bench.evidenceFiles":["deliverable.mp4","assembly.blend|assembly.py"]}
 }

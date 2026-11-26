@@ -62,5 +62,125 @@
         "candSrgb": "kYGDinp7iHZ2iHZ0ind1j3t5loJ/mYWCmYSApY+LrpqWuKWjv6yrwrCuwq+sx7Wy0MC+1sfF3M3M2MnH1sXD1sbD2cnG28vI28zI2MjE0r640Lu00r+50r+4z7u0yrSrwqqfv6aav6ebvKSZuKCUspqOrJOHqZCFqZKIqZSMq5eRq5eSqJSQpJGMn4uHnImEj3+Ajn19jXt6jnt5kX17lYF+oY2JoYyIooyHqZOOtqGdv6uoxrOwybazyrayzru31sbD28zJ3c7L3c7L3czI3czI3s7J38/K4NHL387I2se/2MS72cW92MS71sG40ryxy7OmyK+hx66hxayewKeZu6KUtZyOspmMsZmPsZuSsp2Wsp6Yr5yXrZmVqZaRp5SQkH5/kH5+koB+lYF/mISBnYiEpI6KqpSPrpeRtZ+ZwKqlyLOuzrq10b6507+518S+3czH4dHM49PO5NXP5dXQ5NXO49LL5NPL5tbO5tbO5NPK4s/F5NDF3sm93si828W31r6v07mq0benzbOjya+fyq+gwKaYvaSWu6OXuqOZuaScuaWfuKWgt6Whu6mmtqSjmIaEmoaEnYmGoIyHpI6JqZKMr5iStZ6XuqObwaqiybOr0Lu01cG62cW92sa+3svC6NfP59fP6NnR6trT69zV69zT6djP6djO69vR8ODW69vQ6djL59LF5dDB5dDA48294Mi23cSx38az172q1Lmm0LWjzLKhybCgx6+hxq+jxa+lyLSsw7Gqw7Gsw7Kuw7OwppOQp5OPqZWPrJaPtJ2VtJ2TuqKYv6edxKyiyrKo0bqw18G328e8487E38q+4s7D6NfN69zS7d3U7t/W7+HX8OHX9OXa7+DU8OHU8ODT797Q7tzN7drK7NjH69fF7tnG5s+65My248u14Mex3cOt2b6p1run07qn1r6t0Lmqz7mszrmuzbqxzLqzy7q0yrq1sZ6ZtqKcs56XtqCWuaKXvqaaw6ufyLCjzbWo0rqt3MW43ce64cy/5M/B5M/B6NTG7dzP7+DU8eLW8uPY8+XZ8+bZ9ObZ9ObZ9ObY9OXW8uLS8uHQ8uHP8d/N8N3J7trE69W+6tO76tO76NC45Muz4cev3sSt28Ou2sKv2MKx18Kz1sK11cK308K40sG40MC4uKSeuaWdu6Wcvqebwambxq2ey7Ok0Leo1Lys2cCx3ca24su85dDA6dXF7NnK7t3O8eHT8+PW9OXY9efZ9efY9ujZ9una9+vc+Ozd+Ozc9+rZ9ujW9ufU9eXR8+HL8d7G8NvC79rB79rC7di/6tO658+25My04su04Mq15M+73sq53cq728m92ci918W71cS6vamhvqqgwaugw6yfxq6ey7Kh0bmn1r2s2sGw3sW04cm35c+96dTC7drJ8eDQ8+TU9OXW9efY9+ra9+vb+Ova+Ozb+e7e+vDh+/Lj+/Lj+vHg+u/e+e7b/e/b9ufP9ePK9OLI8+HH8uDH8d3E79q/7Na87te+59G55c+55M+749C+4c/A4M/B3c3A2sm83Mu/vamgwKqgw62hxq6gx66dzbOg1Luo2sGu48q34ci14sm05s+67dnG8d/O8+PS9ebW9+ra/fHi+u/g+vHi+/Lj/PTl/PXn/fbo/ffq/ffq//vt/PXm/PTj+/Hf+u/b+e3X+OrT9+fP9eTL+OXL8d3C79q/7Ne86tS759G55dC65NG+49HB4tHC38/B28q82Me6vqmgwaugxa6iyLChya+d07ik172p3cSw4sm15Mu248mx6M+48N3J8+PR+erY9+nY+e7e+/Hi/PTm/fbp/fjr/vnt/vnu///0/vvx//vx/vrw/vnu/vjr/ffo/fXl/PPh+/Dc+e3W9+jP9eTJ8+DF8d3B79q/7Ne96NK55tK65tO/5dPB49PE4dDD3cu92si6wayjw62jzLWoy7KjzrSi07mm2sCs38ax5My358+66dK88tzG8t/L9OXS9ujW+Ozb+vDg/PTl/ffq/vnu/vrx//vz//zz//z0//32//32//z1//z0//vy/vrv/vns/ffo/PTi+/Db+evT9+fM9ePH89/E8d3C7trB7Ne/6tbA6NbC59XE5dTF49PF4NDD3s7DvKWWwamZxq2czLKf0bei17ym28Co38Sq5Mis6M2v7NKz79e38tu79ODA9+XG+erN++/V/fTe/vjn//rt//zy//z0//30//32//73//74//33//32//z0//zx//ru/vjp/fXi/PLb+u3S9+jL9eTG9ODD8t7C8NzB7trA7Ni/7trC59K65M+44My13cmz2sawwKiYxaybybGezrWh1Lql2b+o3cOq4ces5cuu6c+x7dS18Ni58ty89eHB9+bH+evO+/HY/fXh/vjp//vv//zz///6//32//73//75//75//74//33//31//zz///0/vnr/fbj/PLc+u7U+OnM9eTG9OHD8+DE9uPI793D7dvC69nA6da+5tO749C54M223sqzx7Cfx6+dzLOg0bij1bym2sGq38Ws4siu5syw7tW37dW28Nm68t289OHA9+bG+evN+/DX/fXg//3s//ru//zx//z0//32//33//74//74//73///7//31//zy//vv/vjp/fXi+/Ha+u7U+OnN+ejK8+DD8+HF8uDG8N7F7t3F7NvD6tjA6NW+5dK84tC54M22xa6cybKfzbai0rql176o28Or5Muy4smv5s2x6dCz7dW38Nm78t2+9OHC9uXG/e7Q++/U/PPc/fXh/vjo//rt//vx//zz//31///7//32//31//z0//zy//vv/vnr/ffm/PTf+/DZ+e3U9+nO9eXJ9OLG8+LH8uHI8N/H797G7dzF69rD6dfA5tW+5NK84tC5xq+cyrOfzrai0rul17+o28Or3sat4smv5cyx6NCz7NS279m78t2/9OHD9ePF9+fJ+ezQ++/V+/HX/PTd/vfm/vnq//rt//vw//zy//zy//vw//ru/vns/vjp/ffl/PTg+/Ha+u7W+OvS9+jO9eXL9OPI8+LI8eHI8ODI79/H7d3G69vE6djC59bA6tjC49K7xK2ayLGdzLSg0Lij1Lym2cGp3MSr38et48qv5s2x6tK07da48Nu98t7A9OHD9uTG9+fK+erN+ezQ++/V/PPd/fXh/fbi/ffl/vjo//3t/vfn/ffl/fXi/PTf/PLc+/DY+e3T+OvR/O7U9ufO9OXL8+LJ8uHI8ODH79/H7t3G7NzF797H6NfB5tW/5NO84tG6wquYxq6byrKezrah0rqk1r6n2cGp3MSr4Mes48qu5s6x6tK17de59N/B8t7A8+DB9OLC9uTE9+fI+OrN+u3S+u/V//PY++/V+/HZ/PLb+/Ha+/HZ++/W+u7U+ezR/e/U9+jM9ufM9ufN9eXM8+PJ8uHH8N/G797F8uHJ7NzF69rD6djB59a/5dS949K74dC5v6iWyLCdx6+cy7Ofz7eh07uk1r6m2cCo3MKp38Wr586y5s6x6dK07Na479m78Nu88t2989+/9OHC+unK9+fJ+OjL+OjK+OjK+OnM+OrN+OrO+OrN/O3R9+jM9+fL9ubK9eTJ9OTJ9OPK8+LI8eDG797E7tzD7dvD7NvD69rD6dnC6NfA5tW+5NO84tG54M63vKWTwKmWxKyZyLCcy7Sfz7eh0rqj2cCp176m2sCn3sSp4sit5cyw6NCz69O27da37ti58Nq68dy8896/9ODC9OLD9OLC9OLC9OLC9OLD9eLD9ePE9ePF9OPG9OLG8+LG8+HG8uHH8eDG8N/F7t3D7dvB69nA6tnA6djB6djB6NfA5tW+5NO849G64c+43821uaKPvaWTwKmWxK2ZyLCby7Oezrag0bii07uj1r2l2cCn3cSq4cit5Myw5s+y6NG06tO17NW37de579m78Nu98dy+8d2/8d6/8d6/8t7A8t7A8t/B8t/C8d/C8d7D8d/D8N7E8N7E793E7dzD7NrB6tjA6de/6Ne/6Na/59a/5tW+5NO849G64c+438214tC3tZ6MuaKPvaWSwKmVxKyYx7CbyrKdzbWf0Leh0rqi1r2l2cGo3cSq4Mit4sqv5M2x5s+z6NG06tO269W47Ne67di77tq979u+79u/79y/9OHE79zA79zA7tzA7tvB7tzB7dvC7dvC7NvC8N7F6tjA6Ne+59a95tW95tS95dS85NO74tG55dS838213suz3MmwsZqItZ6LuaGOvKWRwKiUw6yXxq+aybKczLSez7eg0rqj1r6l2cGo3MSr48uy4Mmv4syx5M6y5tC059K26dO46tW569a78NzB7Ni97Nm+7Nm/7Nm/7Nm/7Nm/69m/69nA797F6tnA6tjA6de/6Na+59W95tS85dO75NK659a+4tC44M6238203cuy28iv2catrZWDsZmHuaGOuKCNvKSQv6eTwquWxq6ZybGbzLWez7ih18Co1b6m2MGp28Sr3cet38mv4cux482z5M+16tW759K459S66NW76da86de96de+6te+6de+6di/6de/6de/6de/6Ne/6Na+59a+5tW95dS85NO749G54tC44c+338213syz3cqx28iu2cWs18OpqJB+rJSCsJiFs5yIt5+LuqKOvqaRwqqVyrKcybGbzLWez7ih0ruj1b6m18Go2sSr3Mat3smv4Mux4c2z48+15NC35dG45dO55tS659S759W859W959a959a959a+59a959W95tW95tS85dS85NO749K64tG44c+34M613syz3cqx3Miv2sat2MSq1sKo1L+lo4t6p499q5OArpaDspqGtZ2JuaGMvaWQwamTxK2WyLCZy7Oczref0Lqh07yk1b+n2MKp2sSr28at3civ38qx4Myz4c204s6149C249C35NG45NK55NK55NK65NK65NK65NK649K549G54tG44tC34c+24M6149G33cqx3Mmv2set2cWr18Oo1cGm076j0bygnoZ1oop4pY17qZF+rZSBsJiEtJyHuKCKvKSOwKeRw6uUxq+XybKazLWdz7if0bui1L2k1sCn3Met2cSr28at3Miu3cmw3sux38yy4M2z4M205dO54c614c+24c+24c+24c+24c614M614M2049G33suy3cqw3Miu2ses2cWq18Oo1sGm1L+j18Gl0Lqezrib"
       }
     ]
+  },
+  "inputSpec": {
+    "version": 1,
+    "rasterSize": [
+      48,
+      27
+    ],
+    "checkFrames": [
+      300,
+      1440,
+      2520,
+      2838,
+      3900,
+      4500
+    ],
+    "camera": {
+      "near": 0.3,
+      "far": 1200,
+      "fov": 40
+    },
+    "patchRules": [
+      {
+        "stage": "vertexShader",
+        "mode": "after",
+        "anchor": "#include <begin_vertex>",
+        "code": "\ntransformed += normal * 0.002;"
+      },
+      {
+        "stage": "fragmentShader",
+        "mode": "after",
+        "anchor": "#include <color_fragment>",
+        "code": "\ndiffuseColor.rgb = max(diffuseColor.rgb, vec3(0.0001));"
+      }
+    ],
+    "volumetricLighting": {
+      "cameraWorld": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        12,
+        48,
+        1
+      ],
+      "lightColor": [
+        1.1,
+        0.78,
+        0.45
+      ],
+      "sunDirection": [
+        0.35,
+        0.62,
+        -0.7
+      ],
+      "skyDepth": 300
+    },
+    "hdrSynthFormula": {
+      "description": "Per-frame linear HDR radiance + metric depth field at rasterSize [48, 27]",
+      "phaseFormula": "frameIdx * 0.45",
+      "plumeCenter": [
+        "0.46 + 0.08 * sin(phase)",
+        "0.50 + 0.05 * cos(phase)"
+      ],
+      "depthEncoding": "linear-meters",
+      "gradeTickFormula": "frameIdx * 600 + 300"
+    },
+    "cardParams": {
+      "patch": {
+        "allowedVersions": [
+          "0.187.0"
+        ]
+      },
+      "ao": {
+        "enabled": true,
+        "strength": 0.9,
+        "radius": 1.2,
+        "bias": 0.03,
+        "samples": 12
+      },
+      "bloom": {
+        "enabled": true,
+        "additive": false,
+        "threshold": 0,
+        "knee": 0,
+        "intensity": 0.085,
+        "radius": 1
+      },
+      "volumetric": {
+        "enabled": true,
+        "beamGain": 12,
+        "anisotropy": 0.45,
+        "extinction": 0.008,
+        "mode": "standalone"
+      },
+      "grade": {
+        "exposure": 1.15,
+        "bloom": 0.14,
+        "vignette": 0.42,
+        "caBase": 0.006,
+        "saturation": 1.08,
+        "contrast": 0.44,
+        "gamma": 2.2,
+        "grain": 0.018,
+        "ditherMode": "triangular",
+        "shaftColor": [
+          1.1,
+          0.78,
+          0.45
+        ]
+      }
+    }
   }
 }

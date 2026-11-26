@@ -3,7 +3,7 @@
   "id": "41-1",
   "level": 4,
   "title": "线性 HDR 后期链通道级对拍",
-  "brief": "给定多帧场景线性 HDR 颜色与米制深度输入，依次串联材质着色器锚点补丁、半分辨率双边环境光遮蔽、四级 Karis 降采样与帐篷上采样泛光、四分之一分辨率体积光散射及 ACES 终混调色链输出 sRGB 成片。逐帧实测图像对参考输出的峰值信噪比、均方根误差与超差像素比例均须满足公开阈值表对应门限。",
+  "brief": "给定多帧场景线性 HDR 颜色与米制深度输入（见公开参考文件 inputSpec），依次串联材质着色器锚点补丁、半分辨率双边环境光遮蔽、四级 Karis 降采样与帐篷上采样泛光、四分之一分辨率体积光散射及 ACES 终混调色链输出 sRGB 成片。逐帧实测图像对参考输出的峰值信噪比、均方根误差与超差像素比例均须满足公开阈值表对应门限。请在工作目录保留 deliverable.mp4 及调用 three.patch 的独立渲染脚本 render.mjs 供宿主核验。",
   "deliverable": { "size": [1920, 1080], "fps": "60/1", "frames": 6, "audio": "none" },
   "assets": {},
   "refs": ["bench/refs/level-4/41-1.json", "bench/questions/level-4/gates-m4.json"],
@@ -51,5 +51,5 @@
     "noiseFloor": 0,
     "version": 1
   },
-  "ext": { "bench.code": "M4-SS1", "bench.steppingStone": true }
+  "ext": { "bench.code": "M4-SS1", "bench.steppingStone": true, "bench.evidenceFiles": ["deliverable.mp4", "render.mjs"] }
 }

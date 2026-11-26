@@ -27,7 +27,7 @@ const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 export const RESULT_FORMAT = 'bench-result/0.1';
 export const SOURCES = ['three', 'blender', 'core'];
 export const CACHE_READ_TOKEN_WEIGHT = 0.1;
-const PROMPT = '读当前目录的 question.json，按题面做题。成片存成当前目录的 deliverable.mp4；用了显卡就把秒数写进 submission.json 的 cost.gpuSeconds。';
+const PROMPT = '读当前目录的 question.json，按题面做题。成片存成当前目录的 deliverable.mp4；用了显卡就把秒数写进 submission.json 的 cost.gpuSeconds；题目若在题面中要求保留宿主核验附带产物（如场景文件、采样表或独立复算脚本），须保留在当前工作目录内，不要删除。';
 const num = (v) => (Number.isFinite(v) ? v : null);
 const inside = (p, dir) => (dir === '/' ? p.startsWith('/') : p === dir || p.startsWith(dir + path.sep));
 const rawInside = (root, target) => {
@@ -116,11 +116,23 @@ function seatbeltProfile(run, questionFile, hidden, denyReadDirs = []) {
     }
   };
 
+  // 始终拒读仓库内的标准答案目录（beiming/bench/solutions），但保留公开 refs、cards 与 node_modules 可读
+  const solutionsDir = path.join(REPO, 'beiming', 'bench', 'solutions');
+  if (fs.existsSync(solutionsDir)) addDenyDir(solutionsDir, [dir, process.execPath]);
+
   const personalProtected = [dir, REPO, process.execPath];
   for (const name of ['Desktop', 'Documents', 'Downloads']) {
     const sub = path.join(home, name);
     if (fs.existsSync(sub)) addDenyDir(sub, personalProtected, { carve: true });
   }
+  // 拒读家目录下常见的私有案例审计快照目录（如 ~/beiming-case-audit-*）
+  try {
+    for (const entry of fs.readdirSync(home, { withFileTypes: true })) {
+      if (/^beiming-case-audit/i.test(entry.name)) {
+        addDenyDir(path.join(home, entry.name), personalProtected, { carve: true });
+      }
+    }
+  } catch { /* 无法列举家目录时安全忽略 */ }
 
   const explicitProtected = [dir, home, REPO, process.execPath];
   for (const rawDir of denyReadDirs) addDenyDir(rawDir, explicitProtected, { carve: true });
@@ -458,6 +470,7 @@ const RUN = {
       claude: { type: 'string', placeholder: '可执行文件', default: 'claude', desc: 'claude 可执行文件（或 .mjs 测试桩）' },
       source: { type: 'string', choices: SOURCES, desc: '这次用的出片来源，原样记进结果' },
       'force-expected-fail': { type: 'boolean', desc: '题目标了 expectedFail 也照样实跑（默认直接落 expected-fail）' },
+      'deny-read-dir': { type: 'list', placeholder: '目录,…', desc: '额外拒读目录列表（逗号分隔，macOS seatbelt 生效）' },
     },
     notes: [
       '退出码 0 表示跑完并落盘，及格与否看 result.json 的 pass（布尔），细分看 status（pass / fail / error / expected-fail）；题目没过校验 exit 4，宿主缺 ffprobe exit 3。',
@@ -465,7 +478,8 @@ const RUN = {
     ],
   },
   handler: async ({ opts }) => {
-    const r = await runExamQuestion({ questionFile: opts.question, evalRoot: opts.root, solverCmd: opts['solver-cmd'], model: opts.model ?? null, claude: opts.claude, source: opts.source ?? null, forceExpectedFail: opts['force-expected-fail'] });
+    const denyReadDirs = Array.isArray(opts['deny-read-dir']) && opts['deny-read-dir'].length ? opts['deny-read-dir'] : null;
+    const r = await runExamQuestion({ questionFile: opts.question, evalRoot: opts.root, solverCmd: opts['solver-cmd'], model: opts.model ?? null, claude: opts.claude, source: opts.source ?? null, forceExpectedFail: opts['force-expected-fail'], denyReadDirs });
     return { data: r, outputs: [r.resultFile], text: `${r.questionId}：${r.status}，得分 ${r.score}\n结果：${r.resultFile}` };
   },
 };
