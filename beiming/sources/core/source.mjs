@@ -6,7 +6,7 @@
 import { spawn } from 'node:child_process';
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, readFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
@@ -15,7 +15,7 @@ import { answerQuery, clipStats, lumaStats, measureEntity } from '../../host/pag
 import { renderingOf } from '../../kernel/eval/input.mjs';
 import { SourceError, declared, planFrame, planOpen, planQuery } from '../three/plan.mjs';
 import { HOST, caps } from './caps.mjs';
-import { PRESETS, buildRenderer, sourceKey } from './chassis/build.mjs';
+import { OUT, PRESETS, buildRenderer, sourceKey } from './chassis/build.mjs';
 
 export { SourceError };
 const { structuredClone } = globalThis;
@@ -35,6 +35,14 @@ const show = (v) => { try { return JSON.stringify(v) ?? String(v); } catch { ret
 const record = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const pad = (n, width) => String(n).padStart(width, '0');
 const sha256 = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+
+/** 编好的渲染程序：环境变量 BEIMING_CORE_RENDER，再没有就取 chassis/build.mjs 按这份内核源码编好的那份；都没有报 env.missing-tool，不现编 */
+export function findRenderer() {
+  if (process.env.BEIMING_CORE_RENDER) return process.env.BEIMING_CORE_RENDER;
+  const bin = join(OUT, 'bin', `core-render-${sourceKey()}${process.platform === 'win32' ? '.exe' : ''}`);
+  if (existsSync(bin)) return bin;
+  throw new SourceError('env.missing-tool', `没有编好的渲染程序 core-render（${basename(bin)}）：先用 chassis/build.mjs 的 buildRenderer 编一份（要 cargo），或设 BEIMING_CORE_RENDER 指向编好的程序`);
+}
 
 /** 起一次 core-render；退出码不是 0 时，stderr 最后一行是 {"error":{code,at,message}} 就报那个码，否则原样报错。
  *  给了 seed 时内核的种子就是它（THREERT_SEED），外层环境里的 THREERT_SEED、THREERT_HWRT 不传下去 */

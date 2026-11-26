@@ -22,6 +22,7 @@ await s.query(0, { kind: 'bbox3d', of: ['kit.*'] });
 await s.close(); await src.stop();
 ```
 
+- 出片链：`beiming/api/pipeline.mjs` 的帧源池按镜头条目的 `source: core` 起这个帧源，渲染程序只用编好的那份（`findRenderer()`：环境变量 `BEIMING_CORE_RENDER`，再没有就取 `chassis/build.mjs` 按这份内核源码编好、放在 `out/chassis/bin/` 下的那份），都没有报 `env.missing-tool`，作业里不现编。只开草稿档（看板用）；终渲档照下面「拒绝的请求」一表在 `open` 时拒，错误码不变。核对：`beiming/api/core-source.test.mjs`（一个场景包经队列里的作业出一帧，和直接调 `core-render render-pack` 出的颜色层、编号层逐字节相同；设 `BEIMING_CHASSIS_E2E=1` 又有编好的程序才跑）。
 - 镜头条目：`source: core`、`host: offscreen`、`mode: build-script`，`entry` 是场景包（`scene-pack/0.1`）的目录或它的 `pack.json`，相对片子描述所在的目录。场景包第 f 帧就是镜头局部第 f 帧，包的帧数要不少于镜头的 `out − in`。片子描述里怎么写一个镜头用了场景包，帧源接口契约没定（第 6 节），这是这里的写法。
 - 装载之前的判定（宿主、作者模式、锁、卡、资产、叠加层）与 three 帧源共用 `../three/plan.mjs` 的 `planOpen`；卡、资产、叠加层这个帧源都没接，带着来报 `contract.unsupported-input`。
 - 层写在 `env.workspace/r<会话内序号>-f<帧号>/` 下，文件名与格式见 [path/README.md](path/README.md)「读场景包」；同目录另有一张 `preview.png`。
