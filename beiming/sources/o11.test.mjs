@@ -20,6 +20,9 @@ const joints = { kind: 'probe.joint-vel', of: ['follow'], against: ['lead'] };
 const foot = { kind: 'probe.footslide', of: ['foot'] };
 const section = { kind: 'probe.section', of: ['finger'], axis: 'y', offset: 0 };
 const contact = { kind: 'probe.contact', of: ['contact_a'], against: ['contact_b'] };
+const instanceGround = { kind: 'probe.ground', of: ['instance_assembly'] };
+const instanceSection = { ...section, of: instanceGround.of };
+const instanceDeform = { ...deform, of: instanceGround.of };
 const approximate = (value, expected, tolerance = 1e-6) =>
   assert.ok(Math.abs(value - expected) <= tolerance, `expected ${expected} ± ${tolerance}, got ${value}`);
 
@@ -37,7 +40,7 @@ for (const renderer of ['three', 'blender']) {
     t.after(() => source.stop());
     const workspace = await mkdtemp(join(tmpdir(), 'beiming-o11-'));
     t.after(() => rm(workspace, { recursive: true, force: true }));
-    const plans = [ground, near, tris, deform, joints, ...(three ? [foot] : [section, contact])];
+    const plans = [ground, near, tris, deform, joints, ...(three ? [foot] : [section, contact, instanceGround, instanceSection, instanceDeform])];
     const shot = {
       id: 'calibration', in: 20, out: 24, source: renderer, host: three ? 'page' : 'cycles',
       mode: three ? 'native-code' : 'build-script', entry: three ? 'o11-calibration.three.js' : 'o11-calibration.blender.py',
@@ -88,6 +91,19 @@ for (const renderer of ['three', 'blender']) {
       assert.equal(first[5].items.length, 8);
       assert.ok(first[5].items.every(({ ends }) => ends.every((point) => point[1] === 0)));
       approximate(first[6].items[0].value, 0.0005);
+
+      // Two children instance one mesh datablock. Only the right instancer is registered directly.
+      const [sink] = first[7].items;
+      assert.deepEqual([sink.a, sink.unit, sink.value, sink.at[1]], ['instance_assembly', 'm', 0.1875, -0.1875]);
+      const ordinaryGround = await query(1, { ...instanceGround, kind: 'belowGround' });
+      assert.equal(sink.value, ordinaryGround.items[0].value);
+      const segments = first[8].items;
+      assert.equal(segments.length, 16);
+      assert.ok(segments.every(({ ends }) => ends.every((point) => point[1] === 0)));
+      assert.equal(segments.filter(({ ends }) => ends.every((point) => point[0] < 0)).length, 8);
+      assert.equal((await query(1, { ...instanceSection, of: ['instance_assembly.right'] })).items.length, 8);
+      approximate(first[9].items[0].value, 0.125);
+      approximate(third[9].items[0].value, 0);
     }
     const probedColor = await session.render(0, { samples: 1 }, ['color', 'meta']);
     await session.close();

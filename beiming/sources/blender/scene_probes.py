@@ -80,10 +80,16 @@ def snapshot(scene, depsgraph, plan, entities, axis, rigid, size):
             obj = instance.object
             original = obj.original
             owner = instance.parent.original if instance.is_instance else original
-            names = names_by_mesh.get(owner.name, [])
-            if obj.type != 'MESH' or not (names or plan.get('allScene')):
+            if obj.type != 'MESH':
                 continue
-            if not camera_probe and instance.is_instance:
+            # As in the S12 queries, a generated mesh belongs to the instancer
+            # and every declared ancestor, even when its source object is unlinked.
+            names = set()
+            ancestor = owner
+            while ancestor is not None:
+                names.update(names_by_mesh.get(ancestor.name, ()))
+                ancestor = ancestor.parent
+            if not names and not plan.get('allScene'):
                 continue
             visible = (instance.show_self and not (owner.hide_render or original.hide_render)
                        and owner.visible_camera and original.visible_camera)
@@ -107,9 +113,11 @@ def snapshot(scene, depsgraph, plan, entities, axis, rigid, size):
                     inside += count
                     if not len(triangles):
                         continue
-                instance_id = '.'.join(str(x) for x in instance.persistent_id) if instance.is_instance else ''
-                meshes.append({'id': ':'.join((owner.name, original.name, instance_id)), 'names': names,
-                               'vertices': points.tolist(), 'indices': triangles.tolist(), 'visible': visible})
+                instance_id = tuple(instance.persistent_id) if instance.is_instance else ()
+                # Keep copies of the same source mesh distinct across deformation samples.
+                identity = repr((owner.name, original.name, instance_id))
+                meshes.append({'id': identity, 'names': sorted(names), 'vertices': points.tolist(),
+                               'indices': triangles.tolist(), 'visible': visible})
             finally:
                 obj.to_mesh_clear()
 

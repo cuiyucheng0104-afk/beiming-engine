@@ -36,8 +36,32 @@ def build(ctx):
     lead = triangle('lead', (-1, 1, -3))
     follow = triangle('follow', (1, 1, -3))
 
+    # A reusable mesh outside the scene, visible only through the two child instancers.
+    scene = bpy.context.scene
+    reusable = bpy.data.collections.new('probe payload')
+    bpy.ops.mesh.primitive_cube_add(size=.5)
+    payload = bpy.context.object
+    scene.collection.objects.unlink(payload)
+    reusable.objects.link(payload)
+    assembly = register('instance_assembly', bpy.data.objects.new('probe assembly', None))
+    scene.collection.objects.link(assembly)
+    assembly.location = ctx.to_blender((0, 0, -6))
+
+    def add_instance(name, x, y):
+        obj = bpy.data.objects.new(name, None)
+        scene.collection.objects.link(obj)
+        obj.parent = assembly
+        obj.location = ctx.to_blender((x, y, 0))
+        obj.instance_type, obj.instance_collection = 'COLLECTION', reusable
+        return obj
+
+    add_instance('left unregistered instancer', -.75, .0625)
+    right = register('instance_assembly.right', add_instance('right instancer', .75, .125))
+
     def state(f):
         return {'objects': {
+            assembly: {'location': ctx.to_blender((f * .25, 0, -6))},
+            right: {'scale': (1.5 if f == 1 else 1, 1, 1)},
             deform: {'scale': (3.78 if f == 1 else 1, 1, 1), 'location': ctx.to_blender((f * .5, 1, -3)),
                      'rotation_euler': (0, f * .15, 0)},
             lead: {'rotation_euler': (0, .7 if f >= 1 else 0, 0)},
