@@ -69,7 +69,8 @@ export async function build({ renderer }, { lod = 0.5 }) {
   kun.group.traverse(o=>{if(o.isMesh)sourceMeshes.push(o);});
   const wave=pitchWave('kun',{e0:.22,sMax:1.15}).js(kun.uniforms);
   const root=new T.Group();root.name='kun';
-  root.userData={source:'beiming-engine/films/beiming-10s/src/kun.js createKun',lod,sourceScale:SCALE,lengthNominal:30,forward:'+X',up:'+Y',clip:'Swim',duration:10,loop:true,materialPolicy:'Keep embedded baseColorTexture and COLOR_0 when replacing with RAEA ToonMaterial'};
+  // GLB 中的来源标识沿用已登记资产的值。
+  root.userData={source:'beiming-engine/src/kun.js createKun',lod,sourceScale:SCALE,lengthNominal:30,forward:'+X',up:'+Y',clip:'Swim',duration:10,loop:true,materialPolicy:'Keep embedded baseColorTexture and COLOR_0 when replacing with RAEA ToonMaterial'};
   const anchors=Array.from({length:41},(_,i)=>-300+i*SPACING);
   const {bones,skeleton}=spineRig(root,anchors,{prefix:'kun',scale:SCALE});
   const skinned=[];

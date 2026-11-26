@@ -47,7 +47,7 @@
       {
         "to": "ferry.glb", "module": "tools/ferry-model.mjs", "export": "createFerry", "length": 2,
         "prefix": "ferry", "names": { "lights": "ferry-light-" },
-        "meta": { "forward": "+X", "up": "+Y", "lights": "Original emissive window and navigation-light meshes; no source punctual lights" },
+        "meta": { "source": "beiming-engine/src/ferry.js createFerry", "forward": "+X", "up": "+Y", "lights": "Original emissive window and navigation-light meshes; no source punctual lights" },
         "report": "ferry-report.json"
       }
     ],
