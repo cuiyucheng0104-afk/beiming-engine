@@ -193,7 +193,7 @@ export async function startSource({ cards = [] } = {}) {
         planFrame(manifest.frames, f);
         if (sceneProbeKind(q)) {
           const plan = planProbe('three', q, manifest.frames, names);
-          return page.evaluate(([frame, p]) => window.__session.probe(frame, p), [f, plan]);
+          return page.evaluate(([frame, p]) => globalThis.__session.probe(frame, p), [f, plan]);
         }
         const res = await page.evaluate(([frame, snap]) => window.__session.query(frame, snap), [f, planQuery(CAPS, q, manifest.entities.map((e) => e.name)).q]);
         if (!res.ok) throw new SourceError(res.code, res.message, res.next);
