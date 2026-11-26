@@ -269,8 +269,8 @@ test('端到端：故意把一个 WGSL 函数改错一项，报出是哪个函�
   await breakOne(t, light, lsrc, 'var h = a * u * (u - 1.0) +', 'var h = a * u * (u - 1.1) +', ['shadow_ray_smooth_surface_offset', 'shadow_ray_offset'], 29, 3, LAMPS);
   // 交界线附近挪的份额：2 − (NgL + NL)/cutoff 写成 1.9 − …：只有起点偏移不合格
   await breakOne(t, light, lsrc, 'clamp(2.0 - (NgL + NL) / offset_cutoff, 0.0, 1.0)', 'clamp(1.9 - (NgL + NL) / offset_cutoff, 0.0, 1.0)', ['shadow_ray_offset'], 39, 4, LAMPS);
-  // 面光：矩形右边界的 0.5 改成 0.51，走立体角那一支的四项不合格；平面近似的两项（tiny、grazing）概率密度不用 x1，照旧合格
-  await breakOne(t, light, lsrc, 'let x1 = xc + 0.5 * len_u;', 'let x1 = xc + 0.51 * len_u;', ['area_light_rect_sample', 'area_light_rect_sample_solid_angle', 'area_light_sample', 'area_light_eval_from_intersection'], 16, 4);
+  // 面光：矩形右边界的 0.5 改成 0.51，走立体角那一支的六项不合格（远场、近场两项也经 x1）；平面近似的两项（tiny、grazing）概率密度不用 x1，照旧合格
+  await breakOne(t, light, lsrc, 'let x1 = xc + 0.5 * len_u;', 'let x1 = xc + 0.51 * len_u;', ['area_light_rect_sample', 'area_light_rect_sample_solid_angle', 'area_light_rect_sample_far', 'area_light_rect_sample_near', 'area_light_sample', 'area_light_eval_from_intersection'], 16, 4);
   // 做概率密度的 S（远场换成 Van Oosterom–Strackee）：只跑立体角的三项
   const RECT_S = ['area_light_rect_sample_solid_angle', 'area_light_rect_sample_far', 'area_light_rect_sample_near'];
   // 去掉远场的判断与分母的守卫，照没加守卫时的写法 atan(n/m)：近场（三角形大于 π，分母为负）与 MAIN 里的近处不合格，远场照旧
