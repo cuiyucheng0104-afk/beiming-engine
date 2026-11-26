@@ -21,7 +21,7 @@ import { OUT, PRESETS, buildRenderer, sourceKey } from './chassis/build.mjs';
 export { SourceError };
 const { structuredClone } = globalThis;
 const ENV_KEYS = ['lock', 'tier', 'workspace', 'filmDir'];
-const NOT_YET = '核心帧源还没过门：只进看板、不出成片';
+export const NOT_YET = '核心帧源还没过门：只进看板、不出成片';
 /** 内核出的层文件（render-pack --passes 的文件名与分量，见 path/README.md「读场景包」） */
 const LAYERS = {
   color: ['color.f32', ['R', 'G', 'B', 'A']],

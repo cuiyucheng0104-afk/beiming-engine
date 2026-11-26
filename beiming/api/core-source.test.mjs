@@ -163,7 +163,7 @@ test('没有编好的渲染程序：出片链起核心帧源报 env.missing-tool
 /** 服务端的数据目录里放一部片子：film.json 与场景包，提交成修订 0。不给 sign 时不签锁：作业在执行器里因为没有 film.lock 失败，够看它走哪一道；
  *  给了就走服务端建片、改片的那条路（store.commit 带服务端的卡库：照 lockContext 签正式锁，和片子一起提交成修订），锁里有核心帧源与场景包的哈希。
  *  签锁时没有 Blender 也行：查找表用解析式的兜底表，不去烘焙（这部片子是显示参考，用不上正式表） */
-async function served(t, { sign, fake } = {}) {
+async function served(t, { sign, fake, coreLast } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-core-api-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const store = createStore(dir), id = 'f_001';
@@ -171,10 +171,11 @@ async function served(t, { sign, fake } = {}) {
   writePack(ws.resolve('shots/pack'), platesPack());
   const film = {
     format: 'film/3.0', id, output: { size: SIZE, fps: '24/1', frames: 2 },
-    shots: [
-      { id: 's01', in: 0, out: 1, source: 'core', host: 'offscreen', mode: 'build-script', entry: 'shots/pack', colorRef: 'display' },
-      { id: 's02', in: 1, out: 2, source: 'three', host: 'page', mode: 'cards-data', colorRef: 'display' },
-    ],
+    // coreLast：核心镜头排在 three 镜头后面（s01 是 three，s02 是核心）
+    shots: (coreLast ? ['three', 'core'] : ['core', 'three']).map((src, i) => ({
+      id: `s0${i + 1}`, in: i, out: i + 1, colorRef: 'display',
+      ...(src === 'core' ? { source: 'core', host: 'offscreen', mode: 'build-script', entry: 'shots/pack' } : { source: 'three', host: 'page', mode: 'cards-data' }),
+    })),
     // 签锁要的三个全片键
     style: { view: { scene: 'agx-mhc', display: 'srgb' } }, predicates: { base: ['floor@1'] }, delivery: { master: 'h264-crf14-bt709' },
   };
@@ -249,20 +250,22 @@ test('核验作业的 L1 不把核心镜头的场景包目录当镜头代码读�
   assert.equal(typeof layerL1(film, store.filmDir(id), 0).ok, 'boolean');
 });
 
-test('片子里有核心镜头的终渲档核验作业也走 core 道：不填墙钟预算，到核心帧源照终渲档的规则拒（contract.unsupported-mode）', { timeout: 60_000 }, async (t) => {
-  // 帧源在 open 时就拒，不起渲染程序：给一个不存在的程序路径也一样
-  const { store, id, work } = await served(t, { sign: true });
+test('片子里有核心镜头的终渲档核验作业在入队之前就拒（contract.unsupported-mode），不进 core 道；核心镜头排在 three 镜头后面也一样', async (t) => {
+  // 拒在入队之前，不起渲染程序：给一个不存在的程序路径也一样
+  const { store, id, work } = await served(t, { coreLast: true });
   useRenderer(t, path.join(store.dataDir, 'no-such-renderer'));
-  const job = work.submit(id, 'verify', { tier: 'final', rev: 0 });
+  assert.deepEqual(store.readFilm(id).shots.map((s) => s.source), ['three', 'core']);
+  const e = (() => { try { work.submit(id, 'verify', { tier: 'final', rev: 0 }); } catch (x) { return x; } return null; })();
+  t.diagnostic(`终渲档核验作业：${e?.code} ${e?.message}`);
+  assert.equal(e?.code, 'contract.unsupported-mode', '入队之前就拒');
+  assert.equal(e.diagnostics?.[0]?.code, 'contract.unsupported-mode');
+  assert.equal(e.diagnostics[0].at, 'shots/s02/source', '点名排在后面的核心镜头');
+  assert.match(e.message, /还没过门/);
+  assert.deepEqual(loadQueue(store.filmDir(id)).listJobs(), [], '没进队列，也就没进 core 道');
+  // 同一部片子的草稿档核验作业照收，走 core 道
+  const job = work.submit(id, 'verify', { tier: 'draft', rev: 0 });
   await work.wait(id, job, 30);
-  const rec = loadQueue(store.filmDir(id)).getJob(job);
-  assert.equal(rec.request.kind, 'core', '看片子里有没有核心镜头，不看档位');
-  assert.equal(rec.payload.budget, undefined, '终渲档没有墙钟上限，不填');
-  const { base, outcome } = work.view(id, job);
-  t.diagnostic(`终渲档核验作业 ${base.status}：${outcome?.code} ${outcome?.message}`);
-  assert.equal(base.status, 'failed', JSON.stringify(outcome));
-  assert.equal(outcome.code, 'contract.unsupported-mode');
-  assert.match(outcome.message, /还没过门/);
+  assert.equal(loadQueue(store.filmDir(id)).getJob(job).request.kind, 'core');
 });
 
 test('核心作业的准入：预算缺了、采样超档位上限或超声明、三角形数超声明都在入队之前拒，报登记过的码本身', { timeout: 30_000 }, async (t) => {

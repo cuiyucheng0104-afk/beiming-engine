@@ -64,7 +64,7 @@ await s.close(); await src.stop();
 | 场景包在要渲的某一帧上画出来的三角形数（`core-render pack-info --frame k` 那一行统计的 `triangles`）超过 `maxTriangles` | `contract.over-budget` |
 | 一次准入里全部 `pack-info` 加起来超过 `ADMIT_MS`（5 秒：准入在 HTTP 处理里同步跑，这就是一次提交最多挡住服务端多久；`pack-info` 只读清单与网格计数、不碰显卡，小包几毫秒） | `contract.over-budget` |
 
-核验作业（`verify`）片子里有核心镜头时也进 `core` 道（不论档位），但不要求声明预算、不过上表的准入：墙钟取这一档的上限 `WALL_MAX`，由服务端填进作业记录；终渲档没有上限、不填，到 `open` 时照上表拒（[调度器的道](../../jobs/DETAILS.md#调度器的道)）。
+草稿档的核验作业（`verify`）片子里有核心镜头时也进 `core` 道，但不要求声明预算、不过上表的准入：墙钟取这一档的上限 `WALL_MAX`，由服务端填进作业记录。终渲档的核验作业片子里有核心镜头时，在入队之前就拒（`contract.unsupported-mode`），不进 `core` 道：这一档没有墙钟上限，进了不被抢占的 `core` 道就可能没有时限地挡住同卡的终渲（[调度器的道](../../jobs/DETAILS.md#调度器的道)）。
 
 作业跑起来以后，帧源起的每个 `core-render` 进程（`pack-info`、`render-pack`）都由 `beiming/jobs` 的 `runWithWatchdog` 管：独立进程组、受管进程树。出片链起帧源时带上作业声明的 `maxWallMs`（`startSource({ bin, maxWallMs })`，从起帧源算起），到点先 SIGTERM、过 150 ms 宽限 SIGKILL 整棵进程树，报 `timeout.budget`；只杀这个作业名下的进程，同一块卡上别的作业不受影响。显卡租约由作业拿：走调度器的 `core` 道（[调度器的道](../../jobs/DETAILS.md#调度器的道)），同一块卡上同时只跑一个核心作业，第二个排队，前一个被杀、还了租约才开跑。核对：`beiming/api/core-source.test.mjs` 用一个收到 SIGTERM 不退出、还起了孙进程的假渲染程序，声明 1 秒（把「声明 10 秒、到 10 秒被杀」按 1/10 缩放），到点被杀、两个进程都不在了，排队的核心作业和并发的草稿照常完成。
 
