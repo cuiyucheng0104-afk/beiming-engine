@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Calibration ring measurement fixture</title>
+<style>
+  html, body { margin: 0; background: #000; overflow: hidden; }
+  canvas { display: block; }
+</style>
+<canvas width="640" height="360"></canvas>
+<script>
+const variant = new URLSearchParams(location.search).get('variant') ?? 'baseline';
+const canvas = document.querySelector('canvas');
+const ctx = canvas.getContext('2d', { alpha: false });
+const boundary = 2;
+const fps = 30;
+
+function center(t) {
+  const travel = 90 * Math.max(-1, Math.min(1, t - boundary));
+  return 200 + travel + (variant === 'teleport' && t >= boundary ? 240 : 0);
+}
+
+function seek(t) {
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#fff';
+  if (variant === 'pulse' || variant === 'alternating') {
+    const phase = (t - boundary) * fps * 2 + 0.5;
+    const lit = variant === 'pulse'
+      ? Math.abs(t - boundary) < 0.004
+      : phase >= 0 && phase < 1 && Math.floor(8 * phase) % 2 === 1;
+    if (lit) ctx.fillRect(280, 140, 80, 80);
+    return;
+  }
+  ctx.beginPath();
+  ctx.arc(center(t), 180, 40, 0, 2 * Math.PI);
+  ctx.fill();
+}
+
+function track(t) {
+  const id = variant === 'rename' && t >= boundary ? 'replacement' : 'subject';
+  return { [id]: { x: center(t), y: 180, w: 80, h: 80 } };
+}
+
+window.__meta = { dur: 4 };
+window.__seek = seek;
+if (['baseline', 'rename', 'teleport'].includes(variant)) window.__track = track;
+seek(0);
+</script>

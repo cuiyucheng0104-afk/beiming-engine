@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 2,
+  "id": "calibration-ring",
+  "title": "校准环",
+  "route": "c",
+  "backend": "canvas",
+  "output": { "profile": "web-1080p24", "width": 1920, "height": 1080, "fps": 24, "frameCount": 168 },
+  "shots": [{ "id": "S1", "in": 0, "out": 168 }],
+  "events": [
+    { "id": "align", "shot": "S1", "frame": 28, "visual": "扫描开始", "audio": "scan", "domain": "sfx" },
+    { "id": "handoff", "shot": "S1", "frame": 64, "visual": "平面轮廓交给三维环", "domain": "picture" },
+    { "id": "seat", "shot": "S1", "frame": 121, "visual": "校准环落入工位", "audio": "seat", "domain": "sfx" },
+    { "id": "confirm", "shot": "S1", "frame": 144, "visual": "工位确认灯开始亮起", "audio": "confirm", "domain": "sfx" }
+  ],
+  "audio": { "mode": "script", "script": "mix.py" },
+  "deliveries": ["web-1080p24"],
+  "style": { "id": "calibration-ring", "version": 1, "note": "冷色量测台，暖色校准环为连续的视觉焦点" },
+  "credits": [
+    { "what": "量测图形与工位几何", "owner": "北冥引擎", "license": "MIT", "source": "film.js" },
+    { "what": "校准提示音与机械音合成脚本", "owner": "北冥引擎", "license": "MIT", "source": "mix.py" }
+  ],
+  "aigc": { "contains": false, "note": "画面、几何与声音均由确定性代码计算，使用原创程序化素材。" },
+  "gates": { "look": "required", "animatic": "required", "final": "required" },
+  "posterFrame": 136
+}
