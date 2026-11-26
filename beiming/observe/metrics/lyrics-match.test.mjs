@@ -25,7 +25,7 @@ test('rejects malformed, unbounded and empty reference inputs without invoking a
   }
   assert.throws(() => lyricsMatch(['a'], new Proxy([], { get() { assert.fail(); } })), { code: 'usage.bad-argument' });
   const words = ['a'];
-  Object.defineProperty(words, '0', { get() { assert.fail(); } });
+  Object.defineProperty(words, '0', { get() { throw new Error('the getter must not run'); } });
   assert.throws(() => lyricsMatch(words, []), { code: 'usage.bad-argument' });
 });
 
