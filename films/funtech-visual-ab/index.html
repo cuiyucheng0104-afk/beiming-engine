@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="data:,"><title>特效逐项对照 · 北冥 A/B</title>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js"}}</script>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0d151b;color:#deebe6;display:grid;place-items:center;height:100vh;font-family:"PingFang SC",sans-serif}main{position:relative;width:min(100vw,177.7778vh);aspect-ratio:16/9;container-type:inline-size;overflow:hidden}canvas{position:absolute;inset:0;width:100%;height:100%}
+header,footer,.label{position:absolute;display:flex;align-items:center;gap:1.5cqw}header{left:4%;right:4%;top:5%;justify-content:space-between}h1{font-size:3.8cqw;margin:0;letter-spacing:.12em}header span,footer{color:#9cb1b2;font-size:1.05cqw;letter-spacing:.06em}.label{top:17%;font-size:1.35cqw;font-weight:600}.label:first-of-type{left:4%}.label:last-of-type{left:51%;color:#efc490}footer{left:4%;right:4%;top:91%;justify-content:space-between}nav{display:flex;align-items:center;gap:.6cqw}nav[hidden]{display:none}button{font:inherit;color:inherit;background:#18272d;border:1px solid #4a6471;padding:.28cqw .55cqw;cursor:pointer}input{width:13cqw;accent-color:#efc490}
+</style></head>
+<body><main><header><h1 id="title">特效逐项对照</h1><span>北冥引擎 · WebGL 渲染对照</span></header><div class="label">A　北冥基础渲染</div><div class="label">B　北冥 + use-shader-fx</div><footer><span id="note"></span><nav hidden><button id="toggle">暂停</button><input id="scrub" type="range" min="0" value="0" aria-label="帧号"></nav><span id="spec">24 fps</span></footer></main><script type="module" src="./main.js"></script></body></html>
