@@ -21,8 +21,9 @@ import { OUT, PRESETS, buildRenderer, missing } from './build.mjs';
 
 const WORK = path.join(OUT, 'level3');
 export const SEEDS = Array.from({ length: THRESHOLDS.welch.seeds }, (_, k) => k);
-// 对上 Cycles：原理化 BSDF 默认的分布是多重散射 GGX（能量补偿开）；弹射上限照参考包清单的 bounces.max
-export const MATCH = (ref) => ({ energyCompensation: 1, maxBounces: ref.bounces.max });
+// 对上 Cycles：原理化 BSDF 默认的分布是多重散射 GGX（能量补偿开）；总弹射与漫反射、光泽、透射的上限照参考包清单的 bounces，
+// 四个一律加一：清单里是 Cycles 界面上的值，核心的预设与 Cycles 内核同口径（界面值 G：这一类第 G + 1 次散射之后的顶点只收灯）
+export const MATCH = ({ bounces: b }) => ({ energyCompensation: 1, maxBounces: b.max + 1, maxDiffuseBounces: b.diffuse + 1, maxGlossyBounces: b.glossy + 1, maxTransmissionBounces: b.transmission + 1 });
 export const NEGATIVE = { name: '关掉多重散射 GGX 的能量补偿', pack: 'l3-furnace-rough-m1', override: { energyCompensation: 0 } };
 // 第二条负对照：场景包的常量世界照 Cycles 不做环境的光源采样（render-pack 的 background_light）；在源码副本里强行开回，
 // 白炉的底色那一包两道门里至少一道必须不过

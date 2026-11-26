@@ -209,6 +209,15 @@ Cycles 的原理化 BSDF 给金属与电介质高光的闭包用的是 `valid_re
 
 这一步踩到一处：`Ray` 里两个三维向量必须排在最后。两个向量排在前面、后面紧跟标量时，苹果显卡上两个带水的场景像素会变（相对差到 3e-4）；排到最后就逐位不变了。推测是后端把后面紧跟标量的三维向量按紧凑格式存，运算次序跟着变。
 
+### 漫反射、光泽、透射各自的弹射上限
+
+上游只有一个总弹射上限（主循环的 `depth == P.counts.z`），`KernelIntegrator` 里照 Cycles 的三个分类上限定义了没人读，四个分类计数没人写。照 Cycles（Blender v5.2.3）补上前三类：
+
+- `shaders/integrator.wgsl` 的 `path_state_next` 照 `kernel/integrator/path_state.h:176-209` 按采样标签数 `diffuse_bounce`、`glossy_bounce`、`transmission_bounce`，数到上限置 `PATH_RAY_TERMINATE_AFTER_TRANSPARENT`；主循环在带这一位的表面顶点上加完路上打到的灯就停（`surface_shader.h:1262-1266`：不求闭包、不做直接光），介质里撞上就停（`shade_volume.h:1738-1742` 只衰减）。
+- `src/desc.rs` 的预设加 `maxDiffuseBounces`、`maxGlossyBounces`、`maxTransmissionBounces`，不写就是 `u32::MAX`；`src/gpu.rs` 的 `Params::set_preset` 原样写进 `KernelIntegrator`。口径与 `maxBounces` 相同，都是 Cycles 内核一侧的值，界面值换过来加一（`STRUCTURES.md`「integrator」一节）。
+- 预设不写这三项的场景，内核参数只多三格最大值，计数永远到不了，渲染结果逐位不变。第 3、4 级把参考包清单的总上限与三类上限都加一传进来（总上限原来直接传界面值，少了一个顶点）。
+- 测试：`src/gpu.rs` 的 `bounce_limits_by_class_come_from_the_preset`（预设到内核参数），`path_state_is_written` 加查计数、置位与两处停的语句。
+
 ### 材质记录、全局参数、物体扩展表、输出缓冲
 
 内核里进缓冲的几样格式在这里定形，给以后照 Cycles 移植闭包、灯、图案节点与接输出通道的人留好位置。渲染结果不变（逐位）。

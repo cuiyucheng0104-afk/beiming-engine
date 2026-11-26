@@ -21,7 +21,7 @@
 // 每次弹射占的随机维度个数，照 Cycles 的 PRNG_BOUNCE_NUM
 const PRNG_BOUNCE_NUM: u32 = 16u;
 
-// 路径标志位（PathState.flag），位照 Cycles 的 PathRayFlag。现在只接了 PATH_RAY_MIS_SKIP，其余已定义。
+// 路径标志位（PathState.flag），位照 Cycles 的 PathRayFlag。现在接了 PATH_RAY_MIS_SKIP 与 PATH_RAY_TERMINATE_AFTER_TRANSPARENT，其余已定义。
 const PATH_RAY_REFLECT: u32 = 1u << 0u;
 const PATH_RAY_SINGULAR: u32 = 1u << 1u;
 const PATH_RAY_TRANSPARENT: u32 = 1u << 2u;
@@ -32,7 +32,7 @@ const PATH_RAY_MIS_SKIP: u32 = 1u << 7u;                 // 下一次打到灯�
 const PATH_RAY_SINGLE_PASS_DONE: u32 = 1u << 8u;
 const PATH_RAY_TRANSPARENT_BACKGROUND: u32 = 1u << 9u;
 const PATH_RAY_TERMINATE_ON_NEXT_SURFACE: u32 = 1u << 10u;
-const PATH_RAY_TERMINATE_AFTER_TRANSPARENT: u32 = 1u << 12u;
+const PATH_RAY_TERMINATE_AFTER_TRANSPARENT: u32 = 1u << 12u;  // 某一类散射数到了上限，下一个顶点只收射线路上打到的灯。已落地
 const PATH_RAY_DENOISING_FEATURES: u32 = 1u << 17u;
 const PATH_RAY_SURFACE_PASS: u32 = 1u << 18u;
 const PATH_RAY_SHADOW_FOR_AO: u32 = 1u << 20u;
@@ -97,7 +97,7 @@ struct PathState {
     render_pixel_index: u32,        // 写缓冲用的像素下标。已落地
     sample: u32,                    // 第几个样本（上游的 RNG_INDEX）。已落地
     bounce: u32,                    // 总弹射数，也就是当前着色点是路径上第几个顶点（上游的 cur_depth）。已落地
-    diffuse_bounce: u32,            // 分类计数，照采样标签累加并接各自的上限。已定义（移植闭包的人写）
+    diffuse_bounce: u32,            // 分类计数，照采样标签累加并接各自的上限（path_state_next）。前三个已落地，透明的已定义
     glossy_bounce: u32,
     transmission_bounce: u32,
     transparent_bounce: u32,
@@ -138,9 +138,9 @@ struct Ray {
     D: vec3<f32>,                   // 方向（单位向量）。已落地
 };
 
-// 弹射之后更新路径状态。照 Cycles 的 path_state_next，现在只有骨架：下一段光线的可见类与随机维度的偏移。
-// 分类计数、各类弹射上限、其余路径标志位归移植闭包的人照 Cycles 补；PATH_RAY_MIS_SKIP 还按上游的规矩在主循环里设
-// （上游的「镜面弹射」与 Cycles 的「奇异的一瓣」不是同一个判法）。`label`：这次采样的标签（LABEL_*）。
+// 弹射之后更新路径状态。照 Cycles 的 path_state_next：下一段光线的可见类、随机维度的偏移，表面散射的分类计数与各类上限。
+// 总弹射上限照旧是主循环的 `depth == P.counts.z`；其余路径标志位归移植闭包的人照 Cycles 补；PATH_RAY_MIS_SKIP 还按上游的
+// 规矩在主循环里设（上游的「镜面弹射」与 Cycles 的「奇异的一瓣」不是同一个判法）。`label`：这次采样的标签（LABEL_*）。
 fn path_state_next(label: i32) {
     var visibility = PATH_RAY_VISIBILITY_NONE;
     if ((label & LABEL_VOLUME_SCATTER) != 0) {
@@ -148,6 +148,20 @@ fn path_state_next(label: i32) {
     } else {
         if ((label & LABEL_TRANSMIT) != 0) { visibility |= PATH_RAY_VISIBILITY_TRANSMIT; }
         if ((label & LABEL_DIFFUSE) != 0) { visibility |= PATH_RAY_VISIBILITY_DIFFUSE; } else { visibility |= PATH_RAY_VISIBILITY_GLOSSY; }
+        // 分类计数照 Cycles（kernel/integrator/path_state.h:176-209）：反射里漫反射的记漫反射，别的反射（含奇异的一瓣）记光泽，
+        // 透射记透射。数到这一类的上限置 PATH_RAY_TERMINATE_AFTER_TRANSPARENT：下一个顶点只收射线路上打到的灯（主循环）
+        if ((label & LABEL_REFLECT) != 0) {
+            if ((label & LABEL_DIFFUSE) != 0) {
+                state.diffuse_bounce += 1u;
+                if (state.diffuse_bounce >= P.integrator.max_diffuse_bounce) { state.flag |= PATH_RAY_TERMINATE_AFTER_TRANSPARENT; }
+            } else {
+                state.glossy_bounce += 1u;
+                if (state.glossy_bounce >= P.integrator.max_glossy_bounce) { state.flag |= PATH_RAY_TERMINATE_AFTER_TRANSPARENT; }
+            }
+        } else {
+            state.transmission_bounce += 1u;
+            if (state.transmission_bounce >= P.integrator.max_transmission_bounce) { state.flag |= PATH_RAY_TERMINATE_AFTER_TRANSPARENT; }
+        }
     }
     state.visibility = visibility;
     state.rng_offset += PRNG_BOUNCE_NUM;
@@ -318,6 +332,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             @if(!sample_clamp) film_add_light(state.throughput * tk.emission, depth, LIGHTGROUP_NONE);
             @if(sample_clamp) film_add_light(film_clamp_contribution(state.throughput * tk.emission, i32(depth) - 1), depth, LIGHTGROUP_NONE);
             if (tk.t >= 0.0) {
+                // 散射数到了上限的路径照 Cycles 在介质里只衰减、不散射（shade_volume.h:1738-1742）：撞上就停，期望里乘的正是透过率
+                if ((state.flag & PATH_RAY_TERMINATE_AFTER_TRANSPARENT) != 0u) { break; }
                 let x = ray.P + ray.D * tk.t;
                 state.throughput *= tk.albedo;
                 if (depth == 0u) {
@@ -420,6 +436,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         }
         // （没有闭包的面只发光、不散射：上游的发光卡片。）
         if (sd.num_closure == 0u) { break; }
+        // 某一类散射数到了上限（path_state_next）：照 Cycles 这个顶点闭包不参与（surface_shader.h:1262-1266 的 max_closures 取 0；
+        // 这里闭包已经建了，不用）、不做直接光，只收上面已经加的、射线路上打到的灯，在所有编译开关的变体里都一样
+        if ((state.flag & PATH_RAY_TERMINATE_AFTER_TRANSPARENT) != 0u) { break; }
         @if(!last_direct && !last_sun) if (depth == P.counts.z) { break; }
         @if(last_sun && !last_direct) if (depth == P.counts.z) {
             // gpu.rs `KernelSwitches::last_sun`: the last vertex's light from the directional lights alone.

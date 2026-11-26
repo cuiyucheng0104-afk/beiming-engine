@@ -15,7 +15,7 @@ const E2E = process.env.BEIMING_CHASSIS_E2E === '1';
 
 test('设置：每边种子数照阈值文件；对上 Cycles 开能量补偿、弹射上限照参考包；负对照关能量补偿', () => {
   assert.equal(SEEDS.length, THRESHOLDS.welch.seeds);
-  assert.deepEqual(MATCH({ bounces: { max: 8 } }), { energyCompensation: 1, maxBounces: 8 });
+  assert.deepEqual(MATCH({ bounces: { max: 8, diffuse: 4, glossy: 4, transmission: 8 } }), { energyCompensation: 1, maxBounces: 9, maxDiffuseBounces: 5, maxGlossyBounces: 5, maxTransmissionBounces: 9 });
   assert.deepEqual(NEGATIVE.override, { energyCompensation: 0 });
   // 环境那条负对照的注入在内核源码里恰好有一处
   for (const i of ENV_NEGATIVE.inject) assert.equal(fs.readFileSync(path.join(OUT, '..', '..', 'beiming', 'sources', 'core', i.file), 'utf8').split(i.from).length, 2, i.from);

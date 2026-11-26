@@ -1383,8 +1383,12 @@ pub fn features(scene: &Scene, groups: [usize; GROUPS]) -> u32 {
 impl Params {
     /// What the kernel takes from the render preset and the camera's exposure: the bounce limit, the depth Russian
     /// roulette starts at, the firefly clamp on indirect paths (relative to the exposure), energy compensation.
+    /// 北冥：外加漫反射、光泽、透射各自的上限，原样写（与 `counts[2]` 同一种口径，见 `NativePreset::max_bounces`）。
     pub fn set_preset(&mut self, native: &crate::desc::NativePreset, exposure: &crate::desc::Exposure) {
         self.counts[2] = native.max_bounces;
+        self.integrator.max_diffuse_bounce = native.max_diffuse_bounces;
+        self.integrator.max_glossy_bounce = native.max_glossy_bounces;
+        self.integrator.max_transmission_bounce = native.max_transmission_bounces;
         self.counts[3] = native.russian_roulette_depth;
         self.misc[0] = native.firefly_clamp(exposure);
         self.misc[2] = native.energy_compensation;
@@ -2731,9 +2735,32 @@ mod tests {
             ("path_state_next(LABEL_VOLUME_SCATTER);", 1),
             ("state.visibility = visibility;", 1),
             ("state.rng_offset += PRNG_BOUNCE_NUM;", 1),
+            ("state.diffuse_bounce += 1u;", 1),
+            ("state.glossy_bounce += 1u;", 1),
+            ("state.transmission_bounce += 1u;", 1),
+            ("state.flag |= PATH_RAY_TERMINATE_AFTER_TRANSPARENT;", 3),
+            // 到了上限的顶点：表面一处、介质一处
+            ("(state.flag & PATH_RAY_TERMINATE_AFTER_TRANSPARENT) != 0u", 2),
         ] {
             assert_eq!(src.matches(write).count(), count, "路径状态的这处写入该有 {count} 处：{write}");
         }
+    }
+
+    /// 北冥：预设里的分类弹射上限原样进 `KernelIntegrator`；不写就不限，旧预设的内核参数只多了这三格的最大值。
+    #[test]
+    fn bounce_limits_by_class_come_from_the_preset() {
+        let ev = crate::desc::Exposure::Manual { ev100: 0.0 };
+        let read = |extra: &str| -> KernelIntegrator {
+            let native: crate::desc::NativePreset = serde_json::from_str(&format!(r#"{{"spp":1,"maxBounces":9,"denoise":false,"clampIndirect":1,"russianRouletteDepth":3{extra}}}"#)).unwrap();
+            let mut p = Params::default();
+            p.set_preset(&native, &ev);
+            assert_eq!(p.counts[2], 9);
+            p.integrator
+        };
+        let none = read("");
+        assert_eq!((none.max_diffuse_bounce, none.max_glossy_bounce, none.max_transmission_bounce), (u32::MAX, u32::MAX, u32::MAX));
+        let set = read(r#","maxDiffuseBounces":5,"maxGlossyBounces":5,"maxTransmissionBounces":9"#);
+        assert_eq!((set.max_diffuse_bounce, set.max_glossy_bounce, set.max_transmission_bounce), (5, 5, 9));
     }
 
     /// 北冥：着色点、闭包、材质输入值（shaders/shader.wgsl）的字段名单，与「已写未读」的几项写入，做法同上一条。

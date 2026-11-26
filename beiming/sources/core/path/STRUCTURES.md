@@ -257,7 +257,8 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | `render_pixel_index` | u32 | 写缓冲用的像素下标 | 两个入口（`main`、`aux_sample`）开头 | 已落地 |
 | `sample` | u32 | 第几个样本 | `rng_start` | 已落地 |
 | `bounce` | u32 | 总弹射数，也就是当前着色点是路径上第几个顶点 | 主循环每轮开头 | 已落地 |
-| `diffuse_bounce`、`glossy_bounce`、`transmission_bounce`、`transparent_bounce` | u32 | 分类计数：照采样标签累加并接各自的上限 | 没人写 | 已定义 |
+| `diffuse_bounce`、`glossy_bounce`、`transmission_bounce` | u32 | 分类计数：照采样标签累加，数到 `integrator` 块里各自的上限置 `PATH_RAY_TERMINATE_AFTER_TRANSPARENT` | `path_state_next` | 已落地 |
+| `transparent_bounce` | u32 | 透明的计数 | 没人写 | 已定义 |
 | `rng_pixel` | u32 | 随机数的像素种子 | `rng_start` | 已落地 |
 | `rng_offset` | u32 | 当前弹射的随机维度偏移，初值 `PRNG_BOUNCE_NUM`，每弹射一次加一个 | `main` 开头、`path_state_next` | 已落地 |
 | `flag` | u32 | 路径标志位 `PATH_RAY_*` | 主循环 | `PATH_RAY_MIS_SKIP` 已落地，其余已定义 |
@@ -275,13 +276,13 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 
 `PathLegacy` 里现在有：`behind_glass`、`bent`、`straight`、`mirror_path`、`bm_surf`、`rays_off`、`split_frac`、`dl_spec`、`sampled_spec`、`sampled_trans`、`mis_n`、`shadow_hole`、`lights_only`、`rng_path`（1.2.2 起 `bm_x`、`mis_x` 并成正式字段 `mis_origin_P`；1.2.3 删掉没人读的 `dl_det`、`dl_det_spec` 与从来没人写成真的 `nee_alone`）。没有并进来的上游私有量不是路径状态：求交里过程几何的调用上下文（`gdata_first`、`gdata_count`、`media_voxels`）、灯光瓦片的每像素状态（`lt_list`、`lt_list_n`、`lt_fb`）、循环守卫的计数。
 
-`path_state_next(label)` 在每次弹射之后更新路径状态，照 Cycles 的同名函数，**现在只有骨架**：下一段光线的可见类与随机维度的偏移。分类计数、各类弹射上限、其余路径标志位归移植闭包的人照 Cycles 补。`PATH_RAY_MIS_SKIP` 在主循环里设与清：相机射线、上游顶替的穿过光滑玻璃，以及（1.2.0 起）移植的闭包采到的奇异一瓣（`LABEL_SINGULAR`，照 Cycles `path_state_next` 的 `PATH_RAY_SINGULAR | PATH_RAY_MIS_SKIP`）之后设，别的弹射清。
+`path_state_next(label)` 在每次弹射之后更新路径状态，照 Cycles 的同名函数：下一段光线的可见类、随机维度的偏移，表面散射的分类计数与各类上限（见下面「弹射上限」）。其余路径标志位归移植闭包的人照 Cycles 补。`PATH_RAY_MIS_SKIP` 在主循环里设与清：相机射线、上游顶替的穿过光滑玻璃，以及（1.2.0 起）移植的闭包采到的奇异一瓣（`LABEL_SINGULAR`，照 Cycles `path_state_next` 的 `PATH_RAY_SINGULAR | PATH_RAY_MIS_SKIP`）之后设，别的弹射清。
 
 ### 路径标志位与可见类
 
 两个枚举，位都照 Cycles（`PathRayFlag` 与 `PathRayVisibilityFlag`）。
 
-路径标志位（`state.flag`）：`PATH_RAY_REFLECT`（第 0 位）、`PATH_RAY_SINGULAR`（1）、`PATH_RAY_TRANSPARENT`（2）、`PATH_RAY_DIFFUSE_ANCESTOR`（4）、`PATH_RAY_EMISSION`（5）、`PATH_RAY_MIS_HAD_TRANSMISSION`（6）、`PATH_RAY_MIS_SKIP`（7）、`PATH_RAY_SINGLE_PASS_DONE`（8）、`PATH_RAY_TRANSPARENT_BACKGROUND`（9）、`PATH_RAY_TERMINATE_ON_NEXT_SURFACE`（10）、`PATH_RAY_TERMINATE_AFTER_TRANSPARENT`（12）、`PATH_RAY_DENOISING_FEATURES`（17）、`PATH_RAY_SURFACE_PASS`（18）、`PATH_RAY_SHADOW_FOR_AO`（20）、`PATH_RAY_SHADOW_FOR_LIGHT_LINKING`（25）。只有 `PATH_RAY_MIS_SKIP` 已落地（相机射线、穿过光滑玻璃、奇异的一瓣之后，下一次打到发光面、天空、太阳盘、矩形纯光不做多重重要性采样，权重取 1：`emit_mis` 的调用处、`sky_mis`、`sun_disks`、`bm_rect_hits` 都认它）；其余已定义。
+路径标志位（`state.flag`）：`PATH_RAY_REFLECT`（第 0 位）、`PATH_RAY_SINGULAR`（1）、`PATH_RAY_TRANSPARENT`（2）、`PATH_RAY_DIFFUSE_ANCESTOR`（4）、`PATH_RAY_EMISSION`（5）、`PATH_RAY_MIS_HAD_TRANSMISSION`（6）、`PATH_RAY_MIS_SKIP`（7）、`PATH_RAY_SINGLE_PASS_DONE`（8）、`PATH_RAY_TRANSPARENT_BACKGROUND`（9）、`PATH_RAY_TERMINATE_ON_NEXT_SURFACE`（10）、`PATH_RAY_TERMINATE_AFTER_TRANSPARENT`（12）、`PATH_RAY_DENOISING_FEATURES`（17）、`PATH_RAY_SURFACE_PASS`（18）、`PATH_RAY_SHADOW_FOR_AO`（20）、`PATH_RAY_SHADOW_FOR_LIGHT_LINKING`（25）。`PATH_RAY_MIS_SKIP` 已落地（相机射线、穿过光滑玻璃、奇异的一瓣之后，下一次打到发光面、天空、太阳盘、矩形纯光不做多重重要性采样，权重取 1：`emit_mis` 的调用处、`sky_mis`、`sun_disks`、`bm_rect_hits` 都认它）；`PATH_RAY_TERMINATE_AFTER_TRANSPARENT` 已落地（某一类散射数到了上限，见下面「弹射上限」）；其余已定义。
 
 可见类（`state.visibility`）：`PATH_RAY_VISIBILITY_NONE`（0）、`PATH_RAY_VISIBILITY_CAMERA`（第 0 位）、`PATH_RAY_VISIBILITY_TRANSMIT`（1）、`PATH_RAY_VISIBILITY_DIFFUSE`（2）、`PATH_RAY_VISIBILITY_GLOSSY`（3）、`PATH_RAY_VISIBILITY_VOLUME_SCATTER`（4）、`PATH_RAY_VISIBILITY_SHADOW_OPAQUE`（5）、`PATH_RAY_VISIBILITY_SHADOW_TRANSPARENT`（6）。相机、透射、漫反射、光泽、介质散射五位有人写；两位阴影类已定义。没有读者。
 
@@ -321,13 +322,18 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 
 | 格 | 字段 | 类型 | 含义 | 状态 |
 |---|---|---|---|---|
-| 0 | `max_bounce`、`max_diffuse_bounce`、`max_glossy_bounce`、`max_transmission_bounce` | u32 | 各类弹射的上限 | 已定义，全 0（弹射上限现在读上游的 `counts.z`） |
+| 0 | `max_bounce` | u32 | 总弹射的上限 | 已定义，0（总上限读上游的 `counts.z`） |
+| 0 | `max_diffuse_bounce`、`max_glossy_bounce`、`max_transmission_bounce` | u32 | 漫反射、光泽（含奇异的反射）、透射各自的上限，口径见表下「弹射上限」 | 已落地：`Params::set_preset` 照预设的 `maxDiffuseBounces`、`maxGlossyBounces`、`maxTransmissionBounces` 原样写，预设不写就是 `u32::MAX`（不限）；`path_state_next` 读 |
 | 1 | `transparent_max_bounce`、`transparent_min_bounce`、`min_bounce` | u32 | 透明弹射的上下限；俄罗斯轮盘的起始深度 | 已定义，0（轮盘的起始深度现在读上游的 `counts.w`） |
 | 1 | `sampling_pattern` | u32 | 采样图案，只有 0（Sobol-Burley） | 已定义 |
 | 2 | `sample_clamp_direct`、`sample_clamp_indirect` | f32 | 夹取的直接光、间接光上限：存**用户值 × 3**（照 Cycles 宿主一侧 `scene/integrator.cpp:311-315` 的存法），0 关（Cycles 关着时存浮点最大值，见「与 Cycles、与上游不一样的地方」第 38 条）。内核照 Cycles 的 `film_clamp_light` 比的是一次贡献**三个分量绝对值之和**（`reduce_add`），超了按比例缩到上限，所以灰的贡献每个分量夹到用户值；按「弹射数」选上限：大于 0 用间接光的 | 已落地：`render-pack` 照 `--clamp-direct`、`--clamp-indirect` 写；内核在编译开关 `sample_clamp` 的变体里经 `film.wgsl` 的 `film_clamp_contribution` 读。别的入口恒 0，照旧用上游的亮度夹取 `misc.x` |
 | 2 | `filter_glossy`、`light_inv_rr_threshold` | f32 | 滤光泽：存 1 / blur_glossy（照 Cycles 宿主一侧 `scene/integrator.cpp:269` 的存法），内核直接用，不再取倒数；0 关（Cycles 关着时存浮点最大值，见「与 Cycles、与上游不一样的地方」第 38 条）。写它的是命令行（换算在写的那一侧：`render-pack --filter-glossy <用户值>` 写 1 / 用户值，用户值 0 写 0）。灯的轮盘阈值 | `filter_glossy` 已落地（`surface_shader_prepare_closures` 读，`render-pack` 写，别的入口恒 0）；`light_inv_rr_threshold` 已定义，0 |
 | 3 | `seed` | u32 | 随机数的全局种子 | 已落地，见下 |
 | 3 | `sobol_index_mask` | u32 | Sobol 打乱后的索引取哪几位 | 已落地，见下 |
+
+**弹射上限**的口径（总的与分类的同一种，都是 Cycles 内核一侧的值）：上限 N 的意思是第 N 次散射（总的数全部散射，分类的只数这一类）之后的那个顶点是最后一个。总上限在主循环里比 `depth == P.counts.z`；分类上限照 Cycles `kernel/integrator/path_state.h:176-209` 在 `path_state_next` 里数（采样标签带 `LABEL_REFLECT` 的，再带 `LABEL_DIFFUSE` 记漫反射、不带的记光泽，奇异的反射也记光泽；不带 `LABEL_REFLECT` 的记透射，上游顶替的穿过光滑玻璃也记透射），数到 `max_*_bounce` 置 `PATH_RAY_TERMINATE_AFTER_TRANSPARENT`。带这一位的顶点照 Cycles（`surface_shader.h:1262-1266` 的 `max_closures` 取 0）只收射线路上打到的灯（发光面、天空、矩形纯光照常加，多重重要性采样的权重照常），闭包不参与（主循环照旧建了闭包才判这一位，建出来的不用）、不做直接光、不再散射，`last_direct`、`last_sun` 变体里也一样；路径在介质里撞上就停（Cycles `shade_volume.h:1738-1742` 只衰减不散射，期望里乘的是透过率）。总上限到了的那个顶点在 `last_direct`、`last_sun` 变体里还做直接光，这是上游的开关，桌面默认关。
+
+**Cycles 界面值换到这里一律加一**：界面上总上限或某一类上限是 G，这里写 G + 1。依据是内核一侧的用法：Cycles 每次散射之后先把计数加一，再比 `计数 >= kernel_data.integrator.max_*`（`path_state.h:143-146`、`183`、`190`、`206`），所以内核值 N 让第 N 次散射之后的顶点只收灯；界面值 0 是「只有直接光」（相机看到的顶点还做直接光，它之后的顶点只收灯），对应内核值 1。宿主一侧把界面值加一写进内核的那个文件（`scene/integrator.cpp`）不在本机的 Cycles 源码缓存里，没有逐行对过；另用 Blender 5.2 在一个高光包上按几组界面值各渲 16 个种子，球下影区的均值与核心逐顶点累加的直接光比：加一对得上，不加一少一个顶点的直接光，影区暗三成多。`render-pack` 的预设（`cinematic` 的 `maxBounces: 8`）本来就是内核值；第 3、4 级照参考包清单的 `bounces` 加一传进来（`../chassis/level3.mjs` 的 `MATCH`）。
 | 3 | `pass_kind` | u32 | 这一趟调度写什么：`PASS_KIND_COLOR`（0）颜色样本，`PASS_KIND_AUX`（1）辅助样本。两侧同名常数 | Rust 一侧照实填（要辅助层时清零之后、第一个颜色样本之前以 1 调度一次）；内核不读：两种样本各走自己的入口（见「编号登记表」的「编译开关与入口」） |
 | 3 | `background_transparent` | u32 | 背景对相机不可见：相机射线没打到表面的样本不透明度与颜色都记 0 | 已落地：`render-pack` 照场景包的 `world.visibleToCamera` 填；别的入口恒 0 |
 
@@ -872,7 +878,7 @@ node beiming/sources/core/chassis/level2.mjs            # 对 Cycles 的读数�
 | `MATERIAL_FLAG_CLASS_*`、`MATERIAL_CLASS_*`；材质记录的 6 个预留格 | 已定义 | 移植闭包 |
 | 移植的闭包之间按灯的着色标志排除某类闭包（`SHADER_EXCLUDE_*`） | 没做（不用多重重要性采样的灯把材质一侧的密度置 0 已做） | 做灯 |
 | `surface_shader_transparency`、`shader_eval_shadow`；`CLOSURE_BSDF_TRANSPARENT`；`PATH_RAY_VISIBILITY_SHADOW_*` | 已定义、无调用者 | 移植闭包（透明闭包），并把上游求交里的镂空与穿玻璃改道过来 |
-| `PathState` 的四个分类计数；`path_state_next` 里的计数、上限与其余 `PATH_RAY_*` 位；`integrator` 块的弹射上限、`min_bounce` | 已定义或已写未读 | 移植闭包 |
+| `PathState` 的透明计数；`path_state_next` 里其余的 `PATH_RAY_*` 位；`integrator` 块的 `max_bounce`、透明弹射的上下限、`min_bounce`；介质散射的上限（Cycles 的 `max_volume_bounce`） | 已定义或没做 | 移植闭包 |
 | `BsdfEval` 的 `diffuse`、`glossy`（已写）；`BsdfSample` 的 `eval`、`eta` 的读者；`pass_diffuse_weight`、`pass_glossy_weight` | 已写未读或已定义 | 移植闭包（分通道对拍） |
 | `PRNG_LIGHT`、`PRNG_LIGHT_TERMINATE`；`integrator` 块的 `light_inv_rr_threshold` | 已定义（逐盏的灯照旧取上游的 `D_SUN`、`D_LOCAL` 槽位；Cycles 开着光源树时不做灯的轮盘终止） | 做灯 |
 | `state.visibility` 的读者；`ObjectExt` 的 `lightgroup`（发光网格的灯组） | 已写未读或已定义 | 做灯（发光网格） |
