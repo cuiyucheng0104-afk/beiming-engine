@@ -206,6 +206,7 @@
 - O3 新增 `still.match`，调用方可按灰度误差定位最佳与分离次优帧，并可核验有充分重叠的整像素平移。 (#259)
 
 ### Changed
+- 不兼容：输出通道契约（`beiming/kernel/contracts/passes/`）升到 0.2.0-draft：快门角是 0 时 `motion` 定义成第 F + 1 帧的屏幕位置减第 F 帧的（像素每帧，原点左上、y 向下），最后一帧向后差分，只有一帧的镜头写 0；刚体按相邻两帧的实例矩阵、动态网格按命中三角形的重心坐标取另一帧的点，命中点只取辅助样本。结构、不变量、格式标识没动；原先写死成 0 的 `motion` 在场景动的时候不再合契约。变更与迁移说明在契约第 7 节。
 - 核心渲染程序编进 OIDN 时降噪参数改照 Cycles：法线用降噪特征的相机空间均值，不设 `inputScale`，`ACCURATE` 预过滤先单独降噪反照率与法线、颜色那一遍开 `cleanAux`（`oidn` crate 2.5.1 的 `clean_aux` 参数名 OIDN 不认，改走 C 接口），按 Cycles 的行序喂进去，设备 CPU；口径对照表写在 `beiming/sources/core/path/README.md`「降噪的口径」。没编进 OIDN 的默认档出帧不变。
 - 核心底盘的 `limits.mjs`、`rerender.mjs` 记录里 `kernel` 记跑记录的那个程序自己的摘要（给了程序时从文件名取，取不到记 null），另记程序的 sha256；底盘调 cargo 时 `CARGO_NET_OFFLINE` 为真就带 `--offline`，清构建目录一律不联网。
 - 核心内核的来源说明（`beiming/sources/core/path/PROVENANCE.md`）补上选底盘时的探针读数（RTX 5090 上软硬求交计时与两遍逐位结果）与钉点对账：实测、分叉、基线都钉在上游 `c946cc96`。
