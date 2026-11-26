@@ -163,7 +163,7 @@ test('没有编好的渲染程序：出片链起核心帧源报 env.missing-tool
 /** 服务端的数据目录里放一部片子：film.json 与场景包，提交成修订 0。不给 sign 时不签锁：作业在执行器里因为没有 film.lock 失败，够看它走哪一道；
  *  给了就走服务端建片、改片的那条路（store.commit 带服务端的卡库：照 lockContext 签正式锁，和片子一起提交成修订），锁里有核心帧源与场景包的哈希。
  *  签锁时没有 Blender 也行：查找表用解析式的兜底表，不去烘焙（这部片子是显示参考，用不上正式表） */
-async function served(t, { sign, fake, coreLast } = {}) {
+async function served(t, { sign, fake, coreLast, rendererCore } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-core-api-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const store = createStore(dir), id = 'f_001';
@@ -179,6 +179,12 @@ async function served(t, { sign, fake, coreLast } = {}) {
     // 签锁要的三个全片键
     style: { view: { scene: 'agx-mhc', display: 'srgb' } }, predicates: { base: ['floor@1'] }, delivery: { master: 'h264-crf14-bt709' },
   };
+  // rendererCore：核心镜头的顶层写 three，出帧的 renderer 写 core
+  if (rendererCore) {
+    const i = film.shots.findIndex((s) => s.source === 'core');
+    const { source, host, mode, entry, ...rest } = film.shots[i];
+    film.shots[i] = { ...rest, source: 'three', host: 'page', mode: 'cards-data', renderer: { source, host, mode, entry } };
+  }
   // 执行器读的是修订快照：假渲染程序的 fake.json 要在提交之前写进场景包
   if (fake) fs.writeFileSync(ws.resolve('shots/pack/fake.json'), JSON.stringify(fake));
   if (sign) {
@@ -255,7 +261,38 @@ test('场景包里有符号链接：签锁拒（env.lock-required，信息点名
   assert.equal(fs.readFileSync(ws.resolve('film.lock'), 'utf8'), before, '签不出锁时不留半份');
 });
 
+test('场景包目录本身是符号链接：签锁同样拒（env.lock-required，信息说是包目录本身），不跟随', { timeout: 30_000 }, async (t) => {
+  const { store, id, ws } = await served(t, { sign: true });
+  const before = fs.readFileSync(ws.resolve('film.lock'), 'utf8');
+  const pack = ws.resolve('shots/pack');
+  fs.renameSync(pack, ws.resolve('shots/real'));
+  fs.symlinkSync('real', pack);
+  assert.ok(fs.existsSync(path.join(pack, 'pack.json')), '链接是通的');
+  assert.throws(() => packHashText(pack), /场景包目录 pack 本身是符号链接/);
+  const lut = await ensureLut(store.dataDir);
+  await assert.rejects(async () => store.commit(id, store.readFilm(id), 1, { library: loadCardLibrary(), lut }),
+    (e) => e.code === 'env.lock-required' && /场景包目录 pack 本身是符号链接/.test(e.message));
+  assert.equal(fs.readFileSync(ws.resolve('film.lock'), 'utf8'), before, '签不出锁时不留半份');
+});
+
 const BUDGET = { maxTriangles: 100, spp: 24, maxWallMs: 60_000 };
+
+test('顶层写 three、renderer 写 core 的镜头照核心镜头算：终渲档核验入队前拒（at 指到 renderer），草稿档渲染过准入、走 core 道', { timeout: 30_000 }, async (t) => {
+  useRenderer(t, fakeRenderer(t));
+  const { store, id, work } = await served(t, { rendererCore: true });
+  assert.deepEqual(store.readFilm(id).shots.map((s) => [s.source, s.renderer?.source]), [['three', 'core'], ['three', undefined]]);
+  const fail = (fn) => { try { fn(); } catch (x) { return x; } return null; };
+  const e = fail(() => work.submit(id, 'verify', { tier: 'final', rev: 0 }));
+  assert.equal(e?.code, 'contract.unsupported-mode', '入队之前就拒');
+  assert.equal(e.diagnostics?.[0]?.at, 'shots/s01/renderer/source', '点名真正出帧的那一套');
+  // 准入照核心镜头过：没声明预算拒，三角形数超声明拒
+  assert.equal(fail(() => work.submit(id, 'render', { tier: 'draft', rev: 0, plan: [{ shot: 's01', frames: [0] }] }))?.code, 'usage.budget-required');
+  assert.equal(fail(() => work.submit(id, 'render', { tier: 'draft', rev: 0, plan: [{ shot: 's01', frames: [0] }], budget: { ...BUDGET, maxTriangles: 1 } }))?.code, 'contract.over-budget');
+  assert.deepEqual(loadQueue(store.filmDir(id)).listJobs(), [], '被拒的都没进队列');
+  const job = work.submit(id, 'render', { tier: 'draft', rev: 0, plan: [{ shot: 's01', frames: [0] }], budget: BUDGET });
+  await work.wait(id, job, 10);
+  assert.equal(loadQueue(store.filmDir(id)).getJob(job).request.kind, 'core');
+});
 
 test('草稿档里有核心镜头的渲染作业走 core 道，没有的走 draft 道；片子里有核心镜头的核验作业走 core 道', { timeout: 30_000 }, async (t) => {
   useRenderer(t, fakeRenderer(t));

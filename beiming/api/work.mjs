@@ -9,6 +9,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { loadQueue, openShotCache } from '../jobs/index.mjs';
+import { renderingOf } from '../kernel/eval/index.mjs';
 import { NOT_YET, WALL_MAX, admitBudget } from '../sources/core/source.mjs';
 import { audioLoudness, blackFreezeDup, buildContactSheet, buildCutStrips, cutScene, cutYdif, deliverSpec, pngSize, query, videoAliasEdge, videoNoiseResidual } from '../observe/index.mjs';
 import { artifactUrl } from './client.mjs';
@@ -565,13 +566,15 @@ export function createWork({ store, library, reviewer, scheduler }) {
   function submit(id, kind, payload) {
     const tier = payload.tier;
     const film = store.readFilm(id);
-    const isCore = (shot) => shot?.source === 'core';
+    // 写了 renderer 时出帧的是它那一套（片子描述契约 3.3）：和签锁、出片链同一口径
+    const isCore = (shot) => Boolean(shot) && renderingOf(shot).source === 'core';
     // 终渲档的核验作业要补渲、核对核心镜头，核心帧源在终渲档不出帧：入队之前就拒，不占 core 道（那一道不被抢占，终渲档又没有墙钟上限）
     if (kind === 'verify' && tier === 'final') {
       const shot = film.shots.find(isCore);
       if (shot) {
         const message = `${NOT_YET}：片子里有核心镜头 ${shot.id}，终渲档的核验作业不收`;
-        throw new ApiError('contract.unsupported-mode', message, { diagnostics: [diagnostic({ code: 'contract.unsupported-mode', message, at: `shots/${shot.id}/source` })] });
+        const at = shot.renderer ? `shots/${shot.id}/renderer/source` : `shots/${shot.id}/source`;
+        throw new ApiError('contract.unsupported-mode', message, { diagnostics: [diagnostic({ code: 'contract.unsupported-mode', message, at })] });
       }
     }
     // 核验作业给没渲过的镜头补渲，再对核心镜头起 core-render 跑 L2：片子里有核心镜头就算核心作业
@@ -584,7 +587,7 @@ export function createWork({ store, library, reviewer, scheduler }) {
     if (lane === 'core' && kind === 'render') {
       const shots = payload.plan.flatMap((p) => {
         const shot = film.shots.find((s) => s.id === p.shot);
-        return shot?.source === 'core' ? [{ shot, frames: p.frames.map((f) => f - shot.in) }] : [];
+        return isCore(shot) ? [{ shot, frames: p.frames.map((f) => f - shot.in) }] : [];
       });
       try {
         admitBudget({ budget: payload.budget, tier, filmDir: store.filmDir(id), shots });

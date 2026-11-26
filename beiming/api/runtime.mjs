@@ -3,8 +3,8 @@
 import { Buffer } from 'node:buffer';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative, resolve, sep } from 'node:path';
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tools as compTools, bakeAgxLut, SHAPER } from '../comp/index.mjs';
 import { findBlender } from '../sources/blender/host.mjs';
@@ -266,8 +266,10 @@ export function coreImage(version, opts = {}) {
 }
 
 /** 场景包契约 5.7 要算哈希的那段文本：包目录里每个文件一行「sha256、两个空格、相对路径」，按路径的 UTF-8 字节序排。
- *  包里有符号链接就拒、不跟随：5.7 和 SP6 要包哈希只由包里各文件的路径和内容定，跟随链接会把包外的东西算进来，跳过又会漏掉读入方读得到的文件 */
+ *  包里有符号链接就拒、不跟随：5.7 和 SP6 要包哈希只由包里各文件的路径和内容定，跟随链接会把包外的东西算进来，跳过又会漏掉读入方读得到的文件。
+ *  包目录本身是符号链接也一样拒：readdirSync 会跟着它读到别处 */
 export function packHashText(dir) {
+  if (lstatSync(dir).isSymbolicLink()) throw new Error(`场景包目录 ${basename(dir)} 本身是符号链接：包哈希只由包里的文件算（场景包契约 5.7），不跟随链接`);
   const entries = readdirSync(dir, { withFileTypes: true, recursive: true });
   const rel = (e) => relative(dir, join(e.parentPath, e.name)).split(sep).join('/');
   const link = entries.find((e) => e.isSymbolicLink());
