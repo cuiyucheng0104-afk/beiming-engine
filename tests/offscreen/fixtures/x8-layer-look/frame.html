@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>分层风格化回归样本</title>
+<script type="importmap">
+{ "imports": { "three": "/node_modules/three/build/three.module.js" } }
+</script>
+</head>
+<body>
+<script type="module">
+import * as THREE from 'three';
+import { createLayerLook, decodePng, loadLayers } from '/engine/look/layers.js';
+
+function fromBase64(s) {
+  return Uint8Array.from(atob(s), (byte) => byte.charCodeAt(0));
+}
+
+function toBase64(bytes) {
+  let str = '';
+  for (let i = 0; i < bytes.length; i += 32768) str += String.fromCharCode(...bytes.subarray(i, i + 32768));
+  return btoa(str);
+}
+
+window.renderX8Sample = async (frame) => {
+  const layers = frame ? {
+    width: frame.size[0],
+    height: frame.size[1],
+    depthUnit: frame.depthUnitM,
+    color: await decodePng(fromBase64(frame.layers.color)),
+    depth: await decodePng(fromBase64(frame.layers.depth)),
+    ids: await decodePng(fromBase64(frame.layers.objectId)),
+    normal: await decodePng(fromBase64(frame.layers.normal)),
+  } : await loadLayers(new URL('./', location.href).href, 0);
+  const { width, height } = layers;
+  const renderer = new THREE.WebGLRenderer({ antialias: false });
+  renderer.setPixelRatio(1);
+  renderer.setSize(width, height);
+  const target = new THREE.WebGLRenderTarget(width, height, {
+    type: THREE.UnsignedByteType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: false,
+  });
+  const look = createLayerLook(renderer, width, height);
+  try {
+    const gl = renderer.getContext();
+    const info = gl.getExtension('WEBGL_debug_renderer_info');
+    const backend = gl.getParameter(info?.UNMASKED_RENDERER_WEBGL ?? gl.RENDERER);
+    look.render(layers, { target, t: frame?.time ?? 0, kuwahara: { radius: 12, strength: 1, q: 8 } });
+    const rgba = new Uint8Array(width * height * 4);
+    renderer.readRenderTargetPixels(target, 0, 0, width, height, rgba);
+    const rgb = new Uint8Array(width * height * 3);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const src = ((height - y - 1) * width + x) * 4;
+        const dst = (y * width + x) * 3;
+        rgb[dst] = rgba[src];
+        rgb[dst + 1] = rgba[src + 1];
+        rgb[dst + 2] = rgba[src + 2];
+      }
+    }
+    return { backend, pixels: toBase64(rgb) };
+  } finally {
+    look.dispose();
+    target.dispose();
+    renderer.dispose();
+    renderer.forceContextLoss();
+  }
+};
+</script>
+</body>
+</html>
