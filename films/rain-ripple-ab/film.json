@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 2,
+  "id": "rain-ripple-ab",
+  "title": "雨落成纹",
+  "route": "a",
+  "backend": "three",
+  "output": { "profile": "web-1080p24", "width": 1920, "height": 1080, "fps": 24, "frameCount": 120 },
+  "shots": [
+    { "id": "S1", "in": 0, "out": 120, "module": "shots/rain.js", "evaluation": "absolute", "lookPreset": "beiming-original@v1/wide" }
+  ],
+  "events": [
+    { "id": "drop-first", "frame": 14, "shot": "S1", "visual": "impact" },
+    { "id": "drop-second", "frame": 34, "shot": "S1", "visual": "impact" },
+    { "id": "drop-third", "frame": 58, "shot": "S1", "visual": "impact" },
+    { "id": "drop-fourth", "frame": 82, "shot": "S1", "visual": "impact" },
+    { "id": "drop-fifth", "frame": 97, "shot": "S1", "visual": "impact" }
+  ],
+  "audio": { "mode": "none" },
+  "deliveries": ["web-1080p24"],
+  "style": {
+    "id": "beiming-original",
+    "version": 1,
+    "lock": "../../engine/style/beiming-original.v1.json",
+    "baseline": "../../media/shot_1.6.jpg"
+  },
+  "assets": [],
+  "credits": [
+    { "what": "useRipple 波纹片元着色器", "owner": "HASHIMOTO Takuma", "license": "MIT", "source": "https://github.com/FunTechInc/use-shader-fx/blob/338e63427310a6b13947f68c5863e4cf4bbb62f1/packages/use-shader-fx/src/fxs/simulations/useRipple/shader/main.frag" }
+  ],
+  "aigc": { "contains": true, "kinds": ["visual"], "note": "AI 辅助编写程序化镜头和着色器，画面由代码逐帧渲染。" },
+  "gates": { "look": "required", "animatic": "required", "final": "required" }
+}

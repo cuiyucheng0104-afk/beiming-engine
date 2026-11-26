@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 2,
+  "id": "funtech-platform-ab",
+  "title": "渲染路径对照",
+  "route": "a",
+  "backend": "three",
+  "output": {
+    "profile": "web-1080p24",
+    "width": 1920,
+    "height": 1080,
+    "fps": 24,
+    "frameCount": 96
+  },
+  "shots": [
+    {
+      "id": "webgpu-tsl",
+      "in": 0,
+      "out": 48,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "WebGPU 节点材质"
+    },
+    {
+      "id": "worker",
+      "in": 48,
+      "out": 96,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "Worker 画布"
+    }
+  ],
+  "events": [],
+  "audio": {
+    "mode": "none"
+  },
+  "deliveries": [
+    "web-1080p24"
+  ],
+  "style": {
+    "id": "beiming-original",
+    "version": 1,
+    "lock": "../../engine/style/beiming-original.v1.json",
+    "baseline": "../../media/shot_1.6.jpg",
+    "note": "画风登记在 engine/style/registry.json；视觉基准取样片的晨江大远景（registry 的 baselineFrames 之一）。定调改了色板或后期就是新版本，按 routes/a-webgl/LOOKDEV.md 签认后登记"
+  },
+  "assets": [],
+  "credits": [],
+  "aigc": {
+    "contains": true,
+    "kinds": [
+      "visual"
+    ],
+    "note": "AI 辅助编写程序化画面与着色器接入代码，北冥 WebGL 逐帧渲染。"
+  },
+  "gates": {
+    "look": "required",
+    "animatic": "required",
+    "final": "required"
+  }
+}
