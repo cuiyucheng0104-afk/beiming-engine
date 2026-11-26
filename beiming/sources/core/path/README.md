@@ -53,6 +53,16 @@ node beiming/sources/core/chassis/freeze.mjs             # 0 标记在且与代�
 node beiming/sources/core/chassis/freeze.mjs --update    # 有意改了之后，按现在的代码重写标记里钉住的值
 ```
 
+### 显卡上限全文
+
+`core-render info --limits` 在 stdout 打一行 JSON（`format` 是 `core-limits/0.1`），不渲帧：适配器信息 `adapter`（名字、厂商号、设备号、类型、驱动、后端、子组大小）、实际开没开硬件求交 `hwrt`、是不是合并的绑定布局 `merged`，适配器报的上限 `adapterLimits` 与特性 `adapterFeatures`，以及这台设备实际申请到的 `deviceLimits` 与 `deviceFeatures`。上限的键是 wgpu 的字段名，值都是整数。设备怎么申请照 `src/gpu.rs` 的 `new_async_with`：单个存储缓冲绑定、单个缓冲、二维纹理、纹理层数与加速结构的几项抬到适配器的上限，每阶段的存储缓冲数与缓冲加加速结构数不超过 31，其余取 wgpu 默认值与适配器两者中较差的；特性只请求硬件求交、时间戳查询、管线缓存三样（适配器有、开得起来时）。不加 `--limits` 时 `info` 照旧打一行摘要。
+
+每台机器记一份，随提交入库：
+
+```sh
+node beiming/sources/core/chassis/limits.mjs [--bin core-render]   # 写 chassis/limits/<显卡加后端>.json（命名同回归基线）；--print 只打印
+```
+
 ## 读场景包
 
 内核除了跑场景脚本，还能直接读场景包契约（`beiming/kernel/contracts/scene-pack/`）的包：`src/pack.rs` 读清单、GLB、实例表与每帧状态表，逐字段校验，选一帧建成内核的场景。

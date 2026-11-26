@@ -157,6 +157,22 @@ pub const FILM_FIXED: u32 = 10;
 /// 稳态慢 5%（同样只写前四格），每个像素的记录对不齐 64 字节时写起来就慢。多出来的格子没人读写。
 pub const FILM_STRIDE_ALIGN: u32 = 4;
 
+/// 北冥：`wgpu::Limits` 的每一项，键是 wgpu 的字段名。这里没开 wgpu 的 serde，从 Debug 的文本 `Limits { 名: 数, … }` 里取：
+/// 这一版的每一项都是整数（`limits_json_takes_every_limit` 守着）；哪天出了不是整数的项，原样记成字符串。
+pub fn limits_json(l: &wgpu::Limits) -> serde_json::Map<String, serde_json::Value> {
+    let s = format!("{l:?}");
+    let body = s.find('{').zip(s.rfind('}')).map_or("", |(a, b)| &s[a + 1..b]);
+    body.split(',')
+        .filter_map(|kv| kv.split_once(':'))
+        .map(|(k, v)| (k.trim().to_string(), v.trim().parse::<u64>().map_or_else(|_| v.trim().into(), Into::into)))
+        .collect()
+}
+
+/// 北冥：一组特性的名字（wgpu 的常量名）。
+pub fn features_json(f: wgpu::Features) -> Vec<&'static str> {
+    f.iter_names().map(|(n, _)| n).collect()
+}
+
 /// 输出缓冲的字节数：每个像素 `film_stride` 个 vec4。`limit` 是显卡单个缓冲绑定的上限（也不许超过单个缓冲的上限）：
 /// 超过就报错，并写明这个分辨率下这次最多能要几个灯组。形状对不上（不是 `KernelFilm::new` 填的）也报错。
 pub fn film_bytes(w: u32, h: u32, film: &KernelFilm, limit: u64) -> Result<u64> {
@@ -1592,6 +1608,22 @@ impl Gpu {
         Ok(Gpu { instance, adapter, timestamps, device, queue, adapter_info, uniform_tables, whole_tables, switches, pipeline_cache, source: src, module, merged, modules: Default::default(), pipeline_layout: pl, pipelines: Default::default(), layout, vis_layout, no_vis, no_vis_bufs, no_vis_view, no_grid_view, hwrt, pages: Default::default(), proc_cache: Default::default(), proc_blases: Default::default() })
     }
 
+    /// 北冥：`core-render info --limits` 打的全文：适配器的信息、上限与特性，加上这台设备实际申请到的上限与特性
+    /// （`new_async_with` 照适配器抬高的几项、只请求的三样特性，都在 `device*` 两项里看得到）。
+    pub fn limits_report(&self) -> serde_json::Value {
+        let i = &self.adapter_info;
+        serde_json::json!({
+            "format": "core-limits/0.1",
+            "adapter": { "name": i.name, "vendor": i.vendor, "device": i.device, "deviceType": format!("{:?}", i.device_type), "driver": i.driver, "driverInfo": i.driver_info, "backend": format!("{:?}", i.backend), "subgroupMinSize": i.subgroup_min_size, "subgroupMaxSize": i.subgroup_max_size },
+            "hwrt": self.hwrt,
+            "merged": self.merged,
+            "adapterLimits": limits_json(&self.adapter.limits()),
+            "adapterFeatures": features_json(self.adapter.features()),
+            "deviceLimits": limits_json(&self.device.limits()),
+            "deviceFeatures": features_json(self.device.features()),
+        })
+    }
+
     /// Whether this device's kernel buffers have the loop guard's count (`guard_room`; always in the merged layout).
     pub fn guard_room(&self) -> bool {
         guard_room(self.hwrt)
@@ -2992,5 +3024,31 @@ mod tests {
         assert!(!huge([M - 1, 5, 0, 0, 0, 0, 0, 0], false));
         assert!(huge([M / 2, 5, 0, 0, 0, 0, 0, 0], true));
         assert!(!huge([M / 2 - 1, 5, 0, 0, 0, 0, 0, 0], true));
+    }
+
+    /// 北冥：`info --limits` 的上限全文。Debug 文本里的每一项都取到、都是整数，键数等于逗号分开的项数；
+    /// 有显卡时：设备的上限不比适配器的好，抬到适配器上限的那几项相等，请求的特性都在适配器的特性里。没有显卡就跳过后一半。
+    #[test]
+    fn limits_json_takes_every_limit() {
+        let d = wgpu::Limits::default();
+        let m = super::limits_json(&d);
+        assert_eq!(m.len(), format!("{d:?}").matches(':').count());
+        assert!(m.values().all(|v| v.is_u64()), "{m:?}");
+        assert_eq!(m["max_texture_dimension_2d"], d.max_texture_dimension_2d as u64);
+        assert_eq!(m["max_buffer_size"], d.max_buffer_size);
+        let g = match super::Gpu::new_with(super::GpuOptions::default()) {
+            Ok(g) => g,
+            Err(e) => return eprintln!("skipped: {e}"),
+        };
+        let r = g.limits_report();
+        let (al, dl) = (&r["adapterLimits"], &r["deviceLimits"]);
+        assert_eq!(dl.as_object().unwrap().len(), m.len());
+        assert!(g.device.limits().check_limits(&g.adapter.limits()));
+        for k in ["max_storage_buffer_binding_size", "max_buffer_size", "max_texture_dimension_2d", "max_tlas_instance_count"] {
+            assert_eq!(dl[k], al[k], "{k}");
+        }
+        let have: Vec<&str> = r["adapterFeatures"].as_array().unwrap().iter().map(|v| v.as_str().unwrap()).collect();
+        assert!(r["deviceFeatures"].as_array().unwrap().iter().all(|f| have.contains(&f.as_str().unwrap())));
+        assert_eq!(r["hwrt"], g.hwrt);
     }
 }

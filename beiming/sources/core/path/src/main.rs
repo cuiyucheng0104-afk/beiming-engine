@@ -20,7 +20,7 @@
 //!   core-render fncheck-host <函数标识>   # 北冥：宿主一侧照 Cycles 移植的函数，给函数级比对外壳逐组算（stdin 进 f32，stdout 出 f32）
 //!   core-render serve [--presets DIR]      # JSON-lines jobs on stdin, keeps the GPU device and game runtimes warm
 //!   core-render setup <bundle.js>          # setup cost in the embedded runtime
-//!   core-render info                       # print adapter info
+//!   core-render info [--limits]            # print adapter info (北冥：--limits 打适配器与设备的上限、特性全文的 JSON)
 
 use beiming_core_path::script::ScriptHost;
 use beiming_core_path::{default_presets_dir, denoise, gpu, pack, post, prepare, scene};
@@ -178,6 +178,11 @@ fn main() -> Result<()> {
     match cmd {
         "info" => {
             let g = gpu::Gpu::new()?;
+            // 北冥：--limits 打适配器与设备的上限、特性全文（`Gpu::limits_report`），不加时照旧一行
+            if args.iter().any(|a| a == "--limits") {
+                println!("{}", serde_json::to_string(&g.limits_report())?);
+                return Ok(());
+            }
             println!("{}", serde_json::json!({ "adapter": g.adapter_info.name, "hwrt": g.hwrt, "backend": format!("{:?}", g.adapter_info.backend), "hwrt": g.hwrt, "device_type": format!("{:?}", g.adapter_info.device_type), "driver": g.adapter_info.driver }));
         }
         "render" => {
