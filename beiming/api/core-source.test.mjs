@@ -15,7 +15,7 @@ import { test } from 'node:test';
 import { loadQueue, openWorkspace, processIsAlive, Scheduler } from '../jobs/index.mjs';
 import { PRESETS } from '../sources/core/chassis/build.mjs';
 import { platesPack, writePack } from '../sources/core/chassis/scenepack.mjs';
-import { findRenderer, startSource } from '../sources/core/source.mjs';
+import { WALL_MAX, findRenderer, startSource } from '../sources/core/source.mjs';
 import { renderPlan, sourcePool } from './pipeline.mjs';
 import { isRegistered } from './envelope.mjs';
 import { createStore } from './store.mjs';
@@ -213,6 +213,7 @@ test('核心作业的准入：预算缺了、采样超档位上限或超声明�
   assert.deepEqual(pick(reject({ ...BUDGET, spp: 0 })), missing, '不是正整数');
   assert.deepEqual(pick(reject({ ...BUDGET, extra: 1 })), missing, '多一项');
   assert.deepEqual(pick(reject({ ...BUDGET, spp: 65 })), over, '超过草稿档的上限 64');
+  assert.deepEqual(pick(reject({ ...BUDGET, maxWallMs: WALL_MAX.draft + 1 })), over, '墙钟超过草稿档的上限');
   assert.match(reject({ ...BUDGET, spp: 16 }).message, /每像素采样数是 24，超过声明的 16/);
   fs.writeFileSync(store.workspace(id).resolve('shots/pack/fake.json'), JSON.stringify({ triangles: 101 }));
   const tris = reject(BUDGET);
@@ -221,7 +222,7 @@ test('核心作业的准入：预算缺了、采样超档位上限或超声明�
   assert.deepEqual(loadQueue(store.filmDir(id)).listJobs(), [], '被拒的作业都没进队列');
   // 三角形数等于声明的照收
   fs.writeFileSync(store.workspace(id).resolve('shots/pack/fake.json'), JSON.stringify({ triangles: 100 }));
-  const job = work.submit(id, 'render', { tier: 'draft', rev: 0, plan, budget: { ...BUDGET, spp: 64 } });
+  const job = work.submit(id, 'render', { tier: 'draft', rev: 0, plan, budget: { ...BUDGET, spp: 64, maxWallMs: WALL_MAX.draft } });
   await work.wait(id, job, 10);
   assert.equal(loadQueue(store.filmDir(id)).getJob(job).request.kind, 'core');
 });

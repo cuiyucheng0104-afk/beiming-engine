@@ -59,6 +59,7 @@ await s.close(); await src.stop();
 |---|---|
 | 没带 `budget`、少一项或多一项、值不是正整数（`maxWallMs` 不超过 2³¹−1） | `usage.budget-required` |
 | 声明的 `spp` 超过这一档的上限 `SPP_MAX`（草稿档是终稿档的默认采样数 64） | `contract.over-budget` |
+| 声明的 `maxWallMs` 超过这一档的上限 `WALL_MAX`（草稿档 10 分钟：核心作业不被终渲抢占，这个数就是终渲最多被一个核心作业挡住的时间；渲不完的拆成几个作业排队） | `contract.over-budget` |
 | 镜头生效的每像素采样数（取值次序同 `planRender`）超过声明的 `spp` | `contract.over-budget` |
 | 场景包在要渲的某一帧上画出来的三角形数（`core-render pack-info --frame k` 那一行统计的 `triangles`）超过 `maxTriangles` | `contract.over-budget` |
 

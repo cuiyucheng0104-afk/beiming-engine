@@ -194,11 +194,14 @@ export function planRender(c, shot, size, tier, opts, want, locked) {
 
 /** 每档每像素采样数的上限：草稿档不超过终稿档的默认采样数（终稿档在 open 时就拒，不进准入） */
 export const SPP_MAX = { draft: caps('').final.samples };
+/** 每档墙钟预算 maxWallMs 的上限。核心作业不被终渲抢占（jobs/DETAILS「调度器的道」），这个数就是同一块卡上的终渲最多被一个核心作业
+ *  挡住多久：草稿档 10 分钟。看板一次只出少量帧，一个作业渲不完就拆成几个，在 core 道里排队，终渲在两个作业之间插得进去 */
+export const WALL_MAX = { draft: 10 * 60 * 1000 };
 const BUDGET_KEYS = { maxTriangles: Number.MAX_SAFE_INTEGER, spp: 2 ** 32 - 1, maxWallMs: 2 ** 31 - 1 };
 
 /**
  * 核心作业的准入，入队之前判。budget 是作业声明的 { maxTriangles, spp, maxWallMs }，三项都是正整数（maxWallMs 不超过 2³¹−1）：
- * 缺一项、多一项或值不对报 usage.budget-required。之后报 contract.over-budget 的三种：声明的 spp 超过这一档的上限（SPP_MAX）；
+ * 缺一项、多一项或值不对报 usage.budget-required。之后报 contract.over-budget 的四种：声明的 spp、maxWallMs 超过这一档的上限（SPP_MAX、WALL_MAX）；
  * 镜头生效的采样数（planRender 的取值次序，这次调用不给 opts）超过声明的 spp；场景包在要渲的帧上画出来的三角形数
  * （core-render pack-info 一行统计里的 triangles，每帧一次）超过 maxTriangles。
  * shots 是 [{ shot: 镜头条目, frames: [镜头局部帧号] }]，场景包相对 filmDir；bin 不给时用 findRenderer()（没有报 env.missing-tool）。
@@ -213,6 +216,7 @@ export function admitBudget({ budget, tier, filmDir, shots, bin }) {
   const limit = SPP_MAX[tier];
   if (limit === undefined) throw new SourceError('contract.unsupported-mode', `${NOT_YET}（这次的档位是 ${show(tier)}）`);
   if (budget.spp > limit) throw over(`声明的每像素采样数 ${budget.spp} 超过 ${tier} 档的上限 ${limit}`);
+  if (budget.maxWallMs > WALL_MAX[tier]) throw over(`声明的墙钟预算 ${budget.maxWallMs} ms 超过 ${tier} 档的上限 ${WALL_MAX[tier]} ms`);
   const c = caps('');
   let triangles = 0, samples = 0;
   for (const { shot, frames } of shots) {
