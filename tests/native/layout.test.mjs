@@ -21,25 +21,27 @@ const SIDES = ['left', 'right', 'top', 'bottom'];
 for (const [W, H] of [[1920, 1080], [3840, 2160]]) {
   test(`模版 ${W}×${H}：片名在安全区、不压主体；云海两端每一帧都在画外`, () => {
     const film = json('../../routes/b-native/template/film.json');
-    const L = templateLayout({ W, H, DUR: film.dur });
-    const frames = Math.round(film.dur * film.fps), S = safe(W, H);
+    const { width, height, fps, frameCount: frames } = film.output;
+    assert.deepEqual([width, height, fps, frames], [1920, 1080, 24, 108]);
+    const DUR = frames / fps;
+    const L = templateLayout({ W, H, DUR }), S = safe(W, H);
     for (const n of [2, 4, 6]) {
       const T = L.title(n);
       assert.ok(inside(T.box, S), `${n} 个字的片名框 ${T.box.map(Math.round)} 出了安全区`);
       for (let f = 0; f < frames; f++) {
-        const cam = V.shotAt(f / film.fps, L.shots);
+        const cam = V.shotAt(f / fps, L.shots);
         const sub = V.screenBox(L.subject.map(p => V.project(p, cam, [W, H])));
         assert.equal(V.overlap(sub, T.box), 0, `第 ${f} 帧 ${n} 个字的片名压到主体`);
       }
     }
     for (const m of L.mists) for (let f = 0; f < frames; f++) {
-      const t = f / film.fps, cam = V.shotAt(t, L.shots);
+      const t = f / fps, cam = V.shotAt(t, L.shots);
       const e = V.cardOnScreen({ ...m, position: m.position.map((x, i) => x + t * (m.drift[i] || 0)) }, cam, [W, H]);
       for (const side of ['left', 'right']) assert.equal(V.edgeVisible(e[side], [W, H]), false, `第 ${f} 帧 ${m.name} 的${side}端进画`);
     }
     const sky = L.backdrop;
     assert.ok(Math.abs(sky.width / sky.height - 3548 / 1774) < 0.01, '天空底板要等比');
-    for (const t of [0, film.dur]) assert.ok(sky.x + t * sky.drift[0] <= 0 && sky.x + t * sky.drift[0] + sky.width >= W && sky.y <= 0 && sky.y + sky.height >= H, `${t} 秒时天空没盖满`);
+    for (const t of [0, DUR]) assert.ok(sky.x + t * sky.drift[0] <= 0 && sky.x + t * sky.drift[0] + sky.width >= W && sky.y <= 0 && sky.y + sky.height >= H, `${t} 秒时天空没盖满`);
   });
 
 }
@@ -47,7 +49,8 @@ for (const [W, H] of [[1920, 1080], [3840, 2160]]) {
 for (const [W, H] of [[1920, 1040], [3840, 2080]]) {
   test(`例片 ${W}×${H}：截断竖边在画外、上下截断边有软边、天空盖满且等比、片名在安全区且不压鲲`, () => {
     const film = json('../../examples/raea/film.json');
-    const FPS = film.fps, frames = Math.round(film.dur * FPS);
+    const { width, height, fps: FPS, frameCount: frames } = film.output;
+    assert.deepEqual([width, height, FPS, frames], [1920, 1040, 24, 240]);
     const L = exampleLayout({ W, H, FPS, frames, cuts: film.shots.map(s => s.out) }, V), S = safe(W, H);
     for (let f = 0; f < frames; f++) {
       const t = f / FPS, cam = V.shotAt(t, L.shots);
@@ -84,30 +87,33 @@ for (const [W, H] of [[1920, 1040], [3840, 2080]]) {
 }
 
 test('例片：镜头表只在 film.json 一处，版式的切点读它，与默认机位表一致', () => {
-  const film = json('../../examples/raea/film.json'), frames = Math.round(film.dur * film.fps);
+  const film = json('../../examples/raea/film.json');
+  const { width: W, height: H, fps: FPS, frameCount: frames } = film.output;
   assert.deepEqual(film.shots.map(s => [s.in, s.out]), [[0, 84], [84, 144], [144, frames]]);
   for (let i = 1; i < film.shots.length; i++) assert.equal(film.shots[i].in, film.shots[i - 1].out, '镜头首尾相接');
-  const L = exampleLayout({ W: 1920, H: 1040, FPS: film.fps, frames, cuts: film.shots.map(s => s.out) }, V);
-  assert.deepEqual(L.shots.map(s => s.until * film.fps), film.shots.map(s => s.out));
-  assert.throws(() => exampleLayout({ W: 1920, H: 1040, FPS: 24, frames, cuts: [84, 80, 240] }, V), /递增/);
+  const L = exampleLayout({ W, H, FPS, frames, cuts: film.shots.map(s => s.out) }, V);
+  assert.deepEqual(L.shots.map(s => s.until * FPS), film.shots.map(s => s.out));
+  assert.throws(() => exampleLayout({ W, H, FPS, frames, cuts: [84, 80, frames] }, V), /递增/);
   for (const e of film.events) assert.ok(film.shots.some(s => s.id === e.shot && e.frame >= s.in && e.frame < s.out), `事件 ${e.id} 落在它写的镜头 ${e.shot} 里`);
 });
 
 test('例片：事件帧号在片长内；缓起的声音标 sync: soft；声音脚本与片名页面读同一份 film.json', () => {
-  const film = json('../../examples/raea/film.json'), frames = Math.round(film.dur * film.fps);
+  const film = json('../../examples/raea/film.json');
+  const { width: W, height: H, fps: FPS, frameCount: frames } = film.output;
   for (const e of film.events) assert.ok(Number.isInteger(e.frame) && e.frame >= 0 && e.frame < frames, e.id);
   assert.deepEqual(film.events.filter(e => e.sync === 'soft').map(e => e.id), ['horn', 'kun-call', 'chord'], '船笛、鲲鸣、和弦是缓起的声音，QA 的声画同步只给软项');
   const sound = readFileSync(new URL('../../examples/raea/tools/sound.py', import.meta.url), 'utf8');
   for (const id of ['horn', 'kun-call', 'blink', 'chord', 'title']) assert.ok(sound.includes(`EV['${id}']`), `sound.py 没用事件 ${id}`);
   // 眨眼铃对上眼睑完全闭合：Swim 片段 6.625 秒，一拍三，片段时间 = (q + 2) mod 10
-  const L = exampleLayout({ W: 1920, H: 1040, FPS: film.fps, frames }, V);
+  const L = exampleLayout({ W, H, FPS, frames }, V);
   assert.equal(L.kun(film.events.find(e => e.id === 'blink').frame).clip, 6.625);
 });
 
 test('例片：鲲整个按一拍三走（位置、姿态、片段时间同一个时钟，审查 R07）', () => {
   const film = json('../../examples/raea/film.json');
-  const L = exampleLayout({ W: 1920, H: 1040, FPS: film.fps, frames: 240 }, V);
-  for (let f = 0; f < 240; f += 3) {
+  const { width: W, height: H, fps: FPS, frameCount: frames } = film.output;
+  const L = exampleLayout({ W, H, FPS, frames }, V);
+  for (let f = 0; f < frames; f += 3) {
     const a = L.kun(f);
     for (const g of [f + 1, f + 2]) assert.deepEqual(L.kun(g), a, `第 ${g} 帧应与第 ${f} 帧相同`);
   }
