@@ -15,7 +15,7 @@
 
 ## 本地复算
 
-在仓库根运行。环境变量 `CASE_ENGINEERING` 指向案例 20 的工程目录，`CASE_VIDEO` 指向原片，`WHISPER_SMALL_FILE` 指向已有的 small 权重。按需用 `BEIMING_PYTHON` 指定已装识别包的解释器。验证环境为 macOS arm64、openai-whisper 20250625、PyTorch 2.10.0、FFmpeg 8.0.1、CPU 四线程。Whisper 通过 FFmpeg 读取单声道 16 kHz PCM，指定 en、word_timestamps=True、fp16=False，其余解码参数采用该包默认值。显式使用已有权重文件的路径；下面先检查原片与权重的 SHA256。
+在仓库根运行。环境变量 `CASE_ENGINEERING` 指向案例 20 的工程目录，`CASE_VIDEO` 指向原片，`WHISPER_SMALL_FILE` 指向已有的 small 权重。按需用 `BEIMING_PYTHON` 指定已装识别包的解释器。验证环境为 macOS arm64、openai-whisper 20250625、PyTorch 2.10.0、FFmpeg 8.0.1、CPU 四线程。Whisper 通过 FFmpeg 读取单声道 16 kHz PCM，指定 en、word_timestamps=True、fp16=False，其余解码参数采用该包默认值。使用已有权重文件的路径，先核对原片、权重、参考歌词脚本和历史量测记录的 SHA-256。
 
 ```sh
 node tools/env/py.mjs -B - <<'PY'
@@ -27,22 +27,30 @@ import torch, whisper
 case = Path(os.environ['CASE_ENGINEERING'])
 video = Path(os.environ['CASE_VIDEO']).resolve(strict=True)
 weights = Path(os.environ['WHISPER_SMALL_FILE']).resolve(strict=True)
-for path, expected in [
-    (video, 'a764a19c58c3a3f3e2409f6cbab1ef7f46507e02d33d41663007dca9a04e1f99'),
-    (weights, '9ecf779972d90ba49c06d968637d720dd632c55bbf19d441fb42bf17a411e794'),
+reference_script = (case / 'lyrics_check.py').read_bytes()
+archived_measurement = (case / '量测结果.txt').read_bytes()
+for label, data, expected in [
+    ('reference script', reference_script, '62ec8a3fb8d1f169707a1e6a8589e49d0630448f7b2790f6a3649d836ab523af'),
+    ('archived measurement', archived_measurement, '6164045685106d0db6b969dbcdb5b448c6a81576e9a21f75c2a581204a07e814'),
+]:
+    if hashlib.sha256(data).hexdigest() != expected:
+        raise ValueError(f'{label} digest mismatch')
+for label, path, expected in [
+    ('video', video, 'a764a19c58c3a3f3e2409f6cbab1ef7f46507e02d33d41663007dca9a04e1f99'),
+    ('model', weights, '9ecf779972d90ba49c06d968637d720dd632c55bbf19d441fb42bf17a411e794'),
 ]:
     with path.open('rb') as handle:
         if hashlib.file_digest(handle, 'sha256').hexdigest() != expected:
-            raise ValueError('input digest mismatch')
+            raise ValueError(f'{label} digest mismatch')
 if version('openai-whisper') != '20250625' or version('torch') != '2.10.0':
     raise ValueError('recognizer version mismatch')
 
 # 只读取已归档脚本中的参考歌词字面量，不运行上游代码。
-tree = ast.parse((case / 'lyrics_check.py').read_text('utf-8'))
+tree = ast.parse(reference_script.decode('utf-8'))
 lyrics = next(ast.literal_eval(n.value) for n in tree.body if isinstance(n, ast.Assign)
               and any(isinstance(t, ast.Name) and t.id == 'LYR' for t in n.targets))
 ref = [word for line in lyrics for word in line.split()]
-archive = (case / '量测结果.txt').read_text('utf-8').splitlines()[31].split()
+archive = archived_measurement.decode('utf-8').splitlines()[31].split()
 torch.set_num_threads(4)
 model = whisper.load_model(str(weights), device='cpu')
 result = model.transcribe(str(video), language='en', word_timestamps=True, fp16=False, verbose=None)
