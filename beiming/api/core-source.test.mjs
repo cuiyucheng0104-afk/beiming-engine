@@ -17,6 +17,7 @@ import { PRESETS } from '../sources/core/chassis/build.mjs';
 import { platesPack, writePack } from '../sources/core/chassis/scenepack.mjs';
 import { findRenderer, startSource } from '../sources/core/source.mjs';
 import { renderPlan, sourcePool } from './pipeline.mjs';
+import { isRegistered } from './envelope.mjs';
 import { createStore } from './store.mjs';
 import { createWork } from './work.mjs';
 
@@ -157,7 +158,7 @@ test('没有编好的渲染程序：出片链起核心帧源报 env.missing-tool
 
 /** 服务端的数据目录里放一部片子：film.json 与场景包，提交成修订 0。不给 lock 时不签锁：作业在执行器里因为没有 film.lock 失败，够看它走哪一道；
  *  给了就照写成 film.lock 一起提交（服务端签锁的 lockContext 里还没有 core 帧源，签不出带核心镜头的锁，这里手写执行器认的那几项） */
-function served(t, { lock } = {}) {
+function served(t, { lock, fake } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-core-api-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const store = createStore(dir), id = 'f_001';
@@ -170,6 +171,8 @@ function served(t, { lock } = {}) {
       { id: 's02', in: 1, out: 2, source: 'three', host: 'page', mode: 'cards-data', colorRef: 'display' },
     ],
   }));
+  // 执行器读的是修订快照：假渲染程序的 fake.json 要在提交之前写进场景包
+  if (fake) fs.writeFileSync(ws.resolve('shots/pack/fake.json'), JSON.stringify(fake));
   if (lock) {
     fs.writeFileSync(ws.resolve('film.lock'), JSON.stringify(lock));
     store.writeMeta(id, { id });
@@ -286,6 +289,30 @@ test('核心作业到声明的墙钟预算被杀：先 SIGTERM 再 SIGKILL 整�
   assert.ok(at['next:start'] >= at['hang:end'], '第二个核心作业等第一个被杀、还了租约才开跑');
   assert.equal(jc.status, 'succeeded');
   assert.deepEqual(jc.result, { code: 0, signal: null }, '同卡的草稿作业的进程没被连带杀掉');
+});
+
+test('经服务端提交的核心作业到声明的墙钟预算被杀：作业 failed，结论里是 timeout.budget', { timeout: 60_000 }, async (t) => {
+  useRenderer(t, fakeRenderer(t));
+  // 没有 Blender 时执行器用解析式的查找表，不去烘焙；这部片子是显示参考，用不上正式表
+  const prev = process.env.BEIMING_BLENDER;
+  process.env.BEIMING_BLENDER = path.join(os.tmpdir(), 'no-such-blender');
+  t.after(() => { if (prev === undefined) delete process.env.BEIMING_BLENDER; else process.env.BEIMING_BLENDER = prev; });
+  const hang = hangDir(t);
+  const { id, work } = served(t, { lock: { format: 'lock/1.0', issuer: 'server', rev: 0, film: 'f_001', seeds: { s01: SEED, s02: SEED }, shots: { s01: { shutterSamples: 1 }, s02: { shutterSamples: 1 } } }, fake: { hang } });
+  const WALL = 1000;
+  const t0 = performance.now();
+  const job = work.submit(id, 'render', { tier: 'draft', rev: 0, plan: [{ shot: 's01', frames: [0] }], budget: { ...BUDGET, maxWallMs: WALL } });
+  await work.wait(id, job, 30);
+  const took = performance.now() - t0;
+  const { base, outcome } = work.view(id, job);
+  t.diagnostic(`声明 ${WALL} ms：${Math.round(took)} ms 时作业 ${base.status}，结论码 ${outcome?.code}`);
+  assert.equal(base.status, 'failed', JSON.stringify(outcome));
+  // 错误码表里登记了 timeout.budget 就报它本身；还没登记时报登记过的近义码，原码在信息里
+  assert.equal(outcome.code, isRegistered('timeout.budget') ? 'timeout.budget' : 'contract.bad-value');
+  assert.match(outcome.message, /timeout\.budget/);
+  assert.ok(took >= WALL && took < WALL + 5000, `到预算才杀：用了 ${Math.round(took)} ms`);
+  const pids = JSON.parse(fs.readFileSync(path.join(hang, 'pids.json'), 'utf8'));
+  assert.deepEqual(pids.map((pid) => processIsAlive(pid)), [false, false], '渲染进程与它的孙进程都不在了');
 });
 
 test('帧源 stop 收掉还在跑的 core-render 进程树：作业取消、测试收尾时不留孤儿进程', { timeout: 30_000 }, async (t) => {
