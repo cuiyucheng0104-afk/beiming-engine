@@ -1,0 +1,501 @@
+{
+  "schemaVersion": 2,
+  "id": "funtech-visual-ab",
+  "title": "特效逐项对照",
+  "route": "a",
+  "backend": "three",
+  "output": {
+    "profile": "web-1080p24",
+    "width": 1920,
+    "height": 1080,
+    "fps": 24,
+    "frameCount": 2400
+  },
+  "shots": [
+    {
+      "id": "noise",
+      "in": 0,
+      "out": 48,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "域扭曲噪声"
+    },
+    {
+      "id": "marble",
+      "in": 48,
+      "out": 96,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "大理石流纹"
+    },
+    {
+      "id": "strata",
+      "in": 96,
+      "out": 144,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "动态层纹"
+    },
+    {
+      "id": "palette",
+      "in": 144,
+      "out": 192,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "余弦色表"
+    },
+    {
+      "id": "duotone",
+      "in": 192,
+      "out": 240,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "双色映射"
+    },
+    {
+      "id": "hsv",
+      "in": 240,
+      "out": 288,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "亮度与饱和度"
+    },
+    {
+      "id": "brightness",
+      "in": 288,
+      "out": 336,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "亮区分离"
+    },
+    {
+      "id": "alpha",
+      "in": 336,
+      "out": 384,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "透明纹理合成"
+    },
+    {
+      "id": "blend",
+      "in": 384,
+      "out": 432,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "按明度混合"
+    },
+    {
+      "id": "displace",
+      "in": 432,
+      "out": 480,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "纹理位移"
+    },
+    {
+      "id": "transition",
+      "in": 480,
+      "out": 528,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "双纹理过渡"
+    },
+    {
+      "id": "cover",
+      "in": 528,
+      "out": 576,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "宽图裁切"
+    },
+    {
+      "id": "blur",
+      "in": 576,
+      "out": 624,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "邻域模糊"
+    },
+    {
+      "id": "trail",
+      "in": 624,
+      "out": 672,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "帧间拖影"
+    },
+    {
+      "id": "wave-radial",
+      "in": 672,
+      "out": 720,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "圆形波前"
+    },
+    {
+      "id": "wave-horizontal",
+      "in": 720,
+      "out": 768,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "横向波前"
+    },
+    {
+      "id": "wave-vertical",
+      "in": 768,
+      "out": 816,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "纵向波前"
+    },
+    {
+      "id": "chroma",
+      "in": 816,
+      "out": 864,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "色键与去溢色"
+    },
+    {
+      "id": "brush",
+      "in": 864,
+      "out": 912,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "反馈拖抹"
+    },
+    {
+      "id": "flow",
+      "in": 912,
+      "out": 960,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "鼠标流向位移"
+    },
+    {
+      "id": "scroll",
+      "in": 960,
+      "out": 1008,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "滚动卡片与画布"
+    },
+    {
+      "id": "visibility",
+      "in": 1008,
+      "out": 1056,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "离屏卡片裁切"
+    },
+    {
+      "id": "reveal",
+      "in": 1056,
+      "out": 1104,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "作品缩略图噪声显影"
+    },
+    {
+      "id": "route-wait",
+      "in": 1104,
+      "out": 1152,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "串行页面进出"
+    },
+    {
+      "id": "route-sync",
+      "in": 1152,
+      "out": 1200,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "并行页面进出"
+    },
+    {
+      "id": "route-restore",
+      "in": 1200,
+      "out": 1248,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "路由滚动恢复"
+    },
+    {
+      "id": "embed",
+      "in": 1248,
+      "out": 1296,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "嵌入预览进度"
+    },
+    {
+      "id": "split-text",
+      "in": 1296,
+      "out": 1344,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "逐字进入"
+    },
+    {
+      "id": "thumbnail",
+      "in": 1344,
+      "out": 1392,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "缩略图视差"
+    },
+    {
+      "id": "video-plane",
+      "in": 1392,
+      "out": 1440,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "视频平面与相机"
+    },
+    {
+      "id": "wobble",
+      "in": 1440,
+      "out": 1488,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "网格扭曲"
+    },
+    {
+      "id": "asset-clips",
+      "in": 1488,
+      "out": 1536,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "角色多动作切换"
+    },
+    {
+      "id": "asset-faces",
+      "in": 1536,
+      "out": 1584,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "角色表情切换"
+    },
+    {
+      "id": "asset-lod",
+      "in": 1584,
+      "out": 1632,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "网页角色几何分级"
+    },
+    {
+      "id": "asset-framing",
+      "in": 1632,
+      "out": 1680,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "角色预览自动取景"
+    },
+    {
+      "id": "blank",
+      "in": 1680,
+      "out": 1728,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "自定义片元 Pass"
+    },
+    {
+      "id": "raw-blank",
+      "in": 1728,
+      "out": 1776,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "原生片元材质"
+    },
+    {
+      "id": "flow-light",
+      "in": 1776,
+      "out": 1824,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "交互尾迹高光"
+    },
+    {
+      "id": "layout",
+      "in": 1824,
+      "out": 1872,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "窗口缩放与图层重算"
+    },
+    {
+      "id": "responsive",
+      "in": 1872,
+      "out": 1920,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "响应式断点"
+    },
+    {
+      "id": "parallax",
+      "in": 1920,
+      "out": 1968,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "滚动景深差"
+    },
+    {
+      "id": "float",
+      "in": 1968,
+      "out": 2016,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "卡片漂浮"
+    },
+    {
+      "id": "loop",
+      "in": 2016,
+      "out": 2064,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "循环作品条带"
+    },
+    {
+      "id": "loader",
+      "in": 2064,
+      "out": 2112,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "就绪与海报占位"
+    },
+    {
+      "id": "modal",
+      "in": 2112,
+      "out": 2160,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "作品弹层"
+    },
+    {
+      "id": "tabs",
+      "in": 2160,
+      "out": 2208,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "作品分类切换"
+    },
+    {
+      "id": "accordion",
+      "in": 2208,
+      "out": 2256,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "技术说明折叠"
+    },
+    {
+      "id": "breakline",
+      "in": 2256,
+      "out": 2304,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "显式断行"
+    },
+    {
+      "id": "hover",
+      "in": 2304,
+      "out": 2352,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "悬停反馈"
+    },
+    {
+      "id": "note-edit",
+      "in": 2352,
+      "out": 2400,
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "制作便签即时预览"
+    }
+  ],
+  "events": [],
+  "audio": {
+    "mode": "none"
+  },
+  "deliveries": [
+    "web-1080p24"
+  ],
+  "style": {
+    "id": "beiming-original",
+    "version": 1,
+    "lock": "../../engine/style/beiming-original.v1.json",
+    "baseline": "../../media/shot_1.6.jpg",
+    "note": "画风登记在 engine/style/registry.json；视觉基准取样片的晨江大远景（registry 的 baselineFrames 之一）。定调改了色板或后期就是新版本，按 routes/a-webgl/LOOKDEV.md 签认后登记"
+  },
+  "assets": [],
+  "credits": [
+    {
+      "what": "着色器及内联片段",
+      "owner": "HASHIMOTO Takuma",
+      "license": "MIT",
+      "source": "https://github.com/FunTechInc/use-shader-fx/tree/338e63427310a6b13947f68c5863e4cf4bbb62f1/packages/use-shader-fx/src"
+    }
+  ],
+  "aigc": {
+    "contains": true,
+    "kinds": [
+      "visual"
+    ],
+    "note": "AI 辅助编写程序化画面与着色器接入代码，北冥 WebGL 逐帧渲染。"
+  },
+  "gates": {
+    "look": "required",
+    "animatic": "required",
+    "final": "required"
+  }
+}

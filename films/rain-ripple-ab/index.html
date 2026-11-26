@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>雨落成纹 · 北冥渲染对照</title>
+  <style>
+    * { box-sizing: border-box }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #0b1419 }
+    body { display: grid; place-items: center; color: #e8e6df; font-family: "PingFang SC", "Noto Sans CJK SC", sans-serif }
+    #stage { position: relative; width: min(100vw, 177.7778vh); aspect-ratio: 16/9; container-type: inline-size; overflow: hidden }
+    canvas { position: absolute; inset: 0; width: 100%; height: 100% }
+    header, footer, .panel-label { position: absolute; display: flex; align-items: center }
+    header { top: 5%; left: 4%; right: 4%; justify-content: space-between; align-items: end }
+    h1 { margin: 0; font-size: 3.65cqw; letter-spacing: .11em; line-height: 1.1 }
+    header p { margin: 0 0 .3cqw; font-size: 1.24cqw; letter-spacing: .12em; color: #a5babd }
+    .panel-label { top: 17%; gap: .68cqw; font-size: 1.3cqw; font-weight: 600 }
+    .panel-label span { border: 1px solid currentColor; border-radius: 2px; padding: .12cqw .46cqw; color: #b5cdcf; font: 1cqw ui-monospace, monospace }
+    .panel-label.right span { color: #ffc890 }
+    .left { left: 4% }
+    .right { left: 51% }
+    .panel-outline { position: absolute; top: 23%; width: 45%; height: 65%; border: 1px solid #92b6bf45; pointer-events: none }
+    footer { left: 4%; right: 4%; top: 91%; justify-content: space-between; min-height: 5%; font-size: 1.05cqw; color: #a5babd }
+    #controls { display: flex; align-items: center; gap: .6cqw }
+    #controls[hidden] { display: none }
+    #seek { width: 12cqw; accent-color: #ffc890 }
+    button { padding: .3cqw .65cqw; background: #172a31; border: 1px solid #60757d; border-radius: 3px; color: #e8e6df; font: inherit; cursor: pointer }
+    output { min-width: 6ch; font: 1cqw ui-monospace, monospace }
+  </style>
+  <script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+</head>
+<body>
+  <main id="stage">
+    <header><h1>雨落成纹</h1><p>北冥引擎 · WebGL 渲染对照</p></header>
+    <div class="panel-label left"><span>A</span>北冥基础渲染</div>
+    <div class="panel-label right"><span>B</span>北冥水面 + use-shader-fx</div>
+    <div class="panel-outline left"></div><div class="panel-outline right"></div>
+    <footer>
+      <span>同一水面、同一雨滴 · 右侧叠加波纹着色器</span>
+      <div id="controls" hidden>
+        <button id="play" type="button">暂停</button>
+        <input id="seek" type="range" min="0" value="0" aria-label="预览帧">
+        <output id="counter" for="seek">0</output>
+      </div>
+      <span id="spec">24 fps · 5 秒</span>
+    </footer>
+  </main>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

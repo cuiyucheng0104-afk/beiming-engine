@@ -49,7 +49,7 @@ function miniRepo() {
   // 取真实长路径：Windows runner 的临时目录是 8.3 短名（带 ~，例如 RUNNER~1），而机器档案的 root 不许出现 ~
   const base = fs.mkdtempSync(path.join(fs.realpathSync.native(os.tmpdir()), 'beiming-remote-test-'));
   const repo = path.join(base, 'repo');
-  for (const rel of ['tools/remote/cli.mjs', 'tools/remote/agent.mjs', 'tools/remote/lib/profiles.mjs', 'tools/remote/lib/shell.mjs', 'tools/remote/lib/transport.mjs', 'tools/env/lib/cli.mjs']) {
+  for (const rel of ['tools/remote/cli.mjs', 'tools/remote/agent.mjs', 'tools/remote/lib/compare.mjs', 'tools/remote/lib/profiles.mjs', 'tools/remote/lib/shell.mjs', 'tools/remote/lib/transport.mjs', 'tools/env/lib/cli.mjs']) {
     fs.mkdirSync(path.dirname(path.join(repo, rel)), { recursive: true });
     fs.copyFileSync(path.join(ROOT, rel), path.join(repo, rel));
   }

@@ -1,4 +1,4 @@
-// 北冥引擎 · 离屏出片 · GPU 分段计时：three 每次 render() 结束都会立刻提交命令，在两次提交之间插一个只写时间戳的空计算通道，
+// 北冥引擎 · 离屏出片 · GPU 分段计时：three 每次 render() 结束都会立刻提交命令，在两次提交之间插一个带时间戳的计算通道，
 // 就能按队列顺序把一帧的 GPU 时间切成若干段，不碰 three 的内部。只用 WebGPU 标准 API，浏览器与 Node + Dawn 同源（不 import node:*）。
 //   createGpuTimer(device, { capacity = 128 }) → timer；设备没有 timestamp-query 时返回 null
 //     timer.mark(label)    从这里开始算 label 这一段，直到下一个 mark 或 end
@@ -8,6 +8,7 @@
 //   markGpu(renderer, label)   look.js、ink.js、film.mjs 在各遍之前调用；渲染器没挂计时器时什么也不做（不改画面，只多一次 WeakMap 查找）
 // 段的读数是 GPU 时间线上相邻两个标记之差：GPU 在等 CPU 提交的空闲也算在前一段里；部分实现会量化时间戳（防计时侧信道），很短的段读数不准。
 const timers = new WeakMap();
+const timestampPipelines = new WeakMap();
 
 export const attachGpuTimer = (renderer, timer) => { timers.set(renderer, timer); };
 export const detachGpuTimer = renderer => { timers.delete(renderer); };
@@ -32,6 +33,13 @@ export function spansFrom(labels, ticks) {
 
 export function createGpuTimer(device, { capacity = 128 } = {}) {
   if (!device?.features?.has('timestamp-query')) return null;
+  let pipeline = timestampPipelines.get(device);
+  if (!pipeline) {
+    // Metal 可以省略空通道，留下一组未写入的时间戳。
+    const module = device.createShaderModule({ code: '@compute @workgroup_size(1) fn main() {}' });
+    pipeline = device.createComputePipeline({ layout: 'auto', compute: { module, entryPoint: 'main' } });
+    timestampPipelines.set(device, pipeline);
+  }
   const querySet = device.createQuerySet({ type: 'timestamp', count: capacity });
   const resolveBuf = device.createBuffer({ size: capacity * 8, usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC });
   const readBuf = device.createBuffer({ size: capacity * 8, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
@@ -39,7 +47,10 @@ export function createGpuTimer(device, { capacity = 128 } = {}) {
   const write = label => {
     if (labels.length >= capacity) throw new RangeError(`一帧最多 ${capacity} 个标记`);
     const enc = device.createCommandEncoder();
-    enc.beginComputePass({ timestampWrites: { querySet, beginningOfPassWriteIndex: labels.length } }).end();
+    const pass = enc.beginComputePass({ timestampWrites: { querySet, beginningOfPassWriteIndex: labels.length } });
+    pass.setPipeline(pipeline);
+    pass.dispatchWorkgroups(1);
+    pass.end();
     device.queue.submit([enc.finish()]);
     labels.push(label);
   };
