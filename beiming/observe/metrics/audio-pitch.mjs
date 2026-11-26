@@ -5,8 +5,7 @@ function estimateWindow(pcm, start, size, minLag, maxLag) {
   for (let i = start; i < start + size; i++) energy += pcm[i] ** 2;
   if (energy <= 100 * size) return null;
 
-  let bestLag = null;
-  let bestScore = 0.85;
+  const scores = new Float64Array(maxLag - minLag + 1);
   for (let lag = minLag; lag <= maxLag; lag++) {
     let product = 0;
     let shiftedEnergy = 0;
@@ -15,10 +14,26 @@ function estimateWindow(pcm, start, size, minLag, maxLag) {
       product += pcm[i] * shifted;
       shiftedEnergy += shifted * shifted;
     }
-    const score = product / Math.sqrt(energy * shiftedEnergy + 1e-9);
-    if (score > bestScore) {
-      bestScore = score;
-      bestLag = lag;
+    scores[lag - minLag] = product / Math.sqrt(energy * shiftedEnergy + 1e-9);
+  }
+
+  let bestLag = null;
+  let bestScore = 0;
+  for (let i = 0; i < scores.length; i++) {
+    const score = scores[i];
+    const left = scores[i - 1];
+    const right = scores[i + 1];
+    if (score <= 0.85 || (i > 0 && score < left) || (i + 1 < scores.length && score < right)) continue;
+
+    // Compare peak heights between samples, keeping the original integer lag for reporting.
+    // Near-identical peaks at multiples of a period resolve to the shortest period.
+    let peak = score;
+    if (i > 0 && i + 1 < scores.length && left + right < 2 * score) {
+      peak += (left - right) ** 2 / (8 * (2 * score - left - right));
+    }
+    if (peak > bestScore + 0.0001) {
+      bestScore = peak;
+      bestLag = minLag + i;
     }
   }
   return bestLag;
