@@ -82,7 +82,7 @@ export function createStore(dataDir) {
       }
       if (!lut) throw new ApiError('env.lock-required', '签锁缺少 agx-mhc 查找表，请安装 Blender 后重试');
       let lock;
-      try { lock = generateLock(film, lockContext({ rev, library, lut, assets })); }
+      try { lock = generateLock(film, lockContext({ rev, library, lut, assets, film, filmDir: root })); }
       catch (e) { throw new ApiError('env.lock-required', `正式锁生成失败：${e.message.split('\n')[0]}`); }
       // 冻结锁以资产摘要锚定题目原文（包含全部必验断言），同修订快照保存对应字节。
       if (film.exam && existsSync(join(root, 'exam.json'))) {

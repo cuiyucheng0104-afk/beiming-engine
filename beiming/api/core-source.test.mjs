@@ -3,9 +3,11 @@
 // 核心作业的准入（预算缺了、采样超档位上限或超声明、场景包三角形数超声明，都在入队之前拒）。准入用一个假的渲染程序
 // （按场景包目录里的 fake.json 答 pack-info），不要显卡；拿真程序的 pack-info 对一遍的那条，有编好的程序才跑。
 // 作业的墙钟预算用完时看门狗杀 core-render 的进程树（假程序与真程序各一条），同一块卡上排队的、并发的作业照常完成。
+// 服务端签的锁（store.commit 照 lockContext）带核心帧源：版本、宿主、每个核心镜头的场景包哈希；经服务端提交的作业读的就是这份锁。
 // 要渲染程序与显卡的两条：设了 BEIMING_CHASSIS_E2E=1、又有编好的程序（sources/core/source.mjs 的 findRenderer）才跑，否则跳过；不现编。
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -13,10 +15,12 @@ import { performance } from 'node:perf_hooks';
 import process from 'node:process';
 import { test } from 'node:test';
 import { loadQueue, openWorkspace, processIsAlive, Scheduler } from '../jobs/index.mjs';
-import { PRESETS } from '../sources/core/chassis/build.mjs';
+import { caps as coreCaps } from '../sources/core/caps.mjs';
+import { PRESETS, sourceKey } from '../sources/core/chassis/build.mjs';
 import { platesPack, writePack } from '../sources/core/chassis/scenepack.mjs';
 import { ADMIT_MS, WALL_MAX, findRenderer, startSource } from '../sources/core/source.mjs';
-import { renderPlan, sourcePool } from './pipeline.mjs';
+import { readIndex, renderPlan, sourcePool } from './pipeline.mjs';
+import { ensureLut, loadCardLibrary } from './runtime.mjs';
 import { createStore } from './store.mjs';
 import { createWork } from './work.mjs';
 
@@ -156,36 +160,73 @@ test('没有编好的渲染程序：出片链起核心帧源报 env.missing-tool
   await pool.stop();
 });
 
-/** 服务端的数据目录里放一部片子：film.json 与场景包，提交成修订 0。不给 lock 时不签锁：作业在执行器里因为没有 film.lock 失败，够看它走哪一道；
- *  给了就照写成 film.lock 一起提交（服务端签锁的 lockContext 里还没有 core 帧源，签不出带核心镜头的锁，这里手写执行器认的那几项） */
-function served(t, { lock, fake } = {}) {
+/** 服务端的数据目录里放一部片子：film.json 与场景包，提交成修订 0。不给 sign 时不签锁：作业在执行器里因为没有 film.lock 失败，够看它走哪一道；
+ *  给了就走服务端建片、改片的那条路（store.commit 带服务端的卡库：照 lockContext 签正式锁，和片子一起提交成修订），锁里有核心帧源与场景包的哈希。
+ *  签锁时没有 Blender 也行：查找表用解析式的兜底表，不去烘焙（这部片子是显示参考，用不上正式表） */
+async function served(t, { sign, fake } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-core-api-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const store = createStore(dir), id = 'f_001';
   const ws = store.workspace(id);
   writePack(ws.resolve('shots/pack'), platesPack());
-  fs.writeFileSync(ws.resolve('film.json'), JSON.stringify({
+  const film = {
     format: 'film/3.0', id, output: { size: SIZE, fps: '24/1', frames: 2 },
     shots: [
       { id: 's01', in: 0, out: 1, source: 'core', host: 'offscreen', mode: 'build-script', entry: 'shots/pack', colorRef: 'display' },
       { id: 's02', in: 1, out: 2, source: 'three', host: 'page', mode: 'cards-data', colorRef: 'display' },
     ],
-  }));
+    // 签锁要的三个全片键
+    style: { view: { scene: 'agx-mhc', display: 'srgb' } }, predicates: { base: ['floor@1'] }, delivery: { master: 'h264-crf14-bt709' },
+  };
   // 执行器读的是修订快照：假渲染程序的 fake.json 要在提交之前写进场景包
   if (fake) fs.writeFileSync(ws.resolve('shots/pack/fake.json'), JSON.stringify(fake));
-  if (lock) {
-    fs.writeFileSync(ws.resolve('film.lock'), JSON.stringify(lock));
+  if (sign) {
+    const prev = process.env.BEIMING_BLENDER;
+    process.env.BEIMING_BLENDER = path.join(os.tmpdir(), 'no-such-blender');
+    t.after(() => { if (prev === undefined) delete process.env.BEIMING_BLENDER; else process.env.BEIMING_BLENDER = prev; });
     store.writeMeta(id, { id });
+    await store.commit(id, film, 0, { library: loadCardLibrary(), lut: await ensureLut(dir) });
+  } else {
+    fs.writeFileSync(ws.resolve('film.json'), JSON.stringify(film));
+    ws.commitRevision(0);
   }
-  ws.commitRevision(0);
-  return { store, id, work: createWork({ store, library: {}, reviewer: null, scheduler: new Scheduler() }) };
+  return { store, id, ws, work: createWork({ store, library: {}, reviewer: null, scheduler: new Scheduler() }) };
 }
+
+/** 场景包契约 5.7 的包哈希，测试里照条文另算一遍：每个文件 sha256、两个空格、路径、换行，按路径字节序排，再对整段算 sha256 */
+function packHash(dir) {
+  const walk = (d, pre = '') => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk(path.join(d, e.name), `${pre}${e.name}/`) : [`${pre}${e.name}`]);
+  const sha = (b) => createHash('sha256').update(b).digest('hex');
+  const lines = walk(dir).sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b))).map((f) => `${sha(fs.readFileSync(path.join(dir, f)))}  ${f}\n`);
+  return `sha256:${sha(lines.join(''))}`;
+}
+
+test('经服务端签的锁带核心镜头：sources.core 的版本是内核源码摘要、宿主 offscreen，scenePacks 是场景包的包哈希；改了场景包重签，哈希跟着变', { timeout: 30_000 }, async (t) => {
+  const { store, id, ws } = await served(t, { sign: true });
+  const lock = JSON.parse(fs.readFileSync(ws.resolve('film.lock'), 'utf8'));
+  assert.equal(lock.issuer, 'server');
+  assert.deepEqual(Object.keys(lock.sources).sort(), ['core', 'three']);
+  const core = lock.sources.core;
+  assert.equal(core.version, sourceKey());
+  assert.equal(core.version, coreCaps(sourceKey()).version, '锁里的版本和核心帧源能力声明的 version 是同一个');
+  assert.equal(core.host, 'offscreen');
+  assert.match(core.image, /^sha256:[0-9a-f]{64}$/);
+  assert.deepEqual(Object.keys(core.scenePacks), ['s01'], '只记核心镜头');
+  assert.equal(core.scenePacks.s01, packHash(ws.resolve('shots/pack')));
+  // 场景包里改一个文件、重签：包哈希变了，版本与 image 不变
+  fs.appendFileSync(ws.resolve('shots/pack/pack.json'), '\n');
+  await store.commit(id, store.readFilm(id), 1, { library: loadCardLibrary(), lut: await ensureLut(store.dataDir) });
+  const again = JSON.parse(fs.readFileSync(ws.resolve('film.lock'), 'utf8')).sources.core;
+  assert.notEqual(again.scenePacks.s01, core.scenePacks.s01);
+  assert.equal(again.scenePacks.s01, packHash(ws.resolve('shots/pack')));
+  assert.equal(again.image, core.image);
+});
 
 const BUDGET = { maxTriangles: 100, spp: 24, maxWallMs: 60_000 };
 
 test('草稿档里有核心镜头的渲染作业走 core 道，没有的走 draft 道；片子里有核心镜头的核验作业走 core 道', { timeout: 30_000 }, async (t) => {
   useRenderer(t, fakeRenderer(t));
-  const { store, id, work } = served(t);
+  const { store, id, work } = await served(t);
   const kindOf = async (plan) => {
     const job = work.submit(id, 'render', { tier: 'draft', rev: 0, plan, budget: BUDGET });
     await work.wait(id, job, 10);
@@ -203,7 +244,7 @@ test('草稿档里有核心镜头的渲染作业走 core 道，没有的走 draf
 
 test('核心作业的准入：预算缺了、采样超档位上限或超声明、三角形数超声明都在入队之前拒，报登记过的码本身', { timeout: 30_000 }, async (t) => {
   useRenderer(t, fakeRenderer(t));
-  const { store, id, work } = served(t);
+  const { store, id, work } = await served(t);
   const plan = [{ shot: 's01', frames: [0] }];
   const reject = (budget) => {
     try { work.submit(id, 'render', { tier: 'draft', rev: 0, plan, ...(budget === undefined ? {} : { budget }) }); } catch (e) {
@@ -236,7 +277,7 @@ test('核心作业的准入：预算缺了、采样超档位上限或超声明�
 
 test('准入的 pack-info 挂住时，一次提交最多把服务端挡住 ADMIT_MS：到点拒、不进队列', { timeout: 30_000 }, async (t) => {
   useRenderer(t, fakeRenderer(t));
-  const { store, id, work } = served(t, { fake: { infoHang: true } });
+  const { store, id, work } = await served(t, { fake: { infoHang: true } });
   const t0 = performance.now();
   const e = (() => { try { work.submit(id, 'render', { tier: 'draft', rev: 0, plan: [{ shot: 's01', frames: [0] }], budget: BUDGET }); } catch (x) { return x; } return null; })();
   const took = performance.now() - t0;
@@ -252,7 +293,7 @@ test('准入拿真渲染程序的 pack-info 数三角形：两块板各两个三
   let bin;
   try { bin = findRenderer(); } catch (e) { t.skip(e.message); return; }
   useRenderer(t, bin);
-  const { id, work } = served(t);
+  const { id, work } = await served(t);
   const submit = (maxTriangles) => work.submit(id, 'render', { tier: 'draft', rev: 0, plan: [{ shot: 's01', frames: [0] }], budget: { ...BUDGET, maxTriangles } });
   assert.throws(() => submit(3), /画出来 4 个三角形，超过声明的 3/);
   await work.wait(id, submit(4), 10);
@@ -315,12 +356,9 @@ test('核心作业到声明的墙钟预算被杀：先 SIGTERM 再 SIGKILL 整�
 
 test('经服务端提交的核心作业到声明的墙钟预算被杀：作业 failed，结论里是 timeout.budget', { timeout: 60_000 }, async (t) => {
   useRenderer(t, fakeRenderer(t));
-  // 没有 Blender 时执行器用解析式的查找表，不去烘焙；这部片子是显示参考，用不上正式表
-  const prev = process.env.BEIMING_BLENDER;
-  process.env.BEIMING_BLENDER = path.join(os.tmpdir(), 'no-such-blender');
-  t.after(() => { if (prev === undefined) delete process.env.BEIMING_BLENDER; else process.env.BEIMING_BLENDER = prev; });
   const hang = hangDir(t);
-  const { id, work } = served(t, { lock: { format: 'lock/1.0', issuer: 'server', rev: 0, film: 'f_001', seeds: { s01: SEED, s02: SEED }, shots: { s01: { shutterSamples: 1 }, s02: { shutterSamples: 1 } } }, fake: { hang } });
+  // 锁是服务端签的（store.commit 照 lockContext），不是手写的
+  const { id, work } = await served(t, { sign: true, fake: { hang } });
   const WALL = 1000;
   const t0 = performance.now();
   const job = work.submit(id, 'render', { tier: 'draft', rev: 0, plan: [{ shot: 's01', frames: [0] }], budget: { ...BUDGET, maxWallMs: WALL } });
@@ -336,6 +374,23 @@ test('经服务端提交的核心作业到声明的墙钟预算被杀：作业 f
   assert.ok(took >= WALL && took < WALL + 5000, `到预算才杀：用了 ${Math.round(took)} ms`);
   const pids = JSON.parse(fs.readFileSync(path.join(hang, 'pids.json'), 'utf8'));
   assert.deepEqual(pids.map((pid) => processIsAlive(pid)), [false, false], '渲染进程与它的孙进程都不在了');
+});
+
+test('真渲染程序：经服务端签锁的片子，核心镜头的渲染作业照锁里的种子出帧，作业 succeeded', { timeout: 120_000 }, async (t) => {
+  const bin = rendererOrSkip(t);
+  if (!bin) return;
+  useRenderer(t, bin);
+  const { store, id, work } = await served(t, { sign: true });
+  const job = work.submit(id, 'render', { tier: 'draft', rev: 0, plan: [{ shot: 's01', frames: [0] }], budget: BUDGET });
+  await work.wait(id, job, 30);
+  const { base, outcome } = work.view(id, job);
+  assert.equal(base.status, 'succeeded', JSON.stringify(outcome));
+  assert.equal(outcome.data.actualCount, 1);
+  const lock = JSON.parse(fs.readFileSync(store.workspace(id).resolve('film.lock'), 'utf8'));
+  const [rec] = readIndex(path.join(store.filmDir(id), 'deliver', 'frames-draft.json'), store.filmDir(id)).records;
+  t.diagnostic(`锁里 s01 的种子 ${lock.seeds.s01}，帧的元数据：种子 ${rec.meta.seed}、帧源 ${rec.meta.source.renderer} ${rec.meta.source.version}`);
+  assert.equal(rec.meta.seed, lock.seeds.s01, '出帧用的是服务端签的锁里的种子');
+  assert.equal(rec.meta.source.version, lock.sources.core.version, '元数据里帧源的版本和锁里记的是同一个');
 });
 
 test('帧源 stop 收掉还在跑的 core-render 进程树：作业取消、测试收尾时不留孤儿进程', { timeout: 30_000 }, async (t) => {

@@ -103,7 +103,7 @@ function meshPositions(file) {
 }
 
 /** 场景包目录：entry 是目录，或者目录里的 pack.json */
-const packDir = (filmDir, entry) => {
+export const packDir = (filmDir, entry) => {
   const p = resolve(filmDir, entry);
   return basename(p) === 'pack.json' ? dirname(p) : p;
 };
