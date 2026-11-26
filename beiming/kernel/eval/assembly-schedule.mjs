@@ -20,9 +20,41 @@ function unit(row) {
   return length ? row.map(x => x / length) : [0, 1, 0];
 }
 
-function sortDistance(position) {
-  // A permuted or signed copy of the same vector must tie on distance.
-  return Math.hypot(...position.map(Math.abs).sort((a, b) => a - b));
+const float = new DataView(new ArrayBuffer(8));
+const significand = 1n << 52n;
+const infinity = 0x7ffn << 52n;
+
+function floatBits(value) {
+  float.setFloat64(0, value);
+  return float.getBigUint64(0);
+}
+
+// Represent a nonnegative float exactly as an integer multiple of 2^-1074.
+// The encoding for infinity represents the virtual successor 2^1024 here.
+function floatUnits(bits) {
+  const exponent = bits >> 52n;
+  const fraction = bits & (significand - 1n);
+  return exponent === 0n ? fraction : (significand | fraction) << (exponent - 1n);
+}
+
+function roundsAtLeast(squareTimesFour, upper) {
+  const doubledMidpoint = floatUnits(upper - 1n) + floatUnits(upper);
+  const boundary = doubledMidpoint * doubledMidpoint;
+  return squareTimesFour > boundary || (squareTimesFour === boundary && (upper & 1n) === 0n);
+}
+
+function roundedRadiusBits(position) {
+  const square = position.reduce((sum, coordinate) => {
+    const units = floatUnits(floatBits(Math.abs(coordinate)));
+    return sum + units * units;
+  }, 0n);
+  const squareTimesFour = 4n * square;
+  // Use hypot as an initial estimate, then compare the exact square against
+  // the adjacent rounding boundaries. Positive float bits sort numerically.
+  let bits = floatBits(Math.hypot(...position));
+  while (bits > 0n && !roundsAtLeast(squareTimesFour, bits)) bits--;
+  while (bits < infinity && roundsAtLeast(squareTimesFour, bits + 1n)) bits++;
+  return bits;
 }
 
 function frame(value, min) {
@@ -69,10 +101,17 @@ function replayDraws(samples, id) {
   return values;
 }
 
+function replayRadius(radii, id) {
+  const value = Object.hasOwn(radii, id) ? radii[id] : undefined;
+  if (value === 'Infinity') return infinity;
+  if (!Number.isFinite(value) || value < 0) throw new TypeError(`expected a nonnegative replay radius for ${id}`);
+  return floatBits(Math.abs(value));
+}
+
 /** Build E5-compatible snap descriptors and a shot-local arrival event table. */
 export function scheduleAssembly(parts, {
   groups = [], fps = 30, seed = 42, start_frame = 0, gap_frames = 3, fly_frames = 18,
-  offset_m = 1, spin_deg = 30, film = 'assembly', shot = null, startSamples,
+  offset_m = 1, spin_deg = 30, film = 'assembly', shot = null, startSamples, sortRadii,
 } = {}) {
   if (typeof film !== 'string' || !filmId.test(film) || (shot !== null && (typeof shot !== 'string' || !shotId.test(shot)))) {
     throw new TypeError('invalid film or shot id');
@@ -84,6 +123,9 @@ export function scheduleAssembly(parts, {
   }
   if (startSamples !== undefined && (startSamples === null || typeof startSamples !== 'object' || Array.isArray(startSamples))) {
     throw new TypeError('expected a record of replay draws by part id');
+  }
+  if (sortRadii !== undefined && (sortRadii === null || typeof sortRadii !== 'object' || Array.isArray(sortRadii))) {
+    throw new TypeError('expected a record of replay radii by part id');
   }
   const rate = frameRate(fps);
   frame(start_frame, 0); frame(gap_frames, 0); frame(fly_frames, 1);
@@ -98,11 +140,13 @@ export function scheduleAssembly(parts, {
     if (typeof group !== 'string') throw new TypeError('expected a string group name');
     seen.add(id);
     const position = vector(rest_pos);
+    const radiusBits = sortRadii === undefined ? roundedRadiusBits(position) : replayRadius(sortRadii, id);
     return { id, group, priority: priorities.get(group) ?? groups.length, order: finite(order),
-      distance: sortDistance(position), rest_pos: position, rest_rot_deg: vector(rest_rot_deg) };
+      radiusBits, rest_pos: position, rest_rot_deg: vector(rest_rot_deg) };
   });
+  const compare = (a, b) => a < b ? -1 : a > b ? 1 : 0;
   ordered.sort((a, b) => a.priority - b.priority || compareGroups(a.group, b.group) || a.order - b.order ||
-    a.distance - b.distance || (a.id < b.id ? -1 : 1));
+    compare(a.radiusBits, b.radiusBits) || compare(a.id, b.id));
 
   const rows = ordered.map(({ id, rest_pos, rest_rot_deg }, i) => {
     const t0 = start_frame + i * gap_frames;
@@ -117,6 +161,6 @@ export function scheduleAssembly(parts, {
   });
   const events = rows.map(({ id, arrive }) => ({ id: `arrive.${id}`, frame: arrive, sub: 0, kind: 'arrive',
     from: 'tracks', entity: id, ...(shot === null ? {} : { shot }) }));
-  events.sort((a, b) => a.frame - b.frame || (a.id < b.id ? -1 : 1));
+  events.sort((a, b) => a.frame - b.frame || compare(a.id, b.id));
   return { parts: rows, events: { format: 'events/0.1', film, fps: rate, frames, events } };
 }
