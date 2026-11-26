@@ -78,7 +78,7 @@ test('near the first candidate lag, equal periodic peaks keep their fundamental'
 });
 
 test('harmonic mixtures retain both a high fundamental and a weak lower fundamental', () => {
-  for (const [hz, amplitude, note] of [[440, 0.18, 'A4'], [220, 0.01, 'A3']]) {
+  for (const [hz, amplitude, note] of [[440, 0.18, 'A4'], [438.6, 0.18, 'A4'], [394.2, 0.18, 'G4'], [220, 0.01, 'A3']]) {
     const { value, details } = measureShortTone(16000,
       t => amplitude * Math.sin(hz * t + 0.22) + 0.8 * Math.sin(2 * hz * t + 0.61));
     assert.deepEqual(value.noteCounts, { [note]: details.analyzedFrames });
@@ -89,4 +89,13 @@ test('a 150 Hz period rounded outside the last integer lag retains its in-band e
   const { value, details } = measureShortTone(16000, t => Math.sin(150 * t));
   assert.deepEqual(value.noteCounts, { D3: details.analyzedFrames });
   assert.deepEqual(value.frequencyRangeHz, [16000 / 106, 16000 / 106]);
+});
+
+test('off-grid periods keep their pitch when a second harmonic is twice as strong', () => {
+  const audio = Int16Array.from({ length: 1600 }, (_, i) => {
+    const phase = 2 * Math.PI * 304.2 * i / 16000;
+    return Math.round(4000 * (Math.sin(phase) + 2 * Math.sin(2 * phase + 0.61)));
+  });
+  const { value, details } = pitchF0(audio, { sampleRate: 16000, startSec: 0, endSec: 0.07 });
+  assert.deepEqual(value.noteCounts, { D4: details.analyzedFrames });
 });

@@ -34,17 +34,28 @@ function estimateWindow(pcm, start, size, minLag, maxLag) {
       const delta = (right - left) / (2 * (2 * score - left - right));
       const neighbor = Math.sign(delta);
       const fraction = Math.abs(delta);
+      const cubic = start + lag >= 2 && start + size + lag + 2 <= pcm.length;
+      // Four-point cubic interpolation preserves relative harmonic amplitudes between samples.
+      const outerLeft = -0.5 * fraction * (1 - fraction) ** 2;
+      const outerRight = -0.5 * fraction ** 2 * (1 - fraction);
+      const innerLeft = 1 - fraction - 2 * outerLeft + outerRight;
+      const innerRight = fraction + outerLeft - 2 * outerRight;
       let product = 0;
       let shiftedEnergy = 0;
       for (let k = start; k < start + size; k++) {
         const sample = pcm[k + lag];
-        const shifted = sample + fraction * (pcm[k + lag + neighbor] - sample);
+        const next = pcm[k + lag + neighbor];
+        const shifted = cubic
+          ? outerLeft * pcm[k + lag - neighbor] + innerLeft * sample +
+            innerRight * next + outerRight * pcm[k + lag + 2 * neighbor]
+          : sample + fraction * (next - sample);
         product += pcm[k] * shifted;
         shiftedEnergy += shifted * shifted;
       }
       peak = Math.max(score, product / Math.sqrt(energy * shiftedEnergy + 1e-9));
     }
-    if (peak > bestScore + 1e-6) {
+    // Quantization and finite sampling leave near-equal peaks on harmonic mixtures.
+    if (peak > bestScore + 1e-5) {
       bestScore = peak;
       bestLag = lag;
     }
