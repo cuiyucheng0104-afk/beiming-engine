@@ -78,6 +78,14 @@ test('分段平均偏差：末位按标准处的 float32 间距算；一段里�
   const segments = [{ lo: 1e-3, hi: 1, bins: 4, max: 0.05 }];
   const a = ulpBias({ input, ref, test: up, segments });
   assert.equal(a.fails, 1);
+  assert.equal(ulpBias({ input, ref, test: alt, segments }).fails, 0);
+  // 多输入、多输出：of 取第二个输入分段、第二个输出折算；差不是有限数的组不算
+  const two = new Float32Array(2 * n), ref2 = new Float32Array(2 * n), up2 = new Float32Array(2 * n);
+  for (let g = 0; g < n; g++) { two[2 * g + 1] = input[g]; ref2[2 * g + 1] = ref[g]; up2[2 * g + 1] = up[g]; up2[2 * g] = g ? 0 : NaN; }
+  const of = (r, t, i) => [i[1], Number.isNaN(t[0]) ? NaN : (t[1] - r[1]) / ulpOf(r[1])];
+  const b = ulpBias({ input: two, ref: ref2, test: up2, segments, nIn: 2, nOut: 2, of });
+  assert.equal(b.fails, 1);
+  assert.equal(b.segments[0].n, n - 1);
   assert.ok(Math.abs(a.segments[0].worst - 1) < 1e-9);
   assert.equal(a.segments[0].n, n);
   assert.equal(ulpBias({ input, ref, test: alt, segments }).fails, 0);
@@ -180,6 +188,7 @@ const NEW = [
   'sample_uniform_disk', 'microfacet_ggx_sample_vndf', 'microfacet_fresnel_f82', 'microfacet_ggx_preserve_energy',
   'bsdf_microfacet_setup_fresnel_f82_tint', 'bsdf_microfacet_eval_ggx', 'bsdf_microfacet_ggx_eval',
   'bsdf_microfacet_sample_ggx', 'bsdf_microfacet_ggx_sample',
+  'bsdf_microfacet_eval_ggx_peak_bias', 'bsdf_microfacet_eval_ggx_generalized_schlick_peak_bias',
   'safe_asinf', 'safe_asinf_ulp_bias', 'sincosf', 'sinf_ulp_bias', 'cosf_ulp_bias', 'ray_quad_intersect', 'area_light_rect_sample', 'area_light_rect_sample_solid_angle', 'area_light_rect_sample_tiny', 'area_light_rect_sample_grazing',
   'area_light_rect_sample_far', 'area_light_rect_sample_near',
   'area_light_sample', 'area_light_eval_from_intersection', 'area_light_intersect',
@@ -388,6 +397,32 @@ test('端到端：故意把一个 WGSL 函数改错一项，报出是哪个函�
 });
 
 // names：只跑这几项（不写就是全部）。只给着色器一侧的项时不碰宿主一侧，不编渲染程序
+// GGX 两处求值的 1/|H|（util.wgsl 的 inverse_len，理由见那里），两个负对照，都只看镜面峰平均偏差那两项（它们不逐组比）。
+// 单独一项：上面那一项里别的负对照在某台显卡上先断言失败时，这两个照样跑
+test('端到端：GGX 求值的 1/|H| 改回原式或故意偏半个末位，镜面峰平均偏差判不过', { timeout: 600_000 }, async t => {
+  const file = 'shaders/microfacet.wgsl', util = 'shaders/util.wgsl';
+  const src = await readFile(`${CORE}/${file}`, 'utf8'), usrc = await readFile(`${CORE}/${util}`, 'utf8');
+  // 改回原式 safe_divide(1.0, len_ccl(H))，两台都必须判不过（【实测】英伟达上偏 −0.089 个末位，苹果显卡上 0.05，门槛 0.03）；
+  // 结果故意偏半个末位（再乘 1 + 2⁻²⁴），偏 1.5 个末位，必须判不过
+  const PEAK = ['bsdf_microfacet_eval_ggx_peak_bias', 'bsdf_microfacet_eval_ggx_generalized_schlick_peak_bias'];
+  const site = 'let inv_len_H = inverse_len(H);', last = 'return fma(y * 0.5, fma(-l2 * y, y, 1.0), y);';
+  assert.equal(src.split(site).length, 3, 'microfacet.wgsl 的两处求值应各调一次 inverse_len');
+  assert.ok(usrc.includes(last), `util.wgsl 里找不到：${last}`);
+  for (const [what, wgsl] of [
+    ['改回原式', { [file]: src.replaceAll(site, 'let inv_len_H = safe_divide(1.0, len_ccl(H));') }],
+    ['偏半个末位', { [util]: usrc.replace(last, 'let z = fma(y * 0.5, fma(-l2 * y, y, 1.0), y);\n  return fma(z, 5.9604645e-8, z);') }],
+  ]) {
+    const r = await e2e(t, { n: 1_000_000, seed: 1, wgsl, names: PEAK });
+    if (!r) break;
+    assert.equal(r.ok, false, what);
+    for (const x of r.results) {
+      t.diagnostic(`${what} ${x.name} 的平均偏差（末位）：${x.bias.segments.map(g => g.worst.toFixed(3)).join('，')}（${r.adapter?.vendor}）`);
+      assert.equal(x.fails, 0);
+      assert.ok(x.bias.fails > 0, `${what} ${x.name}`);
+    }
+  }
+});
+
 async function breakOne(t, file, src, from, to, expect, nIn, nOut, names) {
   {
     const broken = src.replace(from, to);

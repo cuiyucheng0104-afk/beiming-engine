@@ -107,7 +107,7 @@ export async function check({ names = FUNCTIONS.map(f => f.name), n = 1_000_000,
       ...(j.f.host && { tested: 'host' }),
       ...(j.f.branch && { branches: branchCounts(j.f, j.input, j.n) }),
       ...compare({ input: j.input, nIn: width(j.f), ref, test, nOut: outWidth(j.f), rel: j.f.rel, abs: j.f.abs, skip: j.f.skip }),
-      ...(j.f.ulpBias && { bias: ulpBias({ input: j.input, ref, test, segments: j.f.ulpBias }) }),
+      ...(j.f.ulpBias && { bias: ulpBias({ input: j.input, ref, test, segments: j.f.ulpBias, nIn: width(j.f), nOut: outWidth(j.f), of: j.f.biasOf }) }),
     };
   });
   return { ok: results.every(r => r.fails === 0 && !r.bias?.fails), n, seed, cycles: { tag: TAG, commit: COMMIT }, platform: `${process.platform}-${process.arch}`, adapter: gpu.adapter, results };

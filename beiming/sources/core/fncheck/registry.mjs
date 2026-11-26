@@ -107,10 +107,12 @@ FUNCTIONS.push(
   // 取到 [0, 1] 外面一点，覆盖 saturate 与端点处 t == 0 的那一支
   entry('lookup_table_read_ggx_Eavg', [['x', 'f32', [-0.1, 1.1]]], 1, 0, { file: APACHE, wgsl: 'lookup_table_read', call: ([x]) => `lookup_table_read(${x}, TABLE_GGX_EAVG, 32)` }),
   entry('lookup_table_read_2D_ggx_E', [['x', 'f32', [-0.1, 1.1]], ['y', 'f32', [-0.1, 1.1]]], 1, 0, { file: APACHE, wgsl: 'lookup_table_read_2D', call: ([x, y]) => `lookup_table_read_2D(${x}, ${y}, TABLE_GGX_E, 32, 32)` }),
-  // r·cos(phi)、r·sin(phi) 在 phi 接近 ±π/2 时 cos 接近 0；显卡上 cos 的误差是绝对误差，量级 1
+  // r·cos(phi)、r·sin(phi) 在 phi 接近 ±π/2 时 cos 接近 0；内建 cos 的误差是绝对误差，量级 1。polar_to_cartesian 改调 sincosf 之后
+  // 【实测】两台显卡所需 abs 都是 0，abs 照旧留着
   entry('sample_uniform_disk', [['rand', 'vec2f', UNIT]], 2, 4 * ULP1),
   // 半向量分量是量级 1 的数经 to_global 相加，贴近 0 时靠 abs；中间经过两次归一化、一次 to_global 和显卡的 cos、sin，
-  // 每步都带几个 ULP。【实测】所需 abs：Apple 显卡 4.6e-7，NVIDIA 1.3e-6（它的 cos、sin 误差更大），取 32 个 ULP。
+  // 每步都带几个 ULP。【实测】所需 abs：内建 cos、sin 时 Apple 显卡 4.6e-7，NVIDIA 1.3e-6（它的 cos、sin 误差更大），改调 sincosf 之后
+  // 4.1e-7 与 3.2e-7；取 32 个 ULP。
   // alpha 取整个范围，随机数离开圆盘边缘（理由同上）
   entry('microfacet_ggx_sample_vndf', [['wi', 'dir', [1e-3, 1]], ['alpha_x', 'f32', ALPHA], ['alpha_y', 'f32', ALPHA], ['rand', 'vec2f', RAND]], 3, 32 * ULP1),
   // 同 fresnel_f82：F_schlick 减去 B 项
@@ -394,6 +396,49 @@ FUNCTIONS.push(
     branch: i => (Number.isFinite(i[0]) && Number.isFinite(i[1]) && Number.isFinite(i[2]) ? (i[3] > 0 ? '间接' : '直接') : '有非有限分量'),
   }),
 );
+// 镜面峰上的平均偏差：抛光金属（alpha 0.005 到 0.1）、出射方向贴着镜面峰（半向量与法线的夹角在 0 到 2·alpha，在那一圈球冠上按面积
+// 均匀取）。逐组比不了：bsdf_D_ggx 的 1 − cos_NH² 在这里相消，cos_NH 差一个末位，D 就差 4·δcos/alpha²（alpha = 0.005 时 1e-2）。
+// 但这种逐组的差在相邻的输入之间像随机数，平均掉了就不影响画面；要查的是整片同号的偏差（半向量的 1/|H| 偏向一边，见 util.wgsl 的
+// inverse_len）。量取 cos_NH 的末位：根源在它，它的偏差经 D 放大的倍数随 alpha 变，D 自己的末位做不了一个统一的门槛；1/|H| 单看又
+// 漏掉 H = wi + wo 与 dot(N, H) 两步。cos_NH 不是求值的输出，所以从概率密度折回来：pdf = D/(4·cos_NI·(1 + λI)) 里只有 D 随 cos_NH 变，
+// 两边 pdf 的相对差除以 d ln D/dcos = 4(1 − α²)c/(1 − (1 − α²)c²)（c 是双精度算的 cos_NH），再除以 1 以下的末位 2⁻²⁴。概率密度的
+// 别的舍入经这一步缩小 (α² + θ²)/4 倍（【推断】按 pdf 几个末位的舍入算，到 alpha = 0.1 也不到 0.03 个末位）。比的是求值函数本身，
+// 两处求值各一项；alpha 按对数等分成 4 小段，100 万组。门槛照实测定（种子 1，小段平均的绝对值最大者，F82 / 广义 Schlick）：
+//   写法                               苹果显卡           英伟达 RTX 5090
+//   平方根倒数加一次牛顿迭代（现用）       −0.001 / 0.005     −0.002 / 0.005
+//   原式 safe_divide(1.0, len_ccl(H))      0.048 / 0.052     −0.089 / −0.089
+//   结果再偏半个末位（乘 1 ± 2⁻²⁴）       ±1.51 / ±1.51      ±1.51 / ±1.51
+// 内建 inverseSqrt 不加迭代、1.0 / sqrt 两种写法两台上的读数都与原式相同到小数第三位。门槛 0.03：现用的写法有 6 倍余量；英伟达上原式偏 −0.089，
+// 正是第 4 级平行光照抛光金属（alpha 约 0.017）判不过的那一份偏暗；苹果显卡上原式偏 0.05，在那一级判不出，这里也拦下（负对照
+// 「改回原式」两台都判得出，fncheck.test.mjs）
+const ULP_BELOW_1 = 2 ** -24;
+const PEAK_ALPHA = [0.005, 0.1];
+function peakGeom(next) {
+  const alpha = logU(next, PEAK_ALPHA), z = 1 - next() * (1 - Math.cos(2 * alpha)), phi = 2 * Math.PI * next(), rho = Math.sqrt(1 - z * z);
+  const H = [rho * Math.cos(phi), rho * Math.sin(phi), z];
+  for (;;) {
+    const zi = linU(next, [0.1, 1]), pi = 2 * Math.PI * next(), ri = Math.sqrt(1 - zi * zi), wi = [ri * Math.cos(pi), ri * Math.sin(pi), zi];
+    const wo = add(mul(H, 2 * dot3(wi, H)), wi, -1);
+    if (wo[2] >= 0.1) return { N: [0, 0, 1], wi, wo, alpha };
+  }
+}
+/** 概率密度在下标 3，alpha 在下标 9；wi、wo 在下标 3、6 */
+function peakBias(r, t, i) {
+  const H = [i[3] + i[6], i[4] + i[7], i[5] + i[8]], c = H[2] / Math.hypot(...H), k = 1 - i[9] * i[9];
+  return [i[9], r[3] === 0 ? NaN : (t[3] - r[3]) / r[3] / (4 * k * c / (1 - k * c * c)) / ULP_BELOW_1];
+}
+const PEAK_BIAS = [{ lo: PEAK_ALPHA[0], hi: PEAK_ALPHA[1], bins: 4, max: 0.03 }];
+const PEAK_IN = [['N', 'vec3f'], ['wi', 'vec3f'], ['wo', 'vec3f'], ['alpha', 'f32']];
+const peak = (name, inputs, gen) => entry(`${name}_peak_bias`, [...PEAK_IN, ...inputs], EVAL_OUT, 0, { wgsl: name, ref: name, gen: next => ({ ...peakGeom(next), ...gen(next) }), skip: () => true, ulpBias: PEAK_BIAS, biasOf: peakBias });
+const v3 = (next, lo, hi) => [0, 1, 2].map(() => linU(next, [lo, hi]));
+FUNCTIONS.push(
+  // 菲涅耳一项不进概率密度，取普通的值（f0、b 同闭包一层的范围；广义 Schlick 取原理化 BSDF 电介质高光那样的参数，反射率不为 0）
+  peak('bsdf_microfacet_eval_ggx', [['f0', 'vec3f'], ['b', 'vec3f']], next => ({ f0: v3(next, 0, 1), b: v3(next, 0, 4) })),
+  peak('bsdf_microfacet_eval_ggx_generalized_schlick', [['ior', 'f32'], ['f0', 'vec3f'], ['f90', 'vec3f'], ['exponent', 'f32'], ['reflection_tint', 'vec3f'], ['transmission_tint', 'vec3f']],
+    next => { const ior = linU(next, [1.1, 2]); return { ior, f0: v3(next, 0.01, 1), f90: [1, 1, 1], exponent: -ior, reflection_tint: v3(next, 0.1, 1), transmission_tint: [0, 0, 0] }; }),
+);
+
+
 // 下面是原理化 BSDF 非金属那一半（电介质高光：GGX 加广义 Schlick，只有反射；漫反射；发光值；滤光泽）与它们用到的
 // 工具函数。闭包一层的输入范围同上面金属的理由：N 固定为 (0, 0, 1)、alpha 取 [0.1, 1]、随机数离开圆盘边缘、贴地出射不比。
 // 原理化 BSDF 给电介质高光的是 f90 = 1、exponent = −eta、reflection_tint = 1、transmission_tint = 0（kernel/svm/closure.h），

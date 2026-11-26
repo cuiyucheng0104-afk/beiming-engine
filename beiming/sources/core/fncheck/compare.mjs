@@ -43,19 +43,22 @@ export function ulpOf(x) {
 }
 
 /**
- * 分段平均偏差（以末位计）：单输入、单输出的函数，被测减标准除以标准处的末位，按输入在每一段里对数等分成 bins 个小段求平均，
+ * 分段平均偏差（以末位计）：默认对单输入、单输出的函数，被测减标准除以标准处的末位，按输入在每一段里对数等分成 bins 个小段求平均，
  * 每段取小段平均的绝对值最大者，超过这一段的 max 记一段不合格。查的是「误差随位置光滑变化、一段里同号」这种逐组比查不出的偏差。
- * segments：[{ lo, hi, bins, max }]，输入落在 [lo, hi) 的组进这一段
+ * segments：[{ lo, hi, bins, max }]，分段的量落在 [lo, hi) 的组进这一段。
+ * of：可选，(标准这一组, 被测这一组, 输入这一组) => [分段的量, 以末位计的差]，给多输入、多输出或要折算的项用；差不是有限数的组不算
  * @returns {{ fails, segments: { lo, hi, max, worst, worstBin: [number, number], n }[] }}
  */
-export function ulpBias({ input, ref, test, segments }) {
+export function ulpBias({ input, ref, test, segments, nIn = 1, nOut = 1, of = (r, t, i) => [i[0], (t[0] - r[0]) / ulpOf(r[0])] }) {
+  const groups = ref.length / nOut, xs = new Float64Array(groups), ds = new Float64Array(groups);
+  for (let g = 0; g < groups; g++) [xs[g], ds[g]] = of(ref.subarray(g * nOut, (g + 1) * nOut), test.subarray(g * nOut, (g + 1) * nOut), input.subarray(g * nIn, (g + 1) * nIn));
   const out = segments.map(({ lo, hi, bins, max }) => {
     const sum = new Float64Array(bins), cnt = new Float64Array(bins), w = Math.log(hi / lo) / bins;
-    for (let g = 0; g < ref.length; g++) {
-      const x = input[g];
-      if (!(x >= lo && x < hi) || !Number.isFinite(ref[g]) || !Number.isFinite(test[g])) continue;
+    for (let g = 0; g < groups; g++) {
+      const x = xs[g];
+      if (!(x >= lo && x < hi) || !Number.isFinite(ds[g])) continue;
       const k = Math.min(bins - 1, Math.floor(Math.log(x / lo) / w));
-      sum[k] += (test[g] - ref[g]) / ulpOf(ref[g]);
+      sum[k] += ds[g];
       cnt[k]++;
     }
     let worst = 0, at = 0;
