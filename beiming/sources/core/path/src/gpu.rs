@@ -2366,6 +2366,15 @@ impl Gpu {
         readback.slice(..).map_async(wgpu::MapMode::Read, |_| {});
         self.device.poll(wgpu::PollType::wait_indefinitely())?;
         let data = readback.slice(..).get_mapped_range()?;
+        // 北冥：调试开关。BEIMING_CORE_FILM_DUMP=<文件> 时把读回的输出缓冲原样写进这个文件（小端 f32，每个像素 film_stride 个
+        // vec4），全局参数原样写进「文件.params」（开头四个 vec4 是相机的位置、前、右、上），给读回一致性的测试拿着色器写下的原值
+        // 去对出层的通道文件
+        if let Some(dump) = std::env::var_os("BEIMING_CORE_FILM_DUMP") {
+            std::fs::write(&dump, &data[..])?;
+            let mut params = dump.clone();
+            params.push(".params");
+            std::fs::write(params, bytemuck::bytes_of(&base))?;
+        }
         // 北冥：每个像素 film_stride 个 vec4，各通道按 FILM_* 的位置取，灯组从 film_lightgroup_first 起。步长与起点
         // 是这次渲染写进全局参数的那两个数，不写死。
         let floats: &[f32] = bytemuck::cast_slice(&data);
