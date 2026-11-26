@@ -7,6 +7,21 @@ const options = { width, height };
 const query = Uint8Array.of(20, 30, 40, 50);
 const flat = (n) => Uint8Array.of(n, n, n, n);
 
+function translated(frame, width, height, dx, dy) {
+  return Uint8Array.from(frame, (_, i) => {
+    const x = i % width - dx, y = Math.floor(i / width) - dy;
+    return x >= 0 && x < width && y >= 0 && y < height ? frame[y * width + x] : 0;
+  });
+}
+
+function texture(width, height) {
+  let state = 6;
+  return Uint8Array.from({ length: width * height }, () => {
+    state = Math.imul(state, 1664525) + 1013904223;
+    return state >>> 24;
+  });
+}
+
 test('still.match reports exact mean absolute error, the earliest tie, and a separated runner-up', () => {
   const frames = Array.from({ length: 24 }, () => flat(100));
   frames[1] = Uint8Array.of(20, 31, 42, 50);
@@ -32,10 +47,7 @@ test('still.match reports exact mean absolute error, the earliest tie, and a sep
 test('still.match estimates integer displacement from the query to the chosen frame when requested', () => {
   const width = 16, height = 12, dx = 2, dy = -1;
   const still = Uint8Array.from({ length: width * height }, (_, i) => (137 * i + 13 * (i % width) ** 2) % 253);
-  const shifted = Uint8Array.from(still, (_, i) => {
-    const x = i % width - dx, y = Math.floor(i / width) - dy;
-    return x >= 0 && x < width && y >= 0 && y < height ? still[y * width + x] : 0;
-  });
+  const shifted = translated(still, width, height, dx, dy);
   const frames = [new Uint8Array(still.length).fill(255), shifted];
   const reading = stillMatch(still, frames, { width, height, maxPan: 3 });
   assert.equal(reading.value, 1);
@@ -43,6 +55,43 @@ test('still.match estimates integer displacement from the query to the chosen fr
   assert.deepEqual(reading.details.offset, { dx, dy, meanAbsError: 0 });
   const identity = stillMatch(still, still, { width, height, maxPan: 0 });
   assert.deepEqual(identity.details.offset, { dx: 0, dy: 0, meanAbsError: 0 });
+});
+
+test('still.match reports no offset when the true translation overlaps less than half the frame', () => {
+  const width = 48, height = 27;
+  const still = texture(width, height);
+  const enough = translated(still, width, height, 12, 4);
+  const tooLittle = translated(still, width, height, 20, 10);
+  const exactlyHalf = translated(still, width, height, 24, 0);
+  const options = { width, height, maxPan: 20 };
+  assert.deepEqual(stillMatch(still, enough, options).details.offset, { dx: 12, dy: 4, meanAbsError: 0 });
+  assert.deepEqual(stillMatch(still, exactlyHalf, { ...options, maxPan: 24 }).details.offset,
+    { dx: 24, dy: 0, meanAbsError: 0 });
+  const reading = stillMatch(still, tooLittle, options);
+  assert.equal(reading.value, 0);
+  assert.ok(reading.details.best.meanAbsError > 0);
+  assert.equal(reading.details.offset, null);
+});
+
+test('still.match verifies all overlapping pixels even when the estimator undersamples', () => {
+  const width = 192, height = 192, dx = 64, dy = -20;
+  const still = texture(width, height);
+  const shifted = translated(still, width, height, dx, dy);
+  const options = { width, height, maxPan: 64 };
+  assert.deepEqual(stillMatch(still, shifted, options).details.offset, { dx, dy, meanAbsError: 0 });
+  shifted[width + dx + 1] ^= 1;
+  assert.equal(stillMatch(still, shifted, options).details.offset, null);
+});
+
+test('still.match reports no offset when periodic texture permits multiple equally good translations', () => {
+  const width = 16, height = 8;
+  const striped = Uint8Array.from({ length: width * height }, (_, i) => i % 2 ? 220 : 20);
+  assert.equal(stillMatch(striped, striped, { width, height, maxPan: 2 }).details.offset, null);
+});
+
+test('still.match reports no offset when the overlap contains only a single gray value', () => {
+  const uniform = flat(12);
+  assert.equal(stillMatch(uniform, uniform, { ...options, maxPan: 0 }).details.offset, null);
 });
 
 test('still.match limits the optional nearby displacement search to 64 pixels', () => {

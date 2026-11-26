@@ -27,6 +27,43 @@ function ranking(frame, errors, area) {
   return frame < 0 ? null : { frame, meanAbsError: errors[frame] / area };
 }
 
+function overlapAgrees(still, pixels, width, height, dx, dy, step, requireVariation = false) {
+  const xStart = Math.max(0, dx), xEnd = Math.min(width, width + dx);
+  const yStart = Math.max(0, dy), yEnd = Math.min(height, height + dy);
+  const first = pixels[yStart * width + xStart];
+  let hasVariation = false;
+  for (let y = yStart; y < yEnd; y += step) {
+    const targetRow = y * width;
+    const sourceRow = (y - dy) * width - dx;
+    for (let x = xStart; x < xEnd; x += step) {
+      const pixel = pixels[targetRow + x];
+      if (pixel !== still[sourceRow + x]) return false;
+      hasVariation ||= pixel !== first;
+    }
+  }
+  return !requireVariation || hasVariation;
+}
+
+function verifiedOffset(still, pixels, width, height, maxPan) {
+  const movement = motionZoomPan(still, pixels, width, height, { scales: [1], maxPan });
+  const { dx, dy } = movement.value;
+  const halfArea = width * height / 2;
+  const overlap = (x, y) => (width - Math.abs(x)) * (height - Math.abs(y));
+  if (movement.details.meanAbsError !== 0 || overlap(dx, dy) < halfArea ||
+    !overlapAgrees(still, pixels, width, height, dx, dy, 1, true)) return null;
+
+  // A potential tie on the bounded grid is enough to make verification inconclusive.
+  const step = Math.ceil(Math.max(width, height) / 48);
+  const mx = Math.min(maxPan, width - 1), my = Math.min(maxPan, height - 1);
+  for (let y = -my; y <= my; y++) {
+    for (let x = -mx; x <= mx; x++) {
+      if ((x !== dx || y !== dy) && overlap(x, y) >= halfArea &&
+        overlapAgrees(still, pixels, width, height, x, y, step)) return null;
+    }
+  }
+  return { dx, dy, meanAbsError: 0 };
+}
+
 /** Rank grayscale frames by whole-frame mean absolute error in 8-bit code values. */
 export function stillMatch(query, candidates, options = {}) {
   if (!options || typeof options !== 'object' || types.isProxy(options) || Array.isArray(options)) bad('选项须为对象');
@@ -74,12 +111,7 @@ export function stillMatch(query, candidates, options = {}) {
     if (runnerUp < 0 || errors[frame] < errors[runnerUp]) runnerUp = frame;
   }
 
-  let offset = null;
-  if (maxPan !== undefined) {
-    const movement = motionZoomPan(still, bestPixels, width, height, { scales: [1], maxPan });
-    const { dx, dy } = movement.value;
-    offset = { dx, dy, meanAbsError: movement.details.meanAbsError };
-  }
+  const offset = maxPan === undefined ? null : verifiedOffset(still, bestPixels, width, height, maxPan);
   return { metric: 'metric:still.match', value: bestFrame, unit: 'frames', details: {
     best: ranking(bestFrame, errors, area), runnerUp: ranking(runnerUp, errors, area), offset,
   } };
