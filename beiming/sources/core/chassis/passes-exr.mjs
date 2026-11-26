@@ -7,9 +7,12 @@
 // 「通道名.类型」，其余分量各在「通道名.分量名.类型」（objectId 的 id 在 objectId.u32、coverage 在 objectId.coverage.f32）。
 // 退出码：0 写好且往返逐位相同；4 往返不同、通道名不合契约或文件对不上通道声明；2 用法错误。
 import { Buffer } from 'node:buffer';
+import console from 'node:console';
 import fs from 'node:fs';
 import path from 'node:path';
-import { CliError, defineCommand, isMain, runCli } from '../../../../tools/lib/cli.mjs';
+import process from 'node:process';
+import { fileURLToPath } from 'node:url';
+import { parseArgs } from 'node:util';
 import { isPassChannel, readExr, writeExr } from '../../../verify/exr/exr.mjs';
 
 const TYPED = { f32: Float32Array, u32: Uint32Array };
@@ -59,36 +62,37 @@ export function passesToExr(dir, [width, height], { compression = 0 } = {}) {
   return { bytes, names, problems };
 }
 
-export const command = defineCommand({
-  name: 'chassis-passes-exr',
-  summary: '出层目录（passes.json 加 .f32、.u32）转多层 EXR，读回逐位比',
-  usage: ['node beiming/sources/core/chassis/passes-exr.mjs <出层目录> --width W --height H [-o frame.exr] [--zip]'],
-  positionals: [{ name: 'dir', label: '<出层目录>', describe: 'render-pack --passes 写的目录', required: true }],
-  options: {
-    out: { type: 'string', short: 'o', arg: '<文件>', describe: 'EXR 写到哪里；默认出层目录下的 frame.exr' },
-    zip: { type: 'boolean', describe: '按扫描线 ZIPS 压缩（默认不压缩）' },
-    width: { type: 'string', arg: '<W>', describe: '画面宽（render-pack 的 --width）' },
-    height: { type: 'string', arg: '<H>', describe: '画面高（render-pack 的 --height）' },
-  },
-  exitCodes: { 0: '写好，往返逐位相同', 2: '用法错误', 4: '往返不同或通道对不上' },
-  async run(ctx) {
-    const dir = ctx.args.dir;
-    if (!fs.existsSync(path.join(dir, 'passes.json'))) throw new CliError('usage.no-passes', `${dir} 下没有 passes.json`, '给 render-pack --passes 写的目录');
-    const size = [Number(ctx.opts.width), Number(ctx.opts.height)];
-    if (!size.every(n => Number.isInteger(n) && n > 0)) throw new CliError('usage.size', '要给 --width 与 --height（正整数）', '与出层时 render-pack 的尺寸相同');
-    let r;
-    try {
-      r = passesToExr(dir, size, { compression: ctx.opts.zip ? 2 : 0 });
-    } catch (e) {
-      return { error: { code: 'contract.passes-exr', message: e.message, hint: '尺寸与出层时不同，或目录里少了文件' } };
-    }
-    const out = ctx.opts.out ?? path.join(dir, 'frame.exr');
-    fs.writeFileSync(out, r.bytes);
-    ctx.out(`${size[0]}×${size[1]}，${r.names.length} 个通道：${r.names.join('、')}`);
-    for (const p of r.problems) ctx.out(`✗ ${p}`);
-    ctx.out(r.problems.length ? `有 ${r.problems.length} 处不对` : `往返逐位相同，写到 ${out}`);
-    return { data: { out, channels: r.names, problems: r.problems }, outputs: [{ path: out, kind: 'image' }], ...(r.problems.length && { error: { code: 'contract.passes-exr', message: r.problems[0], hint: '逐条见上' } }) };
-  },
-});
+/** 命令行；返回退出码。用法错误抛带 exit 2 的错。架构守卫不许这里引 tools/ 下的命令行框架，所以用 node:util 的 parseArgs */
+export function main(argv) {
+  const { values: o, positionals: [dir] } = parseArgs({ args: argv, allowPositionals: true, options: { out: { type: 'string', short: 'o' }, zip: { type: 'boolean' }, width: { type: 'string' }, height: { type: 'string' } } });
+  const size = [Number(o.width), Number(o.height)];
+  if (!dir || !size.every(n => Number.isInteger(n) && n > 0)) throw usage('用法：passes-exr.mjs <出层目录> --width W --height H [-o frame.exr] [--zip]');
+  if (!fs.existsSync(path.join(dir, 'passes.json'))) throw usage(`${dir} 下没有 passes.json：给 render-pack --passes 写的目录`);
+  let r;
+  try {
+    r = passesToExr(dir, size, { compression: o.zip ? 2 : 0 });
+  } catch (e) {
+    console.error(`✗ ${e.message}（尺寸与出层时不同，或目录里少了文件）`);
+    return 4;
+  }
+  const out = o.out ?? path.join(dir, 'frame.exr');
+  fs.writeFileSync(out, r.bytes);
+  console.log(`${size[0]}×${size[1]}，${r.names.length} 个通道：${r.names.join('、')}`);
+  for (const p of r.problems) console.log(`✗ ${p}`);
+  console.log(r.problems.length ? `有 ${r.problems.length} 处不对` : `往返逐位相同，写到 ${out}`);
+  return r.problems.length ? 4 : 0;
+}
 
-if (isMain(import.meta.url)) await runCli(command);
+export const usage = message => Object.assign(new Error(message), { exit: 2 });
+
+/** 当脚本直接跑时：错带 exit 的照它退出，parseArgs 的用法错退出 2 */
+export function runMain(url, fn) {
+  if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(url)) {
+    Promise.resolve().then(() => fn(process.argv.slice(2))).then(code => { process.exitCode = code; }, e => {
+      console.error(`错误：${e.message}`);
+      process.exitCode = e.exit ?? (String(e.code).startsWith('ERR_PARSE_ARGS') ? 2 : 1);
+    });
+  }
+}
+
+runMain(import.meta.url, main);
