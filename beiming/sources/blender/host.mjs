@@ -548,7 +548,9 @@ export async function startSource({ blenderBin = findBlender(), limitMs, handsha
     const trackInput = (frame) => prepared ? { tracks: tracksAt(frame), initialTracks: initialTracks ??= tracksAt(0) } : {};
     async function probe(f, plan, size) {
       if (plan.kind === 'probe.contact') {
-        const contact = await worker.call('query', { frame: f, plan: { ...plan, kind: 'contact', tol: plan.tol ?? 0 }, ...trackInput(f) });
+        const contact = await worker.call('query', {
+          frame: f, plan: { ...plan, kind: 'contact', tol: 0, minGap: plan.tol ?? 0 }, ...trackInput(f),
+        });
         return { ...finishQuery('contact', contact), kind: plan.kind };
       }
       const samples = new Map();

@@ -439,6 +439,8 @@ def run_query(plan, scene, depsgraph, entities, anchors, ignored, convert):
     meshes = scene_meshes(scene, depsgraph, roots, convert, paired) if roots else {}
     by_name = {name: list(dict.fromkeys(m for o in entities[name]['_objects'] for m in meshes.get(o, ()))) for name in wanted}
     boxes = {name: union(m.box for m in ms) for name, ms in by_name.items()}
+    # The optional O11 contact probe filters gaps before F9's result limit.
+    min_gap = plan.get('minGap', 0.)
     items = []
     for a in names if not paired else ():
         box = boxes[a]
@@ -455,6 +457,6 @@ def run_query(plan, scene, depsgraph, entities, anchors, ignored, convert):
         if boxes[a] is None or boxes[b] is None or (kind == 'intersect' and box_dist2(boxes[a], boxes[b]) > 0.):
             continue
         measured = pair_measure(kind, by_name[a], by_name[b], tol)
-        if measured is not None:
+        if measured is not None and (kind != 'contact' or measured[0] >= min_gap):
             items.append(item(a, *measured, b=b))
     return finish(kind, items)
