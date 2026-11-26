@@ -4,13 +4,14 @@
 // （按场景包目录里的 fake.json 答 pack-info），不要显卡；拿真程序的 pack-info 对一遍的那条，有编好的程序才跑。
 // 要渲染程序与显卡的那条：设了 BEIMING_CHASSIS_E2E=1、又有编好的程序（sources/core/source.mjs 的 findRenderer）才跑，否则跳过；不现编。
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { performance } from 'node:perf_hooks';
 import process from 'node:process';
 import { test } from 'node:test';
-import { loadQueue, openWorkspace, Scheduler } from '../jobs/index.mjs';
+import { loadQueue, openWorkspace, processIsAlive, Scheduler } from '../jobs/index.mjs';
 import { PRESETS } from '../sources/core/chassis/build.mjs';
 import { platesPack, writePack } from '../sources/core/chassis/scenepack.mjs';
 import { findRenderer } from '../sources/core/source.mjs';
@@ -22,7 +23,11 @@ const E2E = process.env.BEIMING_CHASSIS_E2E === '1';
 const SIZE = [64, 36], SPP = 8, SEED = 7;
 const LAYERS = ['color.f32', 'objectId.u32'];
 
-/** 假的 core-render：pack-info 照场景包目录里 fake.json 的 triangles 答一行统计（没有就 4）；别的子命令退出 9 */
+/**
+ * 假的 core-render，行为照场景包目录里的 fake.json：pack-info 答一行统计（triangles 没写就 4）；
+ * render-pack 在 --passes 目录写全 0 的颜色层、答一行统计；fake.json 写了 hang（一个目录）时不出帧：把自己和它起的孙进程的
+ * 进程号写进 hang/pids.json，收到 SIGTERM 只在 hang/ 下记一笔 term、不退出，一直挂着等 SIGKILL。别的子命令退出 9
+ */
 function fakeRenderer(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-core-fake-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
@@ -32,7 +37,17 @@ const fs = require('node:fs'), path = require('node:path');
 const [cmd, dir] = process.argv.slice(2);
 const cfg = fs.existsSync(path.join(dir, 'fake.json')) ? JSON.parse(fs.readFileSync(path.join(dir, 'fake.json'), 'utf8')) : {};
 if (cmd === 'pack-info') { console.log(JSON.stringify({ format: 'core-pack-info/0.1', id: 'pack:fake@1', frames: 1, triangles: cfg.triangles ?? 4 })); process.exit(0); }
-process.exit(9);
+if (cmd !== 'render-pack') process.exit(9);
+const flag = (name) => process.argv[process.argv.indexOf(name) + 1];
+if (cfg.hang) {
+  process.on('SIGTERM', () => fs.writeFileSync(path.join(cfg.hang, 'term'), ''));
+  const kid = require('node:child_process').spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
+  fs.writeFileSync(path.join(cfg.hang, 'pids.json'), JSON.stringify([process.pid, kid.pid]));
+  setInterval(() => {}, 1000);
+} else {
+  fs.writeFileSync(path.join(flag('--passes'), 'color.f32'), Buffer.alloc(Number(flag('--width')) * Number(flag('--height')) * 16));
+  console.log(JSON.stringify({ triangles: 4, adapter: 'fake', backend: 'fake', timings_ms: {} }));
+}
 `, { mode: 0o755 });
   return bin;
 }
@@ -199,4 +214,60 @@ test('准入拿真渲染程序的 pack-info 数三角形：两块板各两个三
   const submit = (maxTriangles) => work.submit(id, 'render', { tier: 'draft', rev: 0, plan: [{ shot: 's01', frames: [0] }], budget: { ...BUDGET, maxTriangles } });
   assert.throws(() => submit(3), /画出来 4 个三角形，超过声明的 3/);
   await work.wait(id, submit(4), 10);
+});
+
+test('核心作业到声明的墙钟预算被杀：先 SIGTERM 再 SIGKILL 整棵进程树；同卡排队的核心作业与并发的草稿照常完成', { timeout: 60_000 }, async (t) => {
+  useRenderer(t, fakeRenderer(t));
+  // 「声明 10 秒、到 10 秒被杀」按 1/10 缩放：声明 1 秒
+  const WALL = 1000;
+  const hang = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-core-hang-'));
+  t.after(() => fs.rmSync(hang, { recursive: true, force: true }));
+  const { workspace, film, lock } = coreWorkspace(t);
+  fs.writeFileSync(workspace.resolve('shots/pack/fake.json'), JSON.stringify({ hang }));
+  workspace.commitRevision(1);
+  const at = {}, seen = {};
+  const core = async ({ job, snapshot, intermediateDir }) => {
+    at[`${job.id}:start`] = performance.now();
+    const pool = sourcePool({ library: {}, workspace: snapshot.dir, budget: job.payload.budget });
+    try {
+      const s = await (await pool.get('core')).open({ film: film.id, output: film.output, shot: film.shots[0] }, { lock, tier: 'draft', workspace: intermediateDir, filmDir: snapshot.dir });
+      return (await s.render(0, {}, ['meta', 'color'])).meta.hash.color;
+    } catch (e) {
+      seen[job.id] = { code: e.code, message: e.message };
+      throw e;
+    } finally {
+      at[`${job.id}:end`] = performance.now();
+      await pool.stop();
+    }
+  };
+  // 同卡上的草稿：自己起一个 1.5 秒的子进程，看它是不是被连带杀掉
+  const draft = ({ signal }) => new Promise((resolve) => {
+    const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 1500)'], { stdio: 'ignore', signal });
+    child.on('error', () => {});
+    child.on('exit', (code, sig) => resolve({ code, signal: sig }));
+  });
+  const queue = loadQueue(workspace.root, { scheduler: new Scheduler(), handlers: { core, draft } });
+  const budget = { maxTriangles: 100, spp: SPP, maxWallMs: WALL };
+  const a = queue.runJob(queue.enqueue({ id: 'hang', kind: 'core', rev: 1, payload: { budget } }).id);
+  const c = queue.runJob(queue.enqueue({ id: 'draft', kind: 'draft', rev: 1 }).id);
+  const b = queue.runJob(queue.enqueue({ id: 'next', kind: 'core', rev: 0, payload: { budget } }).id);
+  while (!fs.existsSync(path.join(hang, 'pids.json'))) await new Promise((r) => setTimeout(r, 20));
+  assert.equal(queue.getJob('next').status, 'queued', '第二个核心作业排队');
+  assert.equal(queue.getJob('draft').status, 'running', '草稿和核心作业同时在跑');
+  const [ja, jb, jc] = await Promise.all([a, b, c]);
+
+  assert.equal(ja.status, 'failed');
+  assert.equal(seen.hang?.code, 'timeout.budget', JSON.stringify(seen.hang));
+  const took = at['hang:end'] - at['hang:start'];
+  t.diagnostic(`声明 ${WALL} ms 的作业从开跑到被杀用了 ${Math.round(took)} ms；排队的核心作业在它之后 ${Math.round(at['next:start'] - at['hang:end'])} ms 开跑`);
+  assert.ok(took >= WALL && took < WALL + 2500, `到预算才杀：用了 ${Math.round(took)} ms`);
+  assert.ok(fs.existsSync(path.join(hang, 'term')), '先发了 SIGTERM');
+  const pids = JSON.parse(fs.readFileSync(path.join(hang, 'pids.json'), 'utf8'));
+  assert.deepEqual(pids.map((pid) => processIsAlive(pid)), [false, false], '渲染进程与它的孙进程都死了（SIGTERM 不理，SIGKILL 收掉）');
+
+  assert.equal(jb.status, 'succeeded');
+  assert.match(jb.result, /^sha256:/);
+  assert.ok(at['next:start'] >= at['hang:end'], '第二个核心作业等第一个被杀、还了租约才开跑');
+  assert.equal(jc.status, 'succeeded');
+  assert.deepEqual(jc.result, { code: 0, signal: null }, '同卡的草稿作业的进程没被连带杀掉');
 });

@@ -49,8 +49,9 @@ const coded = (code, message) => Object.assign(new Error(message), { code });
 /**
  * 一个作业里用到的帧源：按需起，作业结束 stop。
  * renders 是 { 镜头: 次数 }：这个池开出的会话的 render 每调一次记一次（终渲、补渲、L2 的探针都算），一次没调的镜头不出现。
+ * budget 是核心作业声明的预算（api/work.mjs 准入过的）：核心帧源照它的 maxWallMs 收 core-render 的进程，不给不限时。
  */
-export function sourcePool({ library, blenderBin, workspace }) {
+export function sourcePool({ library, blenderBin, workspace, budget }) {
   const blenders = new Map();
   const renders = {};
   let page = null, core = null;
@@ -80,7 +81,7 @@ export function sourcePool({ library, blenderBin, workspace }) {
       return page;
     }
     // 核心帧源只用编好的渲染程序（findRenderer），没有报 env.missing-tool，不在作业里现编；终渲档在 open 时由帧源拒
-    if (source === 'core') return (core ??= await startCore({ bin: findRenderer() }));
+    if (source === 'core') return (core ??= await startCore({ bin: findRenderer(), maxWallMs: budget?.maxWallMs }));
     throw coded('contract.unsupported-mode', `帧源 ${source} 这台服务器没接`);
   }
   return {

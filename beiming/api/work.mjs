@@ -314,7 +314,7 @@ export function createWork({ store, library, reviewer, scheduler }) {
     // frames 只数真调了帧源的帧，cachedFrames 数缓存命中的帧
     const acc = { gpuSeconds: 0, frames: 0, cachedFrames: 0, tokens: 0, start: monotonicMs() };
     progress.set(job.id, acc);
-    const pool = sourcePool({ library: typeof library === 'function' ? library() : library, workspace: snapshot.dir, blenderBin: blenderInfo()?.bin });
+    const pool = sourcePool({ library: typeof library === 'function' ? library() : library, workspace: snapshot.dir, blenderBin: blenderInfo()?.bin, budget: job.payload.budget });
     let outcome, crash;
     try {
       const film = JSON.parse(readFileSync(join(snapshot.dir, 'film.json'), 'utf8'));

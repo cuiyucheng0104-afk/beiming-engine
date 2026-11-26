@@ -14,7 +14,7 @@
 
 ```js
 import { startSource } from './beiming/sources/core/source.mjs';
-const src = await startSource();            // 渲染程序：bin 参数 → 环境变量 BEIMING_CORE_RENDER → chassis/build.mjs 现编（要 cargo）
+const src = await startSource();            // 渲染程序：bin 参数 → 环境变量 BEIMING_CORE_RENDER → chassis/build.mjs 现编（要 cargo）；maxWallMs 见「作业准入与预算」
 const s = await src.open(input, { lock: null, tier: 'draft', workspace, filmDir });
 s.manifest();                               // { frames, entities: [{ id, name, class }] }，编号照场景包实例表
 const { meta, layers } = await s.render(0, { samples: 64, scale: 1 }, ['meta', 'color', 'depth', 'objectId', 'normal']);
@@ -62,7 +62,9 @@ await s.close(); await src.stop();
 | 镜头生效的每像素采样数（取值次序同 `planRender`）超过声明的 `spp` | `contract.over-budget` |
 | 场景包在要渲的某一帧上画出来的三角形数（`core-render pack-info --frame k` 那一行统计的 `triangles`）超过 `maxTriangles` | `contract.over-budget` |
 
-这两个码还没登记进错误码表（`errors.json`，按错误码契约 5.4 要先提变更单）：服务端的失败信封里报登记过的近义码（`usage.bad-argument`、`contract.bad-value`），原码写在诊断的 `evidence`（`原码 …`）。
+作业跑起来以后，帧源起的每个 `core-render` 进程（`pack-info`、`render-pack`）都由 `beiming/jobs` 的 `runWithWatchdog` 管：独立进程组、受管进程树。出片链起帧源时带上作业声明的 `maxWallMs`（`startSource({ bin, maxWallMs })`，从起帧源算起），到点先 SIGTERM、过 150 ms 宽限 SIGKILL 整棵进程树，报 `timeout.budget`；只杀这个作业名下的进程，同一块卡上别的作业不受影响。显卡租约由作业拿：走调度器的 `core` 道（[调度器的道](../../jobs/DETAILS.md#调度器的道)），同一块卡上同时只跑一个核心作业，第二个排队，前一个被杀、还了租约才开跑。核对：`beiming/api/core-source.test.mjs` 用一个收到 SIGTERM 不退出、还起了孙进程的假渲染程序，声明 1 秒（把「声明 10 秒、到 10 秒被杀」按 1/10 缩放），到点被杀、两个进程都不在了，排队的核心作业和并发的草稿照常完成。
+
+`usage.budget-required`、`contract.over-budget`、`timeout.budget` 三个码还没登记进错误码表（`errors.json`，按错误码契约 5.4 要先提变更单）：准入被拒时服务端的失败信封里报登记过的近义码（`usage.bad-argument`、`contract.bad-value`），原码写在诊断的 `evidence`（`原码 …`）；作业被杀时作业结论报 `contract.bad-value`，信息里带 `timeout.budget`。
 
 ## 元数据
 
