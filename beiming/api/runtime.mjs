@@ -265,10 +265,14 @@ export function coreImage(version, opts = {}) {
   return `sha256:${sha256(Buffer.from(`core\0${version}\0${code}\0`))}`;
 }
 
-/** 场景包契约 5.7 要算哈希的那段文本：包目录里每个文件一行「sha256、两个空格、相对路径」，按路径的 UTF-8 字节序排 */
+/** 场景包契约 5.7 要算哈希的那段文本：包目录里每个文件一行「sha256、两个空格、相对路径」，按路径的 UTF-8 字节序排。
+ *  包里有符号链接就拒、不跟随：5.7 和 SP6 要包哈希只由包里各文件的路径和内容定，跟随链接会把包外的东西算进来，跳过又会漏掉读入方读得到的文件 */
 export function packHashText(dir) {
-  const files = readdirSync(dir, { withFileTypes: true, recursive: true }).filter((e) => e.isFile())
-    .map((e) => relative(dir, join(e.parentPath, e.name)).split(sep).join('/'))
+  const entries = readdirSync(dir, { withFileTypes: true, recursive: true });
+  const rel = (e) => relative(dir, join(e.parentPath, e.name)).split(sep).join('/');
+  const link = entries.find((e) => e.isSymbolicLink());
+  if (link) throw new Error(`场景包里有符号链接 ${rel(link)}：包哈希只由包里的文件算（场景包契约 5.7），不跟随链接`);
+  const files = entries.filter((e) => e.isFile()).map(rel)
     .sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b)));
   return Buffer.from(files.map((f) => `${sha256(readFileSync(join(dir, f)))}  ${f}\n`).join(''));
 }
@@ -340,7 +344,8 @@ export function lockContext({ rev, library, lut, assets, machine = { class: 'loc
   const b = blenderInfo();
   if (b) sources.blender = { version: b.version, host: 'cycles', image: blenderImage(b.version, opts) };
   const coreShots = (film?.shots ?? []).flatMap((shot) => {
-    const p = [shot, shot.renderer].find((x) => x?.source === 'core');
+    // 写了 renderer 时出帧的是它那一套（片子描述契约 3.3），场景包取它的 entry；它不是 core、镜头顶层是 core 时，锁生成器照样要顶层这一份
+    const p = [shot.renderer, shot].find((x) => x?.source === 'core');
     // 没写 entry 的核心镜头不进 scenePacks：锁生成器照缺了这个镜头的场景包报错
     return typeof p?.entry === 'string' ? [[shot.id, p.entry]] : [];
   });

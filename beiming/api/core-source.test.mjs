@@ -20,7 +20,7 @@ import { PRESETS, sourceKey } from '../sources/core/chassis/build.mjs';
 import { platesPack, writePack } from '../sources/core/chassis/scenepack.mjs';
 import { ADMIT_MS, WALL_MAX, findRenderer, startSource } from '../sources/core/source.mjs';
 import { layerL1, readIndex, renderPlan, shotSources, sourcePool } from './pipeline.mjs';
-import { ensureLut, loadCardLibrary } from './runtime.mjs';
+import { ensureLut, loadCardLibrary, packHashText } from './runtime.mjs';
 import { createStore } from './store.mjs';
 import { createWork } from './work.mjs';
 
@@ -194,9 +194,13 @@ async function served(t, { sign, fake, coreLast } = {}) {
   return { store, id, ws, work: createWork({ store, library: {}, reviewer: null, scheduler: new Scheduler() }) };
 }
 
-/** 场景包契约 5.7 的包哈希，测试里照条文另算一遍：每个文件 sha256、两个空格、路径、换行，按路径字节序排，再对整段算 sha256 */
+/** 场景包契约 5.7 的包哈希，测试里照条文另算一遍：每个文件 sha256、两个空格、路径、换行，按路径字节序排，再对整段算 sha256。
+ *  和实现同一种口径：包里有符号链接就拒，不跟随 */
 function packHash(dir) {
-  const walk = (d, pre = '') => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk(path.join(d, e.name), `${pre}${e.name}/`) : [`${pre}${e.name}`]);
+  const walk = (d, pre = '') => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => {
+    if (e.isSymbolicLink()) throw new Error(`场景包里有符号链接 ${pre}${e.name}`);
+    return e.isDirectory() ? walk(path.join(d, e.name), `${pre}${e.name}/`) : [`${pre}${e.name}`];
+  });
   const sha = (b) => createHash('sha256').update(b).digest('hex');
   const lines = walk(dir).sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b))).map((f) => `${sha(fs.readFileSync(path.join(dir, f)))}  ${f}\n`);
   return `sha256:${sha(lines.join(''))}`;
@@ -221,6 +225,34 @@ test('经服务端签的锁带核心镜头：sources.core 的版本是内核源�
   assert.notEqual(again.scenePacks.s01, core.scenePacks.s01);
   assert.equal(again.scenePacks.s01, packHash(ws.resolve('shots/pack')));
   assert.equal(again.image, core.image);
+});
+
+test('核心镜头写了 renderer 时，锁里的场景包哈希取 renderer 的 entry，不取镜头顶层留作对照的那一份', { timeout: 30_000 }, async (t) => {
+  const { store, id, ws } = await served(t, { sign: true });
+  // 顶层留作对照的另一份场景包，内容和出帧用的那份不同
+  writePack(ws.resolve('shots/old'), platesPack());
+  fs.appendFileSync(ws.resolve('shots/old/pack.json'), '\n');
+  assert.notEqual(packHash(ws.resolve('shots/old')), packHash(ws.resolve('shots/pack')));
+  const film = store.readFilm(id);
+  film.shots[0] = { ...film.shots[0], entry: 'shots/old', renderer: { source: 'core', host: 'offscreen', mode: 'build-script', entry: 'shots/pack' } };
+  await store.commit(id, film, 1, { library: loadCardLibrary(), lut: await ensureLut(store.dataDir) });
+  const core = JSON.parse(fs.readFileSync(ws.resolve('film.lock'), 'utf8')).sources.core;
+  assert.equal(core.scenePacks.s01, packHash(ws.resolve('shots/pack')), '取 renderer 的场景包');
+});
+
+test('场景包里有符号链接：签锁拒（env.lock-required，信息点名那个链接），不跟随，也不跳过；测试另算的包哈希同样拒', { timeout: 30_000 }, async (t) => {
+  const { store, id, ws } = await served(t, { sign: true });
+  const before = fs.readFileSync(ws.resolve('film.lock'), 'utf8');
+  fs.writeFileSync(ws.resolve('outside.bin'), 'x');
+  const pack = ws.resolve('shots/pack');
+  fs.symlinkSync('../../outside.bin', path.join(pack, 'extra.bin'));
+  assert.equal(fs.readFileSync(path.join(pack, 'extra.bin'), 'utf8'), 'x', '链接是通的');
+  assert.throws(() => packHashText(pack), /符号链接 extra\.bin/);
+  assert.throws(() => packHash(pack), /符号链接 extra\.bin/);
+  const lut = await ensureLut(store.dataDir);
+  await assert.rejects(async () => store.commit(id, store.readFilm(id), 1, { library: loadCardLibrary(), lut }),
+    (e) => e.code === 'env.lock-required' && /符号链接 extra\.bin/.test(e.message));
+  assert.equal(fs.readFileSync(ws.resolve('film.lock'), 'utf8'), before, '签不出锁时不留半份');
 });
 
 const BUDGET = { maxTriangles: 100, spp: 24, maxWallMs: 60_000 };
