@@ -5,7 +5,8 @@
   "backend": "Metal",
   "driver": ""
  },
- "kernel": "96817b4eb4afc63c",
+ "kernel": "cb56f058b71a593d",
+ "binSha256": "d6a519478885766fc29f1f084828967b642ed7a754dd11d916b74280c74c1cdd",
  "upstreamCommit": "c946cc96bdb08979224e851a7fc67a066b1b456b",
  "packs": [
   {
@@ -23,8 +24,8 @@
      "hwrt": false,
      "denoise": "atrous",
      "traceMs": [
-      2038.8,
-      2042.8
+      2001.7,
+      2023
      ],
      "files": {
       "out.png": "cdc5d93f668a446b6365303c3549a3dcb6821bee75b6540536127f49d63723d7",
@@ -45,8 +46,8 @@
      "hwrt": true,
      "denoise": "atrous",
      "traceMs": [
-      2124.5,
-      1601.3
+      2030.6,
+      1525.9
      ],
      "files": {
       "out.png": "7afc1eaf5e27810802c8972ede974c1c0bbe10e010bf4574de0f4aa9d4da0d27",
@@ -102,8 +103,8 @@
      "hwrt": false,
      "denoise": "atrous",
      "traceMs": [
-      3095.7,
-      3855.2
+      3444.7,
+      3779.8
      ],
      "files": {
       "out.png": "3262bb9adf9b3d7a2a9d9624ac189818bc9f529a01b1c11e50b29098b521d5e5",
@@ -124,8 +125,8 @@
      "hwrt": true,
      "denoise": "atrous",
      "traceMs": [
-      1776.2,
-      1653
+      1639.9,
+      1647.9
      ],
      "files": {
       "out.png": "a2dd608739643272d505ae553d85f3abead5aa9429abed8176c586b8bb1807aa",

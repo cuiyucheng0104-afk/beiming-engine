@@ -207,6 +207,7 @@
  "format": "core-limits/0.1",
  "hwrt": true,
  "merged": false,
- "kernel": "96817b4eb4afc63c",
+ "kernel": "cb56f058b71a593d",
+ "binSha256": "cae4ad47d2d89cce234dce4e88ccfeb044ae9b278afb1e4570fd82af85c7c1f8",
  "upstreamCommit": "c946cc96bdb08979224e851a7fc67a066b1b456b"
 }

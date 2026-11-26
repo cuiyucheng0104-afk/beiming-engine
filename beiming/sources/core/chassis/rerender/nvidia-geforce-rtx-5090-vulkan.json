@@ -5,7 +5,8 @@
   "backend": "Vulkan",
   "driver": "NVIDIA"
  },
- "kernel": "96817b4eb4afc63c",
+ "kernel": "cb56f058b71a593d",
+ "binSha256": "cae4ad47d2d89cce234dce4e88ccfeb044ae9b278afb1e4570fd82af85c7c1f8",
  "upstreamCommit": "c946cc96bdb08979224e851a7fc67a066b1b456b",
  "packs": [
   {
@@ -23,8 +24,8 @@
      "hwrt": false,
      "denoise": "atrous",
      "traceMs": [
-      379.8,
-      328.5
+      397,
+      324.4
      ],
      "files": {
       "out.png": "a620f00bc9103517004c89559dfc3982098e490d34348f9116d6cf2af2429a95",
@@ -45,8 +46,8 @@
      "hwrt": true,
      "denoise": "atrous",
      "traceMs": [
-      136,
-      131.1
+      238,
+      130.6
      ],
      "files": {
       "out.png": "fc544cbf7ee7f4a796aa34ca4354a3a0864ffd3b4f27f8bfe51282c0668eb280",
@@ -102,8 +103,8 @@
      "hwrt": false,
      "denoise": "atrous",
      "traceMs": [
-      900.7,
-      898.4
+      901.1,
+      892.2
      ],
      "files": {
       "out.png": "b36f22194beaf662f2e3589802364d78b12cbb92511a8234fc8aca4f015dc713",
@@ -124,8 +125,8 @@
      "hwrt": true,
      "denoise": "atrous",
      "traceMs": [
-      112,
-      113.9
+      111.2,
+      115
      ],
      "files": {
       "out.png": "6c9e0e61f4a9ba9e5ad0bc73025bcd4c75291968cdef7062ec31b2c93f1b0032",
