@@ -30,17 +30,33 @@ const options = { groups: ['first', 'outer'], fps: '60000/2002', seed: 135,
 
 const path = relative => fileURLToPath(new URL(relative, import.meta.url));
 
+function e5EventPayload({ format, ...payload }) {
+  assert.equal(format, 'events/0.1');
+  return payload;
+}
+
 test('E6: E5 order assigns arrival frames and tied events sort by id', () => {
   const plan = scheduleAssembly(parts, options);
   assert.deepEqual(plan.parts.map(p => p.id), ['z', '__proto__', 'axes.first', 'axes.second', 'tie.left', 'tie.right',
     'rim', 'base', 'inner', 'bmp', 'astral']);
   assert.deepEqual(plan.parts.map(p => [p.t0, p.fly_frames, p.arrive]),
     plan.parts.map((_, i) => [2 + i * 3, 9, 11 + i * 3]));
-  assert.deepEqual(plan.events, { format: 'events/0.1', film: 'assembly_test', fps: '30000/1001', frames: 42,
+  assert.deepEqual(plan.events, { film: 'assembly_test', fps: '30000/1001', frames: 42,
     events: plan.parts.map(p => ({ id: `arrive.${p.id}`, frame: p.arrive, sub: 0, kind: 'arrive', from: 'tracks', entity: p.id, shot: 's-01' })) });
   const tied = scheduleAssembly(parts, { ...options, gap_frames: 0, shot: undefined });
   assert.deepEqual(tied.events.events.map(e => e.id), parts.map(p => `arrive.${p.id}`).sort());
   assert.ok(tied.events.events.every(e => e.frame === 11 && !Object.hasOwn(e, 'shot')));
+});
+
+test('E6: arrivals in a later shot remain an unformatted shot-local fragment', () => {
+  const shot = { id: 's-02', in: 120 };
+  const { events: fragment } = scheduleAssembly([{ id: 'lid', rest_pos: [0, 0, 0] }], {
+    ...options, shot: shot.id,
+  });
+  assert.equal(Object.hasOwn(fragment, 'format'), false);
+  assert.equal(fragment.frames, 12);
+  assert.deepEqual(fragment.events.map(event => [event.shot, event.frame]), [['s-02', 11]]);
+  assert.equal(shot.in + fragment.events[0].frame, 131);
 });
 
 test('E6: named JS streams are reproducible, independent per part and do not mutate inputs', () => {
@@ -62,7 +78,7 @@ test('E6: validate replay draws, catalogue fields and exact frame counts', () =>
   assert.deepEqual(fixed.parts[0].start_offset, [0, 1, 0]);
   assert.deepEqual(fixed.parts[0].start_rot_deg, [-25, 10, 0]);
   assert.deepEqual(scheduleAssembly([], { fps: 2.5e-7, start_frame: 4 }), {
-    parts: [], events: { format: 'events/0.1', film: 'assembly', fps: '1/4000000', frames: 5, events: [] },
+    parts: [], events: { film: 'assembly', fps: '1/4000000', frames: 5, events: [] },
   });
   for (const bad of [{ parts: [only[0], only[0]] }, { parts: [{ id: 'a\n', rest_pos: [1, 2, 3] }] },
     { parts: [{ id: 'a', rest_pos: Array(3) }] }, { opts: { groups: ['first', 'first'] } },
@@ -121,13 +137,13 @@ print(json.dumps([check(items) for items in (fixed, batch, extreme)]))
   const options = { offset_m: 0, spin_deg: 0 };
   const cases = JSON.parse(stdout);
   const [fixed, , fixedEvents] = cases[0];
-  assert.deepEqual(scheduleAssembly(fixed, options).events, fixedEvents);
+  assert.deepEqual(scheduleAssembly(fixed, options).events, e5EventPayload(fixedEvents));
   let checked = 0;
   for (const [items, sortRadii, expected, exactOrder] of cases) {
     for (const order of [items, [...items].reverse()]) {
       const native = scheduleAssembly(order, options);
       assert.deepEqual(native.parts.map(p => p.id), exactOrder);
-      assert.deepEqual(scheduleAssembly(order, { ...options, sortRadii }).events, expected);
+      assert.deepEqual(scheduleAssembly(order, { ...options, sortRadii }).events, e5EventPayload(expected));
       checked += items.length;
     }
   }
@@ -181,7 +197,7 @@ test('E6: JS replays Python E5 seed draws and matches every scheduled position a
     const [reference, startSamples, sortRadii] = results[i];
     const plan = scheduleAssembly(items, { ...opts, startSamples, sortRadii });
     assert.deepEqual(plan.parts.map(shapeOf), reference.parts.map(shapeOf));
-    assert.deepEqual(plan.events, reference.events);
+    assert.deepEqual(plan.events, e5EventPayload(reference.events));
     const dir = join(root, String(i));
     const tracks = decodeTracks(JSON.parse(await readFile(join(dir, 'tracks.json'), 'utf8')), await readFile(join(dir, 'tracks.bin')));
     assert.equal(Object.keys(tracks).length, items.length * 2);

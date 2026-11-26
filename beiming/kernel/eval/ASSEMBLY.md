@@ -11,7 +11,9 @@ const plan = scheduleAssembly([{ id: 'part.lid', rest_pos: [0, 0.2, 0] }], {
 const pose = evalSnapMotion(9.5, plan.parts[0]);
 ```
 
-`plan.parts` 的每一行都可以直接交给 `evalSnapMotion`。新增零件可能改变现有零件的出发帧，已有零件的起始偏移和朝向由各自的命名随机流决定。`plan.events` 是镜头局部到位事件表，按到位帧和事件 ID 排序，帧率写为最简分数。调用方负责把局部事件并入全片时间轴。使用卡文件的镜头由帧源按锁文件解析卡实现，`assembly.schedule@1` 的入口位于 Blender。
+`plan.parts` 的每一行都可以直接交给 `evalSnapMotion`。新增零件可能改变现有零件的出发帧，已有零件的起始偏移和朝向由各自的命名随机流决定。使用卡文件的镜头由帧源按锁文件解析卡实现，`assembly.schedule@1` 的入口位于 Blender。
+
+`plan.events` 是镜头局部到位事件片段，包含 `film`、`fps`、`frames` 和 `events`。`fps` 写为最简分数，`frames` 是局部排程长度，条目按到位帧和事件 ID 排序。生成全片事件表时，给每个局部 `frame` 加上镜头的 `in`，用 `eventsTable(film)` 从片子描述展开命名事件和切点，再按 [事件表契约](../contracts/events/CONTRACT.md) 合并与排序。
 
 原生 JS 排程将欧氏距离舍入为最近的双精度数，正好居中时取尾数为偶数的一侧。舍入后相同的零件按 ID 排序。
 

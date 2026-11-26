@@ -108,7 +108,7 @@ function replayRadius(radii, id) {
   return floatBits(Math.abs(value));
 }
 
-/** Build E5-compatible snap descriptors and a shot-local arrival event table. */
+/** Build E5-compatible snap descriptors and an unformatted shot-local arrival fragment. */
 export function scheduleAssembly(parts, {
   groups = [], fps = 30, seed = 42, start_frame = 0, gap_frames = 3, fly_frames = 18,
   offset_m = 1, spin_deg = 30, film = 'assembly', shot = null, startSamples, sortRadii,
@@ -162,5 +162,5 @@ export function scheduleAssembly(parts, {
   const events = rows.map(({ id, arrive }) => ({ id: `arrive.${id}`, frame: arrive, sub: 0, kind: 'arrive',
     from: 'tracks', entity: id, ...(shot === null ? {} : { shot }) }));
   events.sort((a, b) => a.frame - b.frame || compare(a.id, b.id));
-  return { parts: rows, events: { format: 'events/0.1', film, fps: rate, frames, events } };
+  return { parts: rows, events: { film, fps: rate, frames, events } };
 }
