@@ -9,7 +9,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { loadQueue, openShotCache } from '../jobs/index.mjs';
-import { admitBudget } from '../sources/core/source.mjs';
+import { WALL_MAX, admitBudget } from '../sources/core/source.mjs';
 import { audioLoudness, blackFreezeDup, buildContactSheet, buildCutStrips, cutScene, cutYdif, deliverSpec, pngSize, query, videoAliasEdge, videoNoiseResidual } from '../observe/index.mjs';
 import { artifactUrl } from './client.mjs';
 import { ROUTES } from './contract.mjs';
@@ -561,15 +561,20 @@ export function createWork({ store, library, reviewer, scheduler }) {
   };
 
   /** 提交作业并开跑：kind 是 render | verify | deliver，payload 进作业记录。交回作业号。
-   *  草稿档的渲染作业里有核心帧源的镜头时走 core 道：同一个调度器（一块卡）上同时只跑一个，第二个排队 */
+   *  草稿档的渲染作业里有核心帧源的镜头、片子里有核心镜头的核验作业，走 core 道：同一个调度器（一块卡）上同时只跑一个，第二个排队 */
   function submit(id, kind, payload) {
     const tier = payload.tier;
     const film = store.readFilm(id);
-    const core = kind === 'render' && (payload.plan ?? []).some((p) => film.shots.find((s) => s.id === p.shot)?.source === 'core');
-    const lane = kind === 'verify' ? 'verify' : tier === 'final' ? 'final' : core ? 'core' : 'draft';
+    const isCore = (shot) => shot?.source === 'core';
+    // 核验作业给没渲过的镜头补渲，再对核心镜头起 core-render 跑 L2：片子里有核心镜头就算核心作业
+    const core = tier !== 'final' && (kind === 'render' ? (payload.plan ?? []).some((p) => isCore(film.shots.find((s) => s.id === p.shot)))
+      : kind === 'verify' && film.shots.some(isCore));
+    const lane = core ? 'core' : kind === 'verify' ? 'verify' : tier === 'final' ? 'final' : 'draft';
+    // 核验作业不要求声明预算：墙钟取这一档的上限，由服务端填进作业记录，执行器照它收 core-render
+    if (core && kind === 'verify') payload = { ...payload, budget: { maxWallMs: WALL_MAX[tier] } };
     // 核心作业入队之前过准入：没声明预算、声明的采样超档位上限、场景包的三角形数超声明，都不进队列。
     // 新码不在错误码表里：信封里报登记过的近义码，原码记在诊断的 evidence
-    if (lane === 'core') {
+    if (lane === 'core' && kind === 'render') {
       const shots = payload.plan.flatMap((p) => {
         const shot = film.shots.find((s) => s.id === p.shot);
         return shot?.source === 'core' ? [{ shot, frames: p.frames.map((f) => f - shot.in) }] : [];

@@ -64,6 +64,8 @@ await s.close(); await src.stop();
 | 场景包在要渲的某一帧上画出来的三角形数（`core-render pack-info --frame k` 那一行统计的 `triangles`）超过 `maxTriangles` | `contract.over-budget` |
 | 一次准入里全部 `pack-info` 加起来超过 `ADMIT_MS`（5 秒：准入在 HTTP 处理里同步跑，这就是一次提交最多挡住服务端多久；`pack-info` 只读清单与网格计数、不碰显卡，小包几毫秒） | `contract.over-budget` |
 
+核验作业（`verify`）片子里有核心镜头时也进 `core` 道，但不要求声明预算、不过上表的准入：墙钟取这一档的上限 `WALL_MAX`，由服务端填进作业记录（[调度器的道](../../jobs/DETAILS.md#调度器的道)）。
+
 作业跑起来以后，帧源起的每个 `core-render` 进程（`pack-info`、`render-pack`）都由 `beiming/jobs` 的 `runWithWatchdog` 管：独立进程组、受管进程树。出片链起帧源时带上作业声明的 `maxWallMs`（`startSource({ bin, maxWallMs })`，从起帧源算起），到点先 SIGTERM、过 150 ms 宽限 SIGKILL 整棵进程树，报 `timeout.budget`；只杀这个作业名下的进程，同一块卡上别的作业不受影响。显卡租约由作业拿：走调度器的 `core` 道（[调度器的道](../../jobs/DETAILS.md#调度器的道)），同一块卡上同时只跑一个核心作业，第二个排队，前一个被杀、还了租约才开跑。核对：`beiming/api/core-source.test.mjs` 用一个收到 SIGTERM 不退出、还起了孙进程的假渲染程序，声明 1 秒（把「声明 10 秒、到 10 秒被杀」按 1/10 缩放），到点被杀、两个进程都不在了，排队的核心作业和并发的草稿照常完成。
 
 `usage.budget-required`、`contract.over-budget`、`timeout.budget` 三个码还没登记进错误码表（`errors.json`，按错误码契约 5.4 要先提变更单）：准入被拒时服务端的失败信封里报登记过的近义码（`usage.bad-argument`、`contract.bad-value`），原码写在诊断的 `evidence`（`原码 …`）；作业被杀时作业结论报 `contract.bad-value`，信息里带 `timeout.budget`。

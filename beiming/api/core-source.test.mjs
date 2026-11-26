@@ -184,7 +184,7 @@ function served(t, { lock, fake } = {}) {
 
 const BUDGET = { maxTriangles: 100, spp: 24, maxWallMs: 60_000 };
 
-test('草稿档里有核心镜头的渲染作业走 core 道，没有的走 draft 道', { timeout: 30_000 }, async (t) => {
+test('草稿档里有核心镜头的渲染作业走 core 道，没有的走 draft 道；片子里有核心镜头的核验作业走 core 道', { timeout: 30_000 }, async (t) => {
   useRenderer(t, fakeRenderer(t));
   const { store, id, work } = served(t);
   const kindOf = async (plan) => {
@@ -194,6 +194,12 @@ test('草稿档里有核心镜头的渲染作业走 core 道，没有的走 draf
   };
   assert.equal(await kindOf([{ shot: 's01', frames: [0] }]), 'core');
   assert.equal(await kindOf([{ shot: 's02', frames: [1] }]), 'draft');
+  // 片子里有核心镜头的核验作业也走 core 道，不要求声明预算，墙钟取草稿档的上限
+  const verify = work.submit(id, 'verify', { tier: 'draft', rev: 0, shots: ['s02'] });
+  await work.wait(id, verify, 10);
+  const job = loadQueue(store.filmDir(id)).getJob(verify);
+  assert.equal(job.request.kind, 'core');
+  assert.deepEqual(job.payload.budget, { maxWallMs: WALL_MAX.draft });
 });
 
 test('核心作业的准入：预算缺了、采样超档位上限或超声明、三角形数超声明都在入队之前拒，诊断带原码', { timeout: 30_000 }, async (t) => {
