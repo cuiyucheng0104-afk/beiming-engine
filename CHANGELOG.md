@@ -18,13 +18,11 @@
 - 错误码表登记 `usage.budget-required`、`contract.over-budget`、`timeout.budget`、`env.lib-mismatch` 四个码，由帧源接口契约新加的 5.15 点名（预算准入、墙钟预算用完、本机动态库和钉住的哈希对不上）。照契约写法约定第 6 节，冻结以后这是破坏性修改：错误码表与帧源接口两份契约的版本升到 `0.2.0-draft`，第 7 节写了变更说明与依赖方的迁移办法（对依赖 main 的一方这四个是新码，按码分支的调用方要加上它们，墙钟预算用完的退出码是 124）；结构定义与格式标识不变。
 - 服务端签锁接上核心帧源：带核心镜头的片子经服务端提交时签得出正式锁，锁里 `sources.core` 记内核源码摘要（和元数据里帧源的版本相同）、离屏宿主与每个核心镜头的场景包哈希，作业照这份锁出帧。镜头写了 `renderer` 时取它的场景包；场景包里有符号链接、或场景包目录本身是符号链接时不签（`env.lock-required`），不跟随也不跳过。
 - 出片链接上核心帧源：场景包镜头（`source: core`）经 `beiming/api/pipeline.mjs` 的帧源池出草稿档的帧，只用编好的渲染程序 `core-render`，没有就报 `env.missing-tool`；终渲档仍在打开会话时以 `contract.unsupported-mode` 拒绝。
-- `beiming/sources/core/chassis/rerender.mjs` 做场景包同帧同种子两遍的逐位检查（两种求交各两遍，比每个通道、线性颜色与 PNG 的 sha256，并做 EXR 往返），按机器存进 `chassis/rerender/`，苹果 M5 Pro 一份已入库。
-- `beiming/sources/core/path/README.md` 写下核心渲染程序链接 Blender 自带 OIDN 动态库的构建档设计（两台机器的库与 sha256、`oidn` crate 要什么、要先取到本机的 crate 清单），还没落地。
 - 许可登记：核心帧源 OIDN 档在运行时动态链接本机 Blender 自带的 Intel Open Image Denoise 2.5.0（Apache-2.0）与它装载的 oneTBB（Apache-2.0），编进 `oidn` crate 2.5.1（MIT），登记进 `docs/rights/register.json` 的 R17 与 `THIRD-PARTY.md` 第 14 节：库不入仓、不分发，对外分发时要附两份 Apache-2.0 许可与 NOTICE；`beiming/sources/core/path/README.md` 写明接进出片链时起程序前先核库的 sha256。
 - 核心渲染程序加 `core-render as-size --blas N,N,… [--instances K]`：问驱动这些三角形数的 BLAS 与 K 个实例的 TLAS 各占多少字节（只要预建尺寸，不建、不要几何），苹果显卡（Metal）与 Vulkan 可用，给大场景估显存。
-- `beiming/sources/core/chassis/advance.test.mjs`：核心渲染程序对 10 帧的场景包连续推进（再打乱次序一遍），每帧的时间键 `{ frame, sub }` 由测试从编号层与覆盖率量出（`sub` 恒 0，依据场景包契约第 6 节），恰好对上状态表第 k 行，写成时间核对记录过时间键契约的 T1、T4、T5、T8、T9，负对照不过；`chassis/moving.mjs` 放三份核心测试共用的双精度几何。
+- `beiming/sources/core/chassis/advance.test.mjs`：核心渲染程序对 10 帧的场景包连续推进（再打乱次序一遍），测试从产物量、自己断言：编号层逐像素恰好对上状态表第 k 行的解析编号图，板内部覆盖率全是 1，同一帧两种次序的状态摘要相同；时间核对记录只写 `evaluations`，过时间键契约的 T1（`frames[]` 要镜头代码里的观测点，核心帧源没有，不写，T4、T5、T8、T9 不判），负对照（摘要改掉、相邻两行状态）不过；`chassis/moving.mjs` 放三份核心测试共用的双精度几何。
 - 核心渲染程序加调试开关 `BEIMING_CORE_FILM_DUMP`（把读回的输出缓冲与全局参数原样落盘）；`beiming/sources/core/chassis/readback.test.mjs` 拿它做读回一致性：同一帧着色器写进缓冲的原值照读回的写法重算，和 `--passes` 落盘的通道文件逐位相同，motion 和缓冲里的命中点重算的差不超过 1e-6 像素；改一位、换一份缓冲的负对照都查得出。
-- 核心渲染程序 `core-render render-pack --passes` 交出 `motion` 层（`motion.f32`，输出通道契约 0.2.0-draft 的 5.6，快门角为 0）：内核的辅助样本把命中点与物体号写进输出缓冲预留的第 8 格（内核结构冻结标记升 1.2.1），宿主按场景包相邻两帧的实例矩阵与相机用双精度求下一帧的屏幕位置减这一帧的，最后一帧向后差分、只有一帧的包全 0；通道声明七个固定通道齐了。`chassis/motion.test.mjs` 拿板平移、板旋转、相机移动三种已知运动的包和解析值对拍，物体内部差在 1e-4 像素以内（苹果 M5 Pro 上最大 1.6e-5）。其余通道、线性颜色与 PNG 和改前逐位相同。帧源一侧的能力声明还写 `motion: false`。
+- 核心渲染程序 `core-render render-pack --passes` 交出 `motion` 层（`motion.f32`，输出通道契约 0.2.0-draft 的 5.6，快门角为 0）：内核的辅助样本把命中点与物体号写进输出缓冲预留的第 8 格（内核结构冻结标记升 1.2.1），宿主按场景包相邻两帧的实例矩阵与相机用双精度求下一帧的屏幕位置减这一帧的，最后一帧向后差分、只有一帧的包全 0；通道声明七个固定通道齐了。`chassis/motion.test.mjs` 拿板平移、板旋转、相机移动三种已知运动的包和解析值对拍，物体内部差在 1e-4 像素以内（苹果 M5 Pro 上最大 1.6e-5）。其余通道、线性颜色与 PNG 和改前逐位相同。帧源一侧的能力声明还写 `motion: false`。另一帧里实例被隐藏（左上 3×3 九个数全 0）的像素写 0；最后一帧按场景包的帧数判。动态网格的 motion 端到端没接：除了场景包契约定动态网格的写法，内核辅助样本还要把三角形号与重心坐标写进输出缓冲第 9 格，冻结标记升版本。
 - 核心渲染程序加带 OIDN 的构建档（`beiming/sources/core/chassis/build.mjs` 的 `buildOidnRenderer`，默认档不变）：链接 Blender 自带的 OIDN 动态库，库的 sha256 钉在 `chassis/oidn-lock.json`（苹果 M5 Pro 的 Blender 5.2.0、RTX 5090 的 Blender 5.2.3），构建前与运行前核对，对不上报 env 类的错；运行时只靠 rpath 找库。`core-render denoise` 子命令把现成的三张图走同一个 OIDN。
 - `beiming/sources/core/chassis/oidn-parity.mjs` 做核心 OIDN 与 Blender（Cycles）降噪的对拍：同一份带噪颜色与降噪特征层、同一个库、同设备同预过滤，判据 1e-3；苹果 M5 Pro（CPU 三档预过滤、Metal）与 RTX 5090（CPU、CUDA）的读数入库，结果写在 `beiming/sources/core/path/README.md`「和 Blender 对拍」。
 - 核心底盘加两条负对照：EXR 写好之后改坏一个通道，往返比较必须报出；两遍里第二遍改了一个通道文件，两遍对比必须列出它。
@@ -211,7 +209,7 @@
 - O3 新增 `still.match`，调用方可按灰度误差定位最佳与分离次优帧，并可核验有充分重叠的整像素平移。 (#259)
 
 ### Changed
-- 不兼容：输出通道契约（`beiming/kernel/contracts/passes/`）升到 0.2.0-draft：快门角是 0 时 `motion` 定义成第 F + 1 帧的屏幕位置减第 F 帧的（像素每帧，原点左上、y 向下），最后一帧向后差分，只有一帧的镜头写 0；刚体按相邻两帧的实例矩阵、动态网格按命中三角形的重心坐标取另一帧的点，命中点只取辅助样本。结构、不变量、格式标识没动；原先写死成 0 的 `motion` 在场景动的时候不再合契约。变更与迁移说明在契约第 7 节。
+- 不兼容：输出通道契约（`beiming/kernel/contracts/passes/`）升到 0.2.0-draft：快门角是 0 时 `motion` 定义成第 F + 1 帧的屏幕位置减第 F 帧的（像素每帧，原点左上、y 向下），最后一帧向后差分，只有一帧的镜头写 0；刚体按相邻两帧的实例矩阵、动态网格按命中三角形的重心坐标取另一帧的点，命中点只取辅助样本。结构、不变量、格式标识没动；原先写死成 0 的 `motion` 在场景动的时候不再合契约。落到相机平面上或背后、命中的实例在另一帧里被隐藏或不存在的像素写 `(0, 0)`；最后一帧按场景包的帧号判，不看镜头的 `out`。变更与迁移说明在契约第 7 节。
 - 核心渲染程序编进 OIDN 时降噪参数改照 Cycles：法线用降噪特征的相机空间均值，不设 `inputScale`，`ACCURATE` 预过滤先单独降噪反照率与法线、颜色那一遍开 `cleanAux`（`oidn` crate 2.5.1 的 `clean_aux` 参数名 OIDN 不认，改走 C 接口），按 Cycles 的行序喂进去，设备 CPU；口径对照表写在 `beiming/sources/core/path/README.md`「降噪的口径」。没编进 OIDN 的默认档出帧不变。
 - 核心底盘的 `limits.mjs`、`rerender.mjs` 记录里 `kernel` 记跑记录的那个程序自己的摘要（给了程序时从文件名取，取不到记 null），另记程序的 sha256；底盘调 cargo 时 `CARGO_NET_OFFLINE` 为真就带 `--offline`，清构建目录一律不联网。
 - 核心内核的来源说明（`beiming/sources/core/path/PROVENANCE.md`）补上选底盘时的探针读数（RTX 5090 上软硬求交计时与两遍逐位结果）与钉点对账：实测、分叉、基线都钉在上游 `c946cc96`。

@@ -1378,7 +1378,8 @@ pub fn build(p: &Pack, k: usize, size: (u32, u32), preset: Option<&str>, presets
 }
 
 /// 北冥：第 `k` 帧的 motion 要的东西（输出通道契约 5.6）。另一帧取第 k + 1 帧，第 k 帧是最后一帧时取第 k − 1 帧（向后差分），
-/// 只有一帧的包返回 None（motion 全 0）。每个这一帧画出来的实例行：它在内核物体表里的下标 → 两帧实例矩阵给出的刚体变换；
+/// 只有一帧的包返回 None（motion 全 0）；最后一帧按场景包的帧号（`frames.count`）判，不看镜头的 `out`。每个这一帧画出来的
+/// 实例行：它在内核物体表里的下标 → 两帧实例矩阵给出的刚体变换，另一帧里被隐藏的是 None（motion 写 0，见 `motion::rigid`）；
 /// 两行落到同一个物体上时分不出命中的是哪一行，报错。
 pub fn motion_step(p: &Pack, k: usize, size: (u32, u32), b: &Built) -> Result<Option<crate::motion::Step>> {
     let Some(g) = (if k + 1 < p.count { Some(k + 1) } else { k.checked_sub(1) }) else { return Ok(None) };
@@ -1389,8 +1390,8 @@ pub fn motion_step(p: &Pack, k: usize, size: (u32, u32), b: &Built) -> Result<Op
     };
     let mut objects = HashMap::new();
     for x in b.placed.iter().filter(|x| x.drawn) {
-        let (Some(o), Some(d)) = (x.object, crate::motion::rigid(p.instance_matrix(k, x.row), p.instance_matrix(g, x.row))) else { continue };
-        if objects.insert(o, d).is_some() {
+        let Some(o) = x.object else { continue };
+        if objects.insert(o, crate::motion::rigid(p.instance_matrix(k, x.row), p.instance_matrix(g, x.row))).is_some() {
             return Err(anyhow::anyhow!("实例表第 {} 行与另一行落到了内核的同一个物体 {o} 上，motion 分不出命中的是哪一行", x.row));
         }
     }
@@ -1699,6 +1700,17 @@ mod tests {
         assert!((by_type(1.0) / (60.0 / (4.0 * std::f64::consts::PI)) - 1.0).abs() < 1e-6, "点光取第 1 帧的 60 瓦");
         let ip = b.scene.retained.instanced(row_id(1)).unwrap();
         assert_eq!(b.scene.instances[ip.first as usize].world.w_axis, glam::Vec4::new(1.0, 2.0, 0.0, 1.0));
+        // motion：第 1 帧里把第 1 行藏起来（左上 3×3 九个数全 0，平移留着）。第 0 帧对第 1 帧，第 1 行那一项没有定义，第 0 行照常
+        for x in &mut p.frames_instances.data[48..48 + 12] {
+            *x = 0.0;
+        }
+        let b0 = build(&p, 0, (64, 32), None, &presets(), None).unwrap();
+        let s = motion_step(&p, 0, (64, 32), &b0).unwrap().unwrap();
+        let obj = |r: usize| b0.placed[r].object.unwrap();
+        assert!(s.forward && s.objects[&obj(0)].is_some() && s.objects[&obj(1)].is_none(), "{:?}", s.objects);
+        // 第 1 帧是场景包的最后一帧：向后差分
+        let b1 = build(&p, 1, (64, 32), None, &presets(), None).unwrap();
+        assert!(!motion_step(&p, 1, (64, 32), &b1).unwrap().unwrap().forward);
     }
 
     /// 查「只列叶子实体」（SP14）的耗时与名字总长度成正比：二十万个实例的清单也在几秒内校验完。

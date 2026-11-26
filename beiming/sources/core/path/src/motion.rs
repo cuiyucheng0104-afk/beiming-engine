@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 //! 北冥新写的文件，不是上游 ThreeRT 的。输出通道 `motion`（输出通道契约 5.6，快门角为 0）：辅助样本的命中点在第 F + 1 帧
 //! 的屏幕位置减它在第 F 帧的屏幕位置，像素每帧，原点左上、y 向下；最后一帧向后差分（第 F 帧减第 F − 1 帧），只有一帧的包
-//! 写 0。内核的辅助样本只写命中点（世界坐标）与物体号（输出缓冲 `FILM_AUX_HIT`），另一帧的位置与两次投影在这里用双精度算：
+//! 写 0；按场景包的帧号判最后一帧。另一帧里实例被隐藏（左上 3×3 九个数全是 0）时那个像素写 0。内核的辅助样本只写命中点（世界坐标）与物体号（输出缓冲 `FILM_AUX_HIT`），另一帧的位置与两次投影在这里用双精度算：
 //! 刚体是 M_G × M_F⁻¹ × X；动态网格是命中三角形的重心坐标在另一帧的同一个三角形上取点（`dynamic_point`）。
 use glam::{DMat4, DVec2, DVec3, Mat4};
 use std::collections::HashMap;
@@ -50,14 +50,17 @@ pub struct Step {
     pub there: Cam,
     /// 另一帧是不是 F + 1；不是（向后差分）时结果取反，仍是「后一帧减前一帧」。
     pub forward: bool,
-    pub objects: HashMap<u32, DMat4>,
+    /// None：另一帧的位置没有定义（见 `rigid`），motion 写 0。
+    pub objects: HashMap<u32, Option<DMat4>>,
 }
 
-/// 第 F 帧与第 G 帧的实例矩阵（列主序 f32，原样）给出的刚体变换 M_G × M_F⁻¹。M_F 的行列式是 0 时这个实例第 F 帧不画，
-/// 辅助样本打不到它，返回 None。
+/// 第 F 帧与第 G 帧的实例矩阵（列主序 f32，原样）给出的刚体变换 M_G × M_F⁻¹。返回 None：M_F 的行列式是 0（这个实例
+/// 第 F 帧不画，辅助样本打不到它），或者第 G 帧这个实例被隐藏（左上 3×3 九个数全是 0，场景包契约 5.4 读入方不画；
+/// 输出通道契约 5.6 定这时写 (0, 0)）。
 pub fn rigid(m_f: Mat4, m_g: Mat4) -> Option<DMat4> {
     let f = m_f.as_dmat4();
-    (f.determinant() != 0.0).then(|| m_g.as_dmat4() * f.inverse())
+    let hidden = [m_g.x_axis, m_g.y_axis, m_g.z_axis].iter().all(|c| c.truncate() == glam::Vec3::ZERO);
+    (f.determinant() != 0.0 && !hidden).then(|| m_g.as_dmat4() * f.inverse())
 }
 
 /// 动态网格的命中点在另一帧的位置：另一帧同一个三角形的三个顶点（网格自己的坐标）按命中的重心坐标取点（`u` 对第二个顶点、
@@ -69,13 +72,15 @@ pub fn dynamic_point(tri_g: [DVec3; 3], u: f64, v: f64, m_g: DMat4) -> DVec3 {
 
 impl Step {
     /// 一个像素的 motion：`hit` 是 `FILM_AUX_HIT` 的原值（xyz 命中点，w 物体表下标加 1，没打到是 0）。没打到、或者命中点
-    /// 在某一帧落到相机背后：(0, 0)。命中的物体不在 `objects` 里是读入器的毛病，报错，不编一个数。
+    /// 在某一帧落到相机平面上或背后、或者另一帧里这个实例被隐藏：(0, 0)。命中的物体不在 `objects` 里是读入器的毛病，报错，
+    /// 不编一个数。
     pub fn motion(&self, hit: [f32; 4], w: u32, h: u32) -> Result<[f32; 2], String> {
         if hit[3] == 0.0 {
             return Ok([0.0, 0.0]);
         }
         let object = hit[3] as u32 - 1;
         let d = self.objects.get(&object).ok_or_else(|| format!("辅助样本打到了物体 {object}，它不是场景包实例表里画出来的行"))?;
+        let Some(d) = d else { return Ok([0.0, 0.0]) };
         let x = DVec3::new(hit[0] as f64, hit[1] as f64, hit[2] as f64);
         let (Some(a), Some(b)) = (self.here.screen(x, w, h), self.there.screen(d.transform_point3(x), w, h)) else {
             return Ok([0.0, 0.0]);
@@ -98,7 +103,7 @@ pub fn layer(step: Option<&Step>, hits: &[[f32; 4]], w: u32, h: u32) -> Result<V
 #[cfg(test)]
 mod tests {
     use super::*;
-    use glam::Vec3;
+    use glam::{Vec3, Vec4};
 
     fn cam_at(z: f32) -> Cam {
         Cam::new(Mat4::from_translation(Vec3::new(0.0, 0.0, z)), 0.6, 2.0)
@@ -127,11 +132,11 @@ mod tests {
         let m0 = Mat4::IDENTITY;
         let m1 = Mat4::from_translation(Vec3::new(0.1, 0.0, 0.0));
         let px = 0.1f32 as f64 / (3.0 * 0.3f64.tan() * 2.0) * w as f64 / 2.0;
-        let fwd = Step { here: cam_at(3.0), there: cam_at(3.0), forward: true, objects: HashMap::from([(4, rigid(m0, m1).unwrap())]) };
+        let fwd = Step { here: cam_at(3.0), there: cam_at(3.0), forward: true, objects: HashMap::from([(4, rigid(m0, m1))]) };
         let m = fwd.motion([0.0, 0.0, 0.0, 5.0], w, h).unwrap();
         assert!((m[0] as f64 - px).abs() < 1e-5 && m[1] == 0.0, "{m:?} vs {px}");
         // 向后差分：第 1 帧是最后一帧，另一帧是第 0 帧，结果仍是后一帧减前一帧
-        let back = Step { here: cam_at(3.0), there: cam_at(3.0), forward: false, objects: HashMap::from([(4, rigid(m1, m0).unwrap())]) };
+        let back = Step { here: cam_at(3.0), there: cam_at(3.0), forward: false, objects: HashMap::from([(4, rigid(m1, m0))]) };
         let b = back.motion([0.1, 0.0, 0.0, 5.0], w, h).unwrap();
         assert!((b[0] - m[0]).abs() < 1e-6 && b[1] == 0.0, "{b:?} vs {m:?}");
         // 没打到：0；只有一帧：全 0；打到实例表之外的物体：报错
@@ -140,6 +145,23 @@ mod tests {
         assert!(fwd.motion([0.0, 0.0, 0.0, 9.0], w, h).is_err());
         // 第 F 帧行列式为 0 的实例不画
         assert!(rigid(Mat4::ZERO, m1).is_none());
+    }
+
+    #[test]
+    fn hidden_in_the_other_frame_writes_zero() {
+        // 另一帧被隐藏（整个矩阵全 0、缩放全 0 而平移还在两种）：没有定义，向前、向后差分都写 (0, 0)
+        let (w, h) = (64u32, 32u32);
+        let m0 = Mat4::IDENTITY;
+        let step = |g: Mat4, forward: bool| Step { here: cam_at(3.0), there: cam_at(3.0), forward, objects: HashMap::from([(4, rigid(m0, g))]) };
+        for g in [Mat4::ZERO, Mat4::from_cols(Vec4::ZERO, Vec4::ZERO, Vec4::ZERO, Vec4::new(0.1, 0.0, 0.0, 1.0))] {
+            assert!(rigid(m0, g).is_none());
+            for forward in [true, false] {
+                assert_eq!(step(g, forward).motion([0.2, 0.1, 0.0, 5.0], w, h).unwrap(), [0.0, 0.0]);
+            }
+        }
+        // 只压扁一个轴（九个数不全是 0）的不算隐藏，照式子算：点 (0.2, 0.1, 0.5) 压到 z = 0，离相机远了，屏幕上往中心挪
+        let flat = step(Mat4::from_scale(Vec3::new(1.0, 1.0, 0.0)), true).motion([0.2, 0.1, 0.5, 5.0], w, h).unwrap();
+        assert!(flat[0] < 0.0 && flat[1] > 0.0, "{flat:?}");
     }
 
     #[test]
