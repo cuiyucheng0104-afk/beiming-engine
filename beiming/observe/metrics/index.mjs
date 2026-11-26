@@ -6,3 +6,4 @@ export { lyricsMatch } from './lyrics-match.mjs';
 export { lumaPercentile, cutGhost, LUMA_GHOST_METRICS, runLumaGhostMetric } from './luma-ghost.mjs';
 export { flowField, imageFlip, FLOW_FLIP_METRICS, runFlowFlipMetric } from './flow-flip.mjs';
 export { regionalFlicker, onTwosCadence } from './temporal-cadence.mjs';
+export { narrationTiming } from './narration-timing.mjs';
