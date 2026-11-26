@@ -147,6 +147,72 @@ export function freshTarget(target, key, cwd = KERNEL) {
   fs.writeFileSync(stamp, key);
 }
 
+/** 带 OIDN 的构建档用的库：lib 目录（环境变量 BEIMING_OIDN_LIB；没设时从 Blender 找：BEIMING_BLENDER、macOS 的应用目录、PATH 里的
+ *  blender，取它真实路径旁的库目录：macOS 是 Contents/Resources/lib，Linux 是可执行文件同级的 lib/）与 oidn-lock.json 里这个平台的一项 */
+export const OIDN_LOCK = path.join(HERE, 'oidn-lock.json');
+const MAC_BLENDER = '/Applications/Blender.app/Contents/MacOS/Blender';
+
+/** Blender 的可执行文件：BEIMING_BLENDER 写了只认它，否则 macOS 的应用目录、PATH 里的 blender；找不到是 null */
+export function findBlender(env = process.env) {
+  const candidates = env.BEIMING_BLENDER ? [env.BEIMING_BLENDER] : [MAC_BLENDER, ...(env.PATH ?? '').split(path.delimiter).filter(Boolean).map(d => path.join(d, 'blender'))];
+  return candidates.find(p => fs.existsSync(p)) ?? null;
+}
+
+function blenderLibDir(env = process.env) {
+  if (env.BEIMING_OIDN_LIB) return env.BEIMING_OIDN_LIB;
+  const bin = findBlender(env);
+  if (!bin) return null;
+  const real = fs.realpathSync(bin);
+  return process.platform === 'darwin' ? path.join(path.dirname(real), '..', 'Resources', 'lib') : path.join(path.dirname(real), 'lib');
+}
+
+/**
+ * 核对 OIDN 库：目录里全部 libOpenImageDenoise* 与 libtbb*（链接照它指向的内容）与锁文件这个平台的一项逐个比 sha256，多、少、
+ * 对不上都抛 env 类的错（.missing，退出码 3）。返回 { dir, platform, entry }。构建前与运行带 OIDN 的程序前都要过这一道。
+ */
+export function verifyOidnLibs(env = process.env) {
+  const platform = `${process.platform}-${process.arch}`;
+  const entry = JSON.parse(fs.readFileSync(OIDN_LOCK, 'utf8')).platforms[platform];
+  if (!entry) throw Object.assign(missing(`oidn-lock.json 里没有 ${platform} 这个平台的库`), { code: 'env.missing-tool' });
+  const dir = blenderLibDir(env);
+  if (!dir || !fs.existsSync(dir)) throw Object.assign(missing(`找不到 OIDN 的库目录（${dir ?? '没找到 Blender'}）：设 BEIMING_OIDN_LIB 指向 Blender 的 lib 目录，或 BEIMING_BLENDER 指向 Blender ${entry.blender}`), { code: 'env.missing-tool' });
+  const have = fs.readdirSync(dir).filter(f => /^lib(OpenImageDenoise|tbb)/.test(f)).sort();
+  const problems = [
+    ...Object.keys(entry.files).filter(f => !have.includes(f)).map(f => `缺 ${f}`),
+    ...have.filter(f => !(f in entry.files)).map(f => `锁文件里没有 ${f}`),
+    ...have.filter(f => f in entry.files && sha256(fs.readFileSync(path.join(dir, f))) !== entry.files[f]).map(f => `${f} 的 sha256 对不上`),
+  ];
+  if (problems.length) throw Object.assign(missing(`OIDN 库与 oidn-lock.json（${platform}，Blender ${entry.blender} 自带的 OIDN ${entry.oidn}）对不上：${problems.join('；')}（目录 ${dir}）`), { code: 'env.missing-tool' });
+  return { dir, platform, entry };
+}
+
+/**
+ * 带 OIDN 的构建档（默认档不变）：核对库之后 `cargo rustc --features oidn`，OIDN_DIR 设成库目录的上一级（oidn crate 的构建脚本
+ * 认它，把 $OIDN_DIR/lib 加进链接路径、链接 OpenImageDenoise；不走 pkg-config，不开 bundled），只给 core-render 这一个程序加
+ * rpath 指向库目录，运行时不靠 DYLD_LIBRARY_PATH / LD_LIBRARY_PATH。构建目录另用 out/chassis/target-oidn；程序名的摘要把锁文件的
+ * 这一项算进去，与默认档分开存。返回 { bin, key, shaders, built, oidn: { dir, platform } }。
+ */
+export function buildOidnRenderer(env = process.env) {
+  const lib = verifyOidnLibs(env);
+  if (path.basename(lib.dir) !== 'lib') throw Object.assign(missing(`OIDN 的库目录要叫 lib（oidn crate 链接 $OIDN_DIR/lib）：${lib.dir}`), { code: 'env.missing-tool' });
+  const problems = singleCopyProblems();
+  if (problems.length) throw new Error(`拒绝编译：${problems.join('；')}`);
+  const shaders = SHADERS.map(f => ({ file: `shaders/${f}`, sha256: sha256(fs.readFileSync(path.join(CORE, 'shaders', f))) }));
+  const key = sourceKey([{ oidn: lib.platform, files: lib.entry.files }]);
+  const bin = path.join(OUT, 'bin', `core-render-${key}${EXE}`);
+  const oidn = { dir: lib.dir, platform: lib.platform };
+  if (fs.existsSync(bin)) return { bin, key, shaders, built: false, oidn };
+  const target = path.join(OUT, 'target-oidn');
+  freshTarget(target, key);
+  const r = sh(cargoPath(), cargoNet(['rustc', '--locked', '--release', '--features', 'oidn', '--bin', 'core-render', '--', '-C', `link-arg=-Wl,-rpath,${lib.dir}`]),
+    { cwd: KERNEL, stdio: ['ignore', 'ignore', 'pipe'], env: { ...process.env, CARGO_TARGET_DIR: target, OIDN_DIR: path.dirname(lib.dir) } });
+  if (r.status !== 0) throw new Error(`带 OIDN 的内核编不过：\n${r.stderr.split('\n').slice(-40).join('\n')}`);
+  fs.mkdirSync(path.dirname(bin), { recursive: true });
+  fs.copyFileSync(path.join(target, 'release', `core-render${EXE}`), `${bin}.tmp`);
+  fs.renameSync(`${bin}.tmp`, bin);
+  return { bin, key, shaders, built: true, oidn };
+}
+
 /**
  * 编出渲染程序，返回 { bin, key, shaders }。inject 是负对照用的故意改错：[{ file: 相对 beiming/sources/core/ 的路径, from, to }]，
  * from 必须恰好出现一次；有 inject 时在 out/ 下的拷贝里改和编，工作树不动。

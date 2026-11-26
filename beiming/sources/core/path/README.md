@@ -132,26 +132,27 @@ core-render denoise --width W --height H --color c.f32 --albedo a.f32 --normal n
 
 三张输入与输出都是 RGB f32 小端、行主序、没有文件头，原样喂给 `oidn()`（不翻行序）；stdout 一行统计（设备、预过滤、质量、耗时）。
 
-### 链接 Blender 自带的 OIDN（构建档的设计，还没落地）
+### 链接 Blender 自带的 OIDN：带 OIDN 的构建档
 
-不起单独的降噪服务，降噪在 core-render 进程里做；链接的是 Blender 安装里自带的那一份 OIDN 动态库，按 sha256 钉住，与 Blender 降噪时用的逐字节是同一个库。
+不起单独的降噪服务，降噪在 core-render 进程里做；链接的是 Blender 安装里自带的那一份 OIDN 动态库，按 sha256 钉住，与 Blender 降噪时用的逐字节是同一个库。这是另一个构建档，默认档不变。
 
-| 机器 | 库在哪 | 版本 | 文件与 sha256 |
+```sh
+node -e "import('./beiming/sources/core/chassis/build.mjs').then(m => console.log(m.buildOidnRenderer().bin))"
+```
+
+- 找库：环境变量 `BEIMING_OIDN_LIB`（Blender 的 lib 目录）；没设时找 Blender（`BEIMING_BLENDER`、macOS 的 `/Applications/Blender.app`、PATH 里的 `blender`），取它真实路径旁的库目录：macOS 是 `Contents/Resources/lib/`，Linux 官方包是可执行文件同级的 `lib/`（`~/.local/bin/blender` 这类链接先解开）。
+- 核对：[../chassis/oidn-lock.json](../chassis/oidn-lock.json) 按平台（`darwin-arm64`、`linux-x64`）列出库目录里全部 `libOpenImageDenoise*` 与 `libtbb*`（链接照它指向的内容）的 sha256，`build.mjs` 的 `verifyOidnLibs` 逐个比：多一个、少一个、对不上都拒绝，抛 env 类的错（退出码 3，码 `env.missing-tool`：错误码表里没有更贴切的）。构建前核一次；跑带 OIDN 的程序之前（对拍脚本）再核一次。
+- 链接：`oidn` crate 2.5.1 的构建脚本（`build.rs`，已读）没开 `bundled` 时，设了 `OIDN_DIR` 就把 `$OIDN_DIR/lib` 加进链接路径、链接 `OpenImageDenoise`，不走 pkg-config；C 接口的绑定是 crate 里写好的，不要头文件。所以 `OIDN_DIR` 设成库目录的上一级（库目录必须叫 `lib`），`cargo rustc --locked --release --features oidn --bin core-render -- -C link-arg=-Wl,-rpath,<库目录>`；不开 `bundled`（它会在构建时下载）。构建目录另用 `out/chassis/target-oidn`；程序名的摘要把锁文件这个平台的一项算进去，与默认档分开存。
+- 运行时找库：只靠编进程序的 rpath（`LC_RPATH` / `RUNPATH`，指向上面的库目录），不用 `DYLD_LIBRARY_PATH` / `LD_LIBRARY_PATH`。OIDN 的主库再按它自己的 rpath（macOS `@loader_path`、Linux `$ORIGIN`）从同一目录装核心库与设备库（macOS 有 CPU 与 Metal，Linux 有 CPU、CUDA、HIP、SYCL）。所以 Blender 升级或挪走之后这个程序就装不上库了，要重编；锁文件对不上时先改锁文件（换了 Blender 就是换了库，要重新对拍）。
+
+| 平台 | 库目录 | Blender | OIDN |
 |---|---|---|---|
-| 苹果 M5 Pro | Blender 5.2.0 的 `Blender.app/Contents/Resources/lib/` | 2.5.0（`otool -L` 报的 current version；装载名 `@rpath/libOpenImageDenoise.dylib`） | `libOpenImageDenoise.dylib` `f5b32f2f72bcc9797861845c78a48e1e3db45872c5e00db4c2517f2b67a24e92`，`_core` `042318cf91982a50a54aa3a94940508b2b83a9ad953782329898d6a9ef6b212b`，`_device_cpu` `0390327a30062ac90653fa15e9dec931c6d0b83ac3e92eded405fbb70ab936e3`，`_device_metal` `4e9937ed9c8f9244627a3b014f526d4f707c2be29a2fb2aed4c88a9ed191592a`；`libtbb.dylib` `c777383fc753a2cdcda8c3b4c26b3b91629891502e79db1042bb0d4add902926` |
-| RTX 5090（Linux） | Blender 5.2.3 官方 Linux 包的 `lib/` | 2.5.0 | `libOpenImageDenoise.so.2.5.0` `640b85e907e420ca4c4c1a320a0c648dd80d746e38e30cd6915c081eede682a1`（`.so`、`.so.2` 是指向它的链接），`_core` `b25bebf5e9ba5058fdecdcabe5c9e990398c072ce2ef7ee5c217636300cc6ed2`，`_device_cpu` `43bac84a37fe6b2083dbf230c10a9166514a5f7432d92c052c97970c51936809`，`_device_cuda` `baa354f85b236ba55719f6f2e6f42c3e43e490b40188685a3b6a7388e2368cd7`；`libtbb.so.12.17` 同目录 |
-| RTX 5090（Linux），对 Blender 4.5 | Blender 4.5.16 官方 Linux 包的 `lib/` | 2.3.3 | `libOpenImageDenoise.so.2.3.3` `9a220453d6a7ea32a036559e6579768a312653c9da12b819282f91bf8b2acc11`，`_core` `5ee271c174239386fa68fcad392a0f3e054aefeb9bc36741d409553b06fc09a3`，`_device_cuda` `82521b91a0efb74b5bddbd0976e4cfb42438cb593635120a8727adbfd79edfe8` |
+| `darwin-arm64`（苹果 M5 Pro） | `Blender.app/Contents/Resources/lib/` | 5.2.0 | 2.5.0 |
+| `linux-x64`（RTX 5090） | 官方 Linux 包的 `lib/` | 5.2.3 | 2.5.0 |
 
-三处都只有动态库：没有头文件（`oidn.h`）、没有 pkg-config 的 `.pc`、没有 CMake 的配置文件。
+各文件的 sha256 只写在锁文件里。三处 Blender 都只有动态库：没有头文件、没有 pkg-config 的 `.pc`、没有 CMake 的配置文件（用不着）。5090 上另有 Blender 4.5.16 自带的 OIDN 2.3.3（`libOpenImageDenoise.so.2.3.3` `9a220453d6a7ea32a036559e6579768a312653c9da12b819282f91bf8b2acc11`），对它另编一份要把 `Cargo.lock` 里的 `oidn` 降到 2.3.3（缓存里没有，要取），还没做。
 
-Rust 一侧用 `oidn` crate（`Cargo.lock` 钉 2.5.1，两台机器的 cargo 缓存里都有）。从 crates.io 的索引能看到的：`links = "OpenImageDenoise"`；构建依赖 `pkg-config`（默认特性）；可选特性 `bundled` 会在构建时下载 OIDN 的二进制包（`ureq`、`sha2`、`flate2`、`tar`、`zip`），这里不许开；普通依赖 `bitflags`、`num_enum`。它的构建脚本没读到（crate 不在本机），照记忆：设了 `OIDN_DIR` 就加 `$OIDN_DIR/lib` 进链接路径、链接 `OpenImageDenoise`，没设才用 pkg-config 去找；C 接口的绑定是 crate 里写好的，不现场生成，所以不要头文件。这两点拿到 crate 之后先核，核不上就照实改这一节。
-
-构建档要做的：
-
-1. `../chassis/build.mjs` 加一个开关（比如 `buildRenderer({ oidn: <库目录> })`）：编之前逐个核对上表的 sha256，对不上就拒绝；把 `OIDN_DIR` 设成库目录的上一级（两处 Blender 的布局正好是 `<上一级>/lib/`），`cargo build --locked --release --features oidn`；`RUSTFLAGS` 加 `-C link-arg=-Wl,-rpath,<库目录>`，运行时不靠 `DYLD_LIBRARY_PATH` / `LD_LIBRARY_PATH` 就找得到（OIDN 的核心库再从同一目录装设备库：Mac 上是 `_device_metal`，5090 上是 `_device_cuda`）。
-2. 程序的名字（`sourceKey`）把「开了 oidn」和库的 sha256 算进去，与不开的构建分开存；编好后跑一次 `info`，再出一帧看 stats 的 `denoise` 是不是 `oidn`。
-3. 2.3.3 一份另编：`Cargo.lock` 只能钉一个 `oidn` 版本，在 `out/` 下的源码拷贝里把它降到 2.3.3（crates.io 上有，依赖相同）再编，库目录指 Blender 4.5.16 的 `lib/`；排在 2.5.0 跑通之后。
-4. 许可：只从本机已装的 Blender 动态链接，库不进仓库、不随仓库分发。OIDN（Apache-2.0）的动态链接在 `docs/rights/register.md` 的 R15 已登记；它依赖的 TBB（Apache-2.0）还没登记，落地时补上。
+许可：只从本机已装的 Blender 动态链接，库不进仓库、不随仓库分发。OIDN（Apache-2.0）的动态链接在 `docs/rights/register.md` 的 R15 已登记；它依赖的 TBB（Apache-2.0）还没登记（登记表不在本目录）。
 
 `oidn` 2.5.1 与它的依赖（`num_enum`、`num_enum_derive` 0.7.6，`proc-macro-crate` 3.5.0，`toml_edit` 0.25.17+spec-1.1.0）已按 `Cargo.lock` 的校验和取进两台机器的 cargo 缓存，之后的构建一律不联网。
 
