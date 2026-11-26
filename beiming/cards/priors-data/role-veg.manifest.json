@@ -1,0 +1,7472 @@
+{
+  "format": "priors-migration/0.1",
+  "collection": "role-veg",
+  "source": "角色、生物与植被造型（案例库参数汇编，只读；不入库）",
+  "sourceRevision": "668487b",
+  "totalSourceEntries": 514,
+  "detailEntries": 388,
+  "summaryRows": 126,
+  "order": "ledger 按源 Markdown 自然行序；sourceLine 是汇编文档行号，仅定位汇编",
+  "counting": "有参数与做法字段的 ###/#### 明细 388 条；20 个跨案例表的非表头数据行 126 条；汇总指回真实明细，不重复发出挂卡条目",
+  "historicalCount": {
+    "planned": 516,
+    "actual": 514,
+    "difference": 2,
+    "status": "source-count-corrected",
+    "evidence": "规划调研16 §1.1 / 附录B 记516；附录样本 C44@3223:X 指向链接编排说明，并非参数。源文下一行3224是渲染器标签说明；没有证据把这两行当参数。源文4e4dd49至668487b仅改导言措辞，未删两条明细。",
+    "excludedGuidance": [
+      {
+        "sourceLine": 3223,
+        "kind": "citation-policy",
+        "note": "来源链接只按真实笔记小节生成；找不到小节时只指笔记，不据此生成参数"
+      },
+      {
+        "sourceLine": 3224,
+        "kind": "renderer-label-policy",
+        "note": "渲染器标签来自源码类名或清单说明，不据此生成参数"
+      }
+    ]
+  },
+  "portableCount": 0,
+  "cardCoupledCount": 514,
+  "practiceCount": 0,
+  "excludedOrConflictCount": 0,
+  "detailRouteCounts": {
+    "portable": 0,
+    "card-coupled": 388,
+    "practice": 0,
+    "skipped-or-conflict": 0
+  },
+  "summaryRouteCounts": {
+    "portable": 0,
+    "card-coupled": 126,
+    "practice": 0,
+    "skipped-or-conflict": 0
+  },
+  "emittedCounts": {
+    "priorsTotal": 0,
+    "priorsDetail": 0,
+    "priorsSummary": 0,
+    "cardPriors": 388,
+    "practices": 0,
+    "excludedDetails": 0
+  },
+  "files": {
+    "cardPriors": "role-veg.card-priors.json"
+  },
+  "rules": {
+    "classification": "05 §8.1 / C13：本卷0%可移植量，全部挂卡；纯做法仍在对应卡的参考文本中，不变更卡文件或锁",
+    "evidence": "保留证据和验证原标签；证据枚举映射取弱，不把作者成片或外部运行时读回升级为我方读回",
+    "summary": "汇总保留原值文本、标签、行号；summaryOf 和 alsoSummarizes 指向同案例明细，跨节引用显式标注；gist 不表示同单位数值等价",
+    "units": "原始公式和单位保留为文本；quantities 为空，不把内部坐标或相位系数冒充物理量",
+    "privacy": "专名中性化；不收原包路径、文件名/行号、文件哈希或 lab 地址；docRef/sourceLine 只定位汇编"
+  },
+  "cards": [
+    "asset.glb-bridge",
+    "form.primitives",
+    "form.sdf-nets",
+    "form.superloft",
+    "fx.streak-ring",
+    "mat.library",
+    "motion.ik2",
+    "motion.roll-bank",
+    "motion.spring-chain",
+    "motion.sweep-body",
+    "motion.swim",
+    "motion.wing",
+    "particle.ambient",
+    "rig.rigid-ik",
+    "shade.px-lod",
+    "shade.scales",
+    "shade.shell-fur",
+    "shade.thin-line",
+    "wind.gust-wake"
+  ],
+  "conflicts": [
+    {
+      "sourceId": "d061",
+      "note": "保留原文两侧读数和证据上下文；不选一侧为默认值"
+    },
+    {
+      "sourceId": "d105",
+      "note": "保留原文两侧读数和证据上下文；不选一侧为默认值"
+    }
+  ],
+  "excluded": [],
+  "blindAudit": {
+    "status": "independent-review-passed-with-corrections",
+    "reviewer": "Codex integration review",
+    "reviewType": "independent-stratified-sample",
+    "fullyBlind": false,
+    "requiredFraction": 0.1,
+    "maxDisagreementRate": 0.1,
+    "sampledRows": 52,
+    "totalRows": 514,
+    "detailSampleCount": 34,
+    "summarySampleCount": 18,
+    "coveredSections": 18,
+    "sampleIds": [
+      "s003",
+      "d002",
+      "s010",
+      "d012",
+      "s018",
+      "d029",
+      "s026",
+      "d044",
+      "d056",
+      "s033",
+      "d069",
+      "s039",
+      "d080",
+      "s044",
+      "d087",
+      "s052",
+      "d094",
+      "d106",
+      "d118",
+      "s061",
+      "d129",
+      "d139",
+      "d149",
+      "d159",
+      "d169",
+      "s069",
+      "d179",
+      "d189",
+      "d200",
+      "d210",
+      "d221",
+      "d231",
+      "s078",
+      "d243",
+      "s085",
+      "d256",
+      "s092",
+      "d267",
+      "s097",
+      "d276",
+      "s102",
+      "d288",
+      "s109",
+      "d305",
+      "s115",
+      "d323",
+      "s122",
+      "d337",
+      "d349",
+      "d360",
+      "d371",
+      "d383"
+    ],
+    "originalDisagreements": 5,
+    "originalDisagreementRate": 0.09615384615384616,
+    "corrected": 5,
+    "uncorrected": 0,
+    "findings": [
+      {
+        "sourceId": "d267",
+        "issue": "披风贴图应挂材质卡",
+        "resolution": "mat.library"
+      },
+      {
+        "sourceId": "d337",
+        "issue": "静态岩面苔藓落叶不是风场",
+        "resolution": "mat.library"
+      },
+      {
+        "sourceId": "d371",
+        "issue": "空气叶实例层应挂环境粒子卡",
+        "resolution": "particle.ambient"
+      },
+      {
+        "sourceId": "s092",
+        "issue": "斗篷点阵汇总主引用不应指向手臂头兜帽",
+        "resolution": "主引用d271，附加d248"
+      },
+      {
+        "sourceId": "d200",
+        "issue": "坐标数组误被当成wiki链接移除",
+        "resolution": "恢复[[1.24,.05],[1.04,.24]]，源文数值对账保留嵌套数组"
+      }
+    ],
+    "recheck": "复核者逐条重查5项修复，全部更正；自动全量源文数值及结构检查另行通过",
+    "note": "这是独立Codex集成复核，不声称Fable、人类签字或完全盲审；没有伪造跨模型结果"
+  },
+  "ledger": [
+    {
+      "sourceId": "s001",
+      "sourceLine": 38,
+      "section": "1",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 案例13",
+      "text": "10 种方法：距离场融合再取面；沿脊线放样；参数曲面；车削；拼基本体再合并；轮廓挤出；高度场网格；实例化；平面切削；着色器里画。会弯的身体用前两种，硬甲壳用 3/4/5",
+      "evidenceLabel": "推断",
+      "verificationLabel": "没验证",
+      "summaryOf": "d002",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": []
+    },
+    {
+      "sourceId": "s002",
+      "sourceLine": 39,
+      "section": "1",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "title": "外01 外部案例01",
+      "text": "头=距离场雕刻（17+9+12 个形状）；身=管子扫掠 301 环×31 点；鳞片在片元着色器里画",
+      "evidenceLabel": "源码+实测",
+      "verificationLabel": "我们自己渲染读回过（顶点数）",
+      "summaryOf": "d018",
+      "alsoSummarizes": [
+        "d059",
+        "d086"
+      ],
+      "crossSectionReason": "源表在总览或专题节聚合其他节的同案例明细，已逐条指定引用",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": []
+    },
+    {
+      "sourceId": "s003",
+      "sourceLine": 40,
+      "section": "1",
+      "kind": "summary",
+      "caseId": "case-02",
+      "title": "02 案例02",
+      "text": "游戏里实际用 GLB（疑似图生3D+Blender 绑骨）；代码龙是后备：脊线 22 点+21 行截面表",
+      "evidenceLabel": "源码+实测",
+      "verificationLabel": "实测（拆包）",
+      "summaryOf": "d290",
+      "alsoSummarizes": [
+        "d037"
+      ],
+      "crossSectionReason": "源表在总览或专题节聚合其他节的同案例明细，已逐条指定引用",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "asset.glb-bridge",
+      "target": "asset.glb-bridge",
+      "targets": []
+    },
+    {
+      "sourceId": "s004",
+      "sourceLine": 41,
+      "section": "1",
+      "kind": "summary",
+      "caseId": "case-03",
+      "title": "03 透明机械头",
+      "text": "分层块体→脸控制笼→颅骨装甲→线缆→眼睛→颈部；颅骨用 smin(...,10.0) 加射线投影",
+      "evidenceLabel": "画面代码",
+      "verificationLabel": "作者成片用了，我们没复现",
+      "summaryOf": "d291",
+      "alsoSummarizes": [
+        "d010"
+      ],
+      "crossSectionReason": "源表在总览或专题节聚合其他节的同案例明细，已逐条指定引用",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "asset.glb-bridge",
+      "target": "asset.glb-bridge",
+      "targets": []
+    },
+    {
+      "sourceId": "s005",
+      "sourceLine": 42,
+      "section": "1",
+      "kind": "summary",
+      "caseId": "case-27",
+      "title": "27 案例27",
+      "text": "生成工具 2.6 概念→生成工具 5.5 四视图→生成工具 多图 GLB 约 20 万三角→焊接拆件→17 骨绑定",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "只是原文说法",
+      "summaryOf": "d283",
+      "alsoSummarizes": [
+        "d284",
+        "d293",
+        "d096"
+      ],
+      "crossSectionReason": "源表在总览或专题节聚合其他节的同案例明细，已逐条指定引用",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "asset.glb-bridge",
+      "target": "asset.glb-bridge",
+      "targets": []
+    },
+    {
+      "sourceId": "d001",
+      "sourceLine": 44,
+      "section": "1",
+      "kind": "detail",
+      "caseId": "case-28",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d001.card"
+      ]
+    },
+    {
+      "sourceId": "d002",
+      "sourceLine": 51,
+      "section": "1",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d002.card"
+      ]
+    },
+    {
+      "sourceId": "d003",
+      "sourceLine": 58,
+      "section": "1",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d003.card"
+      ]
+    },
+    {
+      "sourceId": "s006",
+      "sourceLine": 73,
+      "section": "2",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "title": "外01 外部案例01 上头部",
+      "text": "17 个形状；格距 0.02658；61×82×192=960,384 格点；平滑半径 0.22/0.10/0.045；60,484 顶点/119,952 三角",
+      "evidenceLabel": "源码+实测",
+      "verificationLabel": "我们自己渲染读回过",
+      "summaryOf": "d018",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": []
+    },
+    {
+      "sourceId": "s007",
+      "sourceLine": 74,
+      "section": "2",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "title": "外01 外部案例01 下颌",
+      "text": "9 个形状；格距 0.02964；40×35×142；15,630 顶点/30,600 三角",
+      "evidenceLabel": "源码+实测",
+      "verificationLabel": "我们自己渲染读回过",
+      "summaryOf": "d018",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": []
+    },
+    {
+      "sourceId": "s008",
+      "sourceLine": 75,
+      "section": "2",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "title": "外01 外部案例01 腿",
+      "text": "12 个形状；格距 0.04907；64×110×89；缩放 2.25；13,527 顶点/27,052 三角（每条）",
+      "evidenceLabel": "源码+实测",
+      "verificationLabel": "我们自己渲染读回过",
+      "summaryOf": "d018",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": []
+    },
+    {
+      "sourceId": "s009",
+      "sourceLine": 76,
+      "section": "2",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 案例13 通用",
+      "text": "体素缺省 0.012 m；窄带 3×voxel；边距 4×voxel；网格上限 6400 万格；表面起伏缺省 18/m，两层 0.7/0.3；skinSigma 缺省 0.05 m；ao 缺省 0.8",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过（未运行）",
+      "summaryOf": "d012",
+      "alsoSummarizes": [
+        "d013",
+        "d014",
+        "d015",
+        "d016"
+      ],
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": []
+    },
+    {
+      "sourceId": "s010",
+      "sourceLine": 77,
+      "section": "2",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 案例13 各体",
+      "text": "根须敌人近 0.012/远 0.026；壳体敌人近 0.025/0.021、远 0.045；潜行敌人 0.042；2 m² 人形体素 0.012 约 13,900 顶点/27,800 三角（推算）",
+      "evidenceLabel": "源码+推算",
+      "verificationLabel": "公式推算，未运行",
+      "summaryOf": "d017",
+      "alsoSummarizes": [
+        "d011",
+        "d188",
+        "d216"
+      ],
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": []
+    },
+    {
+      "sourceId": "s011",
+      "sourceLine": 78,
+      "section": "2",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 案例13 根须敌人",
+      "text": "band=voxel×3；噪声 amp .0028 freq 24 stretchY .35；ao .5；skinSigma .045",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d011",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": []
+    },
+    {
+      "sourceId": "s012",
+      "sourceLine": 79,
+      "section": "2",
+      "kind": "summary",
+      "caseId": "case-03",
+      "title": "03 透明机械头 颅骨",
+      "text": "smin(sdf_cranium, sdf_face, 10.0)；project(..., n=90, iters=22)",
+      "evidenceLabel": "画面代码",
+      "verificationLabel": "我们没复现",
+      "summaryOf": "d010",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": []
+    },
+    {
+      "sourceId": "s013",
+      "sourceLine": 80,
+      "section": "2",
+      "kind": "summary",
+      "caseId": "case-07",
+      "title": "07 案例07",
+      "text": "每新姿势出网格约 0.2–0.4 s/角色并缓存；头在屏上高于 650 像素时换更细网格；眼睑为真壳",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "只是原文说法",
+      "summaryOf": "d019",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": []
+    },
+    {
+      "sourceId": "s014",
+      "sourceLine": 81,
+      "section": "2",
+      "kind": "summary",
+      "caseId": "case-17",
+      "title": "17 两栖生物",
+      "text": "整体一个 SDF，其余全派生；4,194,304 粒子",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "只是原文说法",
+      "summaryOf": "d020",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": []
+    },
+    {
+      "sourceId": "d004",
+      "sourceLine": 83,
+      "section": "2",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": [
+        "role-veg.d004.card"
+      ]
+    },
+    {
+      "sourceId": "d005",
+      "sourceLine": 90,
+      "section": "2",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": [
+        "role-veg.d005.card"
+      ]
+    },
+    {
+      "sourceId": "d006",
+      "sourceLine": 97,
+      "section": "2",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": [
+        "role-veg.d006.card"
+      ]
+    },
+    {
+      "sourceId": "d007",
+      "sourceLine": 104,
+      "section": "2",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": [
+        "role-veg.d007.card"
+      ]
+    },
+    {
+      "sourceId": "d008",
+      "sourceLine": 111,
+      "section": "2",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": [
+        "role-veg.d008.card"
+      ]
+    },
+    {
+      "sourceId": "d009",
+      "sourceLine": 118,
+      "section": "2",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": [
+        "role-veg.d009.card"
+      ]
+    },
+    {
+      "sourceId": "d010",
+      "sourceLine": 125,
+      "section": "2",
+      "kind": "detail",
+      "caseId": "case-03",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": [
+        "role-veg.d010.card"
+      ]
+    },
+    {
+      "sourceId": "d011",
+      "sourceLine": 132,
+      "section": "2",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": [
+        "role-veg.d011.card"
+      ]
+    },
+    {
+      "sourceId": "d012",
+      "sourceLine": 139,
+      "section": "2",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": [
+        "role-veg.d012.card"
+      ]
+    },
+    {
+      "sourceId": "d013",
+      "sourceLine": 146,
+      "section": "2",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": [
+        "role-veg.d013.card"
+      ]
+    },
+    {
+      "sourceId": "d014",
+      "sourceLine": 153,
+      "section": "2",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d014.card"
+      ]
+    },
+    {
+      "sourceId": "d015",
+      "sourceLine": 160,
+      "section": "2",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": [
+        "role-veg.d015.card"
+      ]
+    },
+    {
+      "sourceId": "d016",
+      "sourceLine": 167,
+      "section": "2",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": [
+        "role-veg.d016.card"
+      ]
+    },
+    {
+      "sourceId": "d017",
+      "sourceLine": 174,
+      "section": "2",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": [
+        "role-veg.d017.card"
+      ]
+    },
+    {
+      "sourceId": "d018",
+      "sourceLine": 181,
+      "section": "2",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": [
+        "role-veg.d018.card"
+      ]
+    },
+    {
+      "sourceId": "d019",
+      "sourceLine": 192,
+      "section": "2",
+      "kind": "detail",
+      "caseId": "case-07",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": [
+        "role-veg.d019.card"
+      ]
+    },
+    {
+      "sourceId": "d020",
+      "sourceLine": 205,
+      "section": "2",
+      "kind": "detail",
+      "caseId": "case-17",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": [
+        "role-veg.d020.card"
+      ]
+    },
+    {
+      "sourceId": "s015",
+      "sourceLine": 222,
+      "section": "3",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "title": "外01 外部案例01 tubeGeo",
+      "text": "默认 8 边；平行移动标架；初始法线 (0.13,0.2,0.97)；顶点 n·(sides+1)；三角 2·(n−1)·sides",
+      "evidenceLabel": "源码",
+      "verificationLabel": "未标注",
+      "summaryOf": "d021",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s016",
+      "sourceLine": 223,
+      "section": "3",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 案例13 sweepCage",
+      "text": "内核缺省 16 环×12 段；超椭圆 e 缺省 2（圆）到 3；端部 0.6×宽内收到 0.002 m；subdivide 缺省 1 级",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过（未运行）",
+      "summaryOf": "d032",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s017",
+      "sourceLine": 224,
+      "section": "3",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 案例13 人形 sweep",
+      "text": "环数缺省 ceil(长/0.065)+3；段数 10；手机×0.7 且不细分；低模环×0.55、段×0.6；blend 缺省 0.08 m，人形 0.11 m",
+      "evidenceLabel": "源码",
+      "verificationLabel": "公式推算，未运行",
+      "summaryOf": "d034",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s018",
+      "sourceLine": 225,
+      "section": "3",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 案例13 GeoAcc",
+      "text": "ellipsoid 默认 10×7=88 顶点/140 三角；loft 默认 24 环×14 段=375/672；tube 默认 5 边",
+      "evidenceLabel": "源码",
+      "verificationLabel": "我们自己算过（按公式推算）",
+      "summaryOf": "d025",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s019",
+      "sourceLine": 226,
+      "section": "3",
+      "kind": "summary",
+      "caseId": "case-02",
+      "title": "02 案例02 代码龙",
+      "text": "脊线 22 点 centripetal Catmull-Rom；0.11 m 一圈；环向 24 段；horn 默认 14 段环向 10",
+      "evidenceLabel": "源码",
+      "verificationLabel": "未标注",
+      "summaryOf": "d023",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s020",
+      "sourceLine": 227,
+      "section": "3",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 案例13 大型龙",
+      "text": "34 关节向心 Catmull-Rom；圈距 0.12 m；L0 约 225 圈×48 点；超椭圆 e∈2.2–2.85",
+      "evidenceLabel": "源码",
+      "verificationLabel": "未标注",
+      "summaryOf": "d045",
+      "alsoSummarizes": [
+        "d031"
+      ],
+      "crossSectionReason": "源表在总览或专题节聚合其他节的同案例明细，已逐条指定引用",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "motion.sweep-body",
+      "target": "motion.sweep-body",
+      "targets": []
+    },
+    {
+      "sourceId": "d021",
+      "sourceLine": 229,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d021.card"
+      ]
+    },
+    {
+      "sourceId": "d022",
+      "sourceLine": 236,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d022.card"
+      ]
+    },
+    {
+      "sourceId": "d023",
+      "sourceLine": 243,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d023.card"
+      ]
+    },
+    {
+      "sourceId": "d024",
+      "sourceLine": 250,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d024.card"
+      ]
+    },
+    {
+      "sourceId": "d025",
+      "sourceLine": 257,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d025.card"
+      ]
+    },
+    {
+      "sourceId": "d026",
+      "sourceLine": 264,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d026.card"
+      ]
+    },
+    {
+      "sourceId": "d027",
+      "sourceLine": 271,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d027.card"
+      ]
+    },
+    {
+      "sourceId": "d028",
+      "sourceLine": 278,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d028.card"
+      ]
+    },
+    {
+      "sourceId": "d029",
+      "sourceLine": 285,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d029.card"
+      ]
+    },
+    {
+      "sourceId": "d030",
+      "sourceLine": 292,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d030.card"
+      ]
+    },
+    {
+      "sourceId": "d031",
+      "sourceLine": 299,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d031.card"
+      ]
+    },
+    {
+      "sourceId": "d032",
+      "sourceLine": 306,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d032.card"
+      ]
+    },
+    {
+      "sourceId": "d033",
+      "sourceLine": 313,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d033.card"
+      ]
+    },
+    {
+      "sourceId": "d034",
+      "sourceLine": 320,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d034.card"
+      ]
+    },
+    {
+      "sourceId": "d035",
+      "sourceLine": 327,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d035.card"
+      ]
+    },
+    {
+      "sourceId": "d036",
+      "sourceLine": 334,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d036.card"
+      ]
+    },
+    {
+      "sourceId": "d037",
+      "sourceLine": 341,
+      "section": "3",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d037.card"
+      ]
+    },
+    {
+      "sourceId": "s021",
+      "sourceLine": 356,
+      "section": "4",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "title": "外01 红龙",
+      "text": "长 172 m、最粗半径 3.6 m；301 环×31 点=9,331 顶点/18,000 三角；无骨骼；环距约 0.573 m",
+      "evidenceLabel": "源码+实测",
+      "verificationLabel": "我们自己渲染读回过（顶点数）",
+      "summaryOf": "d059",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "motion.sweep-body",
+      "target": "motion.sweep-body",
+      "targets": []
+    },
+    {
+      "sourceId": "s022",
+      "sourceLine": 357,
+      "section": "4",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "title": "外01 白龙",
+      "text": "长 150 m、半径 3.1 m；265 环；8,215 顶点/15,840 三角；kA=172/LEN=1.1467，K=0.8611",
+      "evidenceLabel": "源码",
+      "verificationLabel": "未标注",
+      "summaryOf": "d059",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "motion.sweep-body",
+      "target": "motion.sweep-body",
+      "targets": []
+    },
+    {
+      "sourceId": "s023",
+      "sourceLine": 358,
+      "section": "4",
+      "kind": "summary",
+      "caseId": "case-02",
+      "title": "02 案例02 代码龙",
+      "text": "声明身长 13.4 m、翼展 16.8 m（复算 13.162/16.684）；15,369 顶点/26,838 三角（推断，不含尾铲鳍）",
+      "evidenceLabel": "源码+推断",
+      "verificationLabel": "没验证",
+      "summaryOf": "d054",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "motion.sweep-body",
+      "target": "motion.sweep-body",
+      "targets": []
+    },
+    {
+      "sourceId": "s024",
+      "sourceLine": 359,
+      "section": "4",
+      "kind": "summary",
+      "caseId": "case-02",
+      "title": "02 案例02 GLB 主角龙",
+      "text": "29,224 顶点/42,188 三角/50 骨/翼展 17.0 m/身长 15.0 m；敌龙 19,660/27,998/50 骨",
+      "evidenceLabel": "实测",
+      "verificationLabel": "实测（拆包）",
+      "summaryOf": "d298",
+      "crossSectionReason": "源表在总览或专题节聚合其他节的同案例明细，已逐条指定引用",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": []
+    },
+    {
+      "sourceId": "s025",
+      "sourceLine": 360,
+      "section": "4",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 案例13 大型龙",
+      "text": "DIMS 全长 26、颅 3.07、颈 4.4、躯 5.8、尾 10.7、翼展 34（放大 40.8）；129 骨；L0≈115,200/L1≈39,100/L2≈11,400/L3≈1,580 三角（推算）",
+      "evidenceLabel": "源码+推算",
+      "verificationLabel": "公式推算，未运行",
+      "summaryOf": "d058",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "motion.sweep-body",
+      "target": "motion.sweep-body",
+      "targets": []
+    },
+    {
+      "sourceId": "s026",
+      "sourceLine": 361,
+      "section": "4",
+      "kind": "summary",
+      "caseId": "case-02",
+      "title": "02 案例02 巨型生物",
+      "text": "身高 120（注释 110）、翼展 260；88 骨；羽毛 128 片 13,104 顶点/24,160 三角（推断）",
+      "evidenceLabel": "源码+推断",
+      "verificationLabel": "没验证",
+      "summaryOf": "d057",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "motion.sweep-body",
+      "target": "motion.sweep-body",
+      "targets": []
+    },
+    {
+      "sourceId": "s027",
+      "sourceLine": 367,
+      "section": "4",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "title": "外01 红龙 rProf",
+      "text": "离头 0→0.64，5→0.68，15→1.0，38→1.0，100→0.88，138→0.56，160→0.24，169→0.07，172→0.02",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d039",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "motion.sweep-body",
+      "target": "motion.sweep-body",
+      "targets": []
+    },
+    {
+      "sourceId": "s028",
+      "sourceLine": 368,
+      "section": "4",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "title": "外01 截面",
+      "text": "NR=30；背侧 RW=0.97+0.10sin⁶φ，腹侧 0.84；呼吸 1+0.018sin(1.3t+PH)+0.05charge",
+      "evidenceLabel": "源码",
+      "verificationLabel": "未标注",
+      "summaryOf": "d040",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "motion.swim",
+      "target": "motion.swim",
+      "targets": []
+    },
+    {
+      "sourceId": "s029",
+      "sourceLine": 369,
+      "section": "4",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 案例13 大型龙 PROFILE",
+      "text": "chest 0 (w1.45,h2.12,e2.6,keel.46,ridge.05,dy.44)；spine4 (1.80,2.18,2.85,.42,.06,.48)；pelvis (1.30,1.30,2.6,.04,.07,.28)；tail16 (.15,.14,2.2,0,.05,0)",
+      "evidenceLabel": "源码",
+      "verificationLabel": "未标注",
+      "summaryOf": "d046",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "motion.sweep-body",
+      "target": "motion.sweep-body",
+      "targets": []
+    },
+    {
+      "sourceId": "s030",
+      "sourceLine": 370,
+      "section": "4",
+      "kind": "summary",
+      "caseId": "case-02",
+      "title": "02 案例02 代码龙",
+      "text": "21 行截面 [弧长,rx,ryTop,ryBottom]：尾尖 0.035/0.03/0.03 → 胸最粗 0.62/0.54/0.84 → 颅内 0.2/0.19/0.18；超椭圆指数 0.88",
+      "evidenceLabel": "源码",
+      "verificationLabel": "未标注",
+      "summaryOf": "d053",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "motion.sweep-body",
+      "target": "motion.sweep-body",
+      "targets": []
+    },
+    {
+      "sourceId": "d038",
+      "sourceLine": 372,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "motion.sweep-body",
+      "target": "motion.sweep-body",
+      "targets": [
+        "role-veg.d038.card"
+      ]
+    },
+    {
+      "sourceId": "d039",
+      "sourceLine": 379,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "motion.sweep-body",
+      "target": "motion.sweep-body",
+      "targets": [
+        "role-veg.d039.card"
+      ]
+    },
+    {
+      "sourceId": "d040",
+      "sourceLine": 386,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "motion.swim",
+      "target": "motion.swim",
+      "targets": [
+        "role-veg.d040.card"
+      ]
+    },
+    {
+      "sourceId": "d041",
+      "sourceLine": 393,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "motion.swim",
+      "target": "motion.swim",
+      "targets": [
+        "role-veg.d041.card"
+      ]
+    },
+    {
+      "sourceId": "d042",
+      "sourceLine": 400,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "motion.roll-bank",
+      "target": "motion.roll-bank",
+      "targets": [
+        "role-veg.d042.card"
+      ]
+    },
+    {
+      "sourceId": "d043",
+      "sourceLine": 407,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "motion.sweep-body",
+      "target": "motion.sweep-body",
+      "targets": [
+        "role-veg.d043.card"
+      ]
+    },
+    {
+      "sourceId": "d044",
+      "sourceLine": 414,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "motion.sweep-body",
+      "target": "motion.sweep-body",
+      "targets": [
+        "role-veg.d044.card"
+      ]
+    },
+    {
+      "sourceId": "d045",
+      "sourceLine": 421,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "motion.sweep-body",
+      "target": "motion.sweep-body",
+      "targets": [
+        "role-veg.d045.card"
+      ]
+    },
+    {
+      "sourceId": "d046",
+      "sourceLine": 428,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "motion.sweep-body",
+      "target": "motion.sweep-body",
+      "targets": [
+        "role-veg.d046.card"
+      ]
+    },
+    {
+      "sourceId": "d047",
+      "sourceLine": 435,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "motion.sweep-body",
+      "target": "motion.sweep-body",
+      "targets": [
+        "role-veg.d047.card"
+      ]
+    },
+    {
+      "sourceId": "d048",
+      "sourceLine": 442,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "shade.scales",
+      "target": "shade.scales",
+      "targets": [
+        "role-veg.d048.card"
+      ]
+    },
+    {
+      "sourceId": "d049",
+      "sourceLine": 449,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "motion.sweep-body",
+      "target": "motion.sweep-body",
+      "targets": [
+        "role-veg.d049.card"
+      ]
+    },
+    {
+      "sourceId": "d050",
+      "sourceLine": 456,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "motion.wing",
+      "target": "motion.wing",
+      "targets": [
+        "role-veg.d050.card"
+      ]
+    },
+    {
+      "sourceId": "d051",
+      "sourceLine": 463,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "motion.sweep-body",
+      "target": "motion.sweep-body",
+      "targets": [
+        "role-veg.d051.card"
+      ]
+    },
+    {
+      "sourceId": "d052",
+      "sourceLine": 470,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "motion.sweep-body",
+      "target": "motion.sweep-body",
+      "targets": [
+        "role-veg.d052.card"
+      ]
+    },
+    {
+      "sourceId": "d053",
+      "sourceLine": 477,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "motion.sweep-body",
+      "target": "motion.sweep-body",
+      "targets": [
+        "role-veg.d053.card"
+      ]
+    },
+    {
+      "sourceId": "d054",
+      "sourceLine": 484,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "motion.sweep-body",
+      "target": "motion.sweep-body",
+      "targets": [
+        "role-veg.d054.card"
+      ]
+    },
+    {
+      "sourceId": "d055",
+      "sourceLine": 492,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "motion.sweep-body",
+      "target": "motion.sweep-body",
+      "targets": [
+        "role-veg.d055.card"
+      ]
+    },
+    {
+      "sourceId": "d056",
+      "sourceLine": 499,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "motion.wing",
+      "target": "motion.wing",
+      "targets": [
+        "role-veg.d056.card"
+      ]
+    },
+    {
+      "sourceId": "d057",
+      "sourceLine": 506,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "motion.sweep-body",
+      "target": "motion.sweep-body",
+      "targets": [
+        "role-veg.d057.card"
+      ]
+    },
+    {
+      "sourceId": "d058",
+      "sourceLine": 514,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "motion.sweep-body",
+      "target": "motion.sweep-body",
+      "targets": [
+        "role-veg.d058.card"
+      ]
+    },
+    {
+      "sourceId": "d059",
+      "sourceLine": 522,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "motion.sweep-body",
+      "target": "motion.sweep-body",
+      "targets": [
+        "role-veg.d059.card"
+      ]
+    },
+    {
+      "sourceId": "d060",
+      "sourceLine": 533,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "motion.wing",
+      "target": "motion.wing",
+      "targets": [
+        "role-veg.d060.card"
+      ]
+    },
+    {
+      "sourceId": "d061",
+      "sourceLine": 540,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": [
+        "role-veg.d061.card"
+      ]
+    },
+    {
+      "sourceId": "d062",
+      "sourceLine": 548,
+      "section": "4",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "motion.sweep-body",
+      "target": "motion.sweep-body",
+      "targets": [
+        "role-veg.d062.card"
+      ]
+    },
+    {
+      "sourceId": "s031",
+      "sourceLine": 565,
+      "section": "5",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "title": "外01 外部案例01",
+      "text": "眼球半径 0.5225（28×20，609 顶点）；上牙 28+下牙 24；全口 52 颗；角 5 支 9 边（1,740 顶点/2,952 三角）；舌 15×15",
+      "evidenceLabel": "源码+实测",
+      "verificationLabel": "我们自己渲染读回过",
+      "summaryOf": "d071",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s032",
+      "sourceLine": 566,
+      "section": "5",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 案例13 大型龙",
+      "text": "眼球半径 0.15（24×12）；牙 64 颗，獠牙×1.9 长×1.35 粗；角 16 根；jawMax 38°；颅壳 64×84",
+      "evidenceLabel": "源码",
+      "verificationLabel": "未标注",
+      "summaryOf": "d068",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s033",
+      "sourceLine": 567,
+      "section": "5",
+      "kind": "summary",
+      "caseId": "case-02",
+      "title": "02 案例02 代码龙",
+      "text": "眼半椭球 横 0.088 纵 0.056 凸出 0.03；牙 上每侧 5（第 4 颗獠牙长 0.085）下每侧 3；hero 角半径 0.085→0.006",
+      "evidenceLabel": "源码",
+      "verificationLabel": "未标注",
+      "summaryOf": "d069",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s034",
+      "sourceLine": 568,
+      "section": "5",
+      "kind": "summary",
+      "caseId": "case-23",
+      "title": "23 打斗女主",
+      "text": "Head 49,848 三角；眼每只两层壳；ICT-FaceKit；57 个表情形状",
+      "evidenceLabel": "原文陈述+画面读数",
+      "verificationLabel": "只是原文说法",
+      "summaryOf": "d073",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s035",
+      "sourceLine": 569,
+      "section": "5",
+      "kind": "summary",
+      "caseId": "case-24",
+      "title": "24 僵尸手",
+      "text": "945 顶点/956 面；每指关节三条平行边环；拇指两段+厚根",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "只是原文说法",
+      "summaryOf": "d074",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "d063",
+      "sourceLine": 571,
+      "section": "5",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d063.card"
+      ]
+    },
+    {
+      "sourceId": "d064",
+      "sourceLine": 578,
+      "section": "5",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d064.card"
+      ]
+    },
+    {
+      "sourceId": "d065",
+      "sourceLine": 585,
+      "section": "5",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d065.card"
+      ]
+    },
+    {
+      "sourceId": "d066",
+      "sourceLine": 592,
+      "section": "5",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d066.card"
+      ]
+    },
+    {
+      "sourceId": "d067",
+      "sourceLine": 599,
+      "section": "5",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d067.card"
+      ]
+    },
+    {
+      "sourceId": "d068",
+      "sourceLine": 606,
+      "section": "5",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d068.card"
+      ]
+    },
+    {
+      "sourceId": "d069",
+      "sourceLine": 613,
+      "section": "5",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d069.card"
+      ]
+    },
+    {
+      "sourceId": "d070",
+      "sourceLine": 620,
+      "section": "5",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d070.card"
+      ]
+    },
+    {
+      "sourceId": "d071",
+      "sourceLine": 627,
+      "section": "5",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d071.card"
+      ]
+    },
+    {
+      "sourceId": "d072",
+      "sourceLine": 636,
+      "section": "5",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d072.card"
+      ]
+    },
+    {
+      "sourceId": "d073",
+      "sourceLine": 645,
+      "section": "5",
+      "kind": "detail",
+      "caseId": "case-23",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d073.card"
+      ]
+    },
+    {
+      "sourceId": "d074",
+      "sourceLine": 658,
+      "section": "5",
+      "kind": "detail",
+      "caseId": "case-24",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d074.card"
+      ]
+    },
+    {
+      "sourceId": "s036",
+      "sourceLine": 675,
+      "section": "6",
+      "kind": "summary",
+      "caseId": "case-10",
+      "title": "10 案例10 熊猫",
+      "text": "9 层壳（函数默认 14）；length 0.036；density 560；droop 0.4；毛长 0.4–1.0；无毛像素 discard",
+      "evidenceLabel": "源码",
+      "verificationLabel": "验证等级 A（原表字母）",
+      "summaryOf": "d081",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "shade.shell-fur",
+      "target": "shade.shell-fur",
+      "targets": []
+    },
+    {
+      "sourceId": "s037",
+      "sourceLine": 676,
+      "section": "6",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "title": "外01 外部案例01 鬃毛",
+      "text": "头鬃 232 撮+下颌 38 撮；发绺 5 绺/撮（头）、3 绺（背）；半宽 0.064–0.190；线宽下限 hmin=0.62×max(深度,0.1)×uPxK（约 1.24 像素）；alpha×=vCov²；丢弃阈值 0.06",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d075",
+      "alsoSummarizes": [
+        "d077"
+      ],
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "shade.shell-fur",
+      "target": "shade.shell-fur",
+      "targets": []
+    },
+    {
+      "sourceId": "s038",
+      "sourceLine": 677,
+      "section": "6",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "title": "外01 外部案例01 胡须",
+      "text": "4 根：长须 17 m/半径 0.085；短须 8 m/0.050；每根 46 段×7 边；丢弃 0.02（鳍）",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d078",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "shade.thin-line",
+      "target": "shade.thin-line",
+      "targets": []
+    },
+    {
+      "sourceId": "s039",
+      "sourceLine": 678,
+      "section": "6",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "title": "外01 外部案例01 背鬃",
+      "text": "红龙 707 片、白龙 621 片；步长 0.52；每撮 3 绺 123 顶点",
+      "evidenceLabel": "源码+实测",
+      "verificationLabel": "我们自己渲染读回过",
+      "summaryOf": "d084",
+      "alsoSummarizes": [
+        "d075"
+      ],
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "shade.shell-fur",
+      "target": "shade.shell-fur",
+      "targets": []
+    },
+    {
+      "sourceId": "s040",
+      "sourceLine": 679,
+      "section": "6",
+      "kind": "summary",
+      "caseId": "case-19",
+      "title": "19 城市 瘤牛",
+      "text": "43 万根真毛发绑皮肤",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "只是原文说法",
+      "summaryOf": "d249",
+      "crossSectionReason": "源表在总览或专题节聚合其他节的同案例明细，已逐条指定引用",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s041",
+      "sourceLine": 680,
+      "section": "6",
+      "kind": "summary",
+      "caseId": "case-23",
+      "title": "23 打斗女主",
+      "text": "1,059 张透明发片+底壳；发片程序化近景比真发扁",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "只是原文说法",
+      "summaryOf": "d080",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "shade.shell-fur",
+      "target": "shade.shell-fur",
+      "targets": []
+    },
+    {
+      "sourceId": "d075",
+      "sourceLine": 682,
+      "section": "6",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "shade.shell-fur",
+      "target": "shade.shell-fur",
+      "targets": [
+        "role-veg.d075.card"
+      ]
+    },
+    {
+      "sourceId": "d076",
+      "sourceLine": 689,
+      "section": "6",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "shade.shell-fur",
+      "target": "shade.shell-fur",
+      "targets": [
+        "role-veg.d076.card"
+      ]
+    },
+    {
+      "sourceId": "d077",
+      "sourceLine": 696,
+      "section": "6",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "shade.thin-line",
+      "target": "shade.thin-line",
+      "targets": [
+        "role-veg.d077.card"
+      ]
+    },
+    {
+      "sourceId": "d078",
+      "sourceLine": 707,
+      "section": "6",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "shade.thin-line",
+      "target": "shade.thin-line",
+      "targets": [
+        "role-veg.d078.card"
+      ]
+    },
+    {
+      "sourceId": "d079",
+      "sourceLine": 714,
+      "section": "6",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "shade.thin-line",
+      "target": "shade.thin-line",
+      "targets": [
+        "role-veg.d079.card"
+      ]
+    },
+    {
+      "sourceId": "d080",
+      "sourceLine": 721,
+      "section": "6",
+      "kind": "detail",
+      "caseId": "case-23",
+      "route": "card-coupled",
+      "cardId": "shade.shell-fur",
+      "target": "shade.shell-fur",
+      "targets": [
+        "role-veg.d080.card"
+      ]
+    },
+    {
+      "sourceId": "d081",
+      "sourceLine": 734,
+      "section": "6",
+      "kind": "detail",
+      "caseId": "case-10",
+      "route": "card-coupled",
+      "cardId": "shade.shell-fur",
+      "target": "shade.shell-fur",
+      "targets": [
+        "role-veg.d081.card"
+      ]
+    },
+    {
+      "sourceId": "d082",
+      "sourceLine": 743,
+      "section": "6",
+      "kind": "detail",
+      "caseId": "case-10",
+      "route": "card-coupled",
+      "cardId": "shade.shell-fur",
+      "target": "shade.shell-fur",
+      "targets": [
+        "role-veg.d082.card"
+      ]
+    },
+    {
+      "sourceId": "d083",
+      "sourceLine": 750,
+      "section": "6",
+      "kind": "detail",
+      "caseId": "case-10",
+      "route": "card-coupled",
+      "cardId": "shade.shell-fur",
+      "target": "shade.shell-fur",
+      "targets": [
+        "role-veg.d083.card"
+      ]
+    },
+    {
+      "sourceId": "d084",
+      "sourceLine": 757,
+      "section": "6",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "shade.shell-fur",
+      "target": "shade.shell-fur",
+      "targets": [
+        "role-veg.d084.card"
+      ]
+    },
+    {
+      "sourceId": "s042",
+      "sourceLine": 772,
+      "section": "7",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "title": "外01 外部案例01",
+      "text": "片宽 1.15 格、长 1.72 行叠压；头 48 片/圈；<2.6 px 只留平均色，3.2–7.5 px 淡入凹凸与金属，7–24 px 加最细纹理；<6 px 不画单片高光",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d086",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "shade.scales",
+      "target": "shade.scales",
+      "targets": []
+    },
+    {
+      "sourceId": "s043",
+      "sourceLine": 773,
+      "section": "7",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 案例13 潜行敌人",
+      "text": "鳞列宽 20/15/11/8 单位；4 种底色概率 42/36/15/7%；bumpScale 2.4；腹部横纹每 6–9 px",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d220",
+      "crossSectionReason": "源表在总览或专题节聚合其他节的同案例明细，已逐条指定引用",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "mat.library",
+      "target": "mat.library",
+      "targets": []
+    },
+    {
+      "sourceId": "s044",
+      "sourceLine": 774,
+      "section": "7",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 案例13 冠羽鸟",
+      "text": "图集 256（手机 128）种子 4242；覆羽 11 行×14 列；胸羽 12 行×8 列",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d253",
+      "crossSectionReason": "源表在总览或专题节聚合其他节的同案例明细，已逐条指定引用",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "mat.library",
+      "target": "mat.library",
+      "targets": []
+    },
+    {
+      "sourceId": "s045",
+      "sourceLine": 775,
+      "section": "7",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "title": "外01 外部案例01 湿身表",
+      "text": "1/24 秒扫一遍，每 2 米一个环，64 槽，uWetAge 64 浮点；透光强度红龙 0.85/π",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d087",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "shade.scales",
+      "target": "shade.scales",
+      "targets": []
+    },
+    {
+      "sourceId": "d085",
+      "sourceLine": 777,
+      "section": "7",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "shade.scales",
+      "target": "shade.scales",
+      "targets": [
+        "role-veg.d085.card"
+      ]
+    },
+    {
+      "sourceId": "d086",
+      "sourceLine": 784,
+      "section": "7",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "shade.scales",
+      "target": "shade.scales",
+      "targets": [
+        "role-veg.d086.card"
+      ]
+    },
+    {
+      "sourceId": "d087",
+      "sourceLine": 791,
+      "section": "7",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "shade.scales",
+      "target": "shade.scales",
+      "targets": [
+        "role-veg.d087.card"
+      ]
+    },
+    {
+      "sourceId": "d088",
+      "sourceLine": 798,
+      "section": "7",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "shade.scales",
+      "target": "shade.scales",
+      "targets": [
+        "role-veg.d088.card"
+      ]
+    },
+    {
+      "sourceId": "s046",
+      "sourceLine": 813,
+      "section": "8",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 骑士",
+      "text": "20 关节+14 子枢轴；刚性蒙皮；骨盆离地 0.97；踝离地 0.05",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d100",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": []
+    },
+    {
+      "sourceId": "s047",
+      "sourceLine": 814,
+      "section": "8",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 头目一 头目甲",
+      "text": "34 骨；290 多零件刚性合成 1 个蒙皮网格；1 材质 1 次绘制",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d101",
+      "alsoSummarizes": [
+        "d172"
+      ],
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": []
+    },
+    {
+      "sourceId": "s048",
+      "sourceLine": 815,
+      "section": "8",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 头目二 头目乙",
+      "text": "31 骨（原文写 32 错）；每顶点绑 1 骨权重 1；4 次绘制",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d105",
+      "alsoSummarizes": [
+        "d099"
+      ],
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": []
+    },
+    {
+      "sourceId": "s049",
+      "sourceLine": 816,
+      "section": "8",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 守卫",
+      "text": "24 骨；只有平移无旋转；髋高 0.98",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d113",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": []
+    },
+    {
+      "sourceId": "s050",
+      "sourceLine": 817,
+      "section": "8",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 壳体敌人/队长/弓手/重装敌人",
+      "text": "26 / 25 / 30 / 24 骨",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d235",
+      "crossSectionReason": "源表在总览或专题节聚合其他节的同案例明细，已逐条指定引用",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s051",
+      "sourceLine": 818,
+      "section": "8",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 根须敌人/敌人甲/幽灵",
+      "text": "34 / 27 / 23 骨",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d236",
+      "crossSectionReason": "源表在总览或专题节聚合其他节的同案例明细，已逐条指定引用",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s052",
+      "sourceLine": 819,
+      "section": "8",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 NPC 守卫/NPC甲/NPC乙/NPC丙/白桦",
+      "text": "14 / 16 / 17 / 20 / 4 骨",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d117",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": []
+    },
+    {
+      "sourceId": "s053",
+      "sourceLine": 820,
+      "section": "8",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 大型龙 龙",
+      "text": "129 骨；每骨段中心升余弦窗，取最大 4 骨归一",
+      "evidenceLabel": "源码",
+      "verificationLabel": "未标注",
+      "summaryOf": "d089",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": []
+    },
+    {
+      "sourceId": "s054",
+      "sourceLine": 821,
+      "section": "8",
+      "kind": "summary",
+      "caseId": "case-02",
+      "title": "02 案例02 GLB",
+      "text": "主角龙 50 骨；骑手 52；骑士 61；巨型生物 72",
+      "evidenceLabel": "实测",
+      "verificationLabel": "实测（拆包）",
+      "summaryOf": "d298",
+      "crossSectionReason": "源表在总览或专题节聚合其他节的同案例明细，已逐条指定引用",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": []
+    },
+    {
+      "sourceId": "s055",
+      "sourceLine": 822,
+      "section": "8",
+      "kind": "summary",
+      "caseId": "case-10",
+      "title": "10 案例10",
+      "text": "骨骼 24；22 根骨对应表",
+      "evidenceLabel": "实测+源码",
+      "verificationLabel": "验证等级 A（原表字母）",
+      "summaryOf": "d097",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": []
+    },
+    {
+      "sourceId": "s056",
+      "sourceLine": 823,
+      "section": "8",
+      "kind": "summary",
+      "caseId": "case-23",
+      "title": "23 打斗女主",
+      "text": "113 骨（104 参与变形）；6 扭转骨；8 IK 目标；44 次级骨",
+      "evidenceLabel": "原文陈述+画面读数",
+      "verificationLabel": "只是原文说法",
+      "summaryOf": "d095",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": []
+    },
+    {
+      "sourceId": "s057",
+      "sourceLine": 824,
+      "section": "8",
+      "kind": "summary",
+      "caseId": "case-27",
+      "title": "27 案例27",
+      "text": "17 骨绑定；510 帧逐帧查变形，抬手时胸口被拖离最多 139 毫米，修后每帧 0.0 毫米",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "无法验证",
+      "summaryOf": "d096",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": []
+    },
+    {
+      "sourceId": "d089",
+      "sourceLine": 826,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d089.card"
+      ]
+    },
+    {
+      "sourceId": "d090",
+      "sourceLine": 833,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d090.card"
+      ]
+    },
+    {
+      "sourceId": "d091",
+      "sourceLine": 840,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d091.card"
+      ]
+    },
+    {
+      "sourceId": "d092",
+      "sourceLine": 847,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d092.card"
+      ]
+    },
+    {
+      "sourceId": "d093",
+      "sourceLine": 854,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d093.card"
+      ]
+    },
+    {
+      "sourceId": "d094",
+      "sourceLine": 861,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d094.card"
+      ]
+    },
+    {
+      "sourceId": "d095",
+      "sourceLine": 868,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-23",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d095.card"
+      ]
+    },
+    {
+      "sourceId": "d096",
+      "sourceLine": 877,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-27",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d096.card"
+      ]
+    },
+    {
+      "sourceId": "d097",
+      "sourceLine": 884,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-10",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d097.card"
+      ]
+    },
+    {
+      "sourceId": "d098",
+      "sourceLine": 891,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-10",
+      "route": "card-coupled",
+      "cardId": "motion.ik2",
+      "target": "motion.ik2",
+      "targets": [
+        "role-veg.d098.card"
+      ]
+    },
+    {
+      "sourceId": "d099",
+      "sourceLine": 898,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d099.card"
+      ]
+    },
+    {
+      "sourceId": "d100",
+      "sourceLine": 905,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d100.card"
+      ]
+    },
+    {
+      "sourceId": "d101",
+      "sourceLine": 912,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d101.card"
+      ]
+    },
+    {
+      "sourceId": "d102",
+      "sourceLine": 919,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d102.card"
+      ]
+    },
+    {
+      "sourceId": "d103",
+      "sourceLine": 926,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d103.card"
+      ]
+    },
+    {
+      "sourceId": "d104",
+      "sourceLine": 933,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d104.card"
+      ]
+    },
+    {
+      "sourceId": "d105",
+      "sourceLine": 940,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d105.card"
+      ]
+    },
+    {
+      "sourceId": "d106",
+      "sourceLine": 948,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "motion.ik2",
+      "target": "motion.ik2",
+      "targets": [
+        "role-veg.d106.card"
+      ]
+    },
+    {
+      "sourceId": "d107",
+      "sourceLine": 955,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d107.card"
+      ]
+    },
+    {
+      "sourceId": "d108",
+      "sourceLine": 962,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d108.card"
+      ]
+    },
+    {
+      "sourceId": "d109",
+      "sourceLine": 969,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d109.card"
+      ]
+    },
+    {
+      "sourceId": "d110",
+      "sourceLine": 976,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d110.card"
+      ]
+    },
+    {
+      "sourceId": "d111",
+      "sourceLine": 983,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d111.card"
+      ]
+    },
+    {
+      "sourceId": "d112",
+      "sourceLine": 990,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d112.card"
+      ]
+    },
+    {
+      "sourceId": "d113",
+      "sourceLine": 997,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d113.card"
+      ]
+    },
+    {
+      "sourceId": "d114",
+      "sourceLine": 1004,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d114.card"
+      ]
+    },
+    {
+      "sourceId": "d115",
+      "sourceLine": 1011,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d115.card"
+      ]
+    },
+    {
+      "sourceId": "d116",
+      "sourceLine": 1018,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d116.card"
+      ]
+    },
+    {
+      "sourceId": "d117",
+      "sourceLine": 1025,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d117.card"
+      ]
+    },
+    {
+      "sourceId": "d118",
+      "sourceLine": 1032,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d118.card"
+      ]
+    },
+    {
+      "sourceId": "d119",
+      "sourceLine": 1039,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d119.card"
+      ]
+    },
+    {
+      "sourceId": "d120",
+      "sourceLine": 1046,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d120.card"
+      ]
+    },
+    {
+      "sourceId": "d121",
+      "sourceLine": 1053,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-23",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d121.card"
+      ]
+    },
+    {
+      "sourceId": "d122",
+      "sourceLine": 1060,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d122.card"
+      ]
+    },
+    {
+      "sourceId": "d123",
+      "sourceLine": 1067,
+      "section": "8",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d123.card"
+      ]
+    },
+    {
+      "sourceId": "s058",
+      "sourceLine": 1082,
+      "section": "9",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 骑士",
+      "text": "身高 1.905 m（静止站直鞋底到盔顶，加冠约 1.97）；全身 54,092 三角/35,988 顶点；约 6 次绘制",
+      "evidenceLabel": "源码+推算",
+      "verificationLabel": "公式推算，未运行",
+      "summaryOf": "d170",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s059",
+      "sourceLine": 1083,
+      "section": "9",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 流浪者",
+      "text": "主要部件 61,720 三角；7 材质",
+      "evidenceLabel": "源码",
+      "verificationLabel": "公式推算，未运行",
+      "summaryOf": "d171",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s060",
+      "sourceLine": 1084,
+      "section": "9",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 头目甲",
+      "text": "约 4.2 m；胸甲前片 4704 三角；头盔 4032；光芒 19 根；铆钉约 186 颗",
+      "evidenceLabel": "源码+推断",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d172",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s061",
+      "sourceLine": 1085,
+      "section": "9",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 头目乙",
+      "text": "standH 4（头骨 3.5+头罩 .52=4.02）；约 13,540 三角/10,060 顶点；布裙 648；纸牌 720；叶 120",
+      "evidenceLabel": "源码+手算",
+      "verificationLabel": "没验证",
+      "summaryOf": "d173",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s062",
+      "sourceLine": 1086,
+      "section": "9",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 壳体敌人",
+      "text": "30 个（手机 18）；6 姿势×3 级细节=18 个几何体；身高≈1.9（推断）",
+      "evidenceLabel": "源码+推断",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d169",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s063",
+      "sourceLine": 1087,
+      "section": "9",
+      "kind": "summary",
+      "caseId": "case-02",
+      "title": "02 案例02 骑手",
+      "text": "22 根 通用人形 命名骨 T 姿态人形；色块贴图 144×8",
+      "evidenceLabel": "源码",
+      "verificationLabel": "未标注",
+      "summaryOf": "d126",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "d124",
+      "sourceLine": 1089,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d124.card"
+      ]
+    },
+    {
+      "sourceId": "d125",
+      "sourceLine": 1096,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d125.card"
+      ]
+    },
+    {
+      "sourceId": "d126",
+      "sourceLine": 1103,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d126.card"
+      ]
+    },
+    {
+      "sourceId": "d127",
+      "sourceLine": 1110,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d127.card"
+      ]
+    },
+    {
+      "sourceId": "d128",
+      "sourceLine": 1117,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d128.card"
+      ]
+    },
+    {
+      "sourceId": "d129",
+      "sourceLine": 1124,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d129.card"
+      ]
+    },
+    {
+      "sourceId": "d130",
+      "sourceLine": 1131,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d130.card"
+      ]
+    },
+    {
+      "sourceId": "d131",
+      "sourceLine": 1138,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d131.card"
+      ]
+    },
+    {
+      "sourceId": "d132",
+      "sourceLine": 1145,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d132.card"
+      ]
+    },
+    {
+      "sourceId": "d133",
+      "sourceLine": 1152,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d133.card"
+      ]
+    },
+    {
+      "sourceId": "d134",
+      "sourceLine": 1159,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d134.card"
+      ]
+    },
+    {
+      "sourceId": "d135",
+      "sourceLine": 1166,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d135.card"
+      ]
+    },
+    {
+      "sourceId": "d136",
+      "sourceLine": 1173,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d136.card"
+      ]
+    },
+    {
+      "sourceId": "d137",
+      "sourceLine": 1180,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d137.card"
+      ]
+    },
+    {
+      "sourceId": "d138",
+      "sourceLine": 1187,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d138.card"
+      ]
+    },
+    {
+      "sourceId": "d139",
+      "sourceLine": 1194,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d139.card"
+      ]
+    },
+    {
+      "sourceId": "d140",
+      "sourceLine": 1201,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d140.card"
+      ]
+    },
+    {
+      "sourceId": "d141",
+      "sourceLine": 1208,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d141.card"
+      ]
+    },
+    {
+      "sourceId": "d142",
+      "sourceLine": 1215,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d142.card"
+      ]
+    },
+    {
+      "sourceId": "d143",
+      "sourceLine": 1222,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d143.card"
+      ]
+    },
+    {
+      "sourceId": "d144",
+      "sourceLine": 1229,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d144.card"
+      ]
+    },
+    {
+      "sourceId": "d145",
+      "sourceLine": 1236,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d145.card"
+      ]
+    },
+    {
+      "sourceId": "d146",
+      "sourceLine": 1243,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d146.card"
+      ]
+    },
+    {
+      "sourceId": "d147",
+      "sourceLine": 1250,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d147.card"
+      ]
+    },
+    {
+      "sourceId": "d148",
+      "sourceLine": 1257,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d148.card"
+      ]
+    },
+    {
+      "sourceId": "d149",
+      "sourceLine": 1264,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d149.card"
+      ]
+    },
+    {
+      "sourceId": "d150",
+      "sourceLine": 1271,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d150.card"
+      ]
+    },
+    {
+      "sourceId": "d151",
+      "sourceLine": 1278,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d151.card"
+      ]
+    },
+    {
+      "sourceId": "d152",
+      "sourceLine": 1285,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d152.card"
+      ]
+    },
+    {
+      "sourceId": "d153",
+      "sourceLine": 1292,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d153.card"
+      ]
+    },
+    {
+      "sourceId": "d154",
+      "sourceLine": 1299,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d154.card"
+      ]
+    },
+    {
+      "sourceId": "d155",
+      "sourceLine": 1306,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d155.card"
+      ]
+    },
+    {
+      "sourceId": "d156",
+      "sourceLine": 1313,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d156.card"
+      ]
+    },
+    {
+      "sourceId": "d157",
+      "sourceLine": 1320,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d157.card"
+      ]
+    },
+    {
+      "sourceId": "d158",
+      "sourceLine": 1327,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d158.card"
+      ]
+    },
+    {
+      "sourceId": "d159",
+      "sourceLine": 1334,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d159.card"
+      ]
+    },
+    {
+      "sourceId": "d160",
+      "sourceLine": 1341,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d160.card"
+      ]
+    },
+    {
+      "sourceId": "d161",
+      "sourceLine": 1348,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d161.card"
+      ]
+    },
+    {
+      "sourceId": "d162",
+      "sourceLine": 1355,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d162.card"
+      ]
+    },
+    {
+      "sourceId": "d163",
+      "sourceLine": 1362,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d163.card"
+      ]
+    },
+    {
+      "sourceId": "d164",
+      "sourceLine": 1369,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d164.card"
+      ]
+    },
+    {
+      "sourceId": "d165",
+      "sourceLine": 1376,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d165.card"
+      ]
+    },
+    {
+      "sourceId": "d166",
+      "sourceLine": 1383,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d166.card"
+      ]
+    },
+    {
+      "sourceId": "d167",
+      "sourceLine": 1390,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d167.card"
+      ]
+    },
+    {
+      "sourceId": "d168",
+      "sourceLine": 1397,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d168.card"
+      ]
+    },
+    {
+      "sourceId": "d169",
+      "sourceLine": 1404,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d169.card"
+      ]
+    },
+    {
+      "sourceId": "d170",
+      "sourceLine": 1411,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d170.card"
+      ]
+    },
+    {
+      "sourceId": "d171",
+      "sourceLine": 1418,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d171.card"
+      ]
+    },
+    {
+      "sourceId": "d172",
+      "sourceLine": 1425,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d172.card"
+      ]
+    },
+    {
+      "sourceId": "d173",
+      "sourceLine": 1432,
+      "section": "9",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d173.card"
+      ]
+    },
+    {
+      "sourceId": "s064",
+      "sourceLine": 1447,
+      "section": "10",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 守卫",
+      "text": "半径 .42 高 1.92；24 骨",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d185",
+      "alsoSummarizes": [
+        "d235"
+      ],
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s065",
+      "sourceLine": 1448,
+      "section": "10",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 壳体敌人",
+      "text": "半径 .5 高 1.95 缩放 1.02；26 骨",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d186",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s066",
+      "sourceLine": 1449,
+      "section": "10",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 弓手",
+      "text": "半径 .4 高 2.02；30 骨；颈高比 HS=1.093",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d193",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": []
+    },
+    {
+      "sourceId": "s067",
+      "sourceLine": 1450,
+      "section": "10",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 重装敌人",
+      "text": "半径 .72 高 2.9；24 骨",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d196",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": []
+    },
+    {
+      "sourceId": "s068",
+      "sourceLine": 1451,
+      "section": "10",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 队长",
+      "text": "半径 .52 高 2.2 缩放 1.13；25 骨",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d201",
+      "alsoSummarizes": [
+        "d235"
+      ],
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s069",
+      "sourceLine": 1452,
+      "section": "10",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 精英敌人",
+      "text": "同 重装敌人；砍刀 4632 三角",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d205",
+      "alsoSummarizes": [
+        "d209"
+      ],
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s070",
+      "sourceLine": 1453,
+      "section": "10",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 根须敌人",
+      "text": "碰撞半径 .5 身高 2.2；ROOTED_SCALE 1.15；34 骨",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d236",
+      "alsoSummarizes": [
+        "d114"
+      ],
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s071",
+      "sourceLine": 1454,
+      "section": "10",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 敌人甲夫人",
+      "text": "radius .44 height 2；网格缩放 1.04；27 骨",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d221",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s072",
+      "sourceLine": 1455,
+      "section": "10",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 书页敌人",
+      "text": "碰撞半径 .75 身高 3.1；SC_SCALE 1.6",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d225",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s073",
+      "sourceLine": 1456,
+      "section": "10",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 潜行敌人",
+      "text": "潜行敌人.len 3.2；无骨骼；SDF 21 个形状；体素 .042",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d216",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s074",
+      "sourceLine": 1457,
+      "section": "10",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 幽灵（敌人）",
+      "text": "23 骨；长袍 25 点×64 段=3,072 三角",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d231",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": []
+    },
+    {
+      "sourceId": "d174",
+      "sourceLine": 1459,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d174.card"
+      ]
+    },
+    {
+      "sourceId": "d175",
+      "sourceLine": 1466,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d175.card"
+      ]
+    },
+    {
+      "sourceId": "d176",
+      "sourceLine": 1473,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d176.card"
+      ]
+    },
+    {
+      "sourceId": "d177",
+      "sourceLine": 1480,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d177.card"
+      ]
+    },
+    {
+      "sourceId": "d178",
+      "sourceLine": 1487,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d178.card"
+      ]
+    },
+    {
+      "sourceId": "d179",
+      "sourceLine": 1494,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d179.card"
+      ]
+    },
+    {
+      "sourceId": "d180",
+      "sourceLine": 1501,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d180.card"
+      ]
+    },
+    {
+      "sourceId": "d181",
+      "sourceLine": 1508,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d181.card"
+      ]
+    },
+    {
+      "sourceId": "d182",
+      "sourceLine": 1515,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d182.card"
+      ]
+    },
+    {
+      "sourceId": "d183",
+      "sourceLine": 1522,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d183.card"
+      ]
+    },
+    {
+      "sourceId": "d184",
+      "sourceLine": 1529,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d184.card"
+      ]
+    },
+    {
+      "sourceId": "d185",
+      "sourceLine": 1536,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d185.card"
+      ]
+    },
+    {
+      "sourceId": "d186",
+      "sourceLine": 1543,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d186.card"
+      ]
+    },
+    {
+      "sourceId": "d187",
+      "sourceLine": 1550,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d187.card"
+      ]
+    },
+    {
+      "sourceId": "d188",
+      "sourceLine": 1557,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": [
+        "role-veg.d188.card"
+      ]
+    },
+    {
+      "sourceId": "d189",
+      "sourceLine": 1564,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d189.card"
+      ]
+    },
+    {
+      "sourceId": "d190",
+      "sourceLine": 1571,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d190.card"
+      ]
+    },
+    {
+      "sourceId": "d191",
+      "sourceLine": 1578,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d191.card"
+      ]
+    },
+    {
+      "sourceId": "d192",
+      "sourceLine": 1585,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d192.card"
+      ]
+    },
+    {
+      "sourceId": "d193",
+      "sourceLine": 1592,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d193.card"
+      ]
+    },
+    {
+      "sourceId": "d194",
+      "sourceLine": 1599,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d194.card"
+      ]
+    },
+    {
+      "sourceId": "d195",
+      "sourceLine": 1606,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d195.card"
+      ]
+    },
+    {
+      "sourceId": "d196",
+      "sourceLine": 1613,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d196.card"
+      ]
+    },
+    {
+      "sourceId": "d197",
+      "sourceLine": 1620,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d197.card"
+      ]
+    },
+    {
+      "sourceId": "d198",
+      "sourceLine": 1627,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d198.card"
+      ]
+    },
+    {
+      "sourceId": "d199",
+      "sourceLine": 1634,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d199.card"
+      ]
+    },
+    {
+      "sourceId": "d200",
+      "sourceLine": 1641,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d200.card"
+      ]
+    },
+    {
+      "sourceId": "d201",
+      "sourceLine": 1648,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d201.card"
+      ]
+    },
+    {
+      "sourceId": "d202",
+      "sourceLine": 1655,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d202.card"
+      ]
+    },
+    {
+      "sourceId": "d203",
+      "sourceLine": 1662,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d203.card"
+      ]
+    },
+    {
+      "sourceId": "d204",
+      "sourceLine": 1669,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d204.card"
+      ]
+    },
+    {
+      "sourceId": "d205",
+      "sourceLine": 1676,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d205.card"
+      ]
+    },
+    {
+      "sourceId": "d206",
+      "sourceLine": 1683,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d206.card"
+      ]
+    },
+    {
+      "sourceId": "d207",
+      "sourceLine": 1690,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d207.card"
+      ]
+    },
+    {
+      "sourceId": "d208",
+      "sourceLine": 1697,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d208.card"
+      ]
+    },
+    {
+      "sourceId": "d209",
+      "sourceLine": 1704,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d209.card"
+      ]
+    },
+    {
+      "sourceId": "d210",
+      "sourceLine": 1711,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "mat.library",
+      "target": "mat.library",
+      "targets": [
+        "role-veg.d210.card"
+      ]
+    },
+    {
+      "sourceId": "d211",
+      "sourceLine": 1718,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d211.card"
+      ]
+    },
+    {
+      "sourceId": "d212",
+      "sourceLine": 1725,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d212.card"
+      ]
+    },
+    {
+      "sourceId": "d213",
+      "sourceLine": 1732,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d213.card"
+      ]
+    },
+    {
+      "sourceId": "d214",
+      "sourceLine": 1739,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d214.card"
+      ]
+    },
+    {
+      "sourceId": "d215",
+      "sourceLine": 1746,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d215.card"
+      ]
+    },
+    {
+      "sourceId": "d216",
+      "sourceLine": 1753,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d216.card"
+      ]
+    },
+    {
+      "sourceId": "d217",
+      "sourceLine": 1760,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.sdf-nets",
+      "target": "form.sdf-nets",
+      "targets": [
+        "role-veg.d217.card"
+      ]
+    },
+    {
+      "sourceId": "d218",
+      "sourceLine": 1767,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d218.card"
+      ]
+    },
+    {
+      "sourceId": "d219",
+      "sourceLine": 1774,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d219.card"
+      ]
+    },
+    {
+      "sourceId": "d220",
+      "sourceLine": 1781,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "mat.library",
+      "target": "mat.library",
+      "targets": [
+        "role-veg.d220.card"
+      ]
+    },
+    {
+      "sourceId": "d221",
+      "sourceLine": 1788,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d221.card"
+      ]
+    },
+    {
+      "sourceId": "d222",
+      "sourceLine": 1795,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d222.card"
+      ]
+    },
+    {
+      "sourceId": "d223",
+      "sourceLine": 1802,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d223.card"
+      ]
+    },
+    {
+      "sourceId": "d224",
+      "sourceLine": 1809,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d224.card"
+      ]
+    },
+    {
+      "sourceId": "d225",
+      "sourceLine": 1816,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d225.card"
+      ]
+    },
+    {
+      "sourceId": "d226",
+      "sourceLine": 1823,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d226.card"
+      ]
+    },
+    {
+      "sourceId": "d227",
+      "sourceLine": 1830,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d227.card"
+      ]
+    },
+    {
+      "sourceId": "d228",
+      "sourceLine": 1837,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d228.card"
+      ]
+    },
+    {
+      "sourceId": "d229",
+      "sourceLine": 1844,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d229.card"
+      ]
+    },
+    {
+      "sourceId": "d230",
+      "sourceLine": 1851,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d230.card"
+      ]
+    },
+    {
+      "sourceId": "d231",
+      "sourceLine": 1858,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "rig.rigid-ik",
+      "target": "rig.rigid-ik",
+      "targets": [
+        "role-veg.d231.card"
+      ]
+    },
+    {
+      "sourceId": "d232",
+      "sourceLine": 1865,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d232.card"
+      ]
+    },
+    {
+      "sourceId": "d233",
+      "sourceLine": 1872,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d233.card"
+      ]
+    },
+    {
+      "sourceId": "d234",
+      "sourceLine": 1879,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d234.card"
+      ]
+    },
+    {
+      "sourceId": "d235",
+      "sourceLine": 1886,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d235.card"
+      ]
+    },
+    {
+      "sourceId": "d236",
+      "sourceLine": 1894,
+      "section": "10",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d236.card"
+      ]
+    },
+    {
+      "sourceId": "s075",
+      "sourceLine": 1909,
+      "section": "11",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 守卫 NPC丁",
+      "text": "14 骨；长袍 2016、斗篷 2112、头 1944 三角",
+      "evidenceLabel": "源码",
+      "verificationLabel": "公式推算，未运行",
+      "summaryOf": "d237",
+      "alsoSummarizes": [
+        "d238",
+        "d239",
+        "d248"
+      ],
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "mat.library",
+      "target": "mat.library",
+      "targets": []
+    },
+    {
+      "sourceId": "s076",
+      "sourceLine": 1910,
+      "section": "11",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 NPC甲",
+      "text": "16 骨；树桩 10 点车削 22 段（移动 14）；叶片 26（移动 10）",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d244",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s077",
+      "sourceLine": 1911,
+      "section": "11",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 NPC乙",
+      "text": "17 骨；坐船；灯笼 glow 强度 3.2",
+      "evidenceLabel": "源码（部分读）",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d246",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s078",
+      "sourceLine": 1912,
+      "section": "11",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 NPC丙",
+      "text": "20 骨；颅骨 56×44（移动 34×26）；肋骨 8 对",
+      "evidenceLabel": "源码（部分读）",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d247",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s079",
+      "sourceLine": 1913,
+      "section": "11",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 白桦",
+      "text": "4 骨；树干 6 点样条管高 -.1~5.6 m",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d245",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s080",
+      "sourceLine": 1914,
+      "section": "11",
+      "kind": "summary",
+      "caseId": "case-19",
+      "title": "19 城市",
+      "text": "53 人（19 人行走）；20 骨；晾衣 86 件/12 根线；78 面旗",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "只是原文说法",
+      "summaryOf": "d249",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "d237",
+      "sourceLine": 1916,
+      "section": "11",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "mat.library",
+      "target": "mat.library",
+      "targets": [
+        "role-veg.d237.card"
+      ]
+    },
+    {
+      "sourceId": "d238",
+      "sourceLine": 1923,
+      "section": "11",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d238.card"
+      ]
+    },
+    {
+      "sourceId": "d239",
+      "sourceLine": 1930,
+      "section": "11",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d239.card"
+      ]
+    },
+    {
+      "sourceId": "d240",
+      "sourceLine": 1937,
+      "section": "11",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d240.card"
+      ]
+    },
+    {
+      "sourceId": "d241",
+      "sourceLine": 1944,
+      "section": "11",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d241.card"
+      ]
+    },
+    {
+      "sourceId": "d242",
+      "sourceLine": 1951,
+      "section": "11",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d242.card"
+      ]
+    },
+    {
+      "sourceId": "d243",
+      "sourceLine": 1958,
+      "section": "11",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d243.card"
+      ]
+    },
+    {
+      "sourceId": "d244",
+      "sourceLine": 1965,
+      "section": "11",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d244.card"
+      ]
+    },
+    {
+      "sourceId": "d245",
+      "sourceLine": 1972,
+      "section": "11",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d245.card"
+      ]
+    },
+    {
+      "sourceId": "d246",
+      "sourceLine": 1979,
+      "section": "11",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d246.card"
+      ]
+    },
+    {
+      "sourceId": "d247",
+      "sourceLine": 1986,
+      "section": "11",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d247.card"
+      ]
+    },
+    {
+      "sourceId": "d248",
+      "sourceLine": 1993,
+      "section": "11",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d248.card"
+      ]
+    },
+    {
+      "sourceId": "d249",
+      "sourceLine": 2000,
+      "section": "11",
+      "kind": "detail",
+      "caseId": "case-19",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": [
+        "role-veg.d249.card"
+      ]
+    },
+    {
+      "sourceId": "s081",
+      "sourceLine": 2017,
+      "section": "12",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 sparrow",
+      "text": "0.24 / 1 / 13 / 0.1；颜色 (0.16,0.11,0.07)",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d259",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": []
+    },
+    {
+      "sourceId": "s082",
+      "sourceLine": 2018,
+      "section": "12",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 finch",
+      "text": "0.22 / 1 / 14 / 0.1",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d259",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": []
+    },
+    {
+      "sourceId": "s083",
+      "sourceLine": 2019,
+      "section": "12",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 swift",
+      "text": "0.42 / 0.7 / 9 / 0.45",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d259",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": []
+    },
+    {
+      "sourceId": "s084",
+      "sourceLine": 2020,
+      "section": "12",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 kite",
+      "text": "1.45 / 1.1 / 2.6 / 0.8",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d259",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": []
+    },
+    {
+      "sourceId": "s085",
+      "sourceLine": 2021,
+      "section": "12",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 far",
+      "text": "1.3 / 0.9 / 3.2 / 0.3",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d259",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": []
+    },
+    {
+      "sourceId": "s086",
+      "sourceLine": 2022,
+      "section": "12",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 moth / lmoth",
+      "text": "0.06 / 2.2 / 15 / 0；0.07 / 2.4 / 12 / 0",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d259",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": []
+    },
+    {
+      "sourceId": "s087",
+      "sourceLine": 2023,
+      "section": "12",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 butterfly / goldwing / sapfly",
+      "text": "0.075 / 2.6 / 7 / 0.2；0.12 / 2.3 / 7.5 / 0.25；0.035 / 1.8 / 18 / 0",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d259",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": []
+    },
+    {
+      "sourceId": "s088",
+      "sourceLine": 2024,
+      "section": "12",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 通用小网格",
+      "text": "19 顶点 14 三角；体长 0.56；翼尖 x=±0.5",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d258",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": []
+    },
+    {
+      "sourceId": "s089",
+      "sourceLine": 2025,
+      "section": "12",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 其它（09 复盘）",
+      "text": "翼角 sin(t·Hz·2π+相位)·0.95；麻雀 13 Hz、鸢 2.6 Hz、飞蛾 15 Hz、汁蝇 18 Hz",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过（未运行）",
+      "summaryOf": "d262",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": []
+    },
+    {
+      "sourceId": "d250",
+      "sourceLine": 2027,
+      "section": "12",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "mat.library",
+      "target": "mat.library",
+      "targets": [
+        "role-veg.d250.card"
+      ]
+    },
+    {
+      "sourceId": "d251",
+      "sourceLine": 2034,
+      "section": "12",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d251.card"
+      ]
+    },
+    {
+      "sourceId": "d252",
+      "sourceLine": 2041,
+      "section": "12",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "motion.wing",
+      "target": "motion.wing",
+      "targets": [
+        "role-veg.d252.card"
+      ]
+    },
+    {
+      "sourceId": "d253",
+      "sourceLine": 2048,
+      "section": "12",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "mat.library",
+      "target": "mat.library",
+      "targets": [
+        "role-veg.d253.card"
+      ]
+    },
+    {
+      "sourceId": "d254",
+      "sourceLine": 2055,
+      "section": "12",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d254.card"
+      ]
+    },
+    {
+      "sourceId": "d255",
+      "sourceLine": 2062,
+      "section": "12",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "mat.library",
+      "target": "mat.library",
+      "targets": [
+        "role-veg.d255.card"
+      ]
+    },
+    {
+      "sourceId": "d256",
+      "sourceLine": 2069,
+      "section": "12",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d256.card"
+      ]
+    },
+    {
+      "sourceId": "d257",
+      "sourceLine": 2076,
+      "section": "12",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d257.card"
+      ]
+    },
+    {
+      "sourceId": "d258",
+      "sourceLine": 2083,
+      "section": "12",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d258.card"
+      ]
+    },
+    {
+      "sourceId": "d259",
+      "sourceLine": 2090,
+      "section": "12",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d259.card"
+      ]
+    },
+    {
+      "sourceId": "d260",
+      "sourceLine": 2097,
+      "section": "12",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d260.card"
+      ]
+    },
+    {
+      "sourceId": "d261",
+      "sourceLine": 2104,
+      "section": "12",
+      "kind": "detail",
+      "caseId": "case-08",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d261.card"
+      ]
+    },
+    {
+      "sourceId": "d262",
+      "sourceLine": 2111,
+      "section": "12",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d262.card"
+      ]
+    },
+    {
+      "sourceId": "s090",
+      "sourceLine": 2126,
+      "section": "13",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 披风（骑士）",
+      "text": "17×21=357 质点；1954 条约束；PW=0.235；stepH 1/45；渲染加密 33×41；折痕幅 0.027",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d264",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "motion.spring-chain",
+      "target": "motion.spring-chain",
+      "targets": []
+    },
+    {
+      "sourceId": "s091",
+      "sourceLine": 2127,
+      "section": "13",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 头目一披风",
+      "text": "11×17 点；长 3.05 m；320 三角",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d266",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "motion.spring-chain",
+      "target": "motion.spring-chain",
+      "targets": []
+    },
+    {
+      "sourceId": "s092",
+      "sourceLine": 2128,
+      "section": "13",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 守卫斗篷",
+      "text": "25×45 点阵最多 2112 三角；每格叠 sin(c·1.55+.7)·.022",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d271",
+      "alsoSummarizes": [
+        "d248"
+      ],
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "motion.spring-chain",
+      "target": "motion.spring-chain",
+      "targets": []
+    },
+    {
+      "sourceId": "s093",
+      "sourceLine": 2129,
+      "section": "13",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 头目二布裙",
+      "text": "3 层，高档 nS18 nR6 每层 133 顶点/216 三角；手机 nS12 nR4",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d269",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "motion.spring-chain",
+      "target": "motion.spring-chain",
+      "targets": []
+    },
+    {
+      "sourceId": "s094",
+      "sourceLine": 2130,
+      "section": "13",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 骑士护片弹簧",
+      "text": "W0=11，Z=0.35，加速度截断 ±30；兜帽尖弹簧 刚度 55 阻尼 6；lock 弹簧 45/6",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d263",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "motion.spring-chain",
+      "target": "motion.spring-chain",
+      "targets": []
+    },
+    {
+      "sourceId": "d263",
+      "sourceLine": 2132,
+      "section": "13",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "motion.spring-chain",
+      "target": "motion.spring-chain",
+      "targets": [
+        "role-veg.d263.card"
+      ]
+    },
+    {
+      "sourceId": "d264",
+      "sourceLine": 2139,
+      "section": "13",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "motion.spring-chain",
+      "target": "motion.spring-chain",
+      "targets": [
+        "role-veg.d264.card"
+      ]
+    },
+    {
+      "sourceId": "d265",
+      "sourceLine": 2146,
+      "section": "13",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "motion.spring-chain",
+      "target": "motion.spring-chain",
+      "targets": [
+        "role-veg.d265.card"
+      ]
+    },
+    {
+      "sourceId": "d266",
+      "sourceLine": 2153,
+      "section": "13",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "motion.spring-chain",
+      "target": "motion.spring-chain",
+      "targets": [
+        "role-veg.d266.card"
+      ]
+    },
+    {
+      "sourceId": "d267",
+      "sourceLine": 2160,
+      "section": "13",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "mat.library",
+      "target": "mat.library",
+      "targets": [
+        "role-veg.d267.card"
+      ]
+    },
+    {
+      "sourceId": "d268",
+      "sourceLine": 2167,
+      "section": "13",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "motion.spring-chain",
+      "target": "motion.spring-chain",
+      "targets": [
+        "role-veg.d268.card"
+      ]
+    },
+    {
+      "sourceId": "d269",
+      "sourceLine": 2174,
+      "section": "13",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "motion.spring-chain",
+      "target": "motion.spring-chain",
+      "targets": [
+        "role-veg.d269.card"
+      ]
+    },
+    {
+      "sourceId": "d270",
+      "sourceLine": 2181,
+      "section": "13",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "motion.spring-chain",
+      "target": "motion.spring-chain",
+      "targets": [
+        "role-veg.d270.card"
+      ]
+    },
+    {
+      "sourceId": "d271",
+      "sourceLine": 2188,
+      "section": "13",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "motion.spring-chain",
+      "target": "motion.spring-chain",
+      "targets": [
+        "role-veg.d271.card"
+      ]
+    },
+    {
+      "sourceId": "s095",
+      "sourceLine": 2203,
+      "section": "14",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 大剑",
+      "text": "刃长 1.25；宽 0.105→0.085；厚 0.02→0.012；全长约 1.72 m；28 环×14 点，768 面",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d272",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": []
+    },
+    {
+      "sourceId": "s096",
+      "sourceLine": 2204,
+      "section": "14",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 重槌",
+      "text": "总长约 1.42 m；HS (1.22,1.24,1.2)",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d273",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": []
+    },
+    {
+      "sourceId": "s097",
+      "sourceLine": 2205,
+      "section": "14",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 长戟",
+      "text": "杆长 2.8；顶尖约 2.61；5 道金箍",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d276",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": []
+    },
+    {
+      "sourceId": "s098",
+      "sourceLine": 2206,
+      "section": "14",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 精英敌人 砍刀",
+      "text": "刀身 z0.77–1.98 最宽 0.705；柄长 2.24；顶点 2630/三角 4632",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d209",
+      "crossSectionReason": "源表在总览或专题节聚合其他节的同案例明细，已逐条指定引用",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.superloft",
+      "target": "form.superloft",
+      "targets": []
+    },
+    {
+      "sourceId": "s099",
+      "sourceLine": 2207,
+      "section": "14",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 弓（弓手）",
+      "text": "总长 1.76；25 点管 r.012；弓弦 .0022",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d280",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": []
+    },
+    {
+      "sourceId": "d272",
+      "sourceLine": 2209,
+      "section": "14",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d272.card"
+      ]
+    },
+    {
+      "sourceId": "d273",
+      "sourceLine": 2216,
+      "section": "14",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d273.card"
+      ]
+    },
+    {
+      "sourceId": "d274",
+      "sourceLine": 2223,
+      "section": "14",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "fx.streak-ring",
+      "target": "fx.streak-ring",
+      "targets": [
+        "role-veg.d274.card"
+      ]
+    },
+    {
+      "sourceId": "d275",
+      "sourceLine": 2230,
+      "section": "14",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d275.card"
+      ]
+    },
+    {
+      "sourceId": "d276",
+      "sourceLine": 2237,
+      "section": "14",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d276.card"
+      ]
+    },
+    {
+      "sourceId": "d277",
+      "sourceLine": 2244,
+      "section": "14",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d277.card"
+      ]
+    },
+    {
+      "sourceId": "d278",
+      "sourceLine": 2251,
+      "section": "14",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d278.card"
+      ]
+    },
+    {
+      "sourceId": "d279",
+      "sourceLine": 2258,
+      "section": "14",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d279.card"
+      ]
+    },
+    {
+      "sourceId": "d280",
+      "sourceLine": 2265,
+      "section": "14",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d280.card"
+      ]
+    },
+    {
+      "sourceId": "s100",
+      "sourceLine": 2280,
+      "section": "15",
+      "kind": "summary",
+      "caseId": "case-27",
+      "title": "27 案例27",
+      "text": "count 2、textured、PBR、no rigging、remesh、triangle、target 200,000、symmetry on；约 20 万三角无骨",
+      "evidenceLabel": "实测（生成记录原文）",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d294",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "asset.glb-bridge",
+      "target": "asset.glb-bridge",
+      "targets": []
+    },
+    {
+      "sourceId": "s101",
+      "sourceLine": 2281,
+      "section": "15",
+      "kind": "summary",
+      "caseId": "case-04",
+      "title": "04 案例04",
+      "text": "约 12,000 三角、PBR、A-pose、骨架 24 骨；兽人 2.15 m、士兵 1.8 m",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "只是原文说法",
+      "summaryOf": "d289",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "asset.glb-bridge",
+      "target": "asset.glb-bridge",
+      "targets": []
+    },
+    {
+      "sourceId": "s102",
+      "sourceLine": 2282,
+      "section": "15",
+      "kind": "summary",
+      "caseId": "case-11",
+      "title": "11 案例11",
+      "text": "hero 40,000；soldier 50,000；general 60,000；giant 70,000；道具 6,000–40,000；身高 1.7 m",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "只是原文说法（生成工具 参数）/作者成片用过（资产表）",
+      "summaryOf": "d295",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "asset.glb-bridge",
+      "target": "asset.glb-bridge",
+      "targets": []
+    },
+    {
+      "sourceId": "s103",
+      "sourceLine": 2283,
+      "section": "15",
+      "kind": "summary",
+      "caseId": "case-10",
+      "title": "10 案例10",
+      "text": "hero 62,170 三角/81,149 顶点；raider 31,047；husk 26,906；重装敌人 41,453；守卫 61,340",
+      "evidenceLabel": "实测（解析 GLB）",
+      "verificationLabel": "验证等级 A（原表字母）",
+      "summaryOf": "d287",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "asset.glb-bridge",
+      "target": "asset.glb-bridge",
+      "targets": []
+    },
+    {
+      "sourceId": "s104",
+      "sourceLine": 2284,
+      "section": "15",
+      "kind": "summary",
+      "caseId": "case-23",
+      "title": "23 打斗女主",
+      "text": "头多视图转 3D；身 A-pose 单图；手缩 0.86、脚缩 0.92；LOD0 88,265",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "只是原文说法",
+      "summaryOf": "d281",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "asset.glb-bridge",
+      "target": "asset.glb-bridge",
+      "targets": []
+    },
+    {
+      "sourceId": "d281",
+      "sourceLine": 2286,
+      "section": "15",
+      "kind": "detail",
+      "caseId": "case-23",
+      "route": "card-coupled",
+      "cardId": "asset.glb-bridge",
+      "target": "asset.glb-bridge",
+      "targets": [
+        "role-veg.d281.card"
+      ]
+    },
+    {
+      "sourceId": "d282",
+      "sourceLine": 2297,
+      "section": "15",
+      "kind": "detail",
+      "caseId": "case-23",
+      "route": "card-coupled",
+      "cardId": "asset.glb-bridge",
+      "target": "asset.glb-bridge",
+      "targets": [
+        "role-veg.d282.card"
+      ]
+    },
+    {
+      "sourceId": "d283",
+      "sourceLine": 2304,
+      "section": "15",
+      "kind": "detail",
+      "caseId": "case-27",
+      "route": "card-coupled",
+      "cardId": "asset.glb-bridge",
+      "target": "asset.glb-bridge",
+      "targets": [
+        "role-veg.d283.card"
+      ]
+    },
+    {
+      "sourceId": "d284",
+      "sourceLine": 2311,
+      "section": "15",
+      "kind": "detail",
+      "caseId": "case-27",
+      "route": "card-coupled",
+      "cardId": "asset.glb-bridge",
+      "target": "asset.glb-bridge",
+      "targets": [
+        "role-veg.d284.card"
+      ]
+    },
+    {
+      "sourceId": "d285",
+      "sourceLine": 2318,
+      "section": "15",
+      "kind": "detail",
+      "caseId": "case-reading-01",
+      "route": "card-coupled",
+      "cardId": "asset.glb-bridge",
+      "target": "asset.glb-bridge",
+      "targets": [
+        "role-veg.d285.card"
+      ]
+    },
+    {
+      "sourceId": "d286",
+      "sourceLine": 2325,
+      "section": "15",
+      "kind": "detail",
+      "caseId": "case-15",
+      "route": "card-coupled",
+      "cardId": "asset.glb-bridge",
+      "target": "asset.glb-bridge",
+      "targets": [
+        "role-veg.d286.card"
+      ]
+    },
+    {
+      "sourceId": "d287",
+      "sourceLine": 2332,
+      "section": "15",
+      "kind": "detail",
+      "caseId": "case-10",
+      "route": "card-coupled",
+      "cardId": "asset.glb-bridge",
+      "target": "asset.glb-bridge",
+      "targets": [
+        "role-veg.d287.card"
+      ]
+    },
+    {
+      "sourceId": "d288",
+      "sourceLine": 2341,
+      "section": "15",
+      "kind": "detail",
+      "caseId": "case-11",
+      "route": "card-coupled",
+      "cardId": "asset.glb-bridge",
+      "target": "asset.glb-bridge",
+      "targets": [
+        "role-veg.d288.card"
+      ]
+    },
+    {
+      "sourceId": "d289",
+      "sourceLine": 2348,
+      "section": "15",
+      "kind": "detail",
+      "caseId": "case-04",
+      "route": "card-coupled",
+      "cardId": "asset.glb-bridge",
+      "target": "asset.glb-bridge",
+      "targets": [
+        "role-veg.d289.card"
+      ]
+    },
+    {
+      "sourceId": "d290",
+      "sourceLine": 2357,
+      "section": "15",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "asset.glb-bridge",
+      "target": "asset.glb-bridge",
+      "targets": [
+        "role-veg.d290.card"
+      ]
+    },
+    {
+      "sourceId": "d291",
+      "sourceLine": 2364,
+      "section": "15",
+      "kind": "detail",
+      "caseId": "case-03",
+      "route": "card-coupled",
+      "cardId": "asset.glb-bridge",
+      "target": "asset.glb-bridge",
+      "targets": [
+        "role-veg.d291.card"
+      ]
+    },
+    {
+      "sourceId": "d292",
+      "sourceLine": 2371,
+      "section": "15",
+      "kind": "detail",
+      "caseId": "case-23",
+      "route": "card-coupled",
+      "cardId": "asset.glb-bridge",
+      "target": "asset.glb-bridge",
+      "targets": [
+        "role-veg.d292.card"
+      ]
+    },
+    {
+      "sourceId": "d293",
+      "sourceLine": 2378,
+      "section": "15",
+      "kind": "detail",
+      "caseId": "case-27",
+      "route": "card-coupled",
+      "cardId": "asset.glb-bridge",
+      "target": "asset.glb-bridge",
+      "targets": [
+        "role-veg.d293.card"
+      ]
+    },
+    {
+      "sourceId": "d294",
+      "sourceLine": 2385,
+      "section": "15",
+      "kind": "detail",
+      "caseId": "case-27",
+      "route": "card-coupled",
+      "cardId": "asset.glb-bridge",
+      "target": "asset.glb-bridge",
+      "targets": [
+        "role-veg.d294.card"
+      ]
+    },
+    {
+      "sourceId": "d295",
+      "sourceLine": 2396,
+      "section": "15",
+      "kind": "detail",
+      "caseId": "case-11",
+      "route": "card-coupled",
+      "cardId": "asset.glb-bridge",
+      "target": "asset.glb-bridge",
+      "targets": [
+        "role-veg.d295.card"
+      ]
+    },
+    {
+      "sourceId": "s105",
+      "sourceLine": 2411,
+      "section": "16",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "title": "外01 红龙身 / 上头部 / 下颌 / 腿",
+      "text": "18,000 / 119,952 / 30,600 / 27,052 三角",
+      "evidenceLabel": "源码+实测",
+      "verificationLabel": "我们自己渲染读回过",
+      "summaryOf": "d314",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": []
+    },
+    {
+      "sourceId": "s106",
+      "sourceLine": 2412,
+      "section": "16",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 大型龙 L0/L1/L2/L3",
+      "text": "≈115,200 / 39,100 / 11,400 / 1,580（源码预算 L0 155k/50k、L1 55k/22k、L2 16k/10k）",
+      "evidenceLabel": "推算",
+      "verificationLabel": "公式推算，未运行",
+      "summaryOf": "d296",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": []
+    },
+    {
+      "sourceId": "s107",
+      "sourceLine": 2413,
+      "section": "16",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 骑士",
+      "text": "54,092 三角/35,988 顶点",
+      "evidenceLabel": "源码+推算",
+      "verificationLabel": "公式推算，未运行",
+      "summaryOf": "d312",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": []
+    },
+    {
+      "sourceId": "s108",
+      "sourceLine": 2414,
+      "section": "16",
+      "kind": "summary",
+      "caseId": "case-02",
+      "title": "02 案例02 GLB",
+      "text": "主角龙 42,188；敌龙 27,998；骑手 15,000；骑士 15,000；巨型生物 90,484",
+      "evidenceLabel": "实测",
+      "verificationLabel": "实测（拆包）",
+      "summaryOf": "d298",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": []
+    },
+    {
+      "sourceId": "s109",
+      "sourceLine": 2415,
+      "section": "16",
+      "kind": "summary",
+      "caseId": "case-10",
+      "title": "10 案例10",
+      "text": "hero 62,170；raider 31,047；husk 26,906；重装敌人 41,453；守卫 61,340",
+      "evidenceLabel": "实测",
+      "verificationLabel": "验证等级 A",
+      "summaryOf": "d304",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": []
+    },
+    {
+      "sourceId": "s110",
+      "sourceLine": 2416,
+      "section": "16",
+      "kind": "summary",
+      "caseId": "case-23",
+      "title": "23 打斗女主",
+      "text": "LOD0 88,265 / LOD1 48,188 / LOD2 13,837",
+      "evidenceLabel": "画面读数+原文陈述",
+      "verificationLabel": "只是原文说法",
+      "summaryOf": "d303",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": []
+    },
+    {
+      "sourceId": "s111",
+      "sourceLine": 2417,
+      "section": "16",
+      "kind": "summary",
+      "caseId": "case-08",
+      "title": "08 Bodycam",
+      "text": "虫子 SC_body 41,352 三角；60 物体 134,326 三角",
+      "evidenceLabel": "实测",
+      "verificationLabel": "无",
+      "summaryOf": "d302",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": []
+    },
+    {
+      "sourceId": "s112",
+      "sourceLine": 2418,
+      "section": "16",
+      "kind": "summary",
+      "caseId": "case-27",
+      "title": "27 案例27",
+      "text": "约 200,000 三角输入；50 个身体块；99 部分",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "只是原文说法",
+      "summaryOf": "d293",
+      "crossSectionReason": "源表在总览或专题节聚合其他节的同案例明细，已逐条指定引用",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "asset.glb-bridge",
+      "target": "asset.glb-bridge",
+      "targets": []
+    },
+    {
+      "sourceId": "d296",
+      "sourceLine": 2420,
+      "section": "16",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": [
+        "role-veg.d296.card"
+      ]
+    },
+    {
+      "sourceId": "d297",
+      "sourceLine": 2427,
+      "section": "16",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": [
+        "role-veg.d297.card"
+      ]
+    },
+    {
+      "sourceId": "d298",
+      "sourceLine": 2434,
+      "section": "16",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": [
+        "role-veg.d298.card"
+      ]
+    },
+    {
+      "sourceId": "d299",
+      "sourceLine": 2442,
+      "section": "16",
+      "kind": "detail",
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": [
+        "role-veg.d299.card"
+      ]
+    },
+    {
+      "sourceId": "d300",
+      "sourceLine": 2449,
+      "section": "16",
+      "kind": "detail",
+      "caseId": "case-08",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": [
+        "role-veg.d300.card"
+      ]
+    },
+    {
+      "sourceId": "d301",
+      "sourceLine": 2456,
+      "section": "16",
+      "kind": "detail",
+      "caseId": "case-08",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": [
+        "role-veg.d301.card"
+      ]
+    },
+    {
+      "sourceId": "d302",
+      "sourceLine": 2463,
+      "section": "16",
+      "kind": "detail",
+      "caseId": "case-08",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": [
+        "role-veg.d302.card"
+      ]
+    },
+    {
+      "sourceId": "d303",
+      "sourceLine": 2470,
+      "section": "16",
+      "kind": "detail",
+      "caseId": "case-23",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": [
+        "role-veg.d303.card"
+      ]
+    },
+    {
+      "sourceId": "d304",
+      "sourceLine": 2481,
+      "section": "16",
+      "kind": "detail",
+      "caseId": "case-10",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": [
+        "role-veg.d304.card"
+      ]
+    },
+    {
+      "sourceId": "d305",
+      "sourceLine": 2488,
+      "section": "16",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": [
+        "role-veg.d305.card"
+      ]
+    },
+    {
+      "sourceId": "d306",
+      "sourceLine": 2495,
+      "section": "16",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": [
+        "role-veg.d306.card"
+      ]
+    },
+    {
+      "sourceId": "d307",
+      "sourceLine": 2502,
+      "section": "16",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": [
+        "role-veg.d307.card"
+      ]
+    },
+    {
+      "sourceId": "d308",
+      "sourceLine": 2509,
+      "section": "16",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": [
+        "role-veg.d308.card"
+      ]
+    },
+    {
+      "sourceId": "d309",
+      "sourceLine": 2516,
+      "section": "16",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": [
+        "role-veg.d309.card"
+      ]
+    },
+    {
+      "sourceId": "d310",
+      "sourceLine": 2523,
+      "section": "16",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": [
+        "role-veg.d310.card"
+      ]
+    },
+    {
+      "sourceId": "d311",
+      "sourceLine": 2530,
+      "section": "16",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": [
+        "role-veg.d311.card"
+      ]
+    },
+    {
+      "sourceId": "d312",
+      "sourceLine": 2537,
+      "section": "16",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": [
+        "role-veg.d312.card"
+      ]
+    },
+    {
+      "sourceId": "d313",
+      "sourceLine": 2544,
+      "section": "16",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": [
+        "role-veg.d313.card"
+      ]
+    },
+    {
+      "sourceId": "d314",
+      "sourceLine": 2551,
+      "section": "16",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": [
+        "role-veg.d314.card"
+      ]
+    },
+    {
+      "sourceId": "s113",
+      "sourceLine": 2569,
+      "section": "17",
+      "kind": "summary",
+      "caseId": "case-04",
+      "title": "04 案例04",
+      "text": "全身正面对称 A-pose、纯浅灰平底、均匀柔光无投影；“No weapon in hands. Whole body visible”",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d327",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": []
+    },
+    {
+      "sourceId": "s114",
+      "sourceLine": 2570,
+      "section": "17",
+      "kind": "summary",
+      "caseId": "case-07",
+      "title": "07 案例07",
+      "text": "Pip 1.00、Hank 1.31×、Bree 1.04×、Vince 约 1.9–2.0×（目测）；剪影：黑填充 3/4 与侧面，标尺每 0.25 倍 Pip 身高",
+      "evidenceLabel": "原文陈述+画面读数",
+      "verificationLabel": "比例我们按官方图读（Vince 目测）",
+      "summaryOf": "d319",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": []
+    },
+    {
+      "sourceId": "s115",
+      "sourceLine": 2571,
+      "section": "17",
+      "kind": "summary",
+      "caseId": "case-28",
+      "title": "28 案例28",
+      "text": "三视图水平排列，同比例，头顶与颈连接处对齐；一个固定表情；nothing extra",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d321",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": []
+    },
+    {
+      "sourceId": "s116",
+      "sourceLine": 2572,
+      "section": "17",
+      "kind": "summary",
+      "caseId": "case-11",
+      "title": "11 案例11",
+      "text": "色板：bone white, soot black, rust, moss green, dried-blood red, tarnished brass, cold blue-grey",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d326",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": []
+    },
+    {
+      "sourceId": "s117",
+      "sourceLine": 2573,
+      "section": "17",
+      "kind": "summary",
+      "caseId": "case-15",
+      "title": "15 云朵牧人",
+      "text": "女孩约 7 岁，黑波波头、红丝带草帽、浅蓝裙、白领子；云精灵两点眼粉腮红",
+      "evidenceLabel": "原文陈述+画面读数",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d315",
+      "alsoSummarizes": [
+        "d316"
+      ],
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": []
+    },
+    {
+      "sourceId": "d315",
+      "sourceLine": 2575,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-15",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d315.card"
+      ]
+    },
+    {
+      "sourceId": "d316",
+      "sourceLine": 2584,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-15",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d316.card"
+      ]
+    },
+    {
+      "sourceId": "d317",
+      "sourceLine": 2591,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-15",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d317.card"
+      ]
+    },
+    {
+      "sourceId": "d318",
+      "sourceLine": 2598,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-15",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d318.card"
+      ]
+    },
+    {
+      "sourceId": "d319",
+      "sourceLine": 2605,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-07",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d319.card"
+      ]
+    },
+    {
+      "sourceId": "d320",
+      "sourceLine": 2616,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-07",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d320.card"
+      ]
+    },
+    {
+      "sourceId": "d321",
+      "sourceLine": 2623,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-28",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d321.card"
+      ]
+    },
+    {
+      "sourceId": "d322",
+      "sourceLine": 2630,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-03",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d322.card"
+      ]
+    },
+    {
+      "sourceId": "d323",
+      "sourceLine": 2639,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-03",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d323.card"
+      ]
+    },
+    {
+      "sourceId": "d324",
+      "sourceLine": 2646,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-reading-02",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d324.card"
+      ]
+    },
+    {
+      "sourceId": "d325",
+      "sourceLine": 2653,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-06",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d325.card"
+      ]
+    },
+    {
+      "sourceId": "d326",
+      "sourceLine": 2660,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-11",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d326.card"
+      ]
+    },
+    {
+      "sourceId": "d327",
+      "sourceLine": 2667,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-04",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d327.card"
+      ]
+    },
+    {
+      "sourceId": "d328",
+      "sourceLine": 2674,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-04",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d328.card"
+      ]
+    },
+    {
+      "sourceId": "d329",
+      "sourceLine": 2681,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-04",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d329.card"
+      ]
+    },
+    {
+      "sourceId": "d330",
+      "sourceLine": 2688,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d330.card"
+      ]
+    },
+    {
+      "sourceId": "d331",
+      "sourceLine": 2695,
+      "section": "17",
+      "kind": "detail",
+      "caseId": "case-06",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d331.card"
+      ]
+    },
+    {
+      "sourceId": "s118",
+      "sourceLine": 2710,
+      "section": "18",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "title": "外01 外部案例01 树",
+      "text": "w0 枫 4.3、松 5.2、灌木 9.0、地被 11 rad/s；阻尼比 枫 0.17、松 0.20、灌木 0.24、地被 0.3；固有频率×(0.8+0.4×哈希)；倾倒上限 1.5",
+      "evidenceLabel": "源码",
+      "verificationLabel": "未标注",
+      "summaryOf": "d367",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "wind.gust-wake",
+      "target": "wind.gust-wake",
+      "targets": []
+    },
+    {
+      "sourceId": "s119",
+      "sourceLine": 2711,
+      "section": "18",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "title": "外01 外部案例01 草",
+      "text": "弹簧 15 rad/s 阻尼 0.42；距离>15 m 加宽约 1 像素；1.3–3.6 m 缩没",
+      "evidenceLabel": "源码",
+      "verificationLabel": "未标注",
+      "summaryOf": "d362",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "wind.gust-wake",
+      "target": "wind.gust-wake",
+      "targets": []
+    },
+    {
+      "sourceId": "s120",
+      "sourceLine": 2712,
+      "section": "18",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 案例13 树",
+      "text": "sin(uTime·1.05)·.6+sin(uTime·2.2)·.25（真实 2.1/4.4 rad/s）；叶颤 9–15 rad/s",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过（未运行）",
+      "summaryOf": "d378",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "wind.gust-wake",
+      "target": "wind.gust-wake",
+      "targets": []
+    },
+    {
+      "sourceId": "s121",
+      "sourceLine": 2713,
+      "section": "18",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 案例13 草",
+      "text": "颤动 3.4–6.4 rad/s；麦浪相速 4.9 m/s、波长 7.4 m；踩倒 k260 c30；松开 k46 c3.1；最多 8 个压草者",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过（未运行）",
+      "summaryOf": "d376",
+      "alsoSummarizes": [
+        "d377"
+      ],
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "wind.gust-wake",
+      "target": "wind.gust-wake",
+      "targets": []
+    },
+    {
+      "sourceId": "s122",
+      "sourceLine": 2714,
+      "section": "18",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 光树 冠幕",
+      "text": "冠幕叶 角速度 0.7+0.5seed rad/s；闪烁 2.2+2seed rad/s；附生物周期 4.8 s",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d374",
+      "alsoSummarizes": [
+        "d375"
+      ],
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "wind.gust-wake",
+      "target": "wind.gust-wake",
+      "targets": []
+    },
+    {
+      "sourceId": "s123",
+      "sourceLine": 2720,
+      "section": "18",
+      "kind": "summary",
+      "caseId": "case-ext01",
+      "title": "外01 外部案例01",
+      "text": "枫 84 棵（3 骨架）；松 560 棵（4 骨架）；灌木 4,100；种植站点 梅 18、直立松 230、悬崖松 330、灌木 2600、崖面草簇 1500、蕨 620、芦苇 420",
+      "evidenceLabel": "源码+实测",
+      "verificationLabel": "我们自己渲染读回过（84/560/4,100）",
+      "summaryOf": "d332",
+      "alsoSummarizes": [
+        "d333",
+        "d381"
+      ],
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": []
+    },
+    {
+      "sourceId": "s124",
+      "sourceLine": 2721,
+      "section": "18",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 案例13 森林",
+      "text": "远景 7000 棵（尝试数）；树数量 低 3500/中 5200/高 7000/手机 2200/超 8500；草 近 64009、中 290521、远 200704、芒草 70225",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过（未运行）",
+      "summaryOf": "d385",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": []
+    },
+    {
+      "sourceId": "s125",
+      "sourceLine": 2722,
+      "section": "18",
+      "kind": "summary",
+      "caseId": "case-13",
+      "title": "13 案例13 草密度",
+      "text": "密度/壳层：低 .45/1，中 .78/1，高 1/2，手机 .35（实际 .34）/1，超 1.2/2",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成片用过（未运行）",
+      "summaryOf": "d384",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": []
+    },
+    {
+      "sourceId": "s126",
+      "sourceLine": 2723,
+      "section": "18",
+      "kind": "summary",
+      "caseId": "case-04",
+      "title": "04 案例04",
+      "text": "3,163 棵树、413 块巨石、30,000 丛草",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "summaryOf": "d386",
+      "link": "gist",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": []
+    },
+    {
+      "sourceId": "d332",
+      "sourceLine": 2727,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d332.card"
+      ]
+    },
+    {
+      "sourceId": "d333",
+      "sourceLine": 2734,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d333.card"
+      ]
+    },
+    {
+      "sourceId": "d334",
+      "sourceLine": 2741,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d334.card"
+      ]
+    },
+    {
+      "sourceId": "d335",
+      "sourceLine": 2748,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "mat.library",
+      "target": "mat.library",
+      "targets": [
+        "role-veg.d335.card"
+      ]
+    },
+    {
+      "sourceId": "d336",
+      "sourceLine": 2755,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "mat.library",
+      "target": "mat.library",
+      "targets": [
+        "role-veg.d336.card"
+      ]
+    },
+    {
+      "sourceId": "d337",
+      "sourceLine": 2762,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "mat.library",
+      "target": "mat.library",
+      "targets": [
+        "role-veg.d337.card"
+      ]
+    },
+    {
+      "sourceId": "d338",
+      "sourceLine": 2769,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d338.card"
+      ]
+    },
+    {
+      "sourceId": "d339",
+      "sourceLine": 2776,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d339.card"
+      ]
+    },
+    {
+      "sourceId": "d340",
+      "sourceLine": 2783,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d340.card"
+      ]
+    },
+    {
+      "sourceId": "d341",
+      "sourceLine": 2790,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d341.card"
+      ]
+    },
+    {
+      "sourceId": "d342",
+      "sourceLine": 2797,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d342.card"
+      ]
+    },
+    {
+      "sourceId": "d343",
+      "sourceLine": 2804,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d343.card"
+      ]
+    },
+    {
+      "sourceId": "d344",
+      "sourceLine": 2811,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d344.card"
+      ]
+    },
+    {
+      "sourceId": "d345",
+      "sourceLine": 2818,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d345.card"
+      ]
+    },
+    {
+      "sourceId": "d346",
+      "sourceLine": 2825,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d346.card"
+      ]
+    },
+    {
+      "sourceId": "d347",
+      "sourceLine": 2832,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d347.card"
+      ]
+    },
+    {
+      "sourceId": "d348",
+      "sourceLine": 2839,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "mat.library",
+      "target": "mat.library",
+      "targets": [
+        "role-veg.d348.card"
+      ]
+    },
+    {
+      "sourceId": "d349",
+      "sourceLine": 2846,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d349.card"
+      ]
+    },
+    {
+      "sourceId": "d350",
+      "sourceLine": 2853,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d350.card"
+      ]
+    },
+    {
+      "sourceId": "d351",
+      "sourceLine": 2860,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d351.card"
+      ]
+    },
+    {
+      "sourceId": "d352",
+      "sourceLine": 2867,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d352.card"
+      ]
+    },
+    {
+      "sourceId": "d353",
+      "sourceLine": 2874,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d353.card"
+      ]
+    },
+    {
+      "sourceId": "d354",
+      "sourceLine": 2881,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d354.card"
+      ]
+    },
+    {
+      "sourceId": "d355",
+      "sourceLine": 2888,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d355.card"
+      ]
+    },
+    {
+      "sourceId": "d356",
+      "sourceLine": 2895,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d356.card"
+      ]
+    },
+    {
+      "sourceId": "d357",
+      "sourceLine": 2902,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d357.card"
+      ]
+    },
+    {
+      "sourceId": "d358",
+      "sourceLine": 2909,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d358.card"
+      ]
+    },
+    {
+      "sourceId": "d359",
+      "sourceLine": 2916,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d359.card"
+      ]
+    },
+    {
+      "sourceId": "d360",
+      "sourceLine": 2923,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d360.card"
+      ]
+    },
+    {
+      "sourceId": "d361",
+      "sourceLine": 2930,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "mat.library",
+      "target": "mat.library",
+      "targets": [
+        "role-veg.d361.card"
+      ]
+    },
+    {
+      "sourceId": "d362",
+      "sourceLine": 2939,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "wind.gust-wake",
+      "target": "wind.gust-wake",
+      "targets": [
+        "role-veg.d362.card"
+      ]
+    },
+    {
+      "sourceId": "d363",
+      "sourceLine": 2946,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d363.card"
+      ]
+    },
+    {
+      "sourceId": "d364",
+      "sourceLine": 2953,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "mat.library",
+      "target": "mat.library",
+      "targets": [
+        "role-veg.d364.card"
+      ]
+    },
+    {
+      "sourceId": "d365",
+      "sourceLine": 2960,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "mat.library",
+      "target": "mat.library",
+      "targets": [
+        "role-veg.d365.card"
+      ]
+    },
+    {
+      "sourceId": "d366",
+      "sourceLine": 2967,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d366.card"
+      ]
+    },
+    {
+      "sourceId": "d367",
+      "sourceLine": 2976,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "wind.gust-wake",
+      "target": "wind.gust-wake",
+      "targets": [
+        "role-veg.d367.card"
+      ]
+    },
+    {
+      "sourceId": "d368",
+      "sourceLine": 2983,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "mat.library",
+      "target": "mat.library",
+      "targets": [
+        "role-veg.d368.card"
+      ]
+    },
+    {
+      "sourceId": "d369",
+      "sourceLine": 2990,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d369.card"
+      ]
+    },
+    {
+      "sourceId": "d370",
+      "sourceLine": 2997,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "wind.gust-wake",
+      "target": "wind.gust-wake",
+      "targets": [
+        "role-veg.d370.card"
+      ]
+    },
+    {
+      "sourceId": "d371",
+      "sourceLine": 3004,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "particle.ambient",
+      "target": "particle.ambient",
+      "targets": [
+        "role-veg.d371.card"
+      ]
+    },
+    {
+      "sourceId": "d372",
+      "sourceLine": 3011,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "wind.gust-wake",
+      "target": "wind.gust-wake",
+      "targets": [
+        "role-veg.d372.card"
+      ]
+    },
+    {
+      "sourceId": "d373",
+      "sourceLine": 3019,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "wind.gust-wake",
+      "target": "wind.gust-wake",
+      "targets": [
+        "role-veg.d373.card"
+      ]
+    },
+    {
+      "sourceId": "d374",
+      "sourceLine": 3026,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "wind.gust-wake",
+      "target": "wind.gust-wake",
+      "targets": [
+        "role-veg.d374.card"
+      ]
+    },
+    {
+      "sourceId": "d375",
+      "sourceLine": 3033,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "particle.ambient",
+      "target": "particle.ambient",
+      "targets": [
+        "role-veg.d375.card"
+      ]
+    },
+    {
+      "sourceId": "d376",
+      "sourceLine": 3040,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "wind.gust-wake",
+      "target": "wind.gust-wake",
+      "targets": [
+        "role-veg.d376.card"
+      ]
+    },
+    {
+      "sourceId": "d377",
+      "sourceLine": 3048,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "wind.gust-wake",
+      "target": "wind.gust-wake",
+      "targets": [
+        "role-veg.d377.card"
+      ]
+    },
+    {
+      "sourceId": "d378",
+      "sourceLine": 3055,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "wind.gust-wake",
+      "target": "wind.gust-wake",
+      "targets": [
+        "role-veg.d378.card"
+      ]
+    },
+    {
+      "sourceId": "d379",
+      "sourceLine": 3062,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "particle.ambient",
+      "target": "particle.ambient",
+      "targets": [
+        "role-veg.d379.card"
+      ]
+    },
+    {
+      "sourceId": "d380",
+      "sourceLine": 3069,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "wind.gust-wake",
+      "target": "wind.gust-wake",
+      "targets": [
+        "role-veg.d380.card"
+      ]
+    },
+    {
+      "sourceId": "d381",
+      "sourceLine": 3078,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": [
+        "role-veg.d381.card"
+      ]
+    },
+    {
+      "sourceId": "d382",
+      "sourceLine": 3085,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": [
+        "role-veg.d382.card"
+      ]
+    },
+    {
+      "sourceId": "d383",
+      "sourceLine": 3092,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d383.card"
+      ]
+    },
+    {
+      "sourceId": "d384",
+      "sourceLine": 3099,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": [
+        "role-veg.d384.card"
+      ]
+    },
+    {
+      "sourceId": "d385",
+      "sourceLine": 3106,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "cardId": "shade.px-lod",
+      "target": "shade.px-lod",
+      "targets": [
+        "role-veg.d385.card"
+      ]
+    },
+    {
+      "sourceId": "d386",
+      "sourceLine": 3113,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-04",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d386.card"
+      ]
+    },
+    {
+      "sourceId": "d387",
+      "sourceLine": 3122,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-04",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d387.card"
+      ]
+    },
+    {
+      "sourceId": "d388",
+      "sourceLine": 3129,
+      "section": "18",
+      "kind": "detail",
+      "caseId": "case-04",
+      "route": "card-coupled",
+      "cardId": "form.primitives",
+      "target": "form.primitives",
+      "targets": [
+        "role-veg.d388.card"
+      ]
+    }
+  ]
+}
