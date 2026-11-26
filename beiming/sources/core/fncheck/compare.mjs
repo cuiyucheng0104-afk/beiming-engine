@@ -35,3 +35,32 @@ export function compare({ input, nIn, ref, test, nOut, rel, abs, skip, worst: ke
   }
   return { groups, fails, nonFinite, zeroRef, skipped, needAbs, maxRel, maxRelNonTiny, worst };
 }
+
+/** float32 数 x 处的一个末位（相邻 float32 的间距）；0 与非规格数取最小规格数的末位 2^-149 */
+export function ulpOf(x) {
+  const e = (new Uint32Array(Float32Array.of(x).buffer)[0] >>> 23) & 0xff;
+  return 2 ** (Math.max(e, 1) - 150);
+}
+
+/**
+ * 分段平均偏差（以末位计）：单输入、单输出的函数，被测减标准除以标准处的末位，按输入在每一段里对数等分成 bins 个小段求平均，
+ * 每段取小段平均的绝对值最大者，超过这一段的 max 记一段不合格。查的是「误差随位置光滑变化、一段里同号」这种逐组比查不出的偏差。
+ * segments：[{ lo, hi, bins, max }]，输入落在 [lo, hi) 的组进这一段
+ * @returns {{ fails, segments: { lo, hi, max, worst, worstBin: [number, number], n }[] }}
+ */
+export function ulpBias({ input, ref, test, segments }) {
+  const out = segments.map(({ lo, hi, bins, max }) => {
+    const sum = new Float64Array(bins), cnt = new Float64Array(bins), w = Math.log(hi / lo) / bins;
+    for (let g = 0; g < ref.length; g++) {
+      const x = input[g];
+      if (!(x >= lo && x < hi) || !Number.isFinite(ref[g]) || !Number.isFinite(test[g])) continue;
+      const k = Math.min(bins - 1, Math.floor(Math.log(x / lo) / w));
+      sum[k] += (test[g] - ref[g]) / ulpOf(ref[g]);
+      cnt[k]++;
+    }
+    let worst = 0, at = 0;
+    for (let k = 0; k < bins; k++) if (cnt[k] && Math.abs(sum[k] / cnt[k]) >= Math.abs(worst)) { worst = sum[k] / cnt[k]; at = k; }
+    return { lo, hi, max, worst, worstBin: [lo * Math.exp(at * w), lo * Math.exp((at + 1) * w)], n: cnt.reduce((a, b) => a + b, 0) };
+  });
+  return { fails: out.filter(s => !(Math.abs(s.worst) <= s.max) || s.n === 0).length, segments: out };
+}

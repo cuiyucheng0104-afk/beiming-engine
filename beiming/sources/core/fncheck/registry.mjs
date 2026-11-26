@@ -228,10 +228,23 @@ const atPole = (p, P, axis_u, len_u) => Math.abs(dot3(add(p, P, -1), axis_u)) < 
 // 立体角 S = −(g0 + g1 + g2 + g3) 是四个量级到 π/2 的 asin 相加抵消（area.h:53-57）。概率密度 1/S 的比对改在 S 上做，
 // abs 给在 S 上：【实测】MAIN 里超出 1e-4·S 的差最大 2.1e-6，取 48 个 π/2 处的 ULP（约 5.7e-6）
 const ABS_S = 48 * 2 ** -23;
+// safe_asinf 分段平均偏差的段与门槛（末位）。【实测】苹果显卡、100 万组、种子 1，小段平均的绝对值最大者：
+//   写法             [1e-6, 0.5)   [0.5, 0.9)   [0.9, 1)
+//   级数加半角（现用）  0.007        −0.364        0.100
+//   内建 asin         1.500         0.709        0.590
+//   atan2             −1.000        0.484        0.395
+// |x| < 0.5 是面光远场立体角四个 asin 的主要输入，门槛 0.05；0.5 到 0.9 现用的写法也偏 0.36（π/2 的低位在 fma 的舍入里丢了），
+// 门槛 1 只拦粗错；0.9 以上门槛 0.3。内建 asin 在第一段超出门槛 30 倍（fncheck.test.mjs 的负对照）
+const ASINF_BIAS = [{ lo: 1e-6, hi: 0.5, bins: 12, max: 0.05 }, { lo: 0.5, hi: 0.9, bins: 4, max: 1 }, { lo: 0.9, hi: 1, bins: 2, max: 0.3 }];
 FUNCTIONS.push(
   // asin 在 ±1 附近导数无界，取在 clamp 两侧各外延 0.2，覆盖截断那一支。被测一侧不是内建 asin，是 util.wgsl 里自己写的级数
   // （内建 asin 的误差随位置光滑变化，理由见那里）；【实测】苹果显卡上对 C 库 asinf 最大 3.4e-7 相对误差
   entry('safe_asinf', [['a', 'f32', [-1.2, 1.2]]], 1, 0, { file: APACHE }),
+  // 同一个函数对 C 库 asinf 的分段平均偏差（以末位计；Cycles 在处理器上的 safe_asinf 就是 asinf）。逐组比查不出：内建 asin 每组都在
+  // 1e-4 相对误差以内，但偏差随输入位置光滑变化、一段里同号，矩形面光立体角的四个 asin 相加抵消时整片同号地偏（util.wgsl 那里的说明）。
+  // 只取正数（safe_asinf 经 copysignf 对称），[1e-6, 1) 上按对数均匀取；每段按对数等分成小段求平均，小段平均的绝对值最大者不超过门槛。
+  // 门槛照实测定（苹果显卡，100 万组）：ASINF_BIAS 处的注释
+  entry('safe_asinf_ulp_bias', [['a', 'f32', [1e-6, 1, 'log']]], 1, 0, { file: APACHE, wgsl: 'safe_asinf', ref: 'safe_asinf', ulpBias: ASINF_BIAS }),
   // 概率密度在 WELL 里直接比，abs 只为采样点
   light('area_light_rect_sample', RECT_IN, { pdf: 1, P: 3 }, ABS_SAMPLE, {
     gen: next => ({ ...lightGeom(next, WELL), rand: [linU(next, RAND_WELL), linU(next, RAND_WELL)] }), branch: rectBranchOf,

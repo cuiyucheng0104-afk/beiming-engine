@@ -242,6 +242,7 @@
 ### Fixed
 - 修复 Metal 离屏分段计时读数全为零的问题。时间戳标记会提交一个不读写资源的计算工作组，从而保留 GPU 计时记录。
 
+- 核心帧源的函数级比对加一项 `safe_asinf_ulp_bias`：`safe_asinf` 对 C 库 `asinf` 的分段平均偏差（以末位计，|x| < 0.5 一段门槛 0.05），逐组比查不出的「误差随位置光滑变化、一段里同号」这种偏差由它拦；负对照是改回显卡内建 `asin` 必须判不过（苹果显卡上内建 `asin` 第一段偏 1.5 个末位，现用的写法 0.007）。比对外壳（`beiming/sources/core/fncheck/run.mjs`）的报告多出 `bias` 字段，分段偏差超门槛同样判不合格。矩形面光立体角两个分母的守卫注释写明它在点积判断之下恒真。不改任何成片。
 - 核心帧源的路径追踪内核：三角形上的着色点照 Cycles（Blender v5.2.3）的 `triangle_point_from_uv`（`kernel/geom/triangle_intersect.h`）用命中的重心坐标重建，不再取射线起点加方向乘距离（`beiming/sources/core/path/shaders/shader.wgsl` 的 `shader_setup_from_hit`；软件求交在世界空间的三角形上插值，硬件求交的模型实例在模型空间插值再乘实例矩阵）。阴影射线的自交测试「测中不抬」以着色点落在自己的三角形上为前提；继续弹射的射线起点跟着变（挪法不变），过程几何照旧。有意改变渲染结果，回归基线重记。
 - 修复 `beiming/cards/m3-card-promotion.test.mjs` 把全库技术卡总数硬编码为 30 导致合入新增 M3 卡（如 T11）后回归失败的问题：改为动态校验全库卡数不低于 30 且 ID 唯一、指定的 17 张 B20+B7 实证卡均为 `measured`、看板总数与当前卡库一致，以及 D14 窗口后可见升级卡检索正常。
 - 核心帧源的路径追踪内核：网格两个三角形的公共边上相机射线不再从缝里穿过去（软件求交，即 Compute BVH 回退）。上游的三角形求交是 Möller–Trumbore（闭区间、无容差），换成照 Cycles（Blender v5.2.3）移植的 `ray_triangle_intersect`（Plücker 边测试，在 `beiming/sources/core/shaders/util.wgsl`）；三角形缓冲改存三个原顶点，着色处现算边向量，硬件求交的 BLAS 直接用原顶点建。函数级比对加两项（逐组对 Cycles、防水），第 2 级加「网格的公共边」（软件求交一个像素都不许少，带负对照），镜中的矩形纯光一项不再把平面挪开。苹果显卡的硬件求交器本身在公共边上漏，修不了，记为平台限制（`beiming/sources/core/path/STRUCTURES.md` 第 47 条），第 2 级只钉上限。

@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { CliError, defineCommand, isMain, runCli, usageError } from '../../../../tools/lib/cli.mjs';
 import { buildRenderer } from '../chassis/build.mjs';
 import { COMMIT, OUT, TAG, buildRef, runRef, runStdin } from './cycles/build.mjs';
-import { compare } from './compare.mjs';
+import { compare, ulpBias } from './compare.mjs';
 import { kernel, runGpu } from './gpu.mjs';
 import { FILTER_TABLES, FILTER_TABLE_SIZE, FUNCTIONS, SHADERS, outWidth, size, width } from './registry.mjs';
 
@@ -97,16 +97,20 @@ export async function check({ names = FUNCTIONS.map(f => f.name), n = 1_000_000,
   const gpu = onGpu.length ? await runGpu(onGpu.map(j => ({ name: j.f.name, code: kernel(source, j.f), input: j.input, n: j.n, nOut: outWidth(j.f) })), { filterTables: tables }) : { adapter: null, outputs: [] };
   const host = onHost.length ? buildRenderer({ inject }).bin : null;
   const tested = new Map([...onGpu.map((j, k) => [j, gpu.outputs[k]]), ...onHost.map(j => [j, runHost(host, j.f.ref, j.input, j.n * outWidth(j.f))])]);
-  const results = jobs.map(j => ({
-    name: j.f.name,
-    rel: j.f.rel,
-    abs: j.f.abs,
-    inputSha256: createHash('sha256').update(j.input).digest('hex'),
-    ...(j.f.host && { tested: 'host' }),
-    ...(j.f.branch && { branches: branchCounts(j.f, j.input, j.n) }),
-    ...compare({ input: j.input, nIn: width(j.f), ref: runRef(bin, j.f.ref, j.input, j.n * outWidth(j.f)), test: tested.get(j), nOut: outWidth(j.f), rel: j.f.rel, abs: j.f.abs, skip: j.f.skip }),
-  }));
-  return { ok: results.every(r => r.fails === 0), n, seed, cycles: { tag: TAG, commit: COMMIT }, platform: `${process.platform}-${process.arch}`, adapter: gpu.adapter, results };
+  const results = jobs.map(j => {
+    const ref = runRef(bin, j.f.ref, j.input, j.n * outWidth(j.f)), test = tested.get(j);
+    return {
+      name: j.f.name,
+      rel: j.f.rel,
+      abs: j.f.abs,
+      inputSha256: createHash('sha256').update(j.input).digest('hex'),
+      ...(j.f.host && { tested: 'host' }),
+      ...(j.f.branch && { branches: branchCounts(j.f, j.input, j.n) }),
+      ...compare({ input: j.input, nIn: width(j.f), ref, test, nOut: outWidth(j.f), rel: j.f.rel, abs: j.f.abs, skip: j.f.skip }),
+      ...(j.f.ulpBias && { bias: ulpBias({ input: j.input, ref, test, segments: j.f.ulpBias }) }),
+    };
+  });
+  return { ok: results.every(r => r.fails === 0 && !r.bias?.fails), n, seed, cycles: { tag: TAG, commit: COMMIT }, platform: `${process.platform}-${process.arch}`, adapter: gpu.adapter, results };
 }
 
 export const command = defineCommand({
@@ -130,12 +134,13 @@ export const command = defineCommand({
     const file = path.join(OUT, 'report.json');
     fs.writeFileSync(file, `${JSON.stringify(report, null, 2)}\n`);
     for (const r of report.results) {
-      ctx.out(`${r.fails ? '✗' : '✓'} ${r.name.padEnd(38)} 组数 ${r.groups}  最大相对误差 ${r.maxRel.toExponential(2)}（abs 不兜底处 ${r.maxRelNonTiny.toExponential(2)}）  不合格 ${r.fails}  非有限 ${r.nonFinite}  标准全零 ${r.zeroRef}  不比 ${r.skipped}  所需 abs ${r.needAbs.toExponential(2)}`);
+      ctx.out(`${r.fails || r.bias?.fails ? '✗' : '✓'} ${r.name.padEnd(38)} 组数 ${r.groups}  最大相对误差 ${r.maxRel.toExponential(2)}（abs 不兜底处 ${r.maxRelNonTiny.toExponential(2)}）  不合格 ${r.fails}  非有限 ${r.nonFinite}  标准全零 ${r.zeroRef}  不比 ${r.skipped}  所需 abs ${r.needAbs.toExponential(2)}`);
       if (r.branches) ctx.out(`    分支：${Object.entries(r.branches).map(([b, c]) => `${b} ${(c / r.groups * 100).toFixed(2)}%`).join('，')}`);
+      if (r.bias) ctx.out(`    分段平均偏差（末位）：${r.bias.segments.map(s => `[${s.lo}, ${s.hi}) 最大 ${s.worst.toFixed(3)}（门槛 ${s.max}，在 [${s.worstBin.map(x => x.toPrecision(3)).join(', ')})）${Math.abs(s.worst) <= s.max ? '' : '✗'}`).join('；')}`);
       if (r.fails) ctx.out(`    最差一组：下标 ${r.worst[0].index}  输入 [${r.worst[0].input}]  标准 [${r.worst[0].ref}]  被测 [${r.worst[0].test}]  相对误差 ${r.worst[0].relErr}`);
     }
     ctx.out(`报告：${file}`);
-    const bad = report.results.filter(r => r.fails).map(r => r.name);
+    const bad = report.results.filter(r => r.fails || r.bias?.fails).map(r => r.name);
     return { data: report, outputs: [{ path: file, kind: 'report' }], ...(bad.length && { error: { code: 'contract.fncheck', message: `不合格：${bad.join('、')}`, hint: `逐组明细见 ${file}` } }) };
   },
 });

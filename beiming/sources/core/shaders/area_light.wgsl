@@ -119,6 +119,8 @@ fn rect_solid_angle_pdf_S(S: f32, x0: f32, x1: f32, y0: f32, y1: f32, z0: f32, l
   let n = abs(z0) * len_u * len_v;
   let m1 = ra * rb * rc + ab * rc + ac * rb + bc * ra;
   let m2 = ra * rc * rd + ac * rd + ad * rc + cd * ra;
+  // 上面的点积判断成立时这一句恒真（m1、m2 是正数之和：长度为正，点积都大于 0），现在不会走到；留着防以后改了点积判断
+  // （放宽到允许钝角时，近场大立体角的分母就是几项相消出来的，会出 0 或负数）
   if (!(m1 > 0.0 && m2 > 0.0)) { return S; }
   return 2.0 * (atan2(n, m1) + atan2(n, m2));
 }
