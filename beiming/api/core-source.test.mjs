@@ -13,6 +13,8 @@ import { PRESETS } from '../sources/core/chassis/build.mjs';
 import { platesPack, writePack } from '../sources/core/chassis/scenepack.mjs';
 import { findRenderer } from '../sources/core/source.mjs';
 import { renderPlan, sourcePool } from './pipeline.mjs';
+import { createStore } from './store.mjs';
+import { createWork } from './work.mjs';
 
 const E2E = process.env.BEIMING_CHASSIS_E2E === '1';
 const SIZE = [64, 36], SPP = 8, SEED = 7;
@@ -100,4 +102,33 @@ test('没有编好的渲染程序：出片链起核心帧源报 env.missing-tool
   const e = await pool.get('core').then(() => null, (x) => x);
   assert.equal(e?.code, 'env.missing-tool');
   await pool.stop();
+});
+
+/** 服务端的数据目录里放一部片子：film.json 与场景包，提交成修订 0（不签锁：作业在执行器里因为没有 film.lock 失败，够看它走哪一道） */
+function served(t) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-core-api-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const store = createStore(dir), id = 'f_001';
+  const ws = store.workspace(id);
+  writePack(ws.resolve('shots/pack'), platesPack());
+  fs.writeFileSync(ws.resolve('film.json'), JSON.stringify({
+    format: 'film/3.0', id, output: { size: SIZE, fps: '24/1', frames: 2 },
+    shots: [
+      { id: 's01', in: 0, out: 1, source: 'core', host: 'offscreen', mode: 'build-script', entry: 'shots/pack', colorRef: 'display' },
+      { id: 's02', in: 1, out: 2, source: 'three', host: 'page', mode: 'cards-data', colorRef: 'display' },
+    ],
+  }));
+  ws.commitRevision(0);
+  return { store, id, work: createWork({ store, library: {}, reviewer: null, scheduler: new Scheduler() }) };
+}
+
+test('草稿档里有核心镜头的渲染作业走 core 道，没有的走 draft 道', { timeout: 30_000 }, async (t) => {
+  const { store, id, work } = served(t);
+  const kindOf = async (plan) => {
+    const job = work.submit(id, 'render', { tier: 'draft', rev: 0, plan });
+    await work.wait(id, job, 10);
+    return loadQueue(store.filmDir(id)).getJob(job).request.kind;
+  };
+  assert.equal(await kindOf([{ shot: 's01', frames: [0] }]), 'core');
+  assert.equal(await kindOf([{ shot: 's02', frames: [1] }]), 'draft');
 });

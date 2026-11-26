@@ -556,10 +556,13 @@ export function createWork({ store, library, reviewer, scheduler }) {
     }),
   };
 
-  /** 提交作业并开跑：kind 是 render | verify | deliver，payload 进作业记录。交回作业号 */
+  /** 提交作业并开跑：kind 是 render | verify | deliver，payload 进作业记录。交回作业号。
+   *  草稿档的渲染作业里有核心帧源的镜头时走 core 道：同一个调度器（一块卡）上同时只跑一个，第二个排队 */
   function submit(id, kind, payload) {
     const tier = payload.tier;
-    const lane = kind === 'verify' ? 'verify' : tier === 'final' ? 'final' : 'draft';
+    const film = store.readFilm(id);
+    const core = kind === 'render' && (payload.plan ?? []).some((p) => film.shots.find((s) => s.id === p.shot)?.source === 'core');
+    const lane = kind === 'verify' ? 'verify' : tier === 'final' ? 'final' : core ? 'core' : 'draft';
     const jobId = store.nextJobId(id);
     const q = queue(id);
     q.enqueue({ id: jobId, kind: lane, handler: kind, payload: { film: id, ...payload }, rev: payload.rev });
