@@ -26,7 +26,7 @@ const CLI = path.join(ROOT, 'tools/film/cli.mjs');
 export const command = defineCommand({
   name: 'beiming:build',
   summary: '重建《北冥》10 秒样片：转调统一出片命令，再按旧文件名放进 out/',
-  usage: ['npm run beiming:build -- [--4k] [--no-audio] [--workers N] [--json]', 'node tools/film/beiming.mjs [选项]', 'sh build.sh [选项]（POSIX 兼容壳，参数相同）'],
+  usage: ['npm run beiming:build -- [--4k] [--no-audio] [--workers N] [--json]', 'node tools/film/beiming.mjs [选项]', 'sh build.sh [--4k] [--no-audio] [--quiet]（POSIX 兼容壳。更多选项用 npm 入口）'],
   description: [
     `等价于 node tools/film/cli.mjs build ${FILM} --page films/beiming-10s --out-root out/beiming --profile beiming-1040p24 --audio audio/build.sh；`,
     '产物在 out/beiming/<run-id>/（run.json、qa/report.json、联系表、播放页），再按旧文件名放到 out/：',
