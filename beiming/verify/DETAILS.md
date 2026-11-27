@@ -39,8 +39,9 @@ const transition = evaluateAssertion('no_ghost(120)', film, measured);
 
 - **取哪个通道**：EXR 有 `color.R/G/B` 就取它，没有才取裸 `R/G/B`，再没有就要求只有一个浮点通道；其余情况（比如只有 `normal.X/Y/Z`）不猜，抛错，要检就用 `channel` 给通道名。`channel` 给序号时只检颜色的那一个通道。两边解析出的形态要一致，一边三通道亮度、一边单通道会抛错。
 - **结果**：`biasMap`（A 减 B 的均值差，偏差位置图）、`pMap`、`qMap`、`significantMask`（都是 `gridSize` 宽高的行主序平面）、`significantRatio`（校正后显著的单元比例）、`rawSignificantRatio`（未校正 p ≤ alpha 的比例）、`pHistogram`（`counts` 是 `bins` 个等宽桶的计数，`flat` 是平坦性判定，`lowTailP` 是判定用的 p 值，`effectiveAlpha` 是判定用的名义率）。`pass` 等于 `significantRatio <= alpha && pHistogram.flat`，两个条件缺一不可。
-- **`testedUnits` 与 `totalUnits`**：`totalUnits` 是网格单元总数，`testedUnits` 是参检单元数，差值是 `deterministicUnits`。两个比例、直方图和 BH 校正的分母都是 `testedUnits`。
-- **无噪声单元**：两边方差都是 0 且均值相等的单元（纯黑背景）记入 `deterministicUnits`，不参检，平面里 p 和 q 记 1；方差都是 0 而均值不等的单元 p 记 0，参检并必然显著。全图都不参检时 `pass` 为真，这只说明两组各统计单元样本逐位相等（块模式下指块聚合后的统计单元）。
+- **`testedUnits` 与 `totalUnits`**：`totalUnits` 是网格单元总数，`testedUnits` 是参检单元数，差值是 `deterministicUnits` 加 `equivalentUnits`。两个比例、直方图和 BH 校正的分母都是 `testedUnits`。
+- **无噪声单元**：两边方差都是 0 且均值相等的单元（纯黑背景）记入 `deterministicUnits`，不参检，平面里 p 和 q 记 1；方差都是 0 而均值不等的单元 p 记 0，参检并必然显著。全图都不参检时 `pass` 为真；没给 `equivalence` 时这只说明两组各统计单元样本逐位相等（块模式下指块聚合后的统计单元），给了时还可能是每个单元都落在等价下限以内，所以门的调用方要把 `equivalentUnits` 一并写进报告。
+- **等价单元**：给了 `equivalence`（缺省 0，不给时行为逐位不变）时，均值差不为 0、但绝对值不超过 `equivalence` 乘两边均值绝对值的较大者的单元，记入 `equivalentUnits`，不参检，平面里 p 和 q 记 1，和无噪声的相等单元一样不进校正和直方图。对这些单元门是有意放宽的（它们本来常常判显著）；对其余单元不会更松：去掉的单元让比例与平坦性的分母一起变小，BH 的阈值最多随参检数按比例变化。差恰好为 0 的单元照旧（无噪声的记 `deterministicUnits`，有噪声的照常检验）。`deterministicUnits` 等于 `totalUnits` 减 `testedUnits` 再减 `equivalentUnits`。**盲区**：块均值的尺度取两边均值绝对值的较大者，所以一个 8×8 块里有极亮的像素、其余像素又暗又几乎无噪声时，暗部的偏差可能被亮像素撑大的尺度吞掉；这要求亮暗两部分在同一块里都近乎确定，真实画面的亮暗交界有抗锯齿噪声，按块检验本来也分不出块内结构。另外，近乎无噪声块里不超过下限的均匀偏差会被整片吞掉，这是有意的取舍。
 
 ## 平坦性判定与校准实测
 
@@ -135,7 +136,8 @@ const w = welchGate(coreSeeds, cyclesSeeds);                                // �
 - **未定线**：`floor` 缺段、缺键或有一项是 `null`，返回 `unset`，不判过，也不产出 `judging`（RP3）。判了的返回 `judging: { metric, k, threshold }`，门值就是地板乘 k（RP4），可以直接放进参考包核对记录的 `judgings`。
 - **拒收**：`value` 不在 [0, 1] 内；地板不在 (0, 1] 内，地板是 0 说明两个种子出了同一张图，是坏包。
 - **只收 FLIP**：峰值信噪比越大越好，乘 k 没有意义，也不适合比带噪的图。
-- **Welch 不乘 k**：t 统计量已经除以换种子的标准误，本身就是相对噪声比的。`welchGate` 要每边正好 16 个种子，α = 1%、8×8 块，都照阈值文件。
+- **Welch 不乘 k**：t 统计量已经除以换种子的标准误，本身就是相对噪声比的。`welchGate` 要每边正好 16 个种子，α = 1%、8×8 块，等价下限 2^-22，都照阈值文件。
+- **等价下限为什么是 2^-22**：被比的两边都是单精度渲染器，运算次序、乘加融合不同，同一个像素会差零点几到几个末位；近乎无噪声的块（白炉里粗糙度 0 的金属镜球、纯光照的平地板）种子间的离差比这还小，t 检验会把这种系统差当成显著。这个数是照实测定的，不是推出来的：白炉金属镜球上见过的这类差是 1.5e-9 到 7.4e-8，2^-22（约 2.4e-7，1 附近 2 个单精度末位）是它的 3.2 倍；对拍里见过的最小真偏差约 1e-6，是它的 4.2 倍。两边逐采样累加的方式不同时舍入差能更大，那只会让门误报不过，不会放过偏差。
 - **第 2 级**的数学门登记在 `floor-gate.json` 的 `math.level2`，合并门逐项核对它和 `chassis/level2.mjs` 里 `export const GATES = { … };` 那一行的字面量相同：改这一行就得同时改阈值文件并签字。只锁这一行，`GATES` 在代码里怎么用（之后再赋值、判据里换成写死的数）这里看不出来，靠评审。**第 1 级**的门写在函数级比对的测试里，本门不锁，是已知缺口。
 
 ### 合并门：阈值写死、回归集只许涨

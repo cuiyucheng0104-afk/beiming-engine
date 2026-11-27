@@ -121,19 +121,22 @@ const near = (a, b, rel) => Math.abs(a - b) <= rel * Math.max(Math.abs(a), Math.
 const SHAPES = { color: 4, depth: 1, objectId: 1, 'objectId.coverage': 1, normal: 3, motion: 2, denoiseAlbedo: 3, denoiseNormal: 3 };
 const FILES = { color: 'color.f32', depth: 'depth.f32', objectId: 'objectId.u32', 'objectId.coverage': 'objectId.coverage.f32', normal: 'normal.f32', motion: 'motion.f32', denoiseAlbedo: 'denoiseAlbedo.f32', denoiseNormal: 'denoiseNormal.f32' };
 
-/** 出层目录：八个文件的字节数照 [高, 宽, 分量数] × 4；stdout 里的层表与文件一致；通道声明过结构定义与 PS1 的名字要求 */
+/** 出层目录：八个文件与每个分灯组一个文件（两个测试包都只有一盏灯 key，组名就是灯名）的字节数照 [高, 宽, 分量数] × 4；
+ *  stdout 里的层表与文件一致；通道声明过结构定义与 PS1 的名字要求，分灯组排在七个固定通道之后 */
 async function checkFiles(dir, stats, w, h) {
   const names = fs.readdirSync(dir).sort();
-  assert.deepEqual(names, [...Object.values(FILES), 'passes.json'].sort());
-  for (const [name, k] of Object.entries(SHAPES)) {
-    assert.equal(fs.statSync(path.join(dir, FILES[name])).size, h * w * k * 4, name);
+  const groups = { 'lightgroup:key': 'lightgroup-key.f32' };
+  assert.deepEqual(names, [...Object.values(FILES), ...Object.values(groups), 'passes.json'].sort());
+  for (const [name, k] of [...Object.entries(SHAPES), ...Object.keys(groups).map(g => [g, 3])]) {
+    const file = FILES[name] ?? groups[name];
+    assert.equal(fs.statSync(path.join(dir, file)).size, h * w * k * 4, name);
     assert.deepEqual(stats.passes.layers[name].shape, [h, w, k], name);
-    assert.equal(stats.passes.layers[name].file, FILES[name], name);
+    assert.equal(stats.passes.layers[name].file, file, name);
   }
   const table = JSON.parse(fs.readFileSync(path.join(dir, 'passes.json'), 'utf8'));
   const { validate } = await loadContracts();
   assert.deepEqual(validate(table), { contract: 'passes', schemaErrors: [], violations: {} });
-  assert.deepEqual(table.channels.map(c => c.name), ['color', 'depth', 'objectId', 'normal', 'motion', 'denoiseAlbedo', 'denoiseNormal']);
+  assert.deepEqual(table.channels.map(c => c.name), ['color', 'depth', 'objectId', 'normal', 'motion', 'denoiseAlbedo', 'denoiseNormal', ...Object.keys(groups)]);
   return table;
 }
 
@@ -159,7 +162,8 @@ test('两块错开的板：深度、编号、法线取首个样本，边缘上�
       // 每个像素：编号就是像素中心那条射线打到的；深度与法线是那块板在像素中心的值（不是两块的混合）
       assert.equal(id[p], center.id, `(${x}, ${y}) 的编号`);
       assert.ok(near(depth[p], center.depth, 1e-5), `(${x}, ${y}) 的深度 ${depth[p]}，${center.id} 号板在那里是 ${center.depth}`);
-      [0, 1, 2].forEach(c => assert.ok(Math.abs(normal[p * 3 + c] - center.normal[c]) <= 1e-5, `(${x}, ${y}) 的法线`));
+      // 法线照 Cycles 存成 16 位八面体编码（path/src/packed_normal.rs），每个分量偏开到 2^-15 上下
+      [0, 1, 2].forEach(c => assert.ok(Math.abs(normal[p * 3 + c] - center.normal[c]) <= 4e-5, `(${x}, ${y}) 的法线`));
       assert.ok(Math.abs(cov[p] - k / spp) <= 1e-6, `(${x}, ${y}) 的覆盖率 ${cov[p]}，数出来 ${k}/${spp}`);
       if (k > 0 && k < spp) {
         mixed++;

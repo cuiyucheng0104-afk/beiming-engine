@@ -158,6 +158,13 @@ fn proc_normal(h: Hit) -> vec3<f32> {
     return vec3<f32>(h.t, h.u, h.v);
 }
 
+// 求交时跳过的图元（照 Cycles 的 Ray.self，intersection_skip_self）：(全局三角下标, 实例记录)，只有阴影射线设它
+// （light.wgsl 的 shadow_ray_vis、shadow_ray_sky，测完清回 TRACE_SELF_NONE）。不进 trace 的参数：trace 的签名是冻结的接口。
+// 软件求交里实例的三角形已经铺进世界空间（记 NO_INST），硬件求交里按（模型空间的池三角形, 实例记录）认
+const TRACE_SELF_NONE: vec2<u32> = vec2<u32>(0xffffffffu, 0xffffffffu);
+var<private> trace_self: vec2<u32> = TRACE_SELF_NONE;
+fn hit_self(tri: u32, inst: u32) -> bool { return tri == trace_self.x && inst == trace_self.y; }
+
 // mode: TRACE_CLOSEST, TRACE_SHADOW (any hit among shadow casters), TRACE_ANY (any hit on any surface).
 @if(!hwrt) fn trace(o: vec3<f32>, d: vec3<f32>, tmax_in: f32, mode: u32) -> Hit {
     var hit = Hit(tmax_in, 0xffffffffu, 0.0, 0.0, NO_INST);
@@ -173,6 +180,7 @@ fn proc_normal(h: Hit) -> vec3<f32> {
                 let ti = n.left_or_first + k;
                 let flags = bitcast<u32>(tri_verts[ti * 3u].w);
                 if (mode == TRACE_SHADOW && (flags & TRI_NO_SHADOW) != 0u) { continue; }
+                if (hit_self(ti, NO_INST)) { continue; }
                 let r = intersect_tri(o, d, ti, hit.t);
                 if (r.x < hit.t) {
                     if (has(F_MASKED) && (flags & TRI_MASKED) != 0u && !cutouts_opaque() && mode != TRACE_ANY_OPAQUE && !alpha_pass(ti, NO_INST, r.y, r.z, r.x)) { state.legacy.shadow_hole = true; continue; }

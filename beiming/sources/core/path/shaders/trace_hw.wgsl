@@ -52,12 +52,49 @@
     return Hit(tmax_in, 0xffffffffu, 0.0, 0.0, NO_INST);
 }
 
-// The closest (or with `any`, the first found) hit, every triangle opaque.
+// The closest (or with `any`, the first found) hit, every triangle opaque, skipping the shading point's own triangle
+// (`trace_self`, set by shadow rays: Cycles' intersection_skip_self). The query forces opacity, so the traversal reports
+// no triangle candidates to skip; a committed hit on the own triangle is stepped past instead, in the same query
+// statement (one ray query in the source, see `trace`). Closest: again from just past its distance. Any: the own
+// triangle may be found before a nearer blocker, so the stretch before it, then the one after it. The own triangle meets
+// the ray at one distance only; another surface at exactly that distance is skipped with it (Cycles keeps it). The
+// distances just past and before are the next float32 up and down (bit steps; distances are not negative).
 @if(hwrt) fn trace_opaque(o: vec3<f32>, d: vec3<f32>, tmax_in: f32, mask: u32, any: bool) -> Hit {
+    if (trace_self.x == TRACE_SELF_NONE.x) { return trace_query(o, d, 0.0, tmax_in, mask, any); }
+    var lo = 0.0;
+    var hi = tmax_in;
+    var ts = 0.0;
+    var before = false;
+    for (var k = 0u; k < 3u; k++) {
+        let h = trace_query(o, d, lo, hi, mask, any);
+        let own = h.tri != 0xffffffffu && hit_self(h.tri, h.inst);
+        if (h.tri != 0xffffffffu && !own) { return h; }
+        if (k == 0u) {
+            if (!own) { break; }
+            ts = h.t;
+            // any: the stretch before the own triangle
+            if (any && ts > 0.0) {
+                before = true;
+                hi = bitcast<f32>(bitcast<u32>(ts) - 1u);
+                continue;
+            }
+        } else if (!before) {
+            break;
+        }
+        // the stretch after the own triangle
+        before = false;
+        lo = bitcast<f32>(bitcast<u32>(ts) + 1u);
+        hi = tmax_in;
+    }
+    return Hit(tmax_in, 0xffffffffu, 0.0, 0.0, NO_INST);
+}
+
+// One ray query from `tmin` to `tmax_in` (trace_opaque).
+@if(hwrt) fn trace_query(o: vec3<f32>, d: vec3<f32>, tmin: f32, tmax_in: f32, mask: u32, any: bool) -> Hit {
     @if(strict) if (ray_bad(o, d, tmax_in)) { return Hit(tmax_in, 0xffffffffu, 0.0, 0.0, NO_INST); }
     var rq: ray_query;
     let flags = select(RAY_FLAG_FORCE_OPAQUE, RAY_FLAG_FORCE_OPAQUE | RAY_FLAG_TERMINATE_ON_FIRST_HIT, any);
-    rayQueryInitialize(&rq, acc, RayDesc(flags, mask, 0.0, tmax_in, o, d));
+    rayQueryInitialize(&rq, acc, RayDesc(flags, mask, tmin, tmax_in, o, d));
     var pg = GOut(-1.0, vec3<f32>(0.0, 1.0, 0.0), 0u, vec2<f32>(0.0));
     var pprim = 0u;
     if (!has(F_PROC)) {

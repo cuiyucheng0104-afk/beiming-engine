@@ -24,13 +24,14 @@ Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee
 | `shaders/hash.wgsl`、`src/cycles_hash.rs` | Apache-2.0 | 像素种子的哈希函数 `hash_iqnt2d`，逐行移植 | `util/hash.h`（Apache-2.0） |
 | `shaders/integrator.wgsl` | MIT 与 Apache-2.0 | 路径标志位 `PATH_RAY_*`、可见类 `PATH_RAY_VISIBILITY_*`、`PRNG_BOUNCE_NUM`、`LABEL_VOLUME_SCATTER` 的名字与数值，光线的字段名；路径状态的字段名；`path_state_next` 的骨架 | `kernel/types.h`、`kernel/integrator/state_template.h`、`kernel/integrator/path_state.h`（都是 Apache-2.0） |
 | `shaders/sample.wgsl` | MIT 与 Apache-2.0 | 随机维度的枚举 `PRNG_*` 的名字与数值；取数接口 `path_rng_1D`、`path_rng_2D`、`path_rng_3D`、`path_branched_rng_2D`；像素种子的式子 | `kernel/types.h`、`kernel/integrator/path_state.h`、`kernel/sample/pattern.h`（都是 Apache-2.0） |
-| `shaders/shader.wgsl` | MIT、Apache-2.0 与 BSD-3-Clause | 着色点标志 `SD_BACKFACING` 的名字与数值，着色点与闭包的字段名；闭包种类 `CLOSURE_*` 的名字（数值是这里自己的）；菲涅耳种类 `FRESNEL_*` 的名字与次序；`shader_setup_closures` 里原理化 BSDF 建金属、电介质高光、漫反射三个闭包的次序与权重的算法（`kernel/svm/closure.h` 的 `svm_node_closure_bsdf` 原理化分支，照原式重写） | `kernel/types.h`、`kernel/svm/types.h`（Apache-2.0）；菲涅耳种类来自 `kernel/closure/bsdf_microfacet.h`（BSD-3-Clause，版权人 Sony Pictures Imageworks Inc. 等与 Blender Foundation） |
-| `shaders/closure.wgsl` | MIT 与 Apache-2.0 | 采样标签 `LABEL_TRANSMIT` 的名字与数值；`surface_shader_*` 这一组函数的名字与分工，多个闭包之间的选择、求值求和与按 `sample_weight` 加权的概率密度（`surface_shader_bsdf_bssrdf_pick`、`_surface_shader_bsdf_eval_mis`、`surface_shader_bsdf_sample_closure`）、滤光泽与发光，逐函数照原式移植；`bsdf_eval`、`bsdf_sample` 按闭包种类分发、`bsdf_albedo`；求值的漫反射与光泽两份（`bsdf_eval_accum`）；闭包的取样权重（`closure_sample_weight`）；降噪反照率取哪些闭包 | `kernel/types.h`、`kernel/integrator/surface_shader.h`、`kernel/closure/bsdf.h`、`kernel/film/light_passes.h`、`kernel/closure/alloc.h`、`kernel/film/denoising_passes.h`（都是 Apache-2.0） |
+| `shaders/shader.wgsl` | MIT、Apache-2.0 与 BSD-3-Clause | 着色点标志 `SD_BACKFACING` 的名字与数值，着色点与闭包的字段名；闭包种类 `CLOSURE_*` 的名字（数值是这里自己的）；菲涅耳种类 `FRESNEL_*` 的名字与次序；`shader_setup_closures` 里原理化 BSDF 建金属、电介质高光、漫反射三个闭包的次序与权重的算法，金属与电介质高光取 `valid_reflection_N`（`kernel/svm/closure.h` 的 `svm_node_closure_bsdf` 原理化分支，照原式重写） | `kernel/types.h`、`kernel/svm/types.h`（Apache-2.0）；菲涅耳种类来自 `kernel/closure/bsdf_microfacet.h`（BSD-3-Clause，版权人 Sony Pictures Imageworks Inc. 等与 Blender Foundation） |
+| `shaders/closure.wgsl` | MIT 与 Apache-2.0 | 采样标签 `LABEL_TRANSMIT` 的名字与数值；`surface_shader_*` 这一组函数的名字与分工，多个闭包之间的选择、求值求和与按 `sample_weight` 加权的概率密度（`surface_shader_bsdf_bssrdf_pick`、`_surface_shader_bsdf_eval_mis`、`surface_shader_bsdf_sample_closure`）、滤光泽与发光，逐函数照原式移植；`bsdf_eval`、`bsdf_sample` 按闭包种类分发、两处调凹凸阴影项的位置、`bsdf_albedo`；求值的漫反射与光泽两份（`bsdf_eval_accum`）；闭包的取样权重（`closure_sample_weight`）；降噪反照率取哪些闭包 | `kernel/types.h`、`kernel/integrator/surface_shader.h`、`kernel/closure/bsdf.h`、`kernel/film/light_passes.h`、`kernel/closure/alloc.h`、`kernel/film/denoising_passes.h`（都是 Apache-2.0） |
 | `shaders/pathtrace.wgsl` | MIT 与 Apache-2.0 | 物体标志 `SD_OBJECT_NEGATIVE_SCALE` 的名字与数值；积分器参数块 `KernelIntegrator` 的字段名；物体扩展表 `ObjectExt` 的四个字段名（`receiver_light_set`、`lightgroup`、两个阴影终止偏移） | `kernel/types.h`、`kernel/data_template.h`（都是 Apache-2.0） |
 | `shaders/intersect.wgsl` | MIT 与 Apache-2.0 | `LOCAL_MAX_HITS` 的名字与数值、`LocalIntersection` 的字段名；`trace_local` 这个问法 | `kernel/types.h`、`kernel/bvh/bvh.h`（都是 Apache-2.0） |
 | `src/gpu.rs` | MIT 与 Apache-2.0 | 积分器参数块 `KernelIntegrator` 的字段名（着色器里那一份在 CPU 上的镜像） | `kernel/data_template.h`（Apache-2.0） |
 | `src/sample.rs` | MIT 与 Apache-2.0 | `PRNG_BOUNCE_NUM` 的名字与数值；像素种子的式子 `rng_pixel` | `kernel/types.h`、`kernel/sample/pattern.h`（都是 Apache-2.0） |
 | `src/pixel_filter.rs` | Apache-2.0 | 像素滤波的三个滤波函数与建重要性采样表（`filter_func_box`、`filter_func_gaussian`、`filter_func_blackman_harris`、`filter_table`），与它用的累积分布求值、反函数（对称的一支），逐行移植 | `scene/film.cpp`、`util/math_cdf.h`、`util/math_cdf.cpp`（都是 Apache-2.0） |
+| `src/packed_normal.rs` | Apache-2.0 | 法线的存储精度：`packed_normal` 的编码与解码、处理器上的 SIMD 版解码、烘进物体变换时法线码的变化，逐行移植（照搬 Cycles 内部存法线的精度，不是渲染算法） | `util/types_normal.h:26-95`、`scene/mesh.cpp:552-585`（都是 Apache-2.0） |
 | `src/scene.rs` | MIT 与 Apache-2.0 | 物体扩展表 `GpuObjectExt` 的四个字段名与物体标志的位（着色器里那一份在 CPU 上的镜像） | `kernel/types.h`（Apache-2.0） |
 
 许可全文在仓库根的 `LICENSES/`（`MIT.txt`、`Apache-2.0.txt`、`BSD-3-Clause.txt`）。其余文件（`shaders/` 下的 `film`、`light`、`volume`、`records`、`trace_hw` 与 `src/` 下表里没列的那些）没有照 Cycles 定义什么，是 MIT。这张表按「在哪个文件里定义」算：结构的字段、常数、式子写在哪个文件，哪个文件就标；别的文件只是用到这些名字的（比如 `src/merged.rs` 与 `src/gpu.rs` 的库测试里按名字核对两侧的字段表与编号、`src/lib.rs` 填积分器参数），不另标。
@@ -167,6 +168,52 @@ Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee
 
 这一步有意改变渲染结果：非金属材质从上游顶替换成移植的闭包，读数会变，回归基线要重记。纯金属的第 2 级读数仍在门内（采样的权重改成 Cycles 的做法，末位会变）。
 
+### 金属与电介质高光换法线、凹凸阴影项
+
+Cycles 的原理化 BSDF 给金属与电介质高光的闭包用的是 `valid_reflection_N`（`kernel/svm/closure.h:296` 算，`:333` 金属、`:448` 电介质高光；`:378`、`:397` 的玻璃与 `:155` 的清漆、`:496` 的次表面这里走上游顶替，没有接），漫反射用原来的法线；闭包求值与采样的入口再乘凹凸阴影项。换法线只在材质带凹凸校正标志 `SD_USE_BUMP_MAP_CORRECTION` 时生效，这个标志由材质属性 `use_bump_map_correction` 决定，Blender 里默认开着（宿主一侧 `scene/shader.cpp:52` 的 `SOCKET_BOOLEAN` 默认为真、`:686` 置标志；插件 `properties.py:1184` 的默认值为真）。场景包里没有这个材质参数，所以内核里视为开。光滑的球在轮廓附近着色法线让镜面反射方向落到几何面以下，Cycles 在那里把法线往几何法线拧；不拧时金属球轮廓上的半覆盖像素系统偏暗，越光滑越明显。
+
+- `../shaders/microfacet.wgsl`（BSD-3-Clause）加：`ensure_valid_specular_reflection`（`kernel/closure/bsdf_util.h:319-395`，逐行移植）、`maybe_ensure_valid_specular_reflection`（同文件 `:397-409`；Cycles 读着色点的标志、图元种类、几何法线与来路方向，这里标志视为开、没有曲线，几何法线与来路方向作参数传进来；`isequal(Ng, N)` 时原样返回）。
+- `../shaders/util.wgsl`（Apache-2.0）加：`safe_normalize_fallback`（`util/math_float3.h:542-546`）、`bump_shadowing_term`（`kernel/closure/bsdf.h:89-150`，逐行移植；Cycles 读着色点的平滑法线、图元种类与凹凸校正标志，闭包的法线与种类，这里平滑法线、闭包法线、出射方向、`is_eval`、「是不是漫反射类」作参数传进来，标志视为开、没有曲线）。它用到 `microfacet.wgsl` 的 `bsdf_G_mono_ggx`（`bsdf_G<GGX>(alpha2, cos_N)`）。
+- `shaders/shader.wgsl`：`shader_setup_closures` 照 `svm/closure.h:296` 算 `valid_reflection_N`，金属与电介质高光的闭包法线、建立菲涅耳与估反照率都用它，漫反射照旧用原来的法线。
+- `shaders/closure.wgsl`：Cycles 调凹凸阴影项的只有两处，`closure/bsdf.h:564-567`、`:647`（`bsdf_eval` 的入口：为 0 时求值与密度都是 0，否则乘在求值上）与 `:322`（`bsdf_sample` 的出口：采到了、又不是透射时乘在求值上）。这里的 `bsdf_eval`、`bsdf_sample` 只收一个闭包（条文「三条线之间的分工」），所以两处都做在收着色点的一层：求值一侧是新加的 `bsdf_eval_mis_bump_one`（`_surface_shader_bsdf_eval_mis` 循环里的一个闭包，代替原来的 `bsdf_eval_mis_one`；后者签名在冻结标记里，没有调用者了，留着），采样一侧在 `surface_shader_bsdf_sample_closure` 里。同在这两处的阴影终止偏移（`shift_cos_in`）没有移。
+- 函数级比对加两项：`ensure_valid_specular_reflection`、`bump_shadowing_term`（`../fncheck/registry.mjs`，标准答案程序 `../fncheck/cycles/ref.cpp` 调 Cycles 的同名函数；凹凸阴影项的着色点按三角形、标志开着填）。
+
+着色点的平滑法线 `sd.N` 由此从「已写未读」变成已落地。这一步有意改变渲染结果：光滑金属与电介质高光在轮廓附近变亮，回归基线要重记。冻结标记升到 1.2.1（只加函数，不算破坏）。
+
+### 灯：直接光、前向命中、灯组与灯光链接照 Cycles
+
+场景包里的三种灯（矩形纯光、点光、平行光）的直接光与材质采样打中灯，从上游的灯光函数换成照 Cycles（Blender v5.2.3）的做法；灯组与灯光链接生效；阴影射线的起点照 Cycles 避开明暗交界线。
+
+- `../shaders/area_light.wgsl`（Apache-2.0）加：`point_light_sample`、`point_light_eval_from_intersection`（`kernel/light/point.h:18-80`、`:154-180`，只移不是球形的那一条路：Blender 新建的点光开着 soft falloff，`is_sphere` 为假）、`sun_light_sample`、`sun_light_eval_from_intersection`（`kernel/light/sun.h:34-48`、`:76-89`）、`shadow_ray_smooth_surface_offset`、`shadow_ray_offset`（`kernel/light/sample.h:169-263`；三角形的顶点与顶点法线、物体的几何偏移作参数传进来，顶点在世界空间，相当于 `SD_OBJECT_TRANSFORM_APPLIED`），以及它们用的 `sample_uniform_cone`（`kernel/sample/mapping.h:125-171`）、`ellipse_sample`、`disk_light_sample`、`light_pdf_area_to_solid_angle`（`kernel/light/common.h`），逐行移植。`../shaders/util.wgsl` 加 `fast_atan2f`、`vector_angle`（`util/math_fast.h:309-342`）。函数级比对加六项（`../fncheck/registry.mjs`；标准答案程序 `../fncheck/cycles/ref.cpp` 调 Cycles 的同名函数，起点偏移一项照真的内核数据填一个三角形：顶点、角法线的压缩码、物体）。
+- `shaders/light.wgsl` 的 `direct_light`：移植的闭包上，平行光与本地灯（不超过 `RIS_EXACT` 盏时）照 `kernel/integrator/shade_surface.h:319-487` 的 `integrate_surface_direct_light` 逐盏算。与 Cycles 的一处有意的不同：Cycles 每个着色点按光源树（或灯的分布）抽一盏，这里每盏都采一次、选灯概率按 1，两侧的概率密度都不乘它（期望相同，噪声更小）。求值经 `surface_shader_bsdf_eval`（不再多查几何法线），权重 `power_heuristic`（`light_sample_mis_weight_nee`），不做多重重要性采样的灯材质一侧的密度当 0（`surface_shader_bsdf_eval` 认 `SHADER_USE_MIS`，`integrator/surface_shader.h:405-409`）。每盏单独夹取、单独写进颜色与它的灯组（`film/light_passes.h` 的 `film_write_direct_light` 按每条阴影射线夹）。环境一支对移植的闭包同样换成 `surface_shader_bsdf_eval` 与 `power_heuristic`。上游顶替的闭包、多于 `RIS_EXACT` 盏的本地灯（上游的重采样）、发光三角、体积照旧。
+- 前向：`bm_rect_hits` 照 `kernel/integrator/shade_light.h:19-76` 的 `integrate_light_forward` 逐盏写进灯组，只认做多重重要性采样的灯（`kernel/light/light.h:260`）；`sun_disks` 照 `kernel/integrator/shade_background.h:169-246` 的 `integrate_sun_lights`，求值与密度换成 Cycles 的 `eval_fac` 与 `pdf`，逐盏写进灯组。两侧的起点统一成路径状态的正式字段 `mis_origin_P`（没挪动的着色点；替掉上游的 `legacy.bm_x` 与 `legacy.mis_x`，发光三角一侧选灯与算距离也改从它取）。遮挡距离不再除以 0.999：光源一侧的阴影射线到灯上那一点为止，材质一侧拿「遮挡物离着色点本身的距离」与灯距比。
+- 灯光链接：光源一侧的接收者是着色点的物体（`light_link_receiver_nee`），前向是 `state.mis_ray_object`（`light_link_receiver_forward`），对灯的成员掩码判（`light_link_object_match`，`kernel/light/light.h:34-78`）。集合号与成员掩码由 `src/pack.rs` 照 Blender 的建法（`source/blender/depsgraph/intern/depsgraph_light_linking.cc` 的 `LinkingData::link_object`、`end_build`、`EmitterSetMembership::get_mask`）算，集合号只到 31（成员掩码 32 位；Cycles 到 63）。
+- 阴影射线的起点：先照 `shadow_ray_offset` 把着色点往交界线外挪（只对平滑着色的三角形：物体的几何偏移大于 0；场景包的网格都带逐角法线，照平滑算，几何偏移取 Blender 物体的默认 0.1，`scene/object.cpp:91-92`），再沿几何法线挪开（代替 Cycles 跳过自己的图元；Cycles 说要打中自己这个面时往光的反方向挪；之后改成照 Cycles 跳过自己的图元，见下面「矩形面光的立体角与阴影射线的起点」）。经实例放置的三角形只做线性部分（偏移只用到顶点之差；Cycles 在物体空间算抛物线再把插值的法线变到世界空间，物体不等比缩放时与这里差一点）。着色点为此加了 `inst`（放置三角形的实例记录）。
+- 灯记录（`Light` / `GpuLight`）加第 6 个 vec4 `cy`（整数格）：`eval_fac`、平行光的 `one_minus_cosangle`（照 `scene/light.cpp` 的 `SunLight::copy_to_kernel`，不存 cos：张角 0.526° 时 f32 的 cos 只剩约 0.5% 的有效位）、灯光链接的成员掩码、灯组槽位与 `SHADER_USE_MIS`。强度口径不变（矩形是辐亮度、点光是辐射强度、平行光是辐照度，场景脚本的灯同口径），`eval_fac` 只存 color 里还没并进去的那部分。平行光张角取 Blender 新建灯的默认 0.526°（场景包契约没有这个字段）；点光半径 0，材质一侧的密度当 0（不做多重重要性采样）。矩形纯光去掉上游挡光板的 smoothstep 与衰减范围（Cycles 的矩形灯 spread 180° 时没有这两项）。
+- 环境：场景包的世界只有常量颜色、没有入口光，照 `scene/light.cpp:548` 关掉背景灯（`src/main.rs` 的 `Job::background_light`，宿主把 `counts2[1]` 写 0）：不做环境的光源采样，材质采样逃逸时全权重计入。场景脚本那一路不变。
+- 法线：场景包的顶点法线照搬 Cycles 内部的存储精度（16 位八面体编码，`util/types_normal.h`；同步时编码 `blender/mesh.cpp:672`、`:765`；单使用者的网格照 `scene/object.cpp:1172-1238` 的条件、`scene/mesh.cpp:552-585` 的次序把物体变换烘进法线码；着色时的 SIMD 版解码 `geom/attribute.h`）。宿主一侧在 `src/pack.rs` 的 `kernel_geometry` 里过一遍，见 `STRUCTURES.md` 第 48 条；函数级比对逐组对 Cycles（`../fncheck/registry.mjs` 的 `packed_normal_*` 三项）。
+- `render-pack --passes` 请求场景包里的全部灯组，出 `lightgroup-<名>.f32`，通道声明里是 `lightgroup:<名>`（文件名里冒号换成连字符）。
+
+场景脚本那一路的画面也变了：逐盏夹取（上游的亮度夹取 `misc.x` 现在逐盏用）、矩形灯去掉挡光板、带半径的点光照 Cycles 按圆盘采样、环境一支对移植的闭包不再查几何法线。点光的衰减范围与聚光锥（上游的附加项）照旧乘在强度上。
+### 矩形面光的立体角与阴影射线的起点
+
+两处单精度的做法，第 4 级低粗糙度高光的对拍里查出来的。
+
+- `../shaders/util.wgsl` 的 `safe_asinf`（`util/math_base.h:552-555`）不再调内建 `asin`，换成自己写的级数（|x| ≤ 0.5 用泰勒级数，|x| > 0.5 用半角公式，π/2 拆高低两位）：Cycles 在处理器上用 C 库的 `asinf`，近乎正确舍入；显卡内建 `asin` 的误差随输入位置光滑变化，面光立体角的四个 `asin` 相加抵消时整片同号地偏。这是写法的替换，不是 Cycles 的式子；理由与三种写法的比较见 `STRUCTURES.md` 第 49 条。函数级比对加 `safe_asinf_ulp_bias`（对 C 库 `asinf` 的分段平均偏差，以末位计）守着这个选择，负对照是改回内建 `asin` 必须判不过。
+- `../shaders/area_light.wgsl` 的 `area_light_rect_sample`（`kernel/light/area.h:19-102`）：**对 Cycles 原式的有意偏离**。做概率密度 1/S 的那个 S 在远场换成 Van Oosterom–Strackee 的两个三角形（北冥新加的 `rect_solid_angle_pdf_S`），带分母大于 0 的守卫（前面的点积判断成立时恒真，留着防以后改了点积判断）；采样映射与退到平面近似的判断照旧用原式。理由：原式的 S 在远场是大数相消，Cycles 在处理器上也带着单精度偏差（像素抖动平均之后仍在），显卡上偏差更大、形状不同（随位置光滑变化），见 `STRUCTURES.md` 第 50 条。函数级比对登记表（`../fncheck/registry.mjs` 的 `area_light_rect_sample_far`、`_near`）写着同样的理由；远场一项比的是标准答案程序里照原式在双精度里算的真值（`area_light_rect_solid_angle_f64`）。
+- `../shaders/util.wgsl` 加 `sincosf`，`area_light_rect_sample` 的采样映射（`kernel/light/area.h:67`）里的 `cosf(au)`、`sinf(au)` 改调它，不调内建 `sin`、`cos`：Cycles 在处理器上用 C 库的 `sinf`、`cosf`，近乎正确舍入；显卡内建的误差随输入位置光滑变化，采样点整片同号地挪。这是写法的替换（Cody–Waite 两段约简加泰勒级数），不是 Cycles 的式子；理由与写法的比较见 `STRUCTURES.md` 第 53 条。函数级比对加 `sincosf`（逐组对 C 库）与 `sinf_ulp_bias`、`cosf_ulp_bias`（分段平均偏差，以末位计），负对照是改回内建必须判不过。
+- `../shaders/util.wgsl`（Apache-2.0）加 `ray_triangle_intersect_self`（`util/math_intersect.h:252-276`）与 `ray_offset`（`kernel/bvh/util.h:64-88`），`../shaders/area_light.wgsl` 加 `integrate_surface_ray_offset`（`kernel/integrator/shade_surface.h:42-93`，只移三角形那一支；Cycles 从着色点取顶点、按物体的逆变换把射线变过去，这里顶点与变过去的射线作参数传进来），逐行移植。函数级比对加三项，逐位对 Cycles（标准答案程序调 Cycles 的同名函数，最后一项照真的内核数据填一个三角形）。
+- `shaders/light.wgsl` 的 `shadow_ray`（替掉 `shadow_origin`）：阴影射线照 `kernel/light/sample.h:225-311` 的 `light_sample_to_surface_shadow_ray` 与 `shade_surface.h:439-441`（直接光）接着调的 `integrate_surface_ray_offset` 建，不再沿几何法线挪开（上游的 `offset_origin`）；`shaders/intersect.wgsl` 加 `trace_self`，软件求交跳过自己的图元，`shaders/trace_hw.wgsl` 的 `trace_opaque` 在同一个查询语句里步过自己（`kernel/bvh/util.h` 的 `intersection_skip_self` 的效果；做法见 `STRUCTURES.md` 第 51 条）。
+- `shaders/shader.wgsl` 的 `shader_setup_from_hit`：三角形上的着色点照 `kernel/geom/triangle_intersect.h:123-143` 的 `triangle_point_from_uv`（`triangle_shader_setup` 在 172 行调它）用命中的重心坐标重建，`tri_a + u·(tri_b − tri_a) + v·(tri_c − tri_a)`，不再取上游的 `o + d·t`。`shade_surface.h:42-93` 的 `integrate_surface_ray_offset`「自交测中就不抬」以这个点落在自己的三角形上为前提。有意偏离与前提：Cycles 把只被一个物体用的静态网格的变换烘进顶点（`SD_OBJECT_TRANSFORM_APPLIED`），在世界空间里插值；北冥的软件求交同样在铺进世界空间的三角形上插值，硬件求交的模型实例在模型空间插值再乘实例矩阵（重心坐标是硬件在模型空间里给的，与它配套），舍入次序与 Cycles 不逐位相同。硬件求交那条路自交测试用宿主一侧算的逆矩阵行（`proc_point`、`proc_dir`）把射线变进模型空间，驱动求交用它自己从实例矩阵求的逆，两者不保证逐位相同（Cycles 的注释要求逐位相同）；驱动的逆在命中时可以从已确定的命中取到（`world_to_object`），没有带进着色点；实测影响见 `STRUCTURES.md` 第 52 条。过程几何照旧取 `o + d·t`。继续弹射的射线与上游顶替那一路的起点从这个点挪开（挪法不变），跟着变。
+
+### GGX 求值的半向量、着色法线与圆盘映射
+
+三处单精度的写法，第 4 级平行光照抛光金属的对拍里查出来的；都是写法的替换，不是 Cycles 的式子。
+
+- `../shaders/microfacet.wgsl` 的 `bsdf_microfacet_eval_ggx` 与 `bsdf_microfacet_eval_ggx_generalized_schlick`（`kernel/closure/bsdf_microfacet.h:726`）：半向量的 1/|H| 不照原式写成 `safe_divide(1.0, len_ccl(H))`，改调 `../shaders/util.wgsl` 新加的 `inverse_len`（内建 `inverseSqrt` 再做一次牛顿迭代，|H| 为零时给 0，与原式相同）。Cycles 在处理器上 `sqrtf` 与除法都正确舍入；显卡上照原式写，1/sqrt 被编成近似指令，结果偏向一边，`bsdf_D_ggx` 的 1 − cos_NH² 在半向量贴近法线时相消，把 cos_NH 的偏差放大约 4/alpha² 倍，抛光金属上整片高光同号地偏。理由与读数见 `STRUCTURES.md` 第 54 条。函数级比对加 `bsdf_microfacet_eval_ggx_peak_bias`、`bsdf_microfacet_eval_ggx_generalized_schlick_peak_bias`（镜面峰上 cos_NH 的平均偏差，以末位计）守着这个选择，负对照是改回原式必须判不过。
+- `../shaders/util.wgsl` 的 `polar_to_cartesian`（`util/projection.h:30-33`）不调内建 `cos`、`sin`，改调已有的 `sincosf`：Cycles 在处理器上用 C 库的 `cosf`、`sinf`；显卡内建的误差随输入位置光滑变化，同心圆映射（平行光的锥、点光与面光的圆盘、GGX 可见法线采样）取的点整片同向地挪。调用方只有 `sample_uniform_disk`，phi 在 [−π/4, 3π/4]，在 `sincosf` 的有效范围里。理由同 `STRUCTURES.md` 第 53 条。
+- `shaders/shader.wgsl` 的着色法线（插值法线与法线贴图，`triangle_smooth_normal` 一类，`kernel/geom/triangle.h:162`）不用内建 `normalize`，改调 `../shaders/util.wgsl` 新加的 `normalize_unbiased`（乘 `inverse_len`）：Cycles 在处理器上用正确舍入的 `safe_normalize`；显卡内建的 `normalize` 同样偏向一边，|N| 的偏差原样进 cos_NH，经同一处相消放大。理由与读数见 `STRUCTURES.md` 第 55 条；函数级比对加 `normalize_unbiased_len_bias`（|N| − 1 的平均偏差，以末位计）守着，负对照是改回内建必须判不过。
+
 ### 像素滤波与夹取
 
 照 Cycles（同一提交）把像素滤波与贡献的夹取接进内核，只在 `render-pack` 一路由命令行打开（参数见 [README.md](README.md)「读场景包」）。不加这些参数时内核与加它们之前逐字相同，渲染结果逐位不变。
@@ -190,6 +237,15 @@ Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee
 - `shaders/intersect.wgsl`：「只查同一个物体、返回至多 4 个命中」的问法 `trace_local` 定了签名与返回的结构，函数体是空壳。
 
 这一步踩到一处：`Ray` 里两个三维向量必须排在最后。两个向量排在前面、后面紧跟标量时，苹果显卡上两个带水的场景像素会变（相对差到 3e-4）；排到最后就逐位不变了。推测是后端把后面紧跟标量的三维向量按紧凑格式存，运算次序跟着变。
+
+### 漫反射、光泽、透射各自的弹射上限
+
+上游只有一个总弹射上限（主循环的 `depth == P.counts.z`），`KernelIntegrator` 里照 Cycles 的三个分类上限定义了没人读，四个分类计数没人写。照 Cycles（Blender v5.2.3）补上前三类：
+
+- `shaders/integrator.wgsl` 的 `path_state_next` 照 `kernel/integrator/path_state.h:176-209` 按采样标签数 `diffuse_bounce`、`glossy_bounce`、`transmission_bounce`，数到上限置 `PATH_RAY_TERMINATE_AFTER_TRANSPARENT`；主循环在带这一位的表面顶点上加完路上打到的灯就停（`surface_shader.h:1262-1266`：不求闭包、不做直接光），介质里撞上就停（`shade_volume.h:1738-1742` 只衰减）。
+- `src/desc.rs` 的预设加 `maxDiffuseBounces`、`maxGlossyBounces`、`maxTransmissionBounces`，不写就是 `u32::MAX`；`src/gpu.rs` 的 `Params::set_preset` 原样写进 `KernelIntegrator`。口径与 `maxBounces` 相同，都是 Cycles 内核一侧的值，界面值换过来加一（`STRUCTURES.md`「integrator」一节）。
+- 预设不写这三项的场景，内核参数只多三格最大值，计数永远到不了，渲染结果逐位不变。第 3、4 级把参考包清单的总上限与三类上限都加一传进来（总上限原来直接传界面值，少了一个顶点）。
+- 测试：`src/gpu.rs` 的 `bounce_limits_by_class_come_from_the_preset`（预设到内核参数），`path_state_is_written` 加查计数、置位与两处停的语句。
 
 ### 材质记录、全局参数、物体扩展表、输出缓冲
 

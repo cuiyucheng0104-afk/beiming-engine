@@ -8,7 +8,7 @@ import process from 'node:process';
 import { test } from 'node:test';
 import { OUT, buildRenderer, sourceKey } from '../chassis/build.mjs';
 import { chi2Test, directionChi2, gammaQ, ggxAlbedo, gridChi2, mcMean, polygonIrradiance, reciprocity } from './checks.mjs';
-import { compare } from './compare.mjs';
+import { compare, ulpBias, ulpOf } from './compare.mjs';
 import { FILTER_TABLES, FUNCTIONS, crs, dot3, outWidth, width } from './registry.mjs';
 import { CORE, check, filterTables, makeInputs, runHost, shaderSource } from './run.mjs';
 
@@ -64,9 +64,38 @@ test('容差边界：恰好等于容差算过，超一点不过；任一边非�
   assert.equal(v.worst[0].index, 1);
 });
 
+test('分段平均偏差：末位按标准处的 float32 间距算；一段里同号的偏差超门槛判不过，随机正负的同样大小的误差不判', () => {
+  assert.equal(ulpOf(1), 2 ** -23);
+  assert.equal(ulpOf(0.75), 2 ** -24);
+  assert.equal(ulpOf(0), 2 ** -149);
+  const n = 4000, input = new Float32Array(n), ref = new Float32Array(n), up = new Float32Array(n), alt = new Float32Array(n);
+  for (let g = 0; g < n; g++) {
+    input[g] = 1e-3 * 1000 ** (g / n);
+    ref[g] = input[g];
+    up[g] = ref[g] + ulpOf(ref[g]);
+    alt[g] = ref[g] + (g % 2 ? 1 : -1) * ulpOf(ref[g]);
+  }
+  const segments = [{ lo: 1e-3, hi: 1, bins: 4, max: 0.05 }];
+  const a = ulpBias({ input, ref, test: up, segments });
+  assert.equal(a.fails, 1);
+  assert.equal(ulpBias({ input, ref, test: alt, segments }).fails, 0);
+  // 多输入、多输出：of 取第二个输入分段、第二个输出折算；差不是有限数的组不算
+  const two = new Float32Array(2 * n), ref2 = new Float32Array(2 * n), up2 = new Float32Array(2 * n);
+  for (let g = 0; g < n; g++) { two[2 * g + 1] = input[g]; ref2[2 * g + 1] = ref[g]; up2[2 * g + 1] = up[g]; up2[2 * g] = g ? 0 : NaN; }
+  const of = (r, t, i) => [i[1], Number.isNaN(t[0]) ? NaN : (t[1] - r[1]) / ulpOf(r[1])];
+  const b = ulpBias({ input: two, ref: ref2, test: up2, segments, nIn: 2, nOut: 2, of });
+  assert.equal(b.fails, 1);
+  assert.equal(b.segments[0].n, n - 1);
+  assert.ok(Math.abs(a.segments[0].worst - 1) < 1e-9);
+  assert.equal(a.segments[0].n, n);
+  assert.equal(ulpBias({ input, ref, test: alt, segments }).fails, 0);
+  // 一段里一组都没有算不过（门槛没在查任何东西）
+  assert.equal(ulpBias({ input, ref, test: up, segments: [{ lo: 2, hi: 3, bins: 1, max: 1 }] }).fails, 1);
+});
+
 test('登记表里每个函数在它的 WGSL 文件和标准答案程序里都有，参数个数对得上', async () => {
   const cpp = (await readFile(new URL('./cycles/ref.cpp', import.meta.url), 'utf8')) + (await readFile(new URL('./cycles/ref_imaging.h', import.meta.url), 'utf8'));
-  for (const name of [...NEW, ...NEW_IMAGING]) assert.ok(byName(name), `登记表里没有 ${name}`);
+  for (const name of [...NEW, ...NEW_IMAGING, ...NEW_NORMAL_PACK]) assert.ok(byName(name), `登记表里没有 ${name}`);
   for (const f of FUNCTIONS) {
     const wgsl = await readFile(`${CORE}/${f.file}`, 'utf8');
     // 宿主一侧的几项是 Rust 的 pub fn
@@ -102,7 +131,7 @@ test('方向输入：由均匀数确定地生成，是单位向量，z 落在登
 
 test('面光几何输入：正交基、invarea 与着色点的位置按场景生成，确定且可复现', () => {
   const dot = (p, q) => dot3([...p], [...q]);
-  for (const [name, elev] of [['area_light_rect_sample', [0.3, 1]], ['area_light_rect_sample_solid_angle', [0.1, 1]], ['area_light_rect_sample_grazing', [0, 1e-3]]]) {
+  for (const [name, elev] of [['area_light_rect_sample', [0.3, 1]], ['area_light_rect_sample_solid_angle', [0.1, 1]], ['area_light_rect_sample_grazing', [0, 1e-3]], ['area_light_rect_sample_far', [0.1, 1]], ['area_light_rect_sample_near', [0.5, 1]]]) {
     const f = byName(name), w = width(f), a = makeInputs(f, 2000, 5);
     assert.deepEqual(Buffer.from(a.buffer), Buffer.from(makeInputs(f, 2000, 5).buffer));
     for (let g = 0; g < 2000; g++) {
@@ -115,6 +144,30 @@ test('面光几何输入：正交基、invarea 与着色点的位置按场景生
   }
   const s = byName('area_light_sample'), b = makeInputs(s, 100, 5), w = width(s);
   for (let g = 0; g < 100; g++) assert.ok(Math.abs(b[g * w + 19] * b[g * w + 11] * b[g * w + 15] - 1) < 1e-5, 'invarea 应为 1/(len_u·len_v)');
+});
+
+test('换法线与凹凸阴影项的输入：确定可复现，是单位向量，来路在几何法线这一侧，要拧法线的组占相当比例', () => {
+  const f = byName('ensure_valid_specular_reflection'), a = makeInputs(f, 4000, 5), w = width(f);
+  assert.deepEqual(Buffer.from(a.buffer), Buffer.from(makeInputs(f, 4000, 5).buffer));
+  const branches = {};
+  for (let g = 0; g < 4000; g++) {
+    const i = a.subarray(g * w, (g + 1) * w), [Ng, I, N] = [[...i.subarray(0, 3)], [...i.subarray(3, 6)], [...i.subarray(6, 9)]];
+    for (const v of [Ng, I, N]) assert.ok(Math.abs(Math.hypot(...v) - 1) < 1e-6, `第 ${g} 组不是单位向量`);
+    assert.ok(dot3(I, Ng) > 0, `第 ${g} 组来路在几何面下面`);
+    const b = f.branch(i);
+    branches[b] = (branches[b] ?? 0) + 1;
+  }
+  // 逐组比的组里至少四成要拧法线
+  assert.ok(branches['拧法线'] > 0.4 * 4000, JSON.stringify(branches));
+  const h = byName('bump_shadowing_term'), c = makeInputs(h, 4000, 5), hw = width(h), seen = new Set();
+  for (let g = 0; g < 4000; g++) {
+    const i = c.subarray(g * hw, (g + 1) * hw);
+    for (const k of [0, 3, 6]) assert.ok(Math.abs(Math.hypot(...i.subarray(k, k + 3)) - 1) < 1e-6, `第 ${g} 组不是单位向量`);
+    assert.ok([0, 1].includes(i[9]) && [0, 1].includes(i[10]));
+    seen.add(h.branch(i));
+  }
+  // 五个分支都取得到
+  assert.equal(seen.size, 5, [...seen].join('、'));
 });
 
 test('χ² 检验：p 值与已知值一致，期望过小的箱合并，期望为 0 却有样本时判不过', () => {
@@ -135,7 +188,10 @@ const NEW = [
   'sample_uniform_disk', 'microfacet_ggx_sample_vndf', 'microfacet_fresnel_f82', 'microfacet_ggx_preserve_energy',
   'bsdf_microfacet_setup_fresnel_f82_tint', 'bsdf_microfacet_eval_ggx', 'bsdf_microfacet_ggx_eval',
   'bsdf_microfacet_sample_ggx', 'bsdf_microfacet_ggx_sample',
-  'safe_asinf', 'ray_quad_intersect', 'area_light_rect_sample', 'area_light_rect_sample_solid_angle', 'area_light_rect_sample_tiny', 'area_light_rect_sample_grazing',
+  'bsdf_microfacet_eval_ggx_peak_bias', 'bsdf_microfacet_eval_ggx_generalized_schlick_peak_bias',
+  'normalize_unbiased_len_bias',
+  'safe_asinf', 'safe_asinf_ulp_bias', 'sincosf', 'sinf_ulp_bias', 'cosf_ulp_bias', 'ray_quad_intersect', 'area_light_rect_sample', 'area_light_rect_sample_solid_angle', 'area_light_rect_sample_tiny', 'area_light_rect_sample_grazing',
+  'area_light_rect_sample_far', 'area_light_rect_sample_near',
   'area_light_sample', 'area_light_eval_from_intersection', 'area_light_intersect',
   // 原理化 BSDF 非金属那一半
   'fresnel_dielectric_polarized', 'fresnel_dielectric_polarized_inside', 'fresnel_dielectric_ccl', 'fresnel_dielectric_ccl_inside', 'fresnel_dielectric_Fss',
@@ -146,9 +202,16 @@ const NEW = [
   'bsdf_microfacet_eval_ggx_generalized_schlick', 'bsdf_microfacet_eval_ggx_generalized_schlick_singular', 'bsdf_microfacet_ggx_eval_generalized_schlick',
   'bsdf_microfacet_sample_ggx_generalized_schlick', 'bsdf_microfacet_sample_ggx_generalized_schlick_singular', 'bsdf_microfacet_ggx_sample_generalized_schlick',
   'bsdf_blur', 'sample_cos_hemisphere', 'bsdf_diffuse_eval', 'bsdf_diffuse_sample', 'emissive_pdf', 'emissive_simple_eval',
+  // 金属与电介质高光换法线、凹凸阴影项
+  'ensure_valid_specular_reflection', 'bump_shadowing_term',
+  // 点光、平行光，阴影射线的起点偏移
+  'point_light_sample', 'point_light_eval_from_intersection', 'sun_light_sample', 'sun_light_eval_from_intersection',
+  'shadow_ray_smooth_surface_offset', 'shadow_ray_offset',
 ];
 
 // 成像一路：像素滤波的滤波函数与建表（宿主一侧），查表与夹取（内核）
+// 法线的存储精度（宿主一侧）
+const NEW_NORMAL_PACK = ['packed_normal_encode', 'packed_normal_decode', 'packed_normal_decode_simd'];
 const NEW_IMAGING = [
   'filter_func_box', 'filter_func_gaussian', 'filter_func_blackman_harris', 'filter_table_box', 'filter_table_gaussian', 'filter_table_blackman_harris',
   'filter_table_read_box', 'filter_table_read_gaussian', 'filter_table_read_blackman_harris', 'film_clamp_light',
@@ -172,6 +235,7 @@ test('端到端：每个登记的函数 100 万组随机输入，WGSL 与 Cycles
     assert.equal(r.groups, byName(r.name).n ?? 1_000_000, r.name);
     assert.ok(r.maxRelNonTiny <= 1e-4, `${r.name} 在绝对容差不兜底的地方相对误差 ${r.maxRelNonTiny}`);
     assert.equal(r.fails, 0, `${r.name} 不合格：${JSON.stringify(r.worst[0])}`);
+    if (r.bias) assert.equal(r.bias.fails, 0, `${r.name} 分段平均偏差超门槛：${JSON.stringify(r.bias.segments)}`);
   }
   assert.equal(a.ok, true);
   assert.equal(a.results.length, FUNCTIONS.length);
@@ -216,9 +280,85 @@ test('端到端：故意把一个 WGSL 函数改错一项，报出是哪个函�
   const util = 'shaders/util.wgsl', usrc = await readFile(`${CORE}/${util}`, 'utf8');
   await breakOne(t, util, usrc, 'f0 *= 2.0 * specular_ior_level;', 'f0 *= 2.1 * specular_ior_level;', ['principled_specular_f0_eta'], 2, 2);
   await breakOne(t, util, usrc, 'eta = 1.0 / eta;', 'eta = eta;', ['principled_specular_f0_eta'], 2, 2);
+  // 金属与电介质高光换法线：反射方向的门槛 0.01 改成 0.1；凹凸阴影项：漫反射柔化的 0.125 改成 0.15（判据的符号反过来也判得出，
+  // 但最差一组的标准是 0、相对误差记 0，过不了下面对最差一组的检查）。只跑这两项（各自只让自己那一项不合格）
+  const BUMP = ['ensure_valid_specular_reflection', 'bump_shadowing_term'];
+  await breakOne(t, file, src, 'let threshold = min(0.9 * Iz, 0.01);', 'let threshold = min(0.9 * Iz, 0.1);', ['ensure_valid_specular_reflection'], 9, 3, BUMP);
+  await breakOne(t, util, usrc, 'let bump_alpha2 = saturate(0.125 * tan2_d);', 'let bump_alpha2 = saturate(0.15 * tan2_d);', ['bump_shadowing_term'], 11, 1, BUMP);
+  // safe_asinf（自己写的级数，不用内建 asin）：x³ 项的系数 3/40 改成 0.076（只跑这一项）
+  await breakOne(t, util, usrc, 'p = p * t + 0.075;', 'p = p * t + 0.076;', ['safe_asinf'], 1, 1, ['safe_asinf']);
+  // 改回内建 asin：逐组比照旧合格（每组都在 1e-4 相对误差以内），分段平均偏差那一项必须判不过
+  {
+    const builtin = usrc.replace(/fn safe_asinf\(a: f32\) -> f32 \{[\s\S]*?\n\}/, 'fn safe_asinf(a: f32) -> f32 {\n  return asin(clamp(a, -1.0, 1.0));\n}');
+    assert.notEqual(builtin, usrc, 'util.wgsl 里找不到 safe_asinf');
+    const r = await e2e(t, { n: 1_000_000, seed: 1, wgsl: { [util]: builtin }, names: ['safe_asinf', 'safe_asinf_ulp_bias'] });
+    if (r) {
+      assert.equal(r.ok, false);
+      assert.deepEqual(r.results.map(x => x.fails), [0, 0]);
+      const b = r.results[1].bias;
+      t.diagnostic(`内建 asin 的分段平均偏差（末位）：${b.segments.map(x => x.worst.toFixed(3)).join('，')}`);
+      assert.ok(Math.abs(b.segments[0].worst) > b.segments[0].max);
+    }
+  }
+  // 去掉 π/2 低位那一步 fma：逐组比照旧合格，分段平均偏差后两段（|x| > 0.5 走半角公式的那一支）必须判不过
+  {
+    const from = 'r = M_PI_2_F - fma(2.0, asinf_series(sqrt((1.0 - ax) * 0.5)), 4.371139e-8);';
+    const noLow = usrc.replace(from, 'r = M_PI_2_F - 2.0 * asinf_series(sqrt((1.0 - ax) * 0.5));');
+    assert.notEqual(noLow, usrc, `util.wgsl 里找不到：${from}`);
+    const r = await e2e(t, { n: 1_000_000, seed: 1, wgsl: { [util]: noLow }, names: ['safe_asinf', 'safe_asinf_ulp_bias'] });
+    if (r) {
+      assert.equal(r.ok, false);
+      assert.deepEqual(r.results.map(x => x.fails), [0, 0]);
+      const b = r.results[1].bias;
+      t.diagnostic(`去掉低位那一步 fma 的分段平均偏差（末位）：${b.segments.map(x => x.worst.toFixed(3)).join('，')}`);
+      assert.deepEqual(b.segments.map(x => Math.abs(x.worst) > x.max), [false, true, true]);
+    }
+  }
+  // 改回内建 sin、cos：两项分段平均偏差必须都判不过。逐组比不作断言：苹果显卡上每组都在 1e-4 相对误差以内，
+  // 英伟达上内建的逐组就超（【实测】100 万组里三项各有 1617、415661、64 组不合格）
+  {
+    const builtin = usrc.replace(/fn sincosf\(x: f32\) -> vec2f \{[\s\S]*?\n\}/, 'fn sincosf(x: f32) -> vec2f {\n  return vec2f(sin(x), cos(x));\n}');
+    assert.notEqual(builtin, usrc, 'util.wgsl 里找不到 sincosf');
+    const r = await e2e(t, { n: 1_000_000, seed: 1, wgsl: { [util]: builtin }, names: ['sincosf', 'sinf_ulp_bias', 'cosf_ulp_bias'] });
+    if (r) {
+      assert.equal(r.ok, false);
+      for (const x of r.results.slice(1)) {
+        t.diagnostic(`内建 ${x.name} 的分段平均偏差（末位）：${x.bias.segments.map(s => s.worst.toFixed(3)).join('，')}`);
+        assert.ok(x.bias.fails > 0, x.name);
+      }
+    }
+  }
+});
+
+// 上一项的后半，拆成单独一项：前半某个负对照在某台显卡上先断言失败时，这些照样跑
+test('端到端：故意把灯、三角形求交或阴影射线起点的 WGSL 改错一项，报出是哪个函数', { timeout: 600_000 }, async t => {
+  const util = 'shaders/util.wgsl', usrc = await readFile(`${CORE}/${util}`, 'utf8');
   const light = 'shaders/area_light.wgsl', lsrc = await readFile(`${CORE}/${light}`, 'utf8');
-  // 面光：矩形右边界的 0.5 改成 0.51，走立体角那一支的四项不合格；平面近似的两项（tiny、grazing）概率密度不用 x1，照旧合格
-  await breakOne(t, light, lsrc, 'let x1 = xc + 0.5 * len_u;', 'let x1 = xc + 0.51 * len_u;', ['area_light_rect_sample', 'area_light_rect_sample_solid_angle', 'area_light_sample', 'area_light_eval_from_intersection'], 16, 4);
+  // 点光、平行光与阴影射线的起点偏移，各改错一项（只跑这六项）：
+  const LAMPS = ['point_light_sample', 'point_light_eval_from_intersection', 'sun_light_sample', 'sun_light_eval_from_intersection', 'shadow_ray_smooth_surface_offset', 'shadow_ray_offset'];
+  // 点光圆盘的面积倒数漏掉 π：两项的圆盘那一支不合格
+  await breakOne(t, light, lsrc, 'let invarea = select(1.0, 1.0 / (r_sq * M_PI_F), r_sq > 0.0);\n  ls.pdf', 'let invarea = select(1.0, 1.0 / r_sq, r_sq > 0.0);\n  ls.pdf', ['point_light_sample'], 10, 12, LAMPS);
+  // 锥的概率密度 1/(2π) 改成 1/π：采样不合格（张角 0 那一支照旧）
+  await breakOne(t, light, lsrc, 'let pdf = M_1_2PI_F / one_minus_cos_angle;', 'let pdf = M_1_PI_F / one_minus_cos_angle;', ['sun_light_sample'], 7, 12, LAMPS);
+  // 求交后的求值：判在盘外的 > 改成 >=：没有组恰好在边界上，所以改成把张角缩小 1%（最差一组是标准落在盘里、被测判在盘外：
+  // 标准为 0 的组不算相对误差，放大张角的话最差一组的相对误差记 0）
+  await breakOne(t, light, lsrc, 'if (vector_angle(-co, ray_D) > angle) {', 'if (vector_angle(-co, ray_D) > angle * 0.99) {', ['sun_light_eval_from_intersection'], 9, 2, LAMPS);
+  // 抛物线近似的第一项系数：a·u·(u − 1) 写成 a·u·(u − 1.1)；起点偏移经它一并不合格
+  await breakOne(t, light, lsrc, 'var h = a * u * (u - 1.0) +', 'var h = a * u * (u - 1.1) +', ['shadow_ray_smooth_surface_offset', 'shadow_ray_offset'], 29, 3, LAMPS);
+  // 交界线附近挪的份额：2 − (NgL + NL)/cutoff 写成 1.9 − …：只有起点偏移不合格
+  await breakOne(t, light, lsrc, 'clamp(2.0 - (NgL + NL) / offset_cutoff, 0.0, 1.0)', 'clamp(1.9 - (NgL + NL) / offset_cutoff, 0.0, 1.0)', ['shadow_ray_offset'], 39, 4, LAMPS);
+  // 面光：矩形右边界的 0.5 改成 0.51，走立体角那一支的六项不合格（远场、近场两项也经 x1）；平面近似的两项（tiny、grazing）概率密度不用 x1，照旧合格
+  await breakOne(t, light, lsrc, 'let x1 = xc + 0.5 * len_u;', 'let x1 = xc + 0.51 * len_u;', ['area_light_rect_sample', 'area_light_rect_sample_solid_angle', 'area_light_rect_sample_far', 'area_light_rect_sample_near', 'area_light_sample', 'area_light_eval_from_intersection'], 16, 4);
+  // 做概率密度的 S（远场换成 Van Oosterom–Strackee）：只跑立体角的三项
+  const RECT_S = ['area_light_rect_sample_solid_angle', 'area_light_rect_sample_far', 'area_light_rect_sample_near'];
+  // 去掉远场的判断与分母的守卫，照没加守卫时的写法 atan(n/m)：近场（三角形大于 π，分母为负）与 MAIN 里的近处不合格，远场照旧
+  {
+    const vos = lsrc.slice(lsrc.indexOf('  if (!(min(min(ab, ac), min(min(bc, ad), cd)) > 0.0)) { return S; }'), lsrc.indexOf('  return 2.0 * (atan2(n, m1) + atan2(n, m2));'));
+    const unguarded = vos.replace('  if (!(min(min(ab, ac), min(min(bc, ad), cd)) > 0.0)) { return S; }\n', '').replace('  if (!(m1 > 0.0 && m2 > 0.0)) { return S; }\n', '');
+    await breakOne(t, light, lsrc.replace(vos, unguarded), '  return 2.0 * (atan2(n, m1) + atan2(n, m2));', '  return 2.0 * (atan(n / m1) + atan(n / m2));', ['area_light_rect_sample_solid_angle', 'area_light_rect_sample_near'], 16, 1, RECT_S);
+  }
+  // 第一个三角形的分母 (a·c)|b| 写成 (a·c)|a|：远场一项（对双精度真值）不合格；近场退回原式，照旧合格
+  await breakOne(t, light, lsrc, 'let m1 = ra * rb * rc + ab * rc + ac * rb + bc * ra;', 'let m1 = ra * rb * rc + ab * rc + ac * ra + bc * ra;', ['area_light_rect_sample_solid_angle', 'area_light_rect_sample_far'], 16, 1, RECT_S);
   // 辐射通量换成辐射亮度的 1/π 改成 0.32，只有带 eval_fac 的两项不合格
   await breakOne(t, light, lsrc, 'M_1_PI_F * invarea', '0.32 * invarea', ['area_light_sample', 'area_light_eval_from_intersection'], 20, 10);
   // 三角形求交：换回上游的 Möller–Trumbore（闭区间、无容差），防水一项不合格；逐组那一项在边界上本来就不比中没中，照旧合格。
@@ -245,9 +385,60 @@ test('端到端：故意把一个 WGSL 函数改错一项，报出是哪个函�
 `, ['ray_triangle_intersect_pair'], 20, 1, TRI);
   // u、v 对调：逐组那一项不合格，防水一项不看 u、v，照旧合格
   await breakOne(t, util, usrc, 'return TriangleHit(true, min(U * rcp_uvw, 1.0), min(V * rcp_uvw, 1.0), t);', 'return TriangleHit(true, min(V * rcp_uvw, 1.0), min(U * rcp_uvw, 1.0), t);', ['ray_triangle_intersect'], 17, 4, TRI);
+  // 阴影射线的起点（ray_offset、自交测试、integrate_surface_ray_offset），各改错一项（只跑这三项）：
+  const SELF = ['ray_offset', 'ray_triangle_intersect_self', 'integrate_surface_ray_offset'];
+  // |P| < 1/32 那一支的 1/65536 改成 1/6553.6
+  await breakOne(t, util, usrc, 'let float_scale = 1.0 / 65536.0;', 'let float_scale = 1.0 / 6553.6;', ['ray_offset', 'integrate_surface_ray_offset'], 6, 3, SELF);
+  // 自交测试漏掉「三个都不大于 −eps」那一半（射线从背面穿过）
+  await breakOne(t, util, usrc, 'return (minUVW >= eps || maxUVW <= -eps);', 'return (minUVW >= eps);', ['ray_triangle_intersect_self', 'integrate_surface_ray_offset'], 15, 1, SELF);
+  // 测不中时不抬：只有 integrate_surface_ray_offset 不合格。抬的是 256 个末位，相对差只有 3e-5，最差一组的相对误差不过 1e-4，
+  // 所以不走 breakOne 的最后一条检查，只看判得出、判在哪一项
+  {
+    const r = await e2e(t, { n: 100_000, seed: 3, wgsl: { [light]: lsrc.replace('  return ray_offset(ray_P, Ng);\n}', '  return ray_P;\n}') }, names: SELF });
+    if (r) {
+      assert.equal(r.ok, false);
+      assert.deepEqual(r.results.filter(x => x.fails > 0).map(x => x.name), ['integrate_surface_ray_offset']);
+    }
+  }
 });
 
 // names：只跑这几项（不写就是全部）。只给着色器一侧的项时不碰宿主一侧，不编渲染程序
+// GGX 两处求值的 1/|H|（util.wgsl 的 inverse_len，理由见那里），两个负对照，都只看镜面峰平均偏差那两项（它们不逐组比）；
+// 着色法线的 normalize_unbiased 一个负对照。单独一项：上面几项里别的负对照在某台显卡上先断言失败时，这几个照样跑
+test('端到端：GGX 求值的 1/|H| 改回原式或故意偏半个末位、着色法线改回内建 normalize，平均偏差判不过', { timeout: 600_000 }, async t => {
+  const file = 'shaders/microfacet.wgsl', util = 'shaders/util.wgsl';
+  const src = await readFile(`${CORE}/${file}`, 'utf8'), usrc = await readFile(`${CORE}/${util}`, 'utf8');
+  // 改回原式 safe_divide(1.0, len_ccl(H))，两台都必须判不过（【实测】英伟达上偏 −0.089 个末位，苹果显卡上 0.05，门槛 0.03）；
+  // 结果故意偏半个末位（再乘 1 + 2⁻²⁴），偏 1.5 个末位，必须判不过
+  const PEAK = ['bsdf_microfacet_eval_ggx_peak_bias', 'bsdf_microfacet_eval_ggx_generalized_schlick_peak_bias'];
+  const site = 'let inv_len_H = inverse_len(H);', last = 'return fma(y * 0.5, fma(-l2 * y, y, 1.0), y);';
+  assert.equal(src.split(site).length, 3, 'microfacet.wgsl 的两处求值应各调一次 inverse_len');
+  assert.ok(usrc.includes(last), `util.wgsl 里找不到：${last}`);
+  for (const [what, wgsl] of [
+    ['改回原式', { [file]: src.replaceAll(site, 'let inv_len_H = safe_divide(1.0, len_ccl(H));') }],
+    ['偏半个末位', { [util]: usrc.replace(last, 'let z = fma(y * 0.5, fma(-l2 * y, y, 1.0), y);\n  return fma(z, 5.9604645e-8, z);') }],
+  ]) {
+    const r = await e2e(t, { n: 1_000_000, seed: 1, wgsl, names: PEAK });
+    if (!r) break;
+    assert.equal(r.ok, false, what);
+    for (const x of r.results) {
+      t.diagnostic(`${what} ${x.name} 的平均偏差（末位）：${x.bias.segments.map(g => g.worst.toFixed(3)).join('，')}（${r.adapter?.vendor}）`);
+      assert.equal(x.fails, 0);
+      assert.ok(x.bias.fails > 0, `${what} ${x.name}`);
+    }
+  }
+  // 着色法线的 normalize_unbiased 改回内建 normalize：|N| − 1 的平均偏差两台都必须判不过（【实测】英伟达上 −0.093、苹果显卡上 0.048，门槛 0.03）
+  const nsite = 'return a * inverse_len(a);';
+  assert.equal(usrc.split(nsite).length, 2, `util.wgsl 里找不到：${nsite}`);
+  const r = await e2e(t, { n: 1_000_000, seed: 1, wgsl: { [util]: usrc.replace(nsite, 'return normalize(a);') }, names: ['normalize_unbiased_len_bias'] });
+  if (r) {
+    assert.equal(r.ok, false);
+    const [x] = r.results;
+    t.diagnostic(`内建 normalize 的 |N| − 1 平均偏差（末位）：${x.bias.segments.map(g => g.worst.toFixed(3)).join('，')}（${r.adapter?.vendor}）`);
+    assert.ok(x.bias.fails > 0);
+  }
+});
+
 async function breakOne(t, file, src, from, to, expect, nIn, nOut, names) {
   {
     const broken = src.replace(from, to);
@@ -446,6 +637,19 @@ test('端到端：成像一路故意改错一项，对应的函数报不过（�
   const r = await e2e(t, { names: NEW_IMAGING.slice(0, 6), n: 100_000, seed: 3, inject });
   if (!r) return;
   assert.deepEqual(r.results.filter(x => x.fails > 0).map(x => x.name), ['filter_func_gaussian', 'filter_func_blackman_harris', 'filter_table_box', 'filter_table_gaussian', 'filter_table_blackman_harris']);
+});
+
+test('端到端：法线的存储精度改错一项，对应的函数报不过（宿主一侧的 Rust，在源码的拷贝上改了再编）', { timeout: 900_000 }, async t => {
+  const pn = 'path/src/packed_normal.rs';
+  const inject = [
+    // 编码：四舍五入的 + 0.5 写成 + 0.4（落在格子上半段的分量少一格）
+    { file: pn, from: 'let q = |v: f32| (v * hmu + (hmu + 0.5))', to: 'let q = |v: f32| (v * hmu + (hmu + 0.4))' },
+    // SIMD 版解码：符号按「大于 0」选写成「小于 0」（下半球折回去的那一支错）
+    { file: pn, from: 'nx += if nx > 0.0 { -t } else { t };', to: 'nx += if nx < 0.0 { -t } else { t };' },
+  ];
+  const r = await e2e(t, { names: ['packed_normal_encode', 'packed_normal_decode', 'packed_normal_decode_simd'], n: 100_000, seed: 3, inject });
+  if (!r) return;
+  assert.deepEqual(r.results.filter(x => x.fails > 0).map(x => x.name), ['packed_normal_encode', 'packed_normal_decode_simd']);
 });
 
 // 像素滤波的采样分布：内核的查表（filter_table_read）查宿主一侧 Rust 建的表（与 Cycles 建的逐位相同，见 filter_table_* 三项），

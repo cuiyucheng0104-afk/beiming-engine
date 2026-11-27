@@ -1401,8 +1401,12 @@ pub fn features(scene: &Scene, groups: [usize; GROUPS]) -> u32 {
 impl Params {
     /// What the kernel takes from the render preset and the camera's exposure: the bounce limit, the depth Russian
     /// roulette starts at, the firefly clamp on indirect paths (relative to the exposure), energy compensation.
+    /// 北冥：外加漫反射、光泽、透射各自的上限，原样写（与 `counts[2]` 同一种口径，见 `NativePreset::max_bounces`）。
     pub fn set_preset(&mut self, native: &crate::desc::NativePreset, exposure: &crate::desc::Exposure) {
         self.counts[2] = native.max_bounces;
+        self.integrator.max_diffuse_bounce = native.max_diffuse_bounces;
+        self.integrator.max_glossy_bounce = native.max_glossy_bounces;
+        self.integrator.max_transmission_bounce = native.max_transmission_bounces;
         self.counts[3] = native.russian_roulette_depth;
         self.misc[0] = native.firefly_clamp(exposure);
         self.misc[2] = native.energy_compensation;
@@ -2798,7 +2802,7 @@ mod tests {
         };
         assert_eq!(
             members("PathState"),
-            ["render_pixel_index", "sample", "bounce", "diffuse_bounce", "glossy_bounce", "transmission_bounce", "transparent_bounce", "rng_pixel", "rng_offset", "flag", "mis_ray_pdf", "min_ray_pdf", "continuation_probability", "throughput", "visibility", "mis_ray_object", "first_hit_object", "legacy"]
+            ["render_pixel_index", "sample", "bounce", "diffuse_bounce", "glossy_bounce", "transmission_bounce", "transparent_bounce", "rng_pixel", "rng_offset", "flag", "mis_ray_pdf", "min_ray_pdf", "continuation_probability", "throughput", "visibility", "mis_ray_object", "first_hit_object", "mis_origin_P", "legacy"]
         );
         let mut ray = members("Ray");
         ray.sort();
@@ -2811,13 +2815,38 @@ mod tests {
             ("state.min_ray_pdf = min(pdf, state.min_ray_pdf);", 1),
             ("state.min_ray_pdf = min(state.mis_ray_pdf, state.min_ray_pdf);", 1),
             ("state.mis_ray_object = sd.object;", 1),
+            ("state.mis_origin_P = sd.P;", 1),
+            ("state.mis_origin_P = x;", 3),
             ("path_state_next(bs.label);", 1),
             ("path_state_next(LABEL_VOLUME_SCATTER);", 1),
             ("state.visibility = visibility;", 1),
             ("state.rng_offset += PRNG_BOUNCE_NUM;", 1),
+            ("state.diffuse_bounce += 1u;", 1),
+            ("state.glossy_bounce += 1u;", 1),
+            ("state.transmission_bounce += 1u;", 1),
+            ("state.flag |= PATH_RAY_TERMINATE_AFTER_TRANSPARENT;", 3),
+            // 到了上限的顶点：表面一处、介质一处
+            ("(state.flag & PATH_RAY_TERMINATE_AFTER_TRANSPARENT) != 0u", 2),
         ] {
             assert_eq!(src.matches(write).count(), count, "路径状态的这处写入该有 {count} 处：{write}");
         }
+    }
+
+    /// 北冥：预设里的分类弹射上限原样进 `KernelIntegrator`；不写就不限，旧预设的内核参数只多了这三格的最大值。
+    #[test]
+    fn bounce_limits_by_class_come_from_the_preset() {
+        let ev = crate::desc::Exposure::Manual { ev100: 0.0 };
+        let read = |extra: &str| -> KernelIntegrator {
+            let native: crate::desc::NativePreset = serde_json::from_str(&format!(r#"{{"spp":1,"maxBounces":9,"denoise":false,"clampIndirect":1,"russianRouletteDepth":3{extra}}}"#)).unwrap();
+            let mut p = Params::default();
+            p.set_preset(&native, &ev);
+            assert_eq!(p.counts[2], 9);
+            p.integrator
+        };
+        let none = read("");
+        assert_eq!((none.max_diffuse_bounce, none.max_glossy_bounce, none.max_transmission_bounce), (u32::MAX, u32::MAX, u32::MAX));
+        let set = read(r#","maxDiffuseBounces":5,"maxGlossyBounces":5,"maxTransmissionBounces":9"#);
+        assert_eq!((set.max_diffuse_bounce, set.max_glossy_bounce, set.max_transmission_bounce), (5, 5, 9));
     }
 
     /// 北冥：着色点、闭包、材质输入值（shaders/shader.wgsl）的字段名单，与「已写未读」的几项写入，做法同上一条。
@@ -2841,7 +2870,7 @@ mod tests {
                 _ => panic!("{name} 不是结构"),
             }
         };
-        assert_eq!(members("ShadingPoint"), ["P", "N", "Ng", "wi", "object", "prim", "u", "v", "ray_length", "flag", "object_flag", "time", "lcg_state", "emission", "num_closure", "closure", "legacy"]);
+        assert_eq!(members("ShadingPoint"), ["P", "N", "Ng", "wi", "object", "prim", "u", "v", "ray_length", "flag", "object_flag", "time", "lcg_state", "inst", "emission", "num_closure", "closure", "legacy"]);
         assert_eq!(members("Closure"), ["kind", "weight", "sample_weight", "N", "alpha_x", "alpha_y", "ior", "energy_scale", "fresnel_type", "f0", "f90_or_b", "exponent", "reflection_tint", "transmission_tint"]);
         assert_eq!(members("ShaderInputs"), ["base_color", "metallic", "roughness", "ior", "specular_ior_level", "specular_tint", "emission", "alpha", "diffuse_roughness", "flags", "coat_weight", "transmission_weight", "N"]);
         for (write, count) in [
@@ -2951,7 +2980,7 @@ mod tests {
             assert!(!lit.contains("fn sun_light("), "last_direct takes the directional lights already");
             let sun = v(hwrt, KernelSwitches { last_sun: true, ..Default::default() });
             assert_eq!((sun.matches("film_add_light(dz, depth, LIGHTGROUP_NONE);").count(), sun.matches("fn sun_light(").count(), sun.matches("state.throughput * sun_light(sd)").count()), (1, 1, 1));
-            assert!(!plain.contains("sun_light"));
+            assert!(!plain.contains("fn sun_light(") && !plain.contains("sun_light(sd)"));
             assert_eq!(lit.matches("env_on = take_env && has_env && !state.legacy.lights_only;").count(), 1);
             assert_eq!(lit.contains("let steps = 4u;"), hwrt);
             assert_eq!(v(hwrt, KernelSwitches { cutout_lite: 2, ..Default::default() }) == plain, !hwrt);

@@ -1,7 +1,7 @@
 {
   "schema": "beiming.core.freeze/1",
   "name": "核心帧源路径追踪内核的四样内部结构",
-  "version": "1.2.1",
+  "version": "1.2.4",
   "frozen": "2026-11-25",
   "structures": [
     "材质记录",
@@ -67,7 +67,7 @@
     "shaders/shader.wgsl": {
       "structs": {
         "Closure": "bb4ade1495043f3c6a026caa1ff2d71f1f8940fff19d840bee2eb16544dbf9d8",
-        "ShadingPoint": "309fc0e47dd4ce4b27a6cc11ce5a3da6dd170758b547177b44c50be4c6f15ab8",
+        "ShadingPoint": "39c54b44697574647dfd7e908efdf020cf593bf6b4a30b9e29189dffae9b6089",
         "ShaderInputs": "7b291d44572267c392da59949e57ae3a614e0d3cbea7a0af4aecbe93794c251c"
       },
       "constants": {
@@ -119,12 +119,13 @@
         "closure_sample_weight": "(weight: vec3<f32>) -> f32",
         "surface_shader_denoising_albedo": "(sd: ShadingPoint) -> vec3<f32>",
         "bsdf_eval_mis_one": "(c: Closure, wi: vec3<f32>, wo: vec3<f32>, e: ptr<function, BsdfEval>) -> vec2<f32>",
+        "bsdf_eval_mis_bump_one": "(c: Closure, Ns: vec3<f32>, wi: vec3<f32>, wo: vec3<f32>, e: ptr<function, BsdfEval>) -> vec2<f32>",
         "bsdf_blur": "(sd: ptr<function, ShadingPoint>, k: u32, roughness: f32) -> Closure"
       }
     },
     "shaders/integrator.wgsl": {
       "structs": {
-        "PathState": "1aae6b65b92b07fbb548929cb798414563b146e814c02ee67154d1407be456d0",
+        "PathState": "556202a566de8d58a9c1555e067f4d49dedecb0bc72b8008f86cfbdedae476b8",
         "Ray": "69716dc80d18c5ff5c8ef53c2dd8f1cd2210f8a039077fc71a389102c96ee324"
       },
       "constants": {

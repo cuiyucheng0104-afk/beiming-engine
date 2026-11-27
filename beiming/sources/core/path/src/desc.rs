@@ -449,7 +449,16 @@ fn three() -> f32 {
 #[serde(rename_all = "camelCase")]
 pub struct NativePreset {
     pub spp: u32,
+    /// 总弹射上限 N：第 N 次散射之后的顶点是最后一个（`Params::counts[2]`，主循环的 `depth == P.counts.z`）。
     pub max_bounces: u32,
+    /// 漫反射、光泽（含奇异的反射）、透射各自的上限 N，口径同 `max_bounces`：这一类第 N 次散射之后的顶点只收射线路上打到的灯。
+    /// 不写就不限（`u32::MAX`）。都是 Cycles 内核一侧的值，Cycles 界面上的 G 在这里写 G + 1（见 STRUCTURES「integrator」一节）。
+    #[serde(default = "unlimited")]
+    pub max_diffuse_bounces: u32,
+    #[serde(default = "unlimited")]
+    pub max_glossy_bounces: u32,
+    #[serde(default = "unlimited")]
+    pub max_transmission_bounces: u32,
     pub denoise: bool,
     pub clamp_indirect: f32,
     pub russian_roulette_depth: u32,
@@ -459,6 +468,10 @@ pub struct NativePreset {
 
 fn one() -> f32 {
     1.0
+}
+
+fn unlimited() -> u32 {
+    u32::MAX
 }
 
 impl NativePreset {

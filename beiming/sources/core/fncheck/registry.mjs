@@ -107,10 +107,12 @@ FUNCTIONS.push(
   // 取到 [0, 1] 外面一点，覆盖 saturate 与端点处 t == 0 的那一支
   entry('lookup_table_read_ggx_Eavg', [['x', 'f32', [-0.1, 1.1]]], 1, 0, { file: APACHE, wgsl: 'lookup_table_read', call: ([x]) => `lookup_table_read(${x}, TABLE_GGX_EAVG, 32)` }),
   entry('lookup_table_read_2D_ggx_E', [['x', 'f32', [-0.1, 1.1]], ['y', 'f32', [-0.1, 1.1]]], 1, 0, { file: APACHE, wgsl: 'lookup_table_read_2D', call: ([x, y]) => `lookup_table_read_2D(${x}, ${y}, TABLE_GGX_E, 32, 32)` }),
-  // r·cos(phi)、r·sin(phi) 在 phi 接近 ±π/2 时 cos 接近 0；显卡上 cos 的误差是绝对误差，量级 1
+  // r·cos(phi)、r·sin(phi) 在 phi 接近 ±π/2 时 cos 接近 0；内建 cos 的误差是绝对误差，量级 1。polar_to_cartesian 改调 sincosf 之后
+  // 【实测】两台显卡所需 abs 都是 0，abs 照旧留着
   entry('sample_uniform_disk', [['rand', 'vec2f', UNIT]], 2, 4 * ULP1),
   // 半向量分量是量级 1 的数经 to_global 相加，贴近 0 时靠 abs；中间经过两次归一化、一次 to_global 和显卡的 cos、sin，
-  // 每步都带几个 ULP。【实测】所需 abs：Apple 显卡 4.6e-7，NVIDIA 1.3e-6（它的 cos、sin 误差更大），取 32 个 ULP。
+  // 每步都带几个 ULP。【实测】所需 abs：内建 cos、sin 时 Apple 显卡 4.6e-7，NVIDIA 1.3e-6（它的 cos、sin 误差更大），改调 sincosf 之后
+  // 4.1e-7 与 3.2e-7；取 32 个 ULP。
   // alpha 取整个范围，随机数离开圆盘边缘（理由同上）
   entry('microfacet_ggx_sample_vndf', [['wi', 'dir', [1e-3, 1]], ['alpha_x', 'f32', ALPHA], ['alpha_y', 'f32', ALPHA], ['rand', 'vec2f', RAND]], 3, 32 * ULP1),
   // 同 fresnel_f82：F_schlick 减去 B 项
@@ -192,6 +194,16 @@ const MAIN = { len: [0.05, 5], dist: [0.02, 20], elev: [0.1, 1] };
 const WELL = { len: [0.1, 5], aspect: 3, dist: [0.1, 1], elev: [0.3, 1] };
 const RAY = { len: [0.3, 5], aspect: 3, dist: [0.1, 3], elev: [0.1, 1] };
 const TINY = { len: [1e-4, 3e-3], dist: [1e3, 1e4], elev: [0.1, 1] };
+const FAR = { len: [0.05, 5], aspect: 3, dist: [2, 15], elev: [0.1, 1] };
+const NEAR = { len: [0.1, 5], aspect: 3, dist: [0.02, 0.1], elev: [0.5, 1] };
+/** 报告用：双精度里 Van Oosterom–Strackee 两个三角形的分母有没有不大于 0 的（那个三角形的立体角不小于 π，被测一侧退回原式） */
+function vosGuarded(P, co, u, lu, v, lv) {
+  const d = add(co, P, -1), z0 = -Math.abs(dot3(d, crs(u, v))), xc = dot3(d, u), yc = dot3(d, v);
+  const [x0, x1, y0, y1] = [xc - lu / 2, xc + lu / 2, yc - lv / 2, yc + lv / 2];
+  const a = [x0, y0, z0], b = [x1, y0, z0], c = [x1, y1, z0], e = [x0, y1, z0], r = q => Math.hypot(...q);
+  const m = (p, q, w) => r(p) * r(q) * r(w) + dot3(p, q) * r(w) + dot3(p, w) * r(q) + dot3(q, w) * r(p);
+  return !(m(a, b, c) > 0 && m(a, c, e) > 0);
+}
 /** 掠射：灯在原点、轴对齐，着色点在灯所在平面外 1e-7 到 1e-3 倍「到最近的边所在直线的距离」，横向在矩形外 0.1 到 4 倍边长。
  *  四个 nz² 都大于 1 − 1e-6，稳走掠射的平面近似（阈值 0.99999）；灯心坐标为 0，dir = light_p − P 与 z0 都没有舍入 */
 function grazingGeom(next) {
@@ -218,9 +230,38 @@ const atPole = (p, P, axis_u, len_u) => Math.abs(dot3(add(p, P, -1), axis_u)) < 
 // 立体角 S = −(g0 + g1 + g2 + g3) 是四个量级到 π/2 的 asin 相加抵消（area.h:53-57）。概率密度 1/S 的比对改在 S 上做，
 // abs 给在 S 上：【实测】MAIN 里超出 1e-4·S 的差最大 2.1e-6，取 48 个 π/2 处的 ULP（约 5.7e-6）
 const ABS_S = 48 * 2 ** -23;
+// safe_asinf 分段平均偏差的段与门槛（末位）。【实测】苹果显卡、100 万组、种子 1，小段平均的绝对值最大者：
+//   写法             [1e-6, 0.5)   [0.5, 0.9)   [0.9, 1)
+//   级数加半角（现用）  0.007        −0.364        0.100
+//   内建 asin         1.500         0.709        0.590
+//   atan2             −1.000        0.484        0.395
+//   去掉低位那一步 fma   0.007         0.720         0.376
+// |x| < 0.5 是面光远场立体角四个 asin 的主要输入，门槛 0.05；0.5 到 0.9 现用的写法也偏 0.36（π/2 的低位在 fma 的舍入里丢了），
+// 门槛 0.5；0.9 以上门槛 0.2。内建 asin 在第一段超出门槛 30 倍，去掉低位那一步 fma 在后两段超出（fncheck.test.mjs 的两项负对照）
+const ASINF_BIAS = [{ lo: 1e-6, hi: 0.5, bins: 12, max: 0.05 }, { lo: 0.5, hi: 0.9, bins: 4, max: 0.5 }, { lo: 0.9, hi: 1, bins: 2, max: 0.2 }];
+// sincosf 分段平均偏差的段与门槛（末位）。【实测】苹果显卡、100 万组、种子 1，小段平均的绝对值最大者（sin / cos）：
+//   写法                         [1e-6, 0.5)      [0.5, 1.5)       [1.5, π)
+//   两段约简、修正量并进最后一步（现用） −0.034 / −0.001   0.030 / −0.033   −0.030 / −0.016
+//   低位先并进约简结果               −0.034 / −0.002   0.099 / 0.166    0.115 / 0.248
+//   内建 sin、cos                   −0.399 / 0.688    0.202 / −0.216   0.153 / 0.139
+// 三段门槛都取 0.1：现用的写法有 3 倍余量，内建的三段都超出（fncheck.test.mjs 的负对照）
+const SINCOS_BIAS = [{ lo: 1e-6, hi: 0.5, bins: 12, max: 0.1 }, { lo: 0.5, hi: 1.5, bins: 4, max: 0.1 }, { lo: 1.5, hi: Math.PI, bins: 4, max: 0.1 }];
 FUNCTIONS.push(
-  // asin 在 ±1 附近导数无界，取在 clamp 两侧各外延 0.2，覆盖截断那一支
+  // asin 在 ±1 附近导数无界，取在 clamp 两侧各外延 0.2，覆盖截断那一支。被测一侧不是内建 asin，是 util.wgsl 里自己写的级数
+  // （内建 asin 的误差随位置光滑变化，理由见那里）；【实测】苹果显卡上对 C 库 asinf 最大 3.4e-7 相对误差
   entry('safe_asinf', [['a', 'f32', [-1.2, 1.2]]], 1, 0, { file: APACHE }),
+  // 同一个函数对 C 库 asinf 的分段平均偏差（以末位计；Cycles 在处理器上的 safe_asinf 就是 asinf）。逐组比查不出：内建 asin 每组都在
+  // 1e-4 相对误差以内，但偏差随输入位置光滑变化、一段里同号，矩形面光立体角的四个 asin 相加抵消时整片同号地偏（util.wgsl 那里的说明）。
+  // 只取正数（safe_asinf 经 copysignf 对称），[1e-6, 1) 上按对数均匀取；每段按对数等分成小段求平均，小段平均的绝对值最大者不超过门槛。
+  // 门槛照实测定（苹果显卡，100 万组）：ASINF_BIAS 处的注释
+  entry('safe_asinf_ulp_bias', [['a', 'f32', [1e-6, 1, 'log']]], 1, 0, { file: APACHE, wgsl: 'safe_asinf', ref: 'safe_asinf', ulpBias: ASINF_BIAS }),
+  // 矩形面光采样映射的 cos(au)、sin(au)（area.h:67）：被测一侧是 util.wgsl 里自己写的 sincosf，不是内建（理由见那里）。au 在 (−π, π)，
+  // 两边各外延到 3.5。【实测】苹果显卡上对 C 库 sinf、cosf 最大 1.2e-7 相对误差（一个末位）
+  entry('sincosf', [['x', 'f32', [-3.5, 3.5]]], 2, 0, { file: APACHE }),
+  // 同一个函数分别对 C 库 sinf、cosf 的分段平均偏差（以末位计），查法同 safe_asinf_ulp_bias。只取正数（sincosf 严格对称），
+  // [1e-6, π) 上按对数均匀取，小的 au 对应采样点贴着垂足（fu 的分母 sin(au) 很小）。门槛照实测定：SINCOS_BIAS 处的注释
+  entry('sinf_ulp_bias', [['x', 'f32', [1e-6, Math.PI, 'log']]], 1, 0, { file: APACHE, wgsl: 'sincosf', ref: 'sinf', call: a => `sincosf(${a[0]}).x`, ulpBias: SINCOS_BIAS }),
+  entry('cosf_ulp_bias', [['x', 'f32', [1e-6, Math.PI, 'log']]], 1, 0, { file: APACHE, wgsl: 'sincosf', ref: 'cosf', call: a => `sincosf(${a[0]}).y`, ulpBias: SINCOS_BIAS }),
   // 概率密度在 WELL 里直接比，abs 只为采样点
   light('area_light_rect_sample', RECT_IN, { pdf: 1, P: 3 }, ABS_SAMPLE, {
     gen: next => ({ ...lightGeom(next, WELL), rand: [linU(next, RAND_WELL), linU(next, RAND_WELL)] }), branch: rectBranchOf,
@@ -240,6 +281,25 @@ FUNCTIONS.push(
   light('area_light_rect_sample_grazing', RECT_IN, 1, 0, {
     wgsl: 'area_light_rect_sample', ref: 'area_light_rect_sample_pdf', gen: grazingGeom, branch: rectBranchOf,
     call: a => `area_light_rect_sample(${a.join(', ')}, false).pdf`,
+  }),
+  // 做概率密度的 S 在远场（S 不小于 5e-5，四个角两两夹角小于 90°）换成了 Van Oosterom–Strackee 的两个三角形（area_light.wgsl 的 rect_solid_angle_pdf_S，
+  // 对 Cycles 原式的有意偏离）。理由：原式的 S 是四个量级到 π/2 的 asin 相加抵消出来的，远场只剩几个末位；Cycles 在处理器上
+  // 舍入近乎随机，像素抖动平均得掉，显卡上舍入随位置光滑变化，平均不掉（第 4 级低粗糙度高光的暗区出 ±7e-5 的弧纹【实测】）。
+  // 上面立体角一项照旧对单精度的 Cycles 比（abs 兜住原式自己的抵消误差）；下面两项分别守远场与近场：
+  //   _far   离灯 2 到 15 倍较长边（立体角 1.5e-4 到 0.3 sr，都在 5e-5 以上）：比双精度里照 Cycles 原式算的真值（标准答案程序的
+  //          area_light_rect_solid_angle_f64），rel 1e-4、abs 0。单精度的原式做不到：S 低于 5e-5 照旧用原式的那一段，相对真值差到
+  //          1e-2【实测：范围放到 30 倍边长时 100 万组里 92 组超出】
+  //   _near  离灯心 0.02 到 0.1 倍较长边、仰角正弦 0.5 以上（离灯面不到 0.1 倍边长，又不贴到掠射那一支的阈值上）：两个三角形之一
+  //          的立体角大于 π（分母不大于 0），或者四个角两两的夹角有大于 90° 的（近场），被测一侧退回原式的 S。守卫与远场的判断
+  //          漏掉时这里的 S 会算成 1e-28 这类数，或者差到 1e-4 以上（分母相消）；比单精度的 Cycles，abs 同上
+  light('area_light_rect_sample_far', RECT_IN, 1, 0, {
+    wgsl: 'area_light_rect_sample', ref: 'area_light_rect_solid_angle_f64', gen: next => lightGeom(next, FAR), branch: rectBranchOf,
+    call: a => `1.0 / area_light_rect_sample(${a.join(', ')}, false).pdf`,
+  }),
+  light('area_light_rect_sample_near', RECT_IN, 1, ABS_S, {
+    wgsl: 'area_light_rect_sample', ref: 'area_light_rect_sample_solid_angle', gen: next => lightGeom(next, NEAR),
+    branch: i => (vosGuarded(at(i, 0), at(i, 3), at(i, 6), i[9], at(i, 10), i[13]) ? '有一个三角形大于 π' : '两个三角形都小于 π'),
+    call: a => `1.0 / area_light_rect_sample(${a.join(', ')}, false).pdf`,
   }),
   // 正反两面各半；abs 只为采样点与方向
   light('area_light_sample', [['rand', 'vec2f'], ['P', 'vec3f'], ...LIGHT_IN], { ok: 1, P: 3, D: 3, t: 1, pdf: 1, eval_fac: 1 }, ABS_SAMPLE, {
@@ -280,6 +340,17 @@ const PIXEL_FILTER = 'path/src/pixel_filter.rs';
 export const FILTER_TABLES = [[0, 2.0], [1, 1.5], [2, 1.5]];
 export const FILTER_TABLE_SIZE = 1024;
 const hostFn = (name, inputs, out, abs = 0, more = {}) => entry(name, inputs, out, abs, { file: PIXEL_FILTER, host: true, ...more });
+// 法线的存储精度（宿主一侧：path/src/packed_normal.rs，照 util/types_normal.h）。编码收单位向量（整个球面；另有一成取在坐标轴、
+// 坐标面附近，八面体的折边与顶点上）；解码收码的两半（0 到 65535 的整数），call 只写明两半怎么拼成 Rust 函数收的码
+// （fncheck-host 按标识分发，见 path/src/main.rs）。rel 取 0：码与分量要逐位相同
+const NORMAL_PACK = 'path/src/packed_normal.rs';
+const codeIn = next => ({ dx: Math.floor(next() * 65536), dy: Math.floor(next() * 65536) });
+function packDir(next) {
+  const z = 2 * next() - 1, phi = 2 * Math.PI * next(), r = Math.sqrt(1 - z * z);
+  const v = [r * Math.cos(phi), r * Math.sin(phi), z];
+  if (next() < 0.1) { const k = Math.floor(next() * 3); v[k] = (next() < 0.5 ? -1 : 1) * 1e-7 * next(); const l = Math.hypot(...v); return { n: v.map(x => x / l) }; }
+  return { n: v };
+}
 // 滤波函数只在建表用到的定义域上比：自变量 v 在 [0, 宽度/2]，宽度是建表时放大过的（高斯乘 3、Blackman-Harris 乘 2），
 // 界面上的宽度 0.01 到 10 像素，所以放大后取到 0.01 到 30
 const WIDTH = [0.01, 30];
@@ -303,6 +374,13 @@ function clampIn(next) {
   return { L: [comp(), comp(), comp()], bounce: Math.floor(next() * 4) - 1, sample_clamp_direct: limit(), sample_clamp_indirect: limit() };
 }
 FUNCTIONS.push(
+  hostFn('packed_normal_encode', [['n', 'vec3f']], 2, 0, { file: NORMAL_PACK, wgsl: 'encode', gen: packDir, rel: 0 }),
+  // 标量版最后一步是 normalize：Cycles 开 SSE 的构建（标准答案机是 x86-64，SSE4.2 是它的最低要求，util/optimization.h）里是
+  // _mm_div_ps(a, sqrt(dot))，真除；标准答案程序在本机 arm64 上编、没开 SSE2NEON，走标量的 a / len(a)，而 float3 除以标量
+  // 在那一支是乘倒数（util/math_float3.h:93-101）。宿主一侧照标准答案机的真除写，两边差一个末位：abs 给 2 个 [1, 2) 的 ULP。
+  // 【实测】100 万组里 55% 的组差一个末位，最大 6e-8
+  hostFn('packed_normal_decode', [['dx', 'f32'], ['dy', 'f32']], 3, 2 * ULP1, { file: NORMAL_PACK, wgsl: 'decode', gen: codeIn, rel: 0, call: ([dx, dy]) => `decode(${dx} | ${dy} << 16)` }),
+  hostFn('packed_normal_decode_simd', [['dx', 'f32'], ['dy', 'f32']], 3, 0, { file: NORMAL_PACK, wgsl: 'decode_simd', gen: codeIn, rel: 0, call: ([dx, dy]) => `decode_simd(${dx} | ${dy} << 16)` }),
   hostFn('filter_func_box', [['v', 'f32'], ['width', 'f32']], 1, 0, { gen: filterIn }),
   hostFn('filter_func_gaussian', [['v', 'f32'], ['width', 'f32']], 1, 0, { gen: filterIn }),
   hostFn('filter_func_blackman_harris', [['v', 'f32'], ['width', 'f32']], 1, BH_ABS, { gen: filterIn }),
@@ -318,6 +396,67 @@ FUNCTIONS.push(
     branch: i => (Number.isFinite(i[0]) && Number.isFinite(i[1]) && Number.isFinite(i[2]) ? (i[3] > 0 ? '间接' : '直接') : '有非有限分量'),
   }),
 );
+// 镜面峰上的平均偏差：抛光金属（alpha 0.005 到 0.1）、出射方向贴着镜面峰（半向量与法线的夹角在 0 到 2·alpha，在那一圈球冠上按面积
+// 均匀取）。逐组比不了：bsdf_D_ggx 的 1 − cos_NH² 在这里相消，cos_NH 差一个末位，D 就差 4·δcos/alpha²（alpha = 0.005 时 1e-2）。
+// 但这种逐组的差在相邻的输入之间像随机数，平均掉了就不影响画面；要查的是整片同号的偏差（半向量的 1/|H| 偏向一边，见 util.wgsl 的
+// inverse_len）。量取 cos_NH 的末位：根源在它，它的偏差经 D 放大的倍数随 alpha 变，D 自己的末位做不了一个统一的门槛；1/|H| 单看又
+// 漏掉 H = wi + wo 与 dot(N, H) 两步。cos_NH 不是求值的输出，所以从概率密度折回来：pdf = D/(4·cos_NI·(1 + λI)) 里只有 D 随 cos_NH 变，
+// 两边 pdf 的相对差除以 d ln D/dcos = 4(1 − α²)c/(1 − (1 − α²)c²)（c 是双精度算的 cos_NH），再除以 1 以下的末位 2⁻²⁴。概率密度的
+// 别的舍入经这一步缩小 (α² + θ²)/4 倍（【推断】按 pdf 几个末位的舍入算，到 alpha = 0.1 也不到 0.03 个末位）。比的是求值函数本身，
+// 两处求值各一项；alpha 按对数等分成 4 小段，100 万组。门槛照实测定（种子 1，小段平均的绝对值最大者，F82 / 广义 Schlick）：
+//   写法                               苹果显卡           英伟达 RTX 5090
+//   平方根倒数加一次牛顿迭代（现用）       −0.001 / 0.005     −0.002 / 0.005
+//   原式 safe_divide(1.0, len_ccl(H))      0.048 / 0.052     −0.089 / −0.089
+//   结果再偏半个末位（乘 1 ± 2⁻²⁴）       ±1.51 / ±1.51      ±1.51 / ±1.51
+// 内建 inverseSqrt 不加迭代、1.0 / sqrt 两种写法两台上的读数都与原式相同到小数第三位。门槛 0.03：现用的写法有 6 倍余量；英伟达上原式偏 −0.089，
+// 正是第 4 级平行光照抛光金属（alpha 约 0.017）判不过的那一份偏暗；苹果显卡上原式偏 0.05，在那一级判不出，这里也拦下（负对照
+// 「改回原式」两台都判得出，fncheck.test.mjs）
+const ULP_BELOW_1 = 2 ** -24;
+const PEAK_ALPHA = [0.005, 0.1];
+function peakGeom(next) {
+  const alpha = logU(next, PEAK_ALPHA), z = 1 - next() * (1 - Math.cos(2 * alpha)), phi = 2 * Math.PI * next(), rho = Math.sqrt(1 - z * z);
+  const H = [rho * Math.cos(phi), rho * Math.sin(phi), z];
+  for (;;) {
+    const zi = linU(next, [0.1, 1]), pi = 2 * Math.PI * next(), ri = Math.sqrt(1 - zi * zi), wi = [ri * Math.cos(pi), ri * Math.sin(pi), zi];
+    const wo = add(mul(H, 2 * dot3(wi, H)), wi, -1);
+    if (wo[2] >= 0.1) return { N: [0, 0, 1], wi, wo, alpha };
+  }
+}
+/** 概率密度在下标 3，alpha 在下标 9；wi、wo 在下标 3、6 */
+function peakBias(r, t, i) {
+  const H = [i[3] + i[6], i[4] + i[7], i[5] + i[8]], c = H[2] / Math.hypot(...H), k = 1 - i[9] * i[9];
+  return [i[9], r[3] === 0 ? NaN : (t[3] - r[3]) / r[3] / (4 * k * c / (1 - k * c * c)) / ULP_BELOW_1];
+}
+const PEAK_BIAS = [{ lo: PEAK_ALPHA[0], hi: PEAK_ALPHA[1], bins: 4, max: 0.03 }];
+const PEAK_IN = [['N', 'vec3f'], ['wi', 'vec3f'], ['wo', 'vec3f'], ['alpha', 'f32']];
+const peak = (name, inputs, gen) => entry(`${name}_peak_bias`, [...PEAK_IN, ...inputs], EVAL_OUT, 0, { wgsl: name, ref: name, gen: next => ({ ...peakGeom(next), ...gen(next) }), skip: () => true, ulpBias: PEAK_BIAS, biasOf: peakBias });
+const v3 = (next, lo, hi) => [0, 1, 2].map(() => linU(next, [lo, hi]));
+FUNCTIONS.push(
+  // 菲涅耳一项不进概率密度，取普通的值（f0、b 同闭包一层的范围；广义 Schlick 取原理化 BSDF 电介质高光那样的参数，反射率不为 0）
+  peak('bsdf_microfacet_eval_ggx', [['f0', 'vec3f'], ['b', 'vec3f']], next => ({ f0: v3(next, 0, 1), b: v3(next, 0, 4) })),
+  peak('bsdf_microfacet_eval_ggx_generalized_schlick', [['ior', 'f32'], ['f0', 'vec3f'], ['f90', 'vec3f'], ['exponent', 'f32'], ['reflection_tint', 'vec3f'], ['transmission_tint', 'vec3f']],
+    next => { const ior = linU(next, [1.1, 2]); return { ior, f0: v3(next, 0.01, 1), f90: [1, 1, 1], exponent: -ior, reflection_tint: v3(next, 0.1, 1), transmission_tint: [0, 0, 0] }; }),
+);
+// 着色法线的单位化（util.wgsl 的 normalize_unbiased，path/shaders/shader.wgsl 的插值法线与法线贴图用它）：对 Cycles 的 safe_normalize
+// （triangle_smooth_normal 用的那个）量 |N| − 1 的平均偏差，以 1 以下的末位 2⁻²⁴ 计（单位与上面 cos_NH 的相同：|N| 的偏差原样进
+// cos_NH = dot(N, H)）。方向在整个球面上按面积均匀取，长度在 [0.25, 4) 按对数均匀取、分 4 小段（一段一个二进制量级），100 万组；
+// 逐组照常比。门槛照实测定（种子 1，小段平均的绝对值最大者）：
+//   写法                               苹果显卡     英伟达 RTX 5090
+//   乘 inverse_len（现用）                −0.003       −0.002
+//   内建 normalize                         0.048       −0.093
+// 另一串输入（同样的分布）上量过 a / len_ccl(a)（normalize_ccl 的式子）：0.048、−0.095，与内建 normalize 相同到小数第二位。
+// 门槛 0.03，同上面那两项：现用的写法有 6 倍余量，内建的两台都超出（fncheck.test.mjs 的负对照「改回内建 normalize」）
+const NLEN = [0.25, 4];
+const NLEN_BIAS = [{ lo: NLEN[0], hi: NLEN[1], bins: 4, max: 0.03 }];
+FUNCTIONS.push(
+  entry('normalize_unbiased_len_bias', [['a', 'vec3f']], 3, 0, {
+    file: APACHE, wgsl: 'normalize_unbiased', ref: 'safe_normalize', ulpBias: NLEN_BIAS,
+    gen: next => { const L = logU(next, NLEN), z = 2 * next() - 1, phi = 2 * Math.PI * next(), rho = Math.sqrt(1 - z * z); return { a: [L * rho * Math.cos(phi), L * rho * Math.sin(phi), L * z] }; },
+    biasOf: (r, t, i) => [Math.hypot(i[0], i[1], i[2]), (Math.hypot(t[0], t[1], t[2]) - Math.hypot(r[0], r[1], r[2])) / ULP_BELOW_1],
+  }),
+);
+
+
 // 下面是原理化 BSDF 非金属那一半（电介质高光：GGX 加广义 Schlick，只有反射；漫反射；发光值；滤光泽）与它们用到的
 // 工具函数。闭包一层的输入范围同上面金属的理由：N 固定为 (0, 0, 1)、alpha 取 [0.1, 1]、随机数离开圆盘边缘、贴地出射不比。
 // 原理化 BSDF 给电介质高光的是 f90 = 1、exponent = −eta、reflection_tint = 1、transmission_tint = 0（kernel/svm/closure.h），
@@ -395,6 +534,86 @@ FUNCTIONS.push(
   }),
   entry('emissive_pdf', [['Ng', 'dir', [-1, 1]], ['wi', 'dir', [-1, 1]]], 1),
   entry('emissive_simple_eval', [['Ng', 'dir', [-1, 1]], ['wi', 'dir', [-1, 1]]], 3),
+);
+
+// 下面是原理化 BSDF 给金属与电介质高光换法线的一步（kernel/closure/bsdf_util.h 的 ensure_valid_specular_reflection，BSD-3-Clause）
+// 与闭包求值、采样入口乘的凹凸阴影项（kernel/closure/bsdf.h 的 bump_shadowing_term，Apache-2.0）。
+// 法线与方向不能各自独立均匀取：要的是「着色法线偏离几何法线、反射方向落到几何面以下」这类相关的输入，所以用 gen 逐组生成，
+// 全部用双精度算完再存成 float32。
+/** 以 Z 为轴、偏开 theta 弧度、方位角 phi 的单位向量；X、Y 是与 Z 正交的两个单位向量 */
+const tilted = (Z, X, Y, theta, phi) => add(add(mul(Z, Math.cos(theta)), X, Math.sin(theta) * Math.cos(phi)), Y, Math.sin(theta) * Math.sin(phi));
+/** 双精度里照 Cycles 的式子（bsdf_util.h:324-394）走一遍 ensure_valid_specular_reflection：不拧法线时返回 null，拧时返回
+ *  四个量里最小的那个（都在 0 到 1 之间，越小 float32 下越病态）：结果的 Nx、Nz，根号与 b 之比 √(b² − 4ac)/b，入射方向在 X-Z 平面里的
+ *  长度 √a。理由：Nx = √(1 − Nz²)、Nz = √Nz² 在被开方数贴近 0 时把一个 ULP 放大成 ε/(2Nx) 量级的绝对误差（Nx 到 1e-4 时是 4e-4）；
+ *  b² − 4ac = 4(a − t²)·Ix² 在 Ix 贴近 0 时是两个量级 4a² 的数相减，开方后同样被放大；√a 小时 Ix、Iz 本身是两个点积相消出来的小数。
+ *  这几处 Cycles 原式在 float32 下本身就不准：【实测】本机 100 万组里不合格的组拿双精度照原式算真值，Cycles 本机一侧离真值更远的
+ *  约占四成（诊断脚本没有入库） */
+function specularCond(Ng, I, N) {
+  const R = add(mul(N, 2 * dot3(N, I)), I, -1), Iz = dot3(I, Ng), t = Math.min(0.9 * Iz, 0.01);
+  if (dot3(Ng, R) >= t) return null;
+  const Xr = add(N, Ng, -dot3(N, Ng)), L = Math.hypot(...Xr), X = L ? mul(Xr, 1 / L) : N;
+  const Ix = dot3(I, X), a = Ix * Ix + Iz * Iz, b = 2 * (a + Iz * t), c = (t + Iz) ** 2, d = Math.sqrt(Math.max(b * b - 4 * a * c, 0));
+  const Nz2 = (Ix < 0 ? b + d : b - d) / (4 * a);
+  return Math.min(Math.sqrt(Math.max(1 - Nz2, 0)), Math.sqrt(Math.max(Nz2, 0)), d / b, Math.sqrt(a));
+}
+// 拧法线的组只在 specularCond 不小于这个数的区域里逐组比
+const SPEC_WELL = 0.1;
+/** 几何法线 Ng 任意朝向；着色法线 N 偏开 Ng 0.01 到 1.4 弧度（十分之一的组 N 就是 Ng）；来路方向 I 在 Ng 这一侧，与 Ng 的夹角余弦
+ *  对数均匀取在 1e-4 到 1（贴地的多）。不是 N 就是 Ng 的组里，一半只收「要拧法线、又在条件良好区域」的（N 偏开 0.3 到 1.4 弧度，
+ *  按 specularCond 拒绝重取：N 偏得太少时拧过的法线贴着 Ng，Nx 小于 0.1，取不到），另一半不挑 */
+function specularGeom(next) {
+  const [X, Y] = rotation(next), Ng = crs(X, Y), same = next() < 0.1, force = !same && next() < 0.5;
+  const N = same ? Ng : tilted(Ng, X, Y, linU(next, force ? [0.3, 1.4] : [0.01, 1.4]), 2 * Math.PI * next());
+  for (;;) {
+    const I = tilted(Ng, X, Y, Math.acos(logU(next, [1e-4, 1])), 2 * Math.PI * next());
+    if (!force || specularCond(Ng, I, N) >= SPEC_WELL) return { Ng, I, N };
+  }
+}
+/** 凹凸阴影项的输入：平滑法线 Ns 任意朝向；闭包法线 N 五分之一的组就是 Ns（直接返回 1 的那一支），其余偏开 Ns 0.1 到 π − 0.1 弧度
+ *  （含翻到背面的，上游材质函数把法线翻过来时会这样）；出射方向 I 与 Ns 的夹角余弦的绝对值取在 1e-2 到 1、正负各半。
+ *  另有十分之一的组 Ns 取 (0, 0, 1)、I 的 z 分量取 ±(1e-9 到 5e-7)（对数均匀）：cos_i 小于 1e-6 那一支，这时 dot(Ns, I) 就是 I.z，
+ *  没有舍入。is_eval、is_diffuse 各自五五开（1 为真）。
+ *  收窄的理由（都是 Cycles 原式在 float32 下的病态，不是移植的差别）：
+ *    - N 不贴着 Ns（偏开至少 0.1 弧度）：tan²_d = 1/cos_d² − 1 在 cos_d 贴近 1 时相消，cos_d 差一个 ULP，tan²_d 就差 6e-8/(1 − cos_d)
+ *      的相对量，再经柔化放大到结果上；偏开 0.1 弧度时约 1.2e-5。
+ *    - cos_i 不在 1e-6 到 1e-2 之间：dot(Ns, I) 两边各差一两个 ULP（约 1e-7 的绝对量），柔化的结果在掠射处随 δcos/cos 变。 */
+function bumpGeom(next) {
+  const tiny = next() < 0.1;
+  const [X, Y] = tiny ? [[1, 0, 0], [0, 1, 0]] : rotation(next), Ns = crs(X, Y);
+  const N = next() < 0.2 ? Ns : tilted(Ns, X, Y, linU(next, [0.1, Math.PI - 0.1]), 2 * Math.PI * next());
+  const side = next() < 0.5 ? 1 : -1, phi = 2 * Math.PI * next();
+  let I;
+  if (tiny) {
+    const z = side * logU(next, [1e-9, 5e-7]), r = Math.sqrt(1 - z * z);
+    I = [r * Math.cos(phi), r * Math.sin(phi), z];
+  } else {
+    I = tilted(Ns, X, Y, Math.acos(side * logU(next, [1e-2, 1])), phi);
+  }
+  return { Ns, N, I, is_eval: next() < 0.5 ? 1 : 0, is_diffuse: next() < 0.5 ? 1 : 0 };
+}
+/** 报告用：双精度里按 Cycles 的条件判 bump_shadowing_term 走哪一支（bsdf.h:98-149） */
+function bumpBranch(i) {
+  const Ns = at(i, 0), N = at(i, 3), I = at(i, 6), is_eval = i[9] !== 0, is_diffuse = i[10] !== 0;
+  if (Ns.every((x, k) => x === N[k])) return '闭包法线就是平滑法线';
+  if (dot3(Ns, I) * dot3(Ns, N) * dot3(N, I) < 0 && (is_eval || is_diffuse)) return '方向在平滑法线那一侧不合法';
+  if (!is_diffuse) return '非漫反射';
+  return Math.abs(dot3(Ns, I)) < 1e-6 ? '漫反射柔化·贴地' : '漫反射柔化';
+}
+FUNCTIONS.push(
+  // 拧过的法线 Nx·X + Nz·Ng。拧法线的组只比条件良好区域（specularCond ≥ SPEC_WELL）里的，别的不比。比的组里 Nx、Nz 不小于 0.1，
+  // 开方把 Nz² 的几个 ULP 放大到至多约 5 倍；结果分量量级 1。abs 给 16 个 ULP；【实测】所需 abs 见测试输出，在它的一半以内
+  entry('ensure_valid_specular_reflection', [['Ng', 'vec3f'], ['I', 'vec3f'], ['N', 'vec3f']], 3, 16 * ULP1, {
+    gen: specularGeom,
+    branch: i => { const c = specularCond(at(i, 0), at(i, 3), at(i, 6)); return at(i, 0).every((x, k) => x === i[6 + k]) ? 'N 就是 Ng' : c === null ? '原样' : c >= SPEC_WELL ? '拧法线' : '拧法线·病态（不比）'; },
+    skip: (ref, test, i) => { const c = specularCond(at(i, 0), at(i, 3), at(i, 6)); return c !== null && c < SPEC_WELL; },
+  }),
+  // 判据 cosNsI·cosNsN·cosNI < 0 在任一个余弦贴近 0 时两边可能一边判正一边判负（各差一两个 ULP），这些组不比。
+  // 贴地那一支 dot(Ns, I) 没有舍入，只看另两个
+  entry('bump_shadowing_term', [['Ns', 'vec3f'], ['N', 'vec3f'], ['I', 'vec3f'], ['is_eval', 'f32'], ['is_diffuse', 'f32']], 1, 0, {
+    file: APACHE, gen: bumpGeom, branch: bumpBranch,
+    call: ([Ns, N, I, ev, di]) => `bump_shadowing_term(${Ns}, ${N}, ${I}, ${ev} != 0.0, ${di} != 0.0)`,
+    skip: (ref, test, i) => Math.min(Math.abs(dot3(at(i, 0), at(i, 3))), Math.abs(dot3(at(i, 3), at(i, 6)))) < 1e-5,
+  }),
 );
 
 // 三角形求交（util/math_intersect.h 的 ray_triangle_intersect，内核的软件求交用它）。输入不能只均匀取：要守的是公共边与
@@ -500,5 +719,178 @@ FUNCTIONS.push(
       }
     },
     call: a => `(ray_triangle_intersect(${a.slice(0, 7).join(', ')}).hit || ray_triangle_intersect(${a[0]}, ${a[1]}, ${a[2]}, ${a[3]}, ${a[6]}, ${a[5]}, ${a[7]}).hit)`,
+  }),
+);
+
+// 阴影射线的起点（照 Cycles 的 integrate_surface_ray_offset，kernel/integrator/shade_surface.h:42-93）与它用的 ray_offset
+// （kernel/bvh/util.h:70）、ray_triangle_intersect_self（util/math_intersect.h:252-276），来源都是 Apache-2.0 的文件。三项都比到
+// 逐位相同（rel 0；abs 取 1e-30 只为让报告按差值大小排出最差的组）：ray_offset 是对浮点数的位做整数加法，抬的是 256 个末位，
+// 相对 1e-4 的容差看不见它。
+//   ray_offset                    P 的分量按对数均匀取在 1e-6 到 1e4、正负各半，三成的分量落在 |P| < 1/32 那一支；Ng 是单位向量
+//   ray_triangle_intersect_self   起点在三角形所在的平面上（双精度里正好在面上，重心坐标取法同三角形求交的四类：uniform、edge、
+//                                 vertex），方向与法线夹角的余弦不小于 0.05，正反两面各半。射线与平面交在起点本身，判的就是起点的
+//                                 重心坐标是不是都在容差以内；起点贴着边（|最小重心坐标| < TRI_BAND·κ）而两边判得不同的组不比，
+//                                 理由同三角形求交（显卡可能合成 FMA，U、V、W 的末几位不同）
+//   integrate_surface_ray_offset  同上的起点与方向，加三角形的几何法线（单精度里由顶点算、正反各半）：自交测中就原样返回起点，
+//                                 测不中抬 ray_offset。不比的组同上
+const SELF_KINDS = ['uniform', 'edge', 'vertex'];
+function selfCase(next) {
+  const c = triCase(next, SELF_KINDS[Math.floor(next() * 3)]);
+  // 起点放到射线打向的目标点（在面上），方向随机翻到另一面
+  const P = selfTarget(c);
+  const side = next() < 0.5 ? 1 : -1;
+  const tri = [c.tri_a, c.tri_b, c.tri_c].map(v => v.map(Math.fround));
+  const n = norm3(crs(add(tri[1], tri[0], -1), add(tri[2], tri[0], -1)));
+  return { ray_P: P, ray_D: mul(c.ray_D, side), tri_a: tri[0], tri_b: tri[1], tri_c: tri[2], Ng: next() < 0.5 ? n : mul(n, -1) };
+}
+/** triCase 的射线打向的目标点：起点沿方向走到平面 */
+function selfTarget(c) {
+  const n = crs(add(c.tri_b, c.tri_a, -1), add(c.tri_c, c.tri_a, -1));
+  return add(c.ray_P, c.ray_D, dot3(add(c.tri_a, c.ray_P, -1), n) / dot3(c.ray_D, n));
+}
+/** 起点（在面上）的重心坐标里最小的那个与条件数 κ（同 triCond）。P、A、B、C 的偏移见各项的输入次序 */
+function selfCond(P, A, B, C) {
+  const e1 = add(B, A, -1), e2 = add(C, A, -1), n = crs(e1, e2), nn = dot3(n, n), X = add(P, A, -1);
+  const b1 = dot3(crs(X, e2), n) / nn, b2 = dot3(crs(e1, X), n) / nn;
+  const size = Math.max(...[e1, e2, add(C, B, -1)].map(e => Math.hypot(...e)));
+  return { mb: Math.min(1 - b1 - b2, b1, b2), kappa: Math.max(size, Math.hypot(...P)) / size };
+}
+const selfBranch = mb => (Math.abs(mb) < 1e-5 ? '贴边或贴顶点' : mb < 0 ? '三角形外' : '三角形内');
+const EXACT = 1e-30;
+const exact = (name, inputs, out, more) => ({ ...entry(name, inputs, out, EXACT, { file: APACHE, ...more }), rel: 0 });
+const SELF_IN = [['ray_P', 'vec3f'], ['ray_D', 'vec3f'], ['tri_a', 'vec3f'], ['tri_b', 'vec3f'], ['tri_c', 'vec3f']];
+FUNCTIONS.push(
+  exact('ray_offset', [['P', 'vec3f'], ['Ng', 'vec3f']], 3, {
+    gen: next => ({ P: [0, 1, 2].map(() => (next() < 0.5 ? -1 : 1) * (next() < 0.3 ? logU(next, [1e-6, 1 / 32]) : logU(next, [1 / 32, 1e4]))), Ng: unit(next) }),
+    branch: i => `${[0, 1, 2].filter(k => Math.abs(i[k]) < 1 / 32).length} 个分量小于 1/32`,
+  }),
+  exact('ray_triangle_intersect_self', SELF_IN, 1, {
+    gen: selfCase,
+    branch: i => selfBranch(selfCond(at(i, 0), at(i, 6), at(i, 9), at(i, 12)).mb),
+    skip: (ref, test, i) => { const { mb, kappa } = selfCond(at(i, 0), at(i, 6), at(i, 9), at(i, 12)); return ref[0] !== test[0] && Math.abs(mb) < TRI_BAND * kappa; },
+  }),
+  exact('integrate_surface_ray_offset', [['ray_P', 'vec3f'], ['ray_D', 'vec3f'], ['Ng', 'vec3f'], ['tri_a', 'vec3f'], ['tri_b', 'vec3f'], ['tri_c', 'vec3f']], 3, {
+    file: LIGHT, gen: selfCase,
+    call: a => `integrate_surface_ray_offset(${a[0]}, ${a[2]}, ${a[0]}, ${a[1]}, ${a[3]}, ${a[4]}, ${a[5]})`,
+    branch: i => selfBranch(selfCond(at(i, 0), at(i, 9), at(i, 12), at(i, 15)).mb),
+    skip: (ref, test, i) => { const { mb, kappa } = selfCond(at(i, 0), at(i, 9), at(i, 12), at(i, 15)); return ref.some((x, k) => x !== test[k]) && Math.abs(mb) < TRI_BAND * kappa; },
+  }),
+);
+
+// 下面是点光、平行光的采样与求交后的求值（kernel/light/point.h 不是球形的那一条路、kernel/light/sun.h），与阴影射线避开明暗交界线的
+// 起点偏移（kernel/light/sample.h 的 shadow_ray_offset、shadow_ray_smooth_surface_offset），来源都是 Apache-2.0 的文件。
+// 几何量彼此相关，用 gen 逐组生成，全部用双精度算完再存成 float32。
+const unit = next => { const z = 2 * next() - 1, phi = 2 * Math.PI * next(), r = Math.sqrt(1 - z * z); return [r * Math.cos(phi), r * Math.sin(phi), z]; };
+const norm3 = v => mul(v, 1 / Math.hypot(...v));
+/** v 绕一个与它正交的随机轴转 theta 弧度（v 是单位向量） */
+function turn(next, v, theta) {
+  const a = norm3(crs(v, Math.abs(v[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0])), b = crs(v, a), phi = 2 * Math.PI * next();
+  return add(mul(v, Math.cos(theta)), add(mul(a, Math.cos(phi)), b, Math.sin(phi)), Math.sin(theta));
+}
+const F32_MAX = 3.4028234663852886e38;
+/** 点光：灯心 co 在 [-2, 2]³，着色点离它 0.1 到 10（对数均匀）；半径一半是 0（灯心那一支，内核里场景包的点光都是这一支），一半取
+ *  0.01% 到一半距离（圆盘那一支）；eval_fac 对数均匀取在 1e-3 到 1。距离不取到 0.1 以下：方向 D = (灯上一点 − P)/t 是两个量级到 4 的
+ *  坐标相减，灯上那一点（灯心加圆盘上的偏移）在 float32 里差一个 ULP(4)，方向就差 ULP(4)/t；【实测】100 万组里距离 0.014 时
+ *  方向分量差 8.6e-6（相对 2e-4）。这是 Cycles 原式在 float32 下的病态，不是移植的差别 */
+function pointGeom(next) {
+  const co = [linU(next, [-2, 2]), linU(next, [-2, 2]), linU(next, [-2, 2])], d = logU(next, [0.1, 10]);
+  const radius = next() < 0.5 ? 0 : d * logU(next, [1e-4, 0.5]);
+  return { co, radius, d, P: add(co, unit(next), d), eval_fac: logU(next, [1e-3, 1]) };
+}
+// 平行光张角的病态带：vector_angle 的 len(a − b) 在两个单位向量很近时是 float32 分量相减抵消出来的，相对误差约 ULP(1)/角度；
+// 张角 1e-4 弧度时到 1e-3。fast_atan2f 里「压掉非规格化数」的 1 − (1 − k) 把角度按 ULP(1) 一档档取整（约 1.2e-7 弧度）：
+// 【实测】标准答案一侧照原式取整，显卡一侧编译器把它化简成 k，两边在边界附近差到 1e-7。离张角边界不到 2e-3 倍张角（再加 1e-6）
+// 的方向不比（两边可能一边判在盘里一边判在外面）。边界用双精度里的夹角 2·atan2(|a − b|, |a + b|) 量（acos 在 1 附近病态）
+const SUN_EDGE = (angle, theta) => Math.abs(theta - angle) < 2e-3 * angle + 1e-6;
+const sunTheta = i => { const a = mul(at(i, 0), -1 / Math.hypot(...at(i, 0))), b = mul(at(i, 6), 1 / Math.hypot(...at(i, 6))); return 2 * Math.atan2(Math.hypot(...add(a, b, -1)), Math.hypot(...add(a, b))); };
+/** Cycles 的角法线压缩码（util/types_normal.h）：编码只用来取一个码（双精度近似即可），解码照处理器上 SIMD 版
+ *  （packed_normal_decode_simd）逐步舍入，标准答案程序拿码解出来的法线与这里的逐位相同 */
+function encodeNormal(n) {
+  const l1 = Math.abs(n[0]) + Math.abs(n[1]) + Math.abs(n[2]) + 1e-6;
+  let vx = n[0] / l1, vy = n[1] / l1;
+  if (n[2] < 0) [vx, vy] = [(1 - Math.abs(vy)) * Math.sign(vx || 1), (1 - Math.abs(vx)) * Math.sign(vy || 1)];
+  const q = v => Math.min(Math.max(Math.trunc(v * 32767.5 + 32768), 0), 65535);
+  return [q(vx), q(vy)];
+}
+function decodeNormal([dx, dy]) {
+  const f = Math.fround, inv = f(2 / 65535);
+  let nx = f(f(dx * inv) - 1), ny = f(f(dy * inv) - 1);
+  const nz = f(f(1 - Math.abs(nx)) - Math.abs(ny)), t = Math.max(-nz, 0);
+  nx = nx > 0 ? f(nx - t) : f(nx + t);
+  ny = ny > 0 ? f(ny - t) : f(ny + t);
+  const il = f(1 / f(Math.sqrt(f(f(f(nx * nx) + f(ny * ny)) + f(nz * nz)))));
+  return [f(nx * il), f(ny * il), f(nz * il)];
+}
+/** 光滑网格上的一个三角形：三个顶点在半径 R（0.3 到 3）的球面上、彼此张开 0.01 到 0.3 弧度；角法线是球面法线（五分之一的组再随机
+ *  偏开至多 0.2 弧度），压缩成码再照 Cycles 解码；着色点在三角形里均匀取；四分之一的组打在背面（Ng 与插值出来的 N 一起翻）。
+ *  L 六成取在明暗交界线附近（与 N 的夹角余弦在 −0.2 到 0.3），其余在整个球面上均匀取；cutoff 七成取 Blender 的默认 0.1，
+ *  一成半在 0.01 到 0.5 里对数均匀，一成半是 0（不挪）。全部用双精度算完再存成 float32（顶点先存，P、N、Ng 由存过的顶点算） */
+function smoothGeom(next) {
+  const f3 = v => v.map(Math.fround);
+  const c = [linU(next, [-1, 1]), linU(next, [-1, 1]), linU(next, [-1, 1])], R = logU(next, [0.3, 3]), base = unit(next), s = logU(next, [0.01, 0.3]);
+  const dirs = [0, 1, 2].map(k => turn(next, base, s * linU(next, [0.5, 1]) + 1e-3 * k));
+  const V = dirs.map(d => f3(add(c, d, R)));
+  const bend = next() < 0.2;
+  const codes = dirs.map(d => encodeNormal(bend ? turn(next, d, linU(next, [0, 0.2])) : d));
+  const N = codes.map(decodeNormal);
+  let u = next(), v = next();
+  if (u + v > 1) [u, v] = [1 - u, 1 - v];
+  [u, v] = [Math.fround(u), Math.fround(v)];
+  const w = 1 - u - v, P = f3(add(add(mul(V[0], w), V[1], u), V[2], v));
+  let Ng = norm3(crs(add(V[1], V[0], -1), add(V[2], V[0], -1)));
+  if (dot3(Ng, base) < 0) Ng = mul(Ng, -1);
+  let Ns = norm3(add(add(mul(N[0], w), N[1], u), N[2], v));
+  if (next() < 0.25) [Ng, Ns] = [mul(Ng, -1), mul(Ns, -1)];
+  const L = next() < 0.6 ? turn(next, Ns, Math.acos(linU(next, [-0.2, 0.3]))) : unit(next);
+  const r = next(), cutoff = r < 0.7 ? 0.1 : r < 0.85 ? logU(next, [0.01, 0.5]) : 0;
+  return { V0: V[0], V1: V[1], V2: V[2], N0: N[0], N1: N[1], N2: N[2], codes: codes.flat(), u, v, P, N: f3(Ns), Ng: f3(Ng), L, cutoff };
+}
+const TRI_V = [['V0', 'vec3f'], ['V1', 'vec3f'], ['V2', 'vec3f'], ['N0', 'vec3f'], ['N1', 'vec3f'], ['N2', 'vec3f']];
+const CODES = [['c0x', 'f32'], ['c0y', 'f32'], ['c1x', 'f32'], ['c1y', 'f32'], ['c2x', 'f32'], ['c2y', 'f32']];
+const withCodes = g => ({ ...g, c0x: g.codes[0], c0y: g.codes[1], c1x: g.codes[2], c1y: g.codes[3], c2x: g.codes[4], c2y: g.codes[5] });
+FUNCTIONS.push(
+  // 采样点、方向的分量是量级到 7 的数相减（圆盘那一支还带显卡 cos、sin 约 2e-7 的绝对误差乘半径），abs 给在分量上
+  light('point_light_sample', [['co', 'vec3f'], ['radius', 'f32'], ['eval_fac', 'f32'], ['rand', 'vec2f'], ['P', 'vec3f']], { P: 3, Ng: 3, t: 1, D: 3, pdf: 1, eval_fac: 1 }, 32 * ULP1, {
+    gen: next => ({ ...pointGeom(next), rand: [next(), next()] }),
+    branch: i => (i[3] > 0 ? '圆盘' : '灯心'),
+  }),
+  // 射线打向圆盘上的一点（半径 0 的组打向灯心），一成的组 t 是 FLT_MAX（Cycles 不算密度那一支）
+  light('point_light_eval_from_intersection', [['ray_P', 'vec3f'], ['ray_D', 'vec3f'], ['t', 'f32'], ['co', 'vec3f'], ['radius', 'f32'], ['eval_fac', 'f32']], { eval_fac: 1, pdf: 1 }, 0, {
+    gen: next => {
+      const g = pointGeom(next), lightN = norm3(add(g.P, g.co, -1)), a = norm3(crs(lightN, Math.abs(lightN[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0])), b = crs(lightN, a);
+      const rr = g.radius * Math.sqrt(next()), phi = 2 * Math.PI * next(), Q = add(add(g.co, a, rr * Math.cos(phi)), b, rr * Math.sin(phi));
+      const d = add(Q, g.P, -1), t = Math.hypot(...d);
+      return { ray_P: g.P, ray_D: mul(d, 1 / t), t: next() < 0.1 ? F32_MAX : t, co: g.co, radius: g.radius, eval_fac: g.eval_fac };
+    },
+    branch: i => (i[6] > 1e38 ? 't 是 FLT_MAX' : i[10] > 0 ? '圆盘' : '灯心'),
+  }),
+  // 1 − cos 半角：一成半是 0（张角 0：锥退化成一个方向），其余在 1e-6 到 1 里对数均匀（半角约 0.08° 到 90°）。方向分量量级 1，
+  // 圆盘采样的 cos、sin 误差乘上 √(2·one_minus_cosangle)
+  light('sun_light_sample', [['co', 'vec3f'], ['one_minus_cosangle', 'f32'], ['eval_fac', 'f32'], ['rand', 'vec2f']], { P: 3, Ng: 3, t: 1, D: 3, pdf: 1, eval_fac: 1 }, 32 * ULP1, {
+    gen: next => ({ co: unit(next), one_minus_cosangle: next() < 0.15 ? 0 : logU(next, [1e-6, 1]), eval_fac: logU(next, [1e-3, 1]), rand: [next(), next()] }),
+    branch: i => (i[3] > 0 ? '锥' : '张角 0'),
+  }),
+  // 半角一成是 0，其余在 1e-4 到 1.5 弧度里对数均匀；方向是 −co 转开 0 到 2 倍半角。离边界太近的不比（SUN_EDGE）
+  light('sun_light_eval_from_intersection', [['co', 'vec3f'], ['angle', 'f32'], ['eval_fac', 'f32'], ['pdf', 'f32'], ['ray_D', 'vec3f']], { eval_fac: 1, pdf: 1 }, 0, {
+    gen: next => {
+      const co = unit(next), angle = next() < 0.1 ? 0 : logU(next, [1e-4, 1.5]), theta = angle * linU(next, [0, 2]);
+      return { co, angle, eval_fac: logU(next, [1e-3, 1]), pdf: logU(next, [1e-3, 1e5]), ray_D: turn(next, mul(co, -1), theta) };
+    },
+    branch: i => (i[3] === 0 ? '张角 0' : sunTheta(i) > i[3] ? '盘外' : '盘里'),
+    skip: (ref, test, i) => i[3] > 0 && SUN_EDGE(i[3], sunTheta(i)),
+  }),
+  // 偏移 n·h：h 是顶点差与角法线差的点积组合，量级到 R·s² ≈ 0.3；顶点坐标量级到 4，差的舍入约 ULP(4)，abs 给在分量上
+  light('shadow_ray_smooth_surface_offset', [...TRI_V, ...CODES, ['u', 'f32'], ['v', 'f32'], ['Ng', 'vec3f']], 3, 32 * 4 * ULP1, {
+    gen: next => { const g = withCodes(smoothGeom(next)); return { ...g, Ng: next() < 0.5 ? g.Ng : mul(g.Ng, -1) }; },
+    call: a => `shadow_ray_smooth_surface_offset(${[...a.slice(0, 6), a[12], a[13], a[14]].join(', ')})`,
+    branch: i => (dot3(add(add(mul(at(i, 9), 1 - i[24] - i[25]), at(i, 12), i[24]), at(i, 15), i[25]), at(i, 26)) > 0 ? '法线同侧' : '法线翻过'),
+  }),
+  // 挪过的起点 = sd.P + 偏移·挪的份额；sd.P 量级到 4。L 贴着 N 或 Ng 的面（余弦不到 1e-5）的组不比：transmit 与 skip_self 两个判断
+  // 在那里两边可能一边判正一边判负
+  light('shadow_ray_offset', [['sd_P', 'vec3f'], ['sd_N', 'vec3f'], ['sd_Ng', 'vec3f'], ['L', 'vec3f'], ['cutoff', 'f32'], ...TRI_V, ...CODES, ['u', 'f32'], ['v', 'f32']], { P: 3, skip_self: 1 }, 32 * 4 * ULP1, {
+    gen: next => { const g = withCodes(smoothGeom(next)); return { ...g, sd_P: g.P, sd_N: g.N, sd_Ng: g.Ng }; },
+    call: a => `shadow_ray_offset(${a[0]}, ${a[1]}, ${a[2]}, ${a[3]}, true, ${a[4]}, ${a.slice(5, 11).join(', ')}, ${a[17]}, ${a[18]})`,
+    branch: i => { const NL = dot3(at(i, 3), at(i, 9)); return i[12] === 0 ? '不挪（cutoff 0）' : Math.abs(NL) < i[12] ? '贴着明暗交界线' : '离交界线远'; },
+    skip: (ref, test, i) => Math.abs(dot3(at(i, 3), at(i, 9))) < 1e-5 || Math.abs(dot3(at(i, 6), at(i, 9))) < 1e-5,
   }),
 );

@@ -342,7 +342,9 @@ export function welchTest(groupA, groupB, options = {}) {
   const bins = option('bins', 20);
   const histogramAlpha = option('histogramAlpha', 0.001);
   const channel = option('channel', 'luma');
+  const equivalence = option('equivalence', 0);
   check([alpha, histogramAlpha].every(v => typeof v === 'number' && v > 0 && v < 1), 'alpha 与 histogramAlpha 须在 (0, 1) 内');
+  check(typeof equivalence === 'number' && equivalence >= 0 && equivalence < 1, 'equivalence 须在 [0, 1) 内');
   check(Number.isInteger(blockSize) && blockSize >= 1, 'blockSize 须为正整数');
   check(Number.isInteger(bins) && bins >= 1 && bins <= 10000, 'bins 须为 1 到 10000 的整数');
   // 快照：数据槽位直接用入口记下的值，带 getter 的槽位这时才读、只读一次，读完立刻复查（它可能改了任何一边）。
@@ -379,6 +381,7 @@ export function welchTest(groupA, groupB, options = {}) {
   const samples = new Float64Array(2 * k); // 一个单元的 2K 个样本：前 K 个是 A，后 K 个是 B 取负
   const centered = new Float64Array(k);
   const guardBits = Math.ceil(Math.log2(2 * k)) + 1;
+  let equivalentUnits = 0;
   for (let j = 0; j < totalUnits; j++) {
     let maxAbs = 0;
     for (let i = 0; i < k; i++) {
@@ -396,6 +399,22 @@ export function welchTest(groupA, groupB, options = {}) {
     }
     const sum = exactSum(samples, 2 * k);
     if (!guard) biasMap[j] = exactQuotient(sum, samples, 2 * k, k);
+    // 等价下限：均值差不超过 equivalence 乘较大一边的均值绝对值，就算数值上相等，不参检（与无噪声的相等单元同样处理）。
+    // 被比的两边是单精度渲染器：运算次序、乘加融合不同，近乎无噪声的块会差零点几个末位，t 检验分不出这是舍入还是偏差。
+    // 差恰好是 0 的单元照旧走下面的路（无噪声的记不参检，有噪声的照常检验），等价下限只管不为 0 的差。
+    if (equivalence > 0 && sum !== 0) {
+      let sa = 0;
+      let sb = 0;
+      for (let i = 0; i < k; i++) {
+        sa += samples[i];
+        sb -= samples[k + i];
+      }
+      const scale = scale2(Math.max(Math.abs(sa), Math.abs(sb)) / k, guard);
+      if (Math.abs(biasMap[j]) <= equivalence * scale) {
+        equivalentUnits++;
+        continue;
+      }
+    }
     // 每组减去组内最小值，样本变成非负的离差（两个相近的数相减没有舍入）。离差全为 0 才是零方差：
     // Welford 这类边读边更新的算法会把 1 与 1 + 2^-52 的中点舍到端点上，算出假的零方差，结果还随种子次序变。
     const spreads = [0, k].map(start => {
@@ -455,8 +474,8 @@ export function welchTest(groupA, groupB, options = {}) {
   const flat = lowTailP >= histogramAlpha;
   const significantRatio = tested.length ? bh.significantCount / tested.length : 0;
   return {
-    alpha, blockSize, kA: k, kB: k, gridSize: [grid.gw, grid.gh],
-    totalUnits, testedUnits: tested.length, deterministicUnits: totalUnits - tested.length,
+    alpha, blockSize, equivalence, kA: k, kB: k, gridSize: [grid.gw, grid.gh],
+    totalUnits, testedUnits: tested.length, deterministicUnits: totalUnits - tested.length - equivalentUnits, equivalentUnits,
     significantCount: bh.significantCount, significantRatio,
     rawSignificantRatio: tested.length ? rawSignificant / tested.length : 0,
     pHistogram: { bins, counts, effectiveAlpha, lowTailP, flat },

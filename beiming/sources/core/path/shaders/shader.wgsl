@@ -8,8 +8,8 @@
 // （许可全文见仓库根的 LICENSES/Apache-2.0.txt）：
 //   着色点标志 SD_BACKFACING 的名字与数值，着色点与闭包的字段名（ShaderData、ShaderClosure）：kernel/types.h
 //   闭包种类 CLOSURE_* 的名字（数值是这里自己的）：kernel/svm/types.h（ClosureType，去掉 _ID 后缀）
-//   shader_setup_closures 里原理化 BSDF 建金属、电介质高光、漫反射三个闭包的次序与权重：kernel/svm/closure.h
-//   （svm_node_closure_bsdf 的 CLOSURE_BSDF_PRINCIPLED_ID 分支），照原式重写
+//   shader_setup_closures 里原理化 BSDF 建金属、电介质高光、漫反射三个闭包的次序与权重，金属与电介质高光取 valid_reflection_N：
+//   kernel/svm/closure.h（svm_node_closure_bsdf 的 CLOSURE_BSDF_PRINCIPLED_ID 分支），照原式重写
 // 菲涅耳种类 FRESNEL_* 的名字与次序取自 kernel/closure/bsdf_microfacet.h 的 enum MicrofacetFresnel，那个文件是 BSD-3-Clause
 // （版权人 Sony Pictures Imageworks Inc. 等与 Blender Foundation，许可全文见仓库根的 LICENSES/BSD-3-Clause.txt）。
 // ------------------------------------------------------------------------------------------------
@@ -80,7 +80,7 @@ struct ShadingLegacy { surface: Surface, lobes: Lobes };
 // 着色点：一次命中上的几何量与闭包。照 Cycles 的 ShaderData 取子集。
 struct ShadingPoint {
     P: vec3<f32>,                   // 位置（世界空间）。已落地
-    N: vec3<f32>,                   // 插值后的平滑法线，打在背面时与 Ng 一起翻向来路；不含法线贴图、不含倒角。已写未读
+    N: vec3<f32>,                   // 插值后的平滑法线，打在背面时与 Ng 一起翻向来路；不含法线贴图、不含倒角。已落地（凹凸阴影项读）
                                     // （扰动后的法线在 ShaderInputs.N 与各闭包的 N 里；上游顶替用它自己的 legacy.surface.n）
     Ng: vec3<f32>,                  // 几何法线，翻向来路。已落地
     wi: vec3<f32>,                  // 指向来路的方向。已落地
@@ -93,6 +93,8 @@ struct ShadingPoint {
     object_flag: u32,               // 物体标志，位照 Cycles（第 3 位：物体是镜像的）。已定义
     time: f32,                      // 这条光线的时刻。已定义，恒 0
     lcg_state: u32,                 // 局部求交随机取子集用的小随机数状态。已定义
+    inst: u32,                      // 放置这个三角形的实例记录（NO_INST：没经实例，三角形本身就在世界空间；过程几何也记 NO_INST）。
+                                    // 已落地（阴影射线的起点偏移取世界空间的顶点与顶点法线，light.wgsl 的 shadow_tri）
     emission: vec3<f32>,            // 这个点的自发光，单独一个量，不占闭包。已落地
     num_closure: u32,               // 闭包个数。0：只发光、不散射，路径到这里结束。已落地
     closure: array<Closure, MAX_CLOSURE>,
@@ -123,6 +125,10 @@ struct ShaderInputs {
 // 第一步：填着色点的几何量。不读材质。`sd` 要是刚取的零值（`var sd = ShadingPoint();`）。
 // 往指针里填、不按值返回：试过返回整个着色点，苹果显卡上编译出来的运算次序会变，像素末位不同。
 // 背面的判法沿用上游：几何法线与光线方向的点积不小于 0 就算背面（恰好垂直时 Cycles 算正面，这里算背面）。
+// 三角形上的着色点照 Cycles 的 triangle_point_from_uv（kernel/geom/triangle_intersect.h:123-143）用重心坐标重建：
+// tri_a + u·(tri_b − tri_a) + v·(tri_c − tri_a)，在顶点所在的空间里算，硬件求交的模型实例再乘实例的物体变换（Cycles 没把变换
+// 烘进几何的物体同样如此）。点落在自己的三角形上，阴影射线的自交测试（integrate_surface_ray_offset 的「测中不抬」）以此为前提；
+// 继续弹射的射线起点跟着变。过程几何照旧取 o + d·t
 fn shader_setup_from_hit(sd: ptr<function, ShadingPoint>, o: vec3<f32>, d: vec3<f32>, h: Hit) {
     (*sd).P = o + d * h.t;
     (*sd).wi = -d;
@@ -143,17 +149,22 @@ fn shader_setup_from_hit(sd: ptr<function, ShadingPoint>, o: vec3<f32>, d: vec3<
         var e1 = tri_verts[i * 3u + 1u].xyz - v0;
         var e2 = tri_verts[i * 3u + 2u].xyz - v0;
         var a = attrs[i];
+        var p = v0 + h.u * e1 + h.v * e2;
         if (has(F_INST) && h.inst != NO_INST) {
             let r = instance_at(h.inst);
+            p = inst_vec(r, p) + vec3<f32>(r.m0.w, r.m1.w, r.m2.w);
             e1 = inst_vec(r, e1);
             e2 = inst_vec(r, e2);
             a = inst_attr(r, a);
         }
+        (*sd).P = p;
         let w = 1.0 - h.u - h.v;
         ng = normalize(cross(e1, e2));
-        n = normalize(a.n0.xyz * w + a.n1.xyz * h.u + a.n2.xyz * h.v);
+        // 着色法线不用内建 normalize：它在显卡上偏向一边，经 GGX 的 1 − cos_NH² 放大（util.wgsl 的 normalize_unbiased）
+        n = normalize_unbiased(a.n0.xyz * w + a.n1.xyz * h.u + a.n2.xyz * h.v);
         (*sd).object = object_of(a);
     }
+    (*sd).inst = select(NO_INST, h.inst, !is_proc(h) && has(F_INST));
     if (!(dot(ng, d) < 0.0)) {
         (*sd).flag |= SD_BACKFACING;
         ng = -ng;
@@ -189,8 +200,11 @@ fn shader_eval_inputs(sd: ptr<function, ShadingPoint>, o: vec3<f32>, d: vec3<f32
 // 微表面的 alpha 取粗糙度的平方（ShaderInputs.roughness 已夹在 0 到 1），不带上游的 0.02 下限：粗糙度为 0 时是奇异的一瓣，
 // 积分主循环按 Cycles 的做法处理（integrator.wgsl 里 through 的那个判断）。能量补偿（Cycles 的多重散射 GGX）读材质记录
 // flags 的 MATERIAL_FLAG_MULTISCATTER（上传前按全局开关 energyCompensation 统一写的）。
+// 金属与电介质高光的法线照 Cycles 取 valid_reflection_N（maybe_ensure_valid_specular_reflection：着色法线让镜面反射方向
+// 落到几何面以下时往几何法线拧；它只在材质带凹凸校正标志时生效，而这个标志 Blender 默认开着，场景包里又没有这个参数，
+// 所以视为开），漫反射用原来的 N。
 // 没有移的（这条路上都不出现，或这里没有）：发光被光泽与清漆衰减的那一步（principled_bsdf_emission：没有清漆与光泽，
-// 衰减是 1）、maybe_ensure_valid_specular_reflection（只在着色器带凹凸校正标志时才改法线）、各向异性的切线。
+// 衰减是 1）、各向异性的切线。
 // 把闭包放进第 n 格。下标写成常数：按变量下标往着色点的闭包数组里写，苹果显卡上整个着色点会被挪到内存里，
 // 有 24 盏灯的计时场景稳态慢了几倍（实测）
 fn closure_store(sd: ptr<function, ShadingPoint>, n: u32, c: Closure) {
@@ -218,6 +232,8 @@ fn shader_setup_closures(sd: ptr<function, ShadingPoint>, inputs: ShaderInputs) 
     }
     let N = inputs.N;
     let wi = (*sd).wi;
+    // 金属与电介质高光用拧过的法线（反射方向不落到几何面以下），漫反射用原来的 N：照 Cycles 的 valid_reflection_N
+    let valid_reflection_N = maybe_ensure_valid_specular_reflection((*sd).Ng, wi, N);
     let preserve = (inputs.flags & MATERIAL_FLAG_MULTISCATTER) != 0u;
     let alpha = saturate(roughness_to_alpha(inputs.roughness));
     var weight = vec3<f32>(1.0);
@@ -229,15 +245,15 @@ fn shader_setup_closures(sd: ptr<function, ShadingPoint>, inputs: ShaderInputs) 
         c.sample_weight = closure_sample_weight(c.weight);
         if (c.sample_weight > 0.0) {
             c.kind = CLOSURE_BSDF_MICROFACET_GGX;
-            c.N = N;
+            c.N = valid_reflection_N;
             c.alpha_x = alpha;
             c.alpha_y = alpha;
             c.ior = 1.0;
             c.fresnel_type = FRESNEL_F82_TINT;
             c.f0 = min(inputs.base_color, vec3<f32>(1.0));
-            let f = bsdf_microfacet_setup_fresnel_f82_tint(N, wi, alpha, c.f0, min(inputs.specular_tint, vec3<f32>(1.0)), preserve);
+            let f = bsdf_microfacet_setup_fresnel_f82_tint(valid_reflection_N, wi, alpha, c.f0, min(inputs.specular_tint, vec3<f32>(1.0)), preserve);
             c.f90_or_b = f.b;
-            c.sample_weight *= average(bsdf_microfacet_estimate_albedo_f82_tint(N, wi, alpha, c.f0, true));
+            c.sample_weight *= average(bsdf_microfacet_estimate_albedo_f82_tint(valid_reflection_N, wi, alpha, c.f0, true));
             c.energy_scale = f.energy_scale;
             if (preserve) {
                 c.weight *= f.weight;
@@ -256,7 +272,7 @@ fn shader_setup_closures(sd: ptr<function, ShadingPoint>, inputs: ShaderInputs) 
         c.sample_weight = closure_sample_weight(c.weight);
         if (c.sample_weight > 0.0) {
             c.kind = CLOSURE_BSDF_MICROFACET_GGX;
-            c.N = N;
+            c.N = valid_reflection_N;
             c.alpha_x = alpha;
             c.alpha_y = alpha;
             c.ior = fe.y;
@@ -265,9 +281,9 @@ fn shader_setup_closures(sd: ptr<function, ShadingPoint>, inputs: ShaderInputs) 
             c.exponent = -fe.y;
             c.reflection_tint = vec3<f32>(1.0);
             c.transmission_tint = vec3<f32>(0.0);
-            let g = bsdf_microfacet_setup_fresnel_generalized_schlick(N, wi, alpha, c.ior, fe.x * inputs.specular_tint, c.f90_or_b, c.exponent, c.reflection_tint, c.transmission_tint, preserve);
+            let g = bsdf_microfacet_setup_fresnel_generalized_schlick(valid_reflection_N, wi, alpha, c.ior, fe.x * inputs.specular_tint, c.f90_or_b, c.exponent, c.reflection_tint, c.transmission_tint, preserve);
             c.f0 = g.f0;
-            c.sample_weight *= average(bsdf_microfacet_estimate_albedo_generalized_schlick(N, wi, alpha, c.ior, c.f0, c.f90_or_b, c.exponent, c.reflection_tint, c.transmission_tint, true, true));
+            c.sample_weight *= average(bsdf_microfacet_estimate_albedo_generalized_schlick(valid_reflection_N, wi, alpha, c.ior, c.f0, c.f90_or_b, c.exponent, c.reflection_tint, c.transmission_tint, true, true));
             c.energy_scale = g.energy_scale;
             if (preserve) {
                 c.weight *= g.weight;
@@ -415,7 +431,7 @@ fn msample_color(m: Material, i: MatIn, slot: u32, uv: vec2<f32>, uv_per_m: f32)
 fn tangent_normal(i: MatIn, tn: vec3<f32>) -> vec3<f32> {
     let w = i.t * tn.x + i.b * tn.y + i.n * tn.z;
     if (dot(w, w) < 1e-12) { return i.n; }
-    let nn = normalize(w);
+    let nn = normalize_unbiased(w);
     return select(i.n, nn, dot(nn, i.ng) > 0.0);
 }
 
@@ -449,7 +465,7 @@ fn mat_in_at(ti: u32, u: f32, v: f32, view: vec3<f32>, lod: f32) -> MatIn {
     let e2 = tri_verts[ti * 3u + 2u].xyz - v0;
     let p = v0 + e1 * u + e2 * v;
     let ng = normalize(cross(e1, e2));
-    var n = normalize(a.n0.xyz * w + a.n1.xyz * u + a.n2.xyz * v);
+    var n = normalize_unbiased(a.n0.xyz * w + a.n1.xyz * u + a.n2.xyz * v);
     let t = normalize(a.t.xyz - n * dot(n, a.t.xyz) + vec3<f32>(1e-9));
     let oi = object_of(a);
     return MatIn(p, n, ng, t, cross(n, t) * a.t.w, mesh_uv(a, m, u, v), mesh_lod(a, m), view, object_at(oi * OBJECT_STRIDE).xyz, object_at(oi * OBJECT_STRIDE + 1u).xyz,
@@ -549,7 +565,8 @@ fn surface(o: vec3<f32>, d: vec3<f32>, h: Hit, width: f32) -> SurfaceEval {
     }
     let w = 1.0 - h.u - h.v;
     var ng = normalize(cross(e1, e2));
-    var n = normalize(a.n0.xyz * w + a.n1.xyz * h.u + a.n2.xyz * h.v);
+    // 着色法线不用内建 normalize：它在显卡上偏向一边，经 GGX 的 1 − cos_NH² 放大（util.wgsl 的 normalize_unbiased）
+    var n = normalize_unbiased(a.n0.xyz * w + a.n1.xyz * h.u + a.n2.xyz * h.v);
     let mi = bitcast<u32>(a.uv.w);
     let m = material_at(mi);
     let front = dot(ng, d) < 0.0;
@@ -594,13 +611,13 @@ fn surface(o: vec3<f32>, d: vec3<f32>, h: Hit, width: f32) -> SurfaceEval {
             let t = normalize(tp);
             let b = cross(n, t) * a.t.w;
             let pn = t * (tn.x * m.params.w) + b * (tn.y * m.params.w) + n * tn.z;
-            if (dot(pn, pn) > 1e-12 && dot(pn, ng) > 0.0) { n = normalize(pn); }
+            if (dot(pn, pn) > 1e-12 && dot(pn, ng) > 0.0) { n = normalize_unbiased(pn); }
         }
     }
     if (has(F_FUNC) && m.tex1.w > 0) {
         let oi = object_of(a);
         var t = normalize(a.t.xyz - n * dot(n, a.t.xyz) + vec3<f32>(1e-9));
-        let nv = normalize(a.n0.xyz * w + a.n1.xyz * h.u + a.n2.xyz * h.v) * select(-1.0, 1.0, front || dot(a.n0.xyz, ng) > 0.0);
+        let nv = normalize_unbiased(a.n0.xyz * w + a.n1.xyz * h.u + a.n2.xyz * h.v) * select(-1.0, 1.0, front || dot(a.n0.xyz, ng) > 0.0);
         let i = MatIn(p, select(-nv, nv, dot(nv, ng) >= 0.0), ng, t, cross(n, t) * a.t.w, mesh_uv(a, m, h.u, h.v), mesh_lod(a, m), -d,
                       object_at(oi * OBJECT_STRIDE).xyz, object_at(oi * OBJECT_STRIDE + 1u).xyz, P.time.x, P.time.y, P.time.z,
                       log2(max(width, 1e-7)) - 0.5 * log2(max(abs(dot(ng, d)), 1e-3)), state.bounce, object_at(oi * OBJECT_STRIDE).w, near,

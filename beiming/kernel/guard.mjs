@@ -14,6 +14,8 @@ const pendingCoreImports = new Map([
   ['beiming/sources/core/chassis/freeze.mjs', '../../../../tools/lib/cli.mjs'],
   ['beiming/sources/core/chassis/imaging.mjs', '../../../../tools/lib/cli.mjs'],
   ['beiming/sources/core/chassis/level2.mjs', '../../../../tools/lib/cli.mjs'],
+  ['beiming/sources/core/chassis/level3.mjs', '../../../../tools/lib/cli.mjs'],
+  ['beiming/sources/core/chassis/level4.mjs', '../../../../tools/lib/cli.mjs'],
   ['beiming/sources/core/chassis/regress.mjs', '../../../../tools/lib/cli.mjs'],
   ['beiming/sources/core/fncheck/run.mjs', '../../../../tools/lib/cli.mjs'],
   ['beiming/sources/core/fncheck/gpu.mjs', '../../../../engine/render/lib/gpu.mjs'],

@@ -240,7 +240,8 @@ fn bsdf_microfacet_eval_ggx(N: vec3f, wi: vec3f, wo: vec3f, alpha: f32, f0: vec3
   }
 
   var H = wi + wo;
-  let inv_len_H = safe_divide(1.0, len_ccl(H));
+  // 1/|H| 不照原式写成 safe_divide(1.0, len_ccl(H))：理由见 util.wgsl 的 inverse_len
+  let inv_len_H = inverse_len(H);
   H *= inv_len_H;
 
   let cos_HI = dot(H, wi);
@@ -399,6 +400,53 @@ fn closure_layering_weight(layer_albedo: vec3f, weight: vec3f) -> vec3f {
   return weight * saturate(1.0 - reduce_max(safe_divide_color(layer_albedo, weight)));
 }
 
+// kernel/closure/bsdf_util.h:319-395: ensure_valid_specular_reflection。着色法线 N 让镜面反射方向落到几何面以下时，
+// 把 N 往几何法线 Ng 拧，刚好让反射方向抬到门槛以上。I 指向来路，与 Ng 在同一侧（Cycles 在这里断言 dot(I, Ng) ≥ 0）
+fn ensure_valid_specular_reflection(Ng: vec3f, I: vec3f, N: vec3f) -> vec3f {
+  let R = 2.0 * dot(N, I) * N - I;
+
+  let Iz = dot(I, Ng);
+
+  // 反射方向至少可以与入射方向一样贴地
+  let threshold = min(0.9 * Iz, 0.01);
+  if (dot(Ng, R) >= threshold) {
+    return N;
+  }
+
+  // 以 Ng 为 Z 轴、N 落在 X-Z 平面里的局部坐标：X 是 N 垂直于 Ng 的分量归一化
+  let X = safe_normalize_fallback(N - dot(N, Ng) * Ng, N);
+
+  // 解 4·a·N'.z⁴ − 2·b·N'.z² + c = 0，四个根里只有一个合用（推导见 Cycles 原文的注释）
+  let Ix = dot(I, X);
+
+  let a = sqr(Ix) + sqr(Iz);
+  let b = 2.0 * (a + Iz * threshold);
+  let c = sqr(threshold + Iz);
+
+  // Ix 与 (t + I.z·(1 − 2·N'.z²)) 要同号，按 Ix 的符号取根
+  var Nz2: f32;
+  if (Ix < 0.0) {
+    Nz2 = 0.25 * (b + safe_sqrtf(sqr(b) - 4.0 * a * c)) / a;
+  } else {
+    Nz2 = 0.25 * (b - safe_sqrtf(sqr(b) - 4.0 * a * c)) / a;
+  }
+
+  let Nx = safe_sqrtf(1.0 - Nz2);
+  let Nz = safe_sqrtf(Nz2);
+
+  return Nx * X + Nz * Ng;
+}
+
+// kernel/closure/bsdf_util.h:397-409: maybe_ensure_valid_specular_reflection。Cycles 读着色点的三样：凹凸校正标志
+// SD_USE_BUMP_MAP_CORRECTION、图元是不是曲线、几何法线与来路方向。这里标志视为开（场景包里没有这个材质参数，取 Blender
+// 的默认：材质属性 use_bump_map_correction 默认为真），没有曲线，几何法线与来路方向作参数传进来
+fn maybe_ensure_valid_specular_reflection(Ng: vec3f, wi: vec3f, N: vec3f) -> vec3f {
+  if (all(Ng == N)) {
+    return N;
+  }
+  return ensure_valid_specular_reflection(Ng, wi, N);
+}
+
 // 广义 Schlick 的菲涅耳：反射率与透射率
 struct FresnelRT {
   reflectance: vec3f,
@@ -515,7 +563,8 @@ fn bsdf_microfacet_eval_ggx_generalized_schlick(N: vec3f, wi: vec3f, wo: vec3f, 
   }
 
   var H = wi + wo;
-  let inv_len_H = safe_divide(1.0, len_ccl(H));
+  // 1/|H| 不照原式写成 safe_divide(1.0, len_ccl(H))：理由见 util.wgsl 的 inverse_len
+  let inv_len_H = inverse_len(H);
   H *= inv_len_H;
 
   let cos_HI = dot(H, wi);

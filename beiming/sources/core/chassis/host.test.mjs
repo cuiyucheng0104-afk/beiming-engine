@@ -14,8 +14,8 @@ const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-host-'));
 process.on('exit', () => fs.rmSync(TMP, { recursive: true, force: true }));
 const EXE = process.platform === 'win32' ? '.exe' : '';
 
-// 输出通道契约 3.1 的登记表：core 交的七个固定通道和各自分量的次序
-const CONTRACT = { color: ['R', 'G', 'B', 'A'], depth: ['Z'], objectId: ['id', 'coverage'], normal: ['X', 'Y', 'Z'], motion: ['X', 'Y'], denoiseAlbedo: ['R', 'G', 'B'], denoiseNormal: ['X', 'Y', 'Z'] };
+// 输出通道契约 3.1 的登记表：core 交的七个固定通道和各自分量的次序，外加一个分灯组（文件名里冒号换成连字符）
+const CONTRACT = { color: ['R', 'G', 'B', 'A'], depth: ['Z'], objectId: ['id', 'coverage'], normal: ['X', 'Y', 'Z'], motion: ['X', 'Y'], denoiseAlbedo: ['R', 'G', 'B'], denoiseNormal: ['X', 'Y', 'Z'], 'lightgroup:key': ['R', 'G', 'B'] };
 
 /** 照 core-render write_passes 的写法造一个出层目录：每个分量的值是「通道序号 × 100 + 分量序号 + 像素序号 / 1000」 */
 function fakePasses(dir, [w, h]) {
@@ -26,7 +26,8 @@ function fakePasses(dir, [w, h]) {
     channels.push({ name, components: comps.map((x, j) => ({ name: x, type: types[j] })), colorSpace: 'none', sample: 'sub0', antialiased: false });
     const files = new Map();
     comps.forEach((x, j) => {
-      const file = types[j] === types[0] ? `${name}.${types[j]}` : `${name}.${x}.${types[j]}`;
+      const base = name.replaceAll(':', '-');
+      const file = types[j] === types[0] ? `${base}.${types[j]}` : `${base}.${x}.${types[j]}`;
       if (!files.has(file)) files.set(file, []);
       files.get(file).push(j);
     });

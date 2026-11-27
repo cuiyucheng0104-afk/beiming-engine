@@ -56,10 +56,16 @@ struct Job {
     passes: Option<PathBuf>,
     /// 北冥：背景对相机不可见（场景包的 world.visibleToCamera 是 false）：相机射线没打到表面的样本不透明度与颜色记 0。
     transparent: bool,
+    /// 北冥：环境做不做光源采样（直接采样一条阴影射线，与材质采样做多重重要性采样）。照 Cycles：世界着色器不随方向变、又没有入口光时，
+    /// 背景灯整盏关掉（scene/light.cpp:548 `is_enabled = has_portal || (use_mis && has_surface_spatial_varying)`），环境只经材质采样逃逸的
+    /// 射线拿到、权重取 1。场景包的世界只有一个常量颜色、没有入口光（场景包契约），所以 render-pack 恒为假；场景脚本照旧（世界可以是贴图）。
+    background_light: bool,
     /// 北冥：照 Cycles 口径的成像参数（只有 render-pack 给）。给了就关掉上游的亮度夹取（`Params::misc[0]`）。
     cycles_film: Option<CyclesFilm>,
     /// 北冥：出层时求 motion 要的相邻一帧（render-pack 给；只有一帧的包是 None，motion 全 0）。
     motion: Option<beiming_core_path::motion::Step>,
+    /// 北冥：要出的分灯组（render-pack 带 --passes 时是场景包里的全部组名，下标就是灯记录里的槽位）。空：不请求灯组。
+    lightgroups: Vec<String>,
 }
 
 /// 北冥：render-pack 的像素滤波、夹取与滤光泽，照 Cycles 宿主一侧写进内核的口径（scene/film.cpp、scene/integrator.cpp:
@@ -217,8 +223,10 @@ fn main() -> Result<()> {
                 signals: flag("--signals").map(PathBuf::from),
                 passes: None,
                 transparent: false,
+                background_light: true,
                 cycles_film: None,
                 motion: None,
+                lightgroups: vec![],
             };
             let stats = render(&g, &job, &presets, init_ms, &mut Hosts::default())?;
             println!("{}", serde_json::to_string(&stats)?);
@@ -306,8 +314,10 @@ fn main() -> Result<()> {
                         signals: v["signals"].as_str().map(PathBuf::from),
                         passes: None,
                         transparent: false,
+                background_light: true,
                         cycles_film: None,
                         motion: None,
+                lightgroups: vec![],
                     };
                     // (A `live` job asks for the real-time renderer, which this build does not have.)
                     match v["live"].as_u64() {
@@ -353,6 +363,14 @@ fn fncheck_host(id: &str) -> Result<()> {
     use beiming_core_path::pixel_filter as pf;
     type F = fn(&[f32], &mut [f32]);
     let (n_in, n_out, f): (usize, usize, F) = match id {
+        // 法线的存储精度（packed_normal.rs）：码拆成两半 dx、dy，各存成一个 f32（整数值，不超过 65535）
+        "packed_normal_encode" => (3, 2, |i, o| {
+            let c = beiming_core_path::packed_normal::encode([i[0], i[1], i[2]]);
+            o[0] = (c & 0xffff) as f32;
+            o[1] = (c >> 16) as f32;
+        }),
+        "packed_normal_decode" => (2, 3, |i, o| o.copy_from_slice(&beiming_core_path::packed_normal::decode(i[0] as u32 | (i[1] as u32) << 16))),
+        "packed_normal_decode_simd" => (2, 3, |i, o| o.copy_from_slice(&beiming_core_path::packed_normal::decode_simd(i[0] as u32 | (i[1] as u32) << 16))),
         "filter_func_box" => (2, 1, |i, o| o[0] = pf::filter_func_box(i[0], i[1])),
         "filter_func_gaussian" => (2, 1, |i, o| o[0] = pf::filter_func_gaussian(i[0], i[1])),
         "filter_func_blackman_harris" => (2, 1, |i, o| o[0] = pf::filter_func_blackman_harris(i[0], i[1])),
@@ -447,8 +465,11 @@ fn pack_command(cmd: &str, args: &[String], presets: &Path) -> Result<()> {
         signals: flag("--signals").map(PathBuf::from),
         passes: flag("--passes").map(PathBuf::from),
         transparent: !p.world_visible,
+        // 场景包的世界恒是常量颜色：照 Cycles 关掉背景灯（见 Job::background_light）
+        background_light: false,
         cycles_film: Some(film),
         motion,
+        lightgroups: if args.iter().any(|a| a == "--passes") { p.lightgroups() } else { vec![] },
     };
     let mut stats = finish(&g, b.scene, &job, init_ms, timings, t_total)?;
     stats["pack"] = serde_json::json!({ "id": p.id, "frame": frame, "frames": p.count });
@@ -466,9 +487,10 @@ fn pack_command(cmd: &str, args: &[String], presets: &Path) -> Result<()> {
 /// denoiseAlbedo 是上游口径的反照率均值；denoiseNormal 照 Cycles 的降噪特征换到它的相机空间（看 +Z、Y 向上：
 /// kernel/film/denoising_passes.h 把世界空间的法线经 worldtocamera 变过去），见 STRUCTURES.md「输出通道」。
 /// motion 照输出通道契约 5.6（快门角为 0）：辅助样本的命中点在相邻一帧的屏幕位置之差，宿主一侧用双精度求（`motion::layer`），
-/// `motion` 是 None（只有一帧的包）时全 0。不出分灯组。另写一份通道声明 passes.json（passes/0.1，列交出的七个固定通道）。
-/// 返回给 stdout 统计的一段：每个通道的文件、形状 [高, 宽, 分量数]、分量名与类型。
-fn write_passes(dir: &Path, frame: &gpu::Frame, params: &gpu::Params, motion: Option<&beiming_core_path::motion::Step>) -> Result<serde_json::Value> {
+/// `motion` 是 None（只有一帧的包）时全 0。分灯组 `lightgroup:<名>` 每组一个文件 `lightgroup-<名>.f32`（RGB；文件名里冒号换成连字符，
+/// Windows 不收冒号），名字与次序照 `lightgroups`（场景包里的全部组）。另写一份通道声明 passes.json（passes/0.1，列交出的七个固定通道
+/// 与各分灯组）。返回给 stdout 统计的一段：每个通道的文件、形状 [高, 宽, 分量数]、分量名与类型。
+fn write_passes(dir: &Path, frame: &gpu::Frame, params: &gpu::Params, motion: Option<&beiming_core_path::motion::Step>, lightgroups: &[String]) -> Result<serde_json::Value> {
     let aux = frame.aux.as_ref().ok_or_else(|| anyhow!("要出层，渲染却没有带辅助层"))?;
     std::fs::create_dir_all(dir)?;
     let (h, w) = (frame.height as usize, frame.width as usize);
@@ -492,6 +514,14 @@ fn write_passes(dir: &Path, frame: &gpu::Frame, params: &gpu::Params, motion: Op
         std::fs::write(dir.join(file), bytemuck::cast_slice::<f32, u8>(data))?;
         layers.insert(name.to_string(), entry(file, comps.len(), comps, "f32"));
     }
+    if frame.lightgroups.len() != lightgroups.len() {
+        return Err(anyhow!("要出 {} 个分灯组，渲染读回了 {} 个", lightgroups.len(), frame.lightgroups.len()));
+    }
+    for (name, group) in lightgroups.iter().zip(&frame.lightgroups) {
+        let file = format!("lightgroup-{name}.f32");
+        std::fs::write(dir.join(&file), bytemuck::cast_slice::<f32, u8>(&flat(group)))?;
+        layers.insert(format!("lightgroup:{name}"), entry(&file, 3, &["R", "G", "B"], "f32"));
+    }
     std::fs::write(dir.join("objectId.u32"), bytemuck::cast_slice::<u32, u8>(&aux.id))?;
     layers.insert("objectId".into(), entry("objectId.u32", 1, &["id"], "u32"));
     // 通道声明：各通道的属性照输出通道契约 3.1 的登记表
@@ -511,6 +541,10 @@ fn write_passes(dir: &Path, frame: &gpu::Frame, params: &gpu::Params, motion: Op
             ch("denoiseNormal", &[("X", f), ("Y", f), ("Z", f)], "none", "accumulate"),
         ],
     });
+    let mut table = table;
+    if let Some(chs) = table["channels"].as_array_mut() {
+        chs.extend(lightgroups.iter().map(|name| ch(&format!("lightgroup:{name}"), &[("R", f), ("G", f), ("B", f)], lin, "accumulate")));
+    }
     std::fs::write(dir.join("passes.json"), serde_json::to_vec_pretty(&table)?)?;
     Ok(serde_json::json!({ "dir": dir, "table": "passes.json", "layers": layers }))
 }
@@ -608,12 +642,19 @@ fn finish(g: &gpu::Gpu, mut sc: scene::Scene, job: &Job, init_ms: f64, mut timin
         params.motion[1] = 1.0;
     }
     params.integrator.background_transparent = job.transparent as u32;
+    // （内核里环境的光源采样与逃逸一侧的多重重要性采样都认 counts2[1]：0 时不采环境、逃逸的射线全权重计入）
+    if !job.background_light {
+        params.counts2[1] = 0;
+    }
     if let Some(f) = &job.cycles_film {
         f.write(&mut params);
     }
+    if !job.lightgroups.is_empty() {
+        params.film = gpu::KernelFilm::new(job.lightgroups.len() as u32);
+    }
     let frame = g.render(&sc, &prep.tri_verts, prep.groups, bytemuck::cast_slice(&prep.nodes), &prep.emitters, &prep.gpu_emitter_tris, beiming_core_path::ltree::nodes_of(prep.light_tree.as_ref()), &prep.env, &prep.env_cdf, &prep.energy, params, spp, job.passes.is_some(), &mut timings)?;
     let passes = match &job.passes {
-        Some(dir) => Some(write_passes(dir, &frame, &params, job.motion.as_ref())?),
+        Some(dir) => Some(write_passes(dir, &frame, &params, job.motion.as_ref(), &job.lightgroups)?),
         None => None,
     };
     if let Some(prefix) = &job.signals {

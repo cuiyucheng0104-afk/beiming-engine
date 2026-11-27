@@ -21,7 +21,7 @@
 // 每次弹射占的随机维度个数，照 Cycles 的 PRNG_BOUNCE_NUM
 const PRNG_BOUNCE_NUM: u32 = 16u;
 
-// 路径标志位（PathState.flag），位照 Cycles 的 PathRayFlag。现在只接了 PATH_RAY_MIS_SKIP，其余已定义。
+// 路径标志位（PathState.flag），位照 Cycles 的 PathRayFlag。现在接了 PATH_RAY_MIS_SKIP 与 PATH_RAY_TERMINATE_AFTER_TRANSPARENT，其余已定义。
 const PATH_RAY_REFLECT: u32 = 1u << 0u;
 const PATH_RAY_SINGULAR: u32 = 1u << 1u;
 const PATH_RAY_TRANSPARENT: u32 = 1u << 2u;
@@ -32,7 +32,7 @@ const PATH_RAY_MIS_SKIP: u32 = 1u << 7u;                 // 下一次打到灯�
 const PATH_RAY_SINGLE_PASS_DONE: u32 = 1u << 8u;
 const PATH_RAY_TRANSPARENT_BACKGROUND: u32 = 1u << 9u;
 const PATH_RAY_TERMINATE_ON_NEXT_SURFACE: u32 = 1u << 10u;
-const PATH_RAY_TERMINATE_AFTER_TRANSPARENT: u32 = 1u << 12u;
+const PATH_RAY_TERMINATE_AFTER_TRANSPARENT: u32 = 1u << 12u;  // 某一类散射数到了上限，下一个顶点只收射线路上打到的灯。已落地
 const PATH_RAY_DENOISING_FEATURES: u32 = 1u << 17u;
 const PATH_RAY_SURFACE_PASS: u32 = 1u << 18u;
 const PATH_RAY_SHADOW_FOR_AO: u32 = 1u << 20u;
@@ -81,37 +81,23 @@ struct PathLegacy {
     sampled_spec: bool,
     // The last BSDF sample went through the surface (glass: refraction, a delta lobe).
     sampled_trans: bool,
-    // Where the last vertex sampled emitters (its point and normal, 0 = none: fog): a BSDF ray's emitter hit weighs
-    // its MIS by the light tree's pmf there (emit_mis).
-    mis_x: vec3<f32>,
+    // Where the last vertex sampled emitters: its normal (0 = none: fog), with which a BSDF ray's emitter hit weighs its
+    // MIS by the light tree's pmf there (emit_mis). （点是正式字段 state.mis_origin_P）
     mis_n: vec3<f32>,
-    // At camera hits, the direct light from directional lights (the sun: a tiny disk, so nearly deterministic) and its
-    // specular part: the live viewport keeps it in a signal of its own (no denoiser; short history while things
-    // change). Local lights stay in the denoised signals: their soft shadows are noisy, and on Kabukicho moving them
-    // here cost motion and static error (excess 1.71 / 1.86 / 2.20 -> 1.92 / 1.95 / 2.33, k = 1 SSIM 0.640 -> 0.620).
-    dl_det: vec3<f32>,
-    dl_det_spec: vec3<f32>,
     // Whether a cutout let the last shadow ray through (the shadow rays' functions clear it, `trace` sets it).
     shadow_hole: bool,
-    // Set around a `direct_light` that no BSDF ray follows (where a path ends without the cache): its light samples
-    // take the whole of their light. Weighed against a BSDF ray that is never traced they kept their MIS share alone:
-    // of a uniform sky on a Lambert surface, ln 17 / 16 = 18 %.
-    nee_alone: bool,
     // `direct_light` without the sky: a surface seen in a reflection lights itself from the lights, the sky's light
     // there is the radiance cache's.
     lights_only: bool,
     // 上游随机数编号里的「这次调用的第几条路径」，离线恒为 0。编号换成按 rng_offset 之后只剩实时那一支的 rng_white 读它
     rng_path: u32,
-    // 这一段射线出发的着色点本身（没有沿法线挪开）。bm_rect_hits 从它算矩形纯光的命中与概率密度：光源采样一侧
-    // 也是从着色点本身算的，两侧要用同一个点，多重重要性采样的权重才配得平（Cycles 不挪射线起点，没有这个问题）
-    bm_x: vec3<f32>,
 };
 
 struct PathState {
     render_pixel_index: u32,        // 写缓冲用的像素下标。已落地
     sample: u32,                    // 第几个样本（上游的 RNG_INDEX）。已落地
     bounce: u32,                    // 总弹射数，也就是当前着色点是路径上第几个顶点（上游的 cur_depth）。已落地
-    diffuse_bounce: u32,            // 分类计数，照采样标签累加并接各自的上限。已定义（移植闭包的人写）
+    diffuse_bounce: u32,            // 分类计数，照采样标签累加并接各自的上限（path_state_next）。前三个已落地，透明的已定义
     glossy_bounce: u32,
     transmission_bounce: u32,
     transparent_bounce: u32,
@@ -128,6 +114,9 @@ struct PathState {
     mis_ray_object: u32,            // 上一个散射点所在的物体（物体表的下标；灯光链接用）。已写未读
     first_hit_object: u32,          // 相机射线首次命中的物体（物体表的下标），没打到表面：OBJECT_NONE。覆盖率用（film.wgsl 的
                                     // film_write_sample 拿它的实体编号与辅助样本的比）。已落地（只在编译开关 aux 的变体里写）
+    mis_origin_P: vec3<f32>,        // 上一个散射点本身（没有沿法线挪开；介质散射处就是散射点）：材质采样的射线打到矩形纯光时从它算
+                                    // 命中与密度，打到发光三角时从它算灯光树的选灯概率，与光源采样一侧用同一个点。Cycles 没有这个
+                                    // 字段（它不挪射线起点，ray.P 就是这个点），名字照 mis_origin_n 取。已落地
     legacy: PathLegacy,             // 上游的状态，见上
 };
 
@@ -149,9 +138,9 @@ struct Ray {
     D: vec3<f32>,                   // 方向（单位向量）。已落地
 };
 
-// 弹射之后更新路径状态。照 Cycles 的 path_state_next，现在只有骨架：下一段光线的可见类与随机维度的偏移。
-// 分类计数、各类弹射上限、其余路径标志位归移植闭包的人照 Cycles 补；PATH_RAY_MIS_SKIP 还按上游的规矩在主循环里设
-// （上游的「镜面弹射」与 Cycles 的「奇异的一瓣」不是同一个判法）。`label`：这次采样的标签（LABEL_*）。
+// 弹射之后更新路径状态。照 Cycles 的 path_state_next：下一段光线的可见类、随机维度的偏移，表面散射的分类计数与各类上限。
+// 总弹射上限照旧是主循环的 `depth == P.counts.z`；其余路径标志位归移植闭包的人照 Cycles 补；PATH_RAY_MIS_SKIP 还按上游的
+// 规矩在主循环里设（上游的「镜面弹射」与 Cycles 的「奇异的一瓣」不是同一个判法）。`label`：这次采样的标签（LABEL_*）。
 fn path_state_next(label: i32) {
     var visibility = PATH_RAY_VISIBILITY_NONE;
     if ((label & LABEL_VOLUME_SCATTER) != 0) {
@@ -159,6 +148,20 @@ fn path_state_next(label: i32) {
     } else {
         if ((label & LABEL_TRANSMIT) != 0) { visibility |= PATH_RAY_VISIBILITY_TRANSMIT; }
         if ((label & LABEL_DIFFUSE) != 0) { visibility |= PATH_RAY_VISIBILITY_DIFFUSE; } else { visibility |= PATH_RAY_VISIBILITY_GLOSSY; }
+        // 分类计数照 Cycles（kernel/integrator/path_state.h:176-209）：反射里漫反射的记漫反射，别的反射（含奇异的一瓣）记光泽，
+        // 透射记透射。数到这一类的上限置 PATH_RAY_TERMINATE_AFTER_TRANSPARENT：下一个顶点只收射线路上打到的灯（主循环）
+        if ((label & LABEL_REFLECT) != 0) {
+            if ((label & LABEL_DIFFUSE) != 0) {
+                state.diffuse_bounce += 1u;
+                if (state.diffuse_bounce >= P.integrator.max_diffuse_bounce) { state.flag |= PATH_RAY_TERMINATE_AFTER_TRANSPARENT; }
+            } else {
+                state.glossy_bounce += 1u;
+                if (state.glossy_bounce >= P.integrator.max_glossy_bounce) { state.flag |= PATH_RAY_TERMINATE_AFTER_TRANSPARENT; }
+            }
+        } else {
+            state.transmission_bounce += 1u;
+            if (state.transmission_bounce >= P.integrator.max_transmission_bounce) { state.flag |= PATH_RAY_TERMINATE_AFTER_TRANSPARENT; }
+        }
     }
     state.visibility = visibility;
     state.rng_offset += PRNG_BOUNCE_NUM;
@@ -252,31 +255,15 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     state.throughput = vec3<f32>(1.0);
     var albedo = vec3<f32>(0.0);
     var normal = vec3<f32>(0.0);
-    var anim = false;
     var e0 = vec3<f32>(0.0); // emission / sky seen directly (camera ray): the live denoiser leaves it unfiltered
     // Diffuse / specular split at the first hit: specular direct light, the specular share of the first BSDF sample
-    // (everything gathered after it scales the same way), radiance before it, roughness, reflection hit distance.
+    // (everything gathered after it scales the same way), radiance before it.
     var spec0 = vec3<f32>(0.0);
     var k_spec = vec3<f32>(0.0);
     var rad0 = vec3<f32>(0.0);
     var split = false;
-    var rough0 = 1.0;
-    var spec_lobe = false;
-    var spec_t = 0.0;
     state.mis_ray_pdf = 0.0;
-    // The camera hit's specular-lobe sample for the reflection resolve: direction, lobe pdf, path weight, albedo E;
-    // and whether the camera hit's sample went through glass.
-    var refl_l = vec3<f32>(0.0);
-    var refl_pdf = 0.0;
-    var refl_w = vec3<f32>(0.0);
-    var refl_e = vec3<f32>(0.0);
-    var through0 = false;
-    // The camera hit is transmissive (glass, water): its reflections stay in the specular signal too (the resolve's
-    // neighbours there mostly went through, so it had no rays to rebuild them from: live glass lost its reflection).
-    var glass0 = false;
     var mv = vec4<f32>(0.0);
-    state.legacy.dl_det = vec3<f32>(0.0);
-    state.legacy.dl_det_spec = vec3<f32>(0.0);
     state.flag = PATH_RAY_MIS_SKIP;
     state.legacy.behind_glass = false;
     state.legacy.bent = false;
@@ -347,6 +334,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             @if(!sample_clamp) film_add_light(state.throughput * tk.emission, depth, LIGHTGROUP_NONE);
             @if(sample_clamp) film_add_light(film_clamp_contribution(state.throughput * tk.emission, i32(depth) - 1), depth, LIGHTGROUP_NONE);
             if (tk.t >= 0.0) {
+                // 散射数到了上限的路径照 Cycles 在介质里只衰减、不散射（shade_volume.h:1738-1742）：撞上就停，期望里乘的正是透过率
+                if ((state.flag & PATH_RAY_TERMINATE_AFTER_TRANSPARENT) != 0u) { break; }
                 let x = ray.P + ray.D * tk.t;
                 state.throughput *= tk.albedo;
                 if (depth == 0u) {
@@ -366,6 +355,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                 state.mis_ray_pdf = hg_phase(tk.g, dot(nd, ray.D));
                 state.min_ray_pdf = min(state.mis_ray_pdf, state.min_ray_pdf);
                 state.mis_ray_object = OBJECT_NONE;
+                state.mis_origin_P = x;
                 path_state_next(LABEL_VOLUME_SCATTER);
                 state.legacy.bm_surf = false;
                 state.flag &= ~PATH_RAY_MIS_SKIP;
@@ -387,16 +377,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             }
         }
         if (!LIVE && state.legacy.bm_surf) {
-            // （遮挡距离 hit.t 是从挪开的起点量的，灯距从着色点本身量，两个起点不同，不能直接比。光源采样一侧的阴影
-            // 射线从挪开的起点打、长度取灯距乘 0.999，在这之内没有遮挡物就算照得到；这里用同一条判法：hit.t 除以
-            // 0.999 再与灯距比。直接拿 hit.t 比的话，灯紧贴背后的面时这一侧会把灯判成被挡住，两侧权重加不到 1。）
-            var c = state.throughput * bm_rect_hits(state.legacy.bm_x, ray.D, select(hit.t / 0.999, INF, hit.tri == 0xffffffffu), state.mis_ray_pdf);
-            if (depth > 1u && !state.legacy.straight) {
-                let lum = luminance(c);
-                if (lum > clamp_v) { c *= clamp_v / lum; }
-            }
-            @if(sample_clamp) c = film_clamp_contribution(c, i32(depth) - 1);
-            film_add_light(c, depth, LIGHTGROUP_NONE);
+            // （遮挡距离 hit.t 是从挪开的起点 ray.P 量的，灯距从着色点本身 mis_origin_P 量。光源采样一侧的阴影射线从挪开的
+            // 起点打到灯上那一点为止；这里换成同一条判法：遮挡物离着色点本身的距离是 hit.t 加上两个起点之差在方向上的分量。
+            // 直接拿 hit.t 比的话，灯紧贴背后的面时这一侧会把灯判成被挡住，两侧权重加不到 1。逐盏写进颜色与灯组，见 bm_rect_hits）
+            bm_rect_hits(state.mis_origin_P, ray.D, select(hit.t + dot(ray.P - state.mis_origin_P, ray.D), INF, hit.tri == 0xffffffffu), state.mis_ray_pdf);
         }
         if (hit.tri == 0xffffffffu) {
             // 北冥：背景对相机不可见（P.integrator.background_transparent）时，相机射线什么都没打到的样本不透明度与颜色都记 0
@@ -406,14 +390,16 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                 film_sample.L = vec3<f32>(0.0);
                 break;
             }
-            var c = state.throughput * sky_mis(ray.D, select(0.0, state.mis_ray_pdf, depth > 0u && !state.legacy.bent));
+            let sky_pdf = select(0.0, state.mis_ray_pdf, depth > 0u && !state.legacy.bent);
+            // 平行光的盘：逐盏写进颜色与灯组（sun_disks），不进 c
+            if (sky_pdf > 0.0) { sun_disks(ray.D, sky_pdf); }
+            var c = state.throughput * sky_mis(ray.D, sky_pdf);
             if (depth > 1u && !state.legacy.straight) {
                 let lum = luminance(c);
                 if (lum > clamp_v) { c *= clamp_v / lum; }
             }
             @if(sample_clamp) c = film_clamp_contribution(c, i32(depth) - 1);
             if (depth == 0u) { e0 += c; }
-            if (depth == 1u && spec_lobe) { spec_t = 1.0e4; }
             film_add_light(c, depth, LIGHTGROUP_NONE);
             break;
         }
@@ -432,10 +418,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             // surface_shader_denoising_albedo）；法线取闭包用的法线，还是上游的口径。）
             albedo = select(surface_shader_denoising_albedo(sd), sd.emission / max(max(sd.emission.r, max(sd.emission.g, sd.emission.b)), 1e-6), sd.num_closure == 0u);
             normal = inputs.N;
-            anim = sd.legacy.surface.anim;
-            rough0 = sd.legacy.surface.roughness;
         }
-        if (depth == 1u && spec_lobe) { spec_t = hit.t; }
         // Emission (one-sided for rect light cards)
         let le = surface_shader_emission(sd);
         if (any(le > vec3<f32>(0.0))) {
@@ -455,6 +438,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         }
         // （没有闭包的面只发光、不散射：上游的发光卡片。）
         if (sd.num_closure == 0u) { break; }
+        // 某一类散射数到了上限（path_state_next）：照 Cycles 这个顶点闭包不参与（surface_shader.h:1262-1266 的 max_closures 取 0；
+        // 这里闭包已经建了，不用）、不做直接光，只收上面已经加的、射线路上打到的灯，在所有编译开关的变体里都一样
+        if ((state.flag & PATH_RAY_TERMINATE_AFTER_TRANSPARENT) != 0u) { break; }
         @if(!last_direct && !last_sun) if (depth == P.counts.z) { break; }
         @if(last_sun && !last_direct) if (depth == P.counts.z) {
             // gpu.rs `KernelSwitches::last_sun`: the last vertex's light from the directional lights alone.
@@ -506,15 +492,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             k_spec = state.legacy.split_frac;
             rad0 = film_sample.L;
             split = true;
-            spec_lobe = glossy;
-            through0 = through;
-            glass0 = has(F_GLASS) && sd.legacy.surface.transmission > 0.0;
-            refl_e = sd.legacy.lobes.e_spec;
-            if ((bs.label & (LABEL_REFLECT | LABEL_GLOSSY)) == (LABEL_REFLECT | LABEL_GLOSSY) && sd.legacy.lobes.coat <= 0.0) {
-                refl_l = l;
-                refl_pdf = pdf_spec(sd, l);
-                refl_w = wgt;
-            }
         }
         if ((!through && pdf <= 0.0) || all(wgt <= vec3<f32>(0.0))) { break; }
         state.throughput *= wgt;
@@ -554,7 +531,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             if (path_rng_1D(PRNG_TERMINATE) > state.continuation_probability) { break; }
             state.throughput /= state.continuation_probability;
         }
-        state.legacy.bm_x = sd.P;
+        state.mis_origin_P = sd.P;
         ray.P = offset_origin(sd.P, select(sd.Ng, -sd.Ng, dot(l, sd.Ng) < 0.0));
         ray.D = l;
     }

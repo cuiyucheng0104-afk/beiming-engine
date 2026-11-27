@@ -220,22 +220,27 @@ fn sky_mis(d: vec3<f32>, pdf: f32) -> vec3<f32> {
     }
     var c = env_radiance(d) * wgt;
     if (has(F_AERIAL) && pdf <= 0.0) { c = aerial_light(d); }
-    if (pdf > 0.0) { c += sun_disks(d, pdf); }
     return c;
 }
 
-// The directional lights' disks a BSDF ray (pdf `pdf`) falls in, MIS-weighted against their cones' sampling.
-fn sun_disks(d: vec3<f32>, pdf: f32) -> vec3<f32> {
-    var c = vec3<f32>(0.0);
+// 北冥：材质采样的射线（概率密度 pdf > 0，不是相机射线）逃逸时落进的平行光的盘：照 Cycles 的 integrate_sun_lights
+// （kernel/integrator/shade_background.h:169-246）逐盏算，只认做多重重要性采样的灯（张角大于 0），求值照
+// sun_light_eval_from_intersection（../../shaders/area_light.wgsl），权重照 light_sample_mis_weight_forward_distant
+// （PATH_RAY_MIS_SKIP 时取 1），逐盏写进颜色与它的灯组（film_add_forward）。半角与概率密度由记录里的 one_minus_cosangle 现算
+// （宿主 scene/light.cpp 存 sun.angle、sun.pdf，这里少存两格）。
+fn sun_disks(d: vec3<f32>, pdf: f32) {
+    let receiver = light_receiver_set(state.mis_ray_object);
     for (var i = 0u; i < P.counts2.x; i++) {
         let li = light_at(i);
-        if (dot(d, -li.dir.xyz) >= li.dir.w) {
-            let omega = 2.0 * PI * (1.0 - li.dir.w);
-            // （PATH_RAY_MIS_SKIP 时照 Cycles 的 light_sample_mis_weight_forward_distant 转到的 light_sample_mis_weight_forward_lamp（light/sample.h:531）取权重 1）
-            c += (li.color.rgb / omega) * select(power_heuristic(pdf, 1.0 / omega), 1.0, (state.flag & PATH_RAY_MIS_SKIP) != 0u);
-        }
+        if ((li.cy.w & SHADER_USE_MIS) == 0u || !light_linked(li, receiver)) { continue; }
+        let one_minus_cosangle = bitcast<f32>(li.cy.y);
+        let angle = 2.0 * asin(sqrt(0.5 * one_minus_cosangle));
+        let e = sun_light_eval_from_intersection(li.dir.xyz, angle, bitcast<f32>(li.cy.x), M_1_2PI_F / one_minus_cosangle, d);
+        if (e.eval_fac == 0.0) { continue; }
+        let c = li.color.rgb * e.eval_fac;
+        if (all(c == vec3<f32>(0.0))) { continue; }
+        film_add_forward(c * select(power_heuristic(pdf, e.pdf), 1.0, (state.flag & PATH_RAY_MIS_SKIP) != 0u), light_lightgroup(li));
     }
-    return c;
 }
 
 // What light sampling reads of an emitter's attributes (UVs, material, object, texel density), as shading has them
@@ -265,7 +270,7 @@ fn emit_mis(hit: Hit, d: vec3<f32>, pdf: f32) -> f32 {
     let cos_l = abs(dot(normalize(cr), d));
     if (lt_on()) {
         // The light tree's pmf where the ray left (the vertex that sampled emitters), per area of the hit triangle.
-        let sel = emitter_sel(entry - 1u, em, ha, state.legacy.mis_x, state.legacy.mis_n);
+        let sel = emitter_sel(entry - 1u, em, ha, state.mis_origin_P, state.legacy.mis_n);
         if (!(sel > 0.0)) { return 1.0; }
         return power_heuristic(pdf, sel / max(area, 1e-12) * hit.t * hit.t / max(cos_l, 1e-6));
     }
@@ -307,7 +312,7 @@ fn emitter_culled(em: EmitterTri) -> bool {
 struct LS { c: vec3<f32>, l: vec3<f32>, sl: vec3<f32>, dist: f32, pdf: f32 };
 
 // 北冥：矩形纯光（不画卡片的那种）在离线路径里走照 Cycles 移植的球面矩形采样（../../shaders/area_light.wgsl），并和材质采样
-// 做多重重要性采样：光源一侧在 local_lights 里乘 light_mis，材质一侧见 bm_rect_hits（两边用同一对概率密度，权重和为 1）。
+// 做多重重要性采样：光源一侧见 direct_light（上游顶替的闭包是 local_lights），材质一侧见 bm_rect_hits（两边用同一对概率密度，权重和为 1）。
 // 灯的参数换成 Cycles KernelLight 的写法：单位轴、全长、面积的倒数（大于 0 表示矩形）。
 struct BmRect { u: vec3<f32>, len_u: f32, v: vec3<f32>, len_v: f32, invarea: f32 };
 
@@ -319,18 +324,11 @@ fn bm_rect(li: Light) -> BmRect {
     return BmRect(u, len_u, normalize(cross(li.dir.xyz, u)), len_v, 1.0 / (len_u * len_v));
 }
 
-// 灯沿 -l 射向着色点的辐亮度（还没乘 Cycles 的 eval_fac）。ThreeRT 的 color 是辐亮度（nits）；Cycles 的
+// 灯的强度（Cycles 的 strength，还没乘 eval_fac）。ThreeRT 的 color 是辐亮度（nits）；Cycles 的
 // eval_fac = 1 / (π·面积) 把强度当总辐射通量，所以强度取 color·π·面积，乘上 eval_fac 正好是 color。
-// 挡光板与衰减范围照 ThreeRT 原来的写法乘在辐亮度上，光源与材质两侧都乘。d2：着色点到灯上那一点的距离平方。
-fn bm_rect_le(li: Light, r: BmRect, l: vec3<f32>, d2: f32) -> vec3<f32> {
-    var k = PI / r.invarea * smoothstep(li.x.z - 0.04, li.x.z + 0.04, dot(li.dir.xyz, -l));
-    let range = li.color.w;
-    if (range > 0.0) {
-        let q = d2 / (range * range);
-        let win = clamp(1.0 - q * q, 0.0, 1.0);
-        k *= win * win;
-    }
-    return li.color.rgb * k;
+// 上游的挡光板（贴着灯面 ±0.04 的 smoothstep）与衰减范围不乘：Cycles 的矩形灯不聚拢（spread 180°）时没有这两项。
+fn bm_rect_le(li: Light, r: BmRect) -> vec3<f32> {
+    return li.color.rgb * (PI / r.invarea);
 }
 
 // 从 x 采样矩形纯光：c = 辐亮度 × eval_fac / 立体角概率密度（接收端的 BSDF·cos 由调用方乘）
@@ -338,26 +336,28 @@ fn bm_rect_sample(li: Light, x: vec3<f32>, u: vec2<f32>) -> LS {
     let r = bm_rect(li);
     let ls = area_light_sample(u, x, li.pos.xyz, r.u, r.len_u, r.v, r.len_v, li.dir.xyz, r.invarea);
     if (!ls.ok || !(ls.pdf > 0.0)) { return LS(vec3<f32>(0.0), vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 1.0, 0.0), 0.0, 0.0); }
-    return LS(bm_rect_le(li, r, ls.D, ls.t * ls.t) * (ls.eval_fac / ls.pdf), ls.D, ls.D, ls.t, ls.pdf);
+    return LS(bm_rect_le(li, r) * (ls.eval_fac / ls.pdf), ls.D, ls.D, ls.t, ls.pdf);
 }
 
-// 表面顶点按材质采样的方向 d（立体角概率密度 pdf_b）在 t_hit 之前打到的矩形纯光，按多重重要性采样加权。
-// o 是着色点本身，不是沿法线挪开之后的射线起点：光源采样一侧（bm_rect_sample）从着色点本身算，两侧要用同一个点。
+// 表面顶点按材质采样的方向 d（立体角概率密度 pdf_b）在 t_hit 之前打到的矩形纯光：照 Cycles 的 integrate_light_forward
+// （kernel/integrator/shade_light.h:19-76）逐盏算，只认做多重重要性采样的灯（light.h:260），权重照
+// light_sample_mis_weight_forward_lamp（light/sample.h:522-560；选灯概率按 1，同光源一侧），逐盏写进颜色与灯组（film_add_forward）。
+// o 是着色点本身，不是沿法线挪开之后的射线起点：光源采样一侧从着色点本身算，两侧要用同一个点。
 // 灯不挡光，射线照常往前走；不投影的灯在光源一侧不查遮挡，这一侧也不查。
-fn bm_rect_hits(o: vec3<f32>, d: vec3<f32>, t_hit: f32, pdf_b: f32) -> vec3<f32> {
-    var c = vec3<f32>(0.0);
+fn bm_rect_hits(o: vec3<f32>, d: vec3<f32>, t_hit: f32, pdf_b: f32) {
+    let receiver = light_receiver_set(state.mis_ray_object);
     for (var i = P.counts2.x; i < P.counts.x; i++) {
         let li = light_at(i);
-        if (u32(li.pos.w) != 3u || all(li.color.rgb <= vec3<f32>(0.0))) { continue; }
+        if (u32(li.pos.w) != 3u || all(li.color.rgb <= vec3<f32>(0.0)) || (li.cy.w & SHADER_USE_MIS) == 0u || !light_linked(li, receiver)) { continue; }
         let r = bm_rect(li);
         let h = area_light_intersect(o, d, 0.0, select(t_hit, INF, li.ext.w < 0.5), li.pos.xyz, r.u, r.len_u, r.v, r.len_v, li.dir.xyz, r.invarea);
         if (!h.hit) { continue; }
         let e = area_light_eval_from_intersection(o, d, h.t, li.pos.xyz, r.u, r.len_u, r.v, r.len_v, li.dir.xyz, r.invarea);
         if (!(e.pdf > 0.0)) { continue; }
-        // （PATH_RAY_MIS_SKIP 时照 Cycles 的 light_sample_mis_weight_forward_lamp（light/sample.h:531）取权重 1）
-        c += bm_rect_le(li, r, d, h.t * h.t) * e.eval_fac * select(power_heuristic(pdf_b, e.pdf), 1.0, (state.flag & PATH_RAY_MIS_SKIP) != 0u);
+        // （PATH_RAY_MIS_SKIP 时照 Cycles 取权重 1）
+        let w = select(power_heuristic(pdf_b, e.pdf), 1.0, (state.flag & PATH_RAY_MIS_SKIP) != 0u);
+        film_add_forward(bm_rect_le(li, r) * e.eval_fac * w, light_lightgroup(li));
     }
-    return c;
 }
 
 // Point / spot light seen from x: punctual intensity x attenuation (unshadowed), direction to the light centre `l`,
@@ -515,7 +515,7 @@ fn local_lights(sd: ShadingPoint, o: vec3<f32>, x: vec3<f32>, vol: bool, d: vec3
                     let vis = light_vis(li.ext.w >= 0.5, light_origin(sd, o, ls.l), ls.sl, ls.dist * 0.999, rng_sub(rd ^ 0x40000000u, i));
                     if (any(vis > vec3<f32>(0.0))) {
                         var c = ls.c;
-                        if (ls.pdf > 0.0) { c *= light_mis(ls.pdf, sd, ls.l); }
+                        if (ls.pdf > 0.0) { c *= power_heuristic(ls.pdf, surface_shader_bsdf_eval(sd, ls.l, SHADER_USE_MIS).pdf); }
                         sum += c * f * tr3(vis);
                         state.legacy.dl_spec += c * f * tr3(vis) * e.spec_frac;
                     }
@@ -579,7 +579,7 @@ fn local_lights(sd: ShadingPoint, o: vec3<f32>, x: vec3<f32>, vol: bool, d: vec3
         }
         if (any(c > vec3<f32>(0.0))) {
             let vis = light_vis(light_at(pick).ext.w >= 0.5, light_origin(sd, o, pick_ls.l), pick_ls.sl, pick_ls.dist * 0.999, rng_sub(rd, 0xffffffffu));
-            if (!vol && pick_ls.pdf > 0.0) { c *= light_mis(pick_ls.pdf, sd, pick_ls.l); }
+            if (!vol && pick_ls.pdf > 0.0) { c *= power_heuristic(pick_ls.pdf, surface_shader_bsdf_eval(sd, pick_ls.l, SHADER_USE_MIS).pdf); }
             if (any(vis > vec3<f32>(0.0))) {
                 let r = c * tr3(vis) * (wsum * f32(count) / (f32(m_cand) * pick_ph));
                 sum += r;
@@ -753,7 +753,7 @@ fn hg_phase(g: f32, c: f32) -> f32 {
             let vis = light_vis(li.ext.w >= 0.5, light_origin(sd, o, l), l, INF, rng_sub(rng_legacy(D_SUN_VIS), i));
             if (any(vis > vec3<f32>(0.0))) {
                 let pdf_l = 1.0 / (2.0 * PI * (1.0 - cos_max));
-                sum += li.color.rgb * f * light_mis(pdf_l, sd, l) * tr3(vis);
+                sum += li.color.rgb * f * power_heuristic(pdf_l, surface_shader_bsdf_eval(sd, l, SHADER_USE_MIS).pdf) * tr3(vis);
             }
         }
     }
@@ -765,26 +765,207 @@ fn env_sampled() -> bool { return P.counts2.y != 0u && (P.env.x > 0.5 || luminan
 
 // The sky's light sample at a surface (`o`: its shadow rays' origin): one direction by the map, MIS against the BSDF.
 // 北冥：参数从 (Surface, Lobes, 视线) 换成着色点；材质求值经上游顶替专用的 surface_shader_bsdf_eval_legacy。
+// 移植的闭包：求值经 surface_shader_bsdf_eval（照 Cycles 不多查几何法线），权重照 Cycles 的 light_sample_mis_weight_nee
+// （power_heuristic），阴影射线同 direct_light 里逐盏的灯（shadow_ray）。
 fn env_light(sd: ShadingPoint, o: vec3<f32>) -> vec3<f32> {
     let l = sample_env(rng_legacy(D_ENV));
+    if (sd.closure[0].kind != CLOSURE_LEGACY) {
+        let e = surface_shader_bsdf_eval(sd, l, SHADER_USE_MIS);
+        if (!any(e.sum > vec3<f32>(0.0))) { return vec3<f32>(0.0); }
+        let pdf_e = env_pdf(l);
+        if (!(pdf_e > 0.0)) { return vec3<f32>(0.0); }
+        let tri = shadow_tri(sd.object, sd.prim, sd.inst, sd.u, sd.v);
+        let vis = shadow_ray_sky(tri, shadow_ray(tri, sd.P, sd.N, sd.Ng, l, sd.P, true), rng_legacy(D_ENV_VIS));
+        if (!any(vis > vec3<f32>(0.0))) { return vec3<f32>(0.0); }
+        state.legacy.split_frac = e.glossy / max(e.sum, vec3<f32>(1e-12));
+        return env_radiance(l) * e.sum * power_heuristic(pdf_e, e.pdf) / pdf_e * tr3(vis);
+    }
     let f = surface_shader_bsdf_eval_legacy(sd, l, 1.0).eval;
     if (any(f > vec3<f32>(0.0))) {
         let pdf_e = env_pdf(l);
         if (pdf_e > 0.0) {
             let vis = sky_tr(light_origin(sd, o, l), l, rng_legacy(D_ENV_VIS));
-            if (any(vis > vec3<f32>(0.0))) { return env_radiance(l) * f * light_mis(pdf_e, sd, l) / pdf_e * tr3(vis); }
+            if (any(vis > vec3<f32>(0.0))) { return env_radiance(l) * f * power_heuristic(pdf_e, surface_shader_bsdf_eval(sd, l, SHADER_USE_MIS).pdf) / pdf_e * tr3(vis); }
         }
     }
     return vec3<f32>(0.0);
 }
 
-// 北冥：参数从 (Surface, Lobes, 视线) 换成着色点；材质求值经上游顶替专用的 surface_shader_bsdf_eval_legacy。
+// 北冥：灯记录 cy.w（src/scene.rs GpuLight 的 cy）：SHADER_USE_MIS 那一位（位照 Cycles 的 kernel/types.h），低 16 位是灯组槽位
+const SHADER_USE_MIS: u32 = 1u << 28u;
+const LIGHTGROUP_SLOT_MASK: u32 = 0xffffu;
+
+// 灯光链接：照 Cycles 的 light_link_object_match（kernel/light/light.h:62-78），接收者的集合号那一位在灯的成员掩码（记录的 cy.z）里。
+// 集合号是接收者物体的 ObjectExt.receiver_light_set（light_receiver_set）
+fn light_linked(li: Light, receiver_set: u32) -> bool {
+    return ((1u << receiver_set) & li.cy.z) != 0u;
+}
+
+// 物体的接收者集合号：光源一侧取着色点的物体（Cycles 的 light_link_receiver_nee），前向取 state.mis_ray_object
+// （light_link_receiver_forward）。没有物体（OBJECT_NONE：介质散射处）记 0：Cycles 在那里不查链接，0 号集合也受所有没链接的灯照
+fn light_receiver_set(object: u32) -> u32 {
+    if (object == OBJECT_NONE) { return 0u; }
+    return object_ext_at(object).receiver_light_set;
+}
+
+// 阴影射线的起点要的三角形。prim、inst：着色点的三角形与放置它的实例记录（跳过自己的图元、自交测试用）；tri 为假（过程几何）时
+// 其余字段无意义。M0..M2：三角形缓冲里的原顶点（没经实例时就在世界空间，经实例时在模型空间：求交在哪个空间测，自交测试就在
+// 哪个空间测）。避开明暗交界线的起点偏移（Cycles 的 shadow_ray_offset 读 sd 与物体、三角形的内核数据）另要：物体的
+// shadow_terminator_geometry_offset（cutoff，0：不挪；场景包的物体是 0.1，别的入口是 0）、着色点的重心坐标、世界空间的三个顶点
+// V0..V2 与顶点法线。经实例放置的三角形 V0..V2 只做线性部分：偏移只用到顶点之差（Cycles 在物体空间算抛物线、再把插值的法线变到
+// 世界空间，物体不等比缩放时与这里差一点）。三维向量排在标量后面（进函数的结构里三维向量后面不要紧跟标量）
+struct ShadowTri { cutoff: f32, u: f32, v: f32, prim: u32, inst: u32, tri: bool, M0: vec3<f32>, M1: vec3<f32>, M2: vec3<f32>, V0: vec3<f32>, V1: vec3<f32>, V2: vec3<f32>, N0: vec3<f32>, N1: vec3<f32>, N2: vec3<f32> };
+
+// 着色点所在三角形的 ShadowTri（只收标量：不新加按值收着色点的函数层）。过程几何 tri 记假；偏移为 0 的物体 cutoff 记 0
+fn shadow_tri(object: u32, prim: u32, inst: u32, u: f32, v: f32) -> ShadowTri {
+    var t = ShadowTri();
+    if (has(F_PROC) && (prim & PROC_BIT) != 0u) { return t; }
+    t.tri = true;
+    t.prim = prim;
+    t.inst = inst;
+    t.M0 = tri_verts[prim * 3u].xyz;
+    t.M1 = tri_verts[prim * 3u + 1u].xyz;
+    t.M2 = tri_verts[prim * 3u + 2u].xyz;
+    t.cutoff = object_ext_at(object).shadow_terminator_geometry_offset;
+    if (!(t.cutoff > 0.0)) { return t; }
+    t.u = u;
+    t.v = v;
+    t.V0 = t.M0;
+    t.V1 = t.M1;
+    t.V2 = t.M2;
+    var a = attrs[prim];
+    if (has(F_INST) && inst != NO_INST) {
+        let r = instance_at(inst);
+        t.V0 = inst_vec(r, t.V0);
+        t.V1 = inst_vec(r, t.V1);
+        t.V2 = inst_vec(r, t.V2);
+        a = inst_attr(r, a);
+    }
+    t.N0 = a.n0.xyz;
+    t.N1 = a.n1.xyz;
+    t.N2 = a.n2.xyz;
+    return t;
+}
+
+// 一条阴影射线：起点、方向、最远距离，与要不要跳过自己的图元。照 Cycles 的 light_sample_to_surface_shadow_ray
+// （kernel/light/sample.h:225-311）与 integrate_surface_direct_light 里接着的 integrate_surface_ray_offset（shade_surface.h:439-441）：
+// 先照 shadow_ray_offset（../../shaders/area_light.wgsl，只对平滑着色的三角形：cutoff > 0）把着色点 P 往交界线外挪；方向与距离从
+// 挪过的点到灯上那一点（平行光：方向就是 L，不设上限）；跳过自己时（skip_self：shadow_ray_offset 说要打中自己这个面时为假）再照
+// integrate_surface_ray_offset 决定抬不抬（自交测中不抬，测不中抬 ray_offset 的 256 个末位），方向与距离不跟着改，求交时跳过
+// 自己的图元（trace_self）。过程几何不是三角形：照旧沿几何法线挪开（offset_origin），不跳过自己（过程几何一个图元是一整个形体，
+// 跳过它就没了自己投在自己身上的影子）
+struct ShadowRay { tmax: f32, skip_self: bool, P: vec3<f32>, D: vec3<f32> };
+fn shadow_ray(t: ShadowTri, P: vec3<f32>, N: vec3<f32>, Ng: vec3<f32>, L: vec3<f32>, light_P: vec3<f32>, distant: bool) -> ShadowRay {
+    var r = ShadowRay();
+    r.P = P;
+    r.skip_self = true;
+    if (t.cutoff > 0.0) {
+        let off = shadow_ray_offset(P, N, Ng, L, true, t.cutoff, t.V0, t.V1, t.V2, t.N0, t.N1, t.N2, t.u, t.v);
+        r.P = off.P;
+        r.skip_self = off.skip_self;
+    }
+    if (!t.tri) { r.P = offset_origin(r.P, select(Ng, -Ng, (dot(L, Ng) < 0.0) != !r.skip_self)); }
+    r.D = L;
+    r.tmax = INF;
+    if (!distant) {
+        // util/math_float3.h:548-552: safe_normalize_len
+        r.tmax = len_ccl(light_P - r.P);
+        r.D = select(light_P - r.P, (light_P - r.P) / r.tmax, r.tmax != 0.0);
+    }
+    r.skip_self = r.skip_self && t.tri;
+    if (r.skip_self) {
+        var lp = r.P;
+        var ld = r.D;
+        if (has(F_INST) && t.inst != NO_INST) {
+            let ir = instance_at(t.inst);
+            lp = proc_point(ir, lp);
+            ld = proc_dir(ir, ld);
+        }
+        r.P = integrate_surface_ray_offset(r.P, Ng, lp, ld, t.M0, t.M1, t.M2);
+    }
+    return r;
+}
+
+// 阴影射线的可见性（light_vis），跳过自己的图元时把它记进 trace_self、测完清掉
+fn shadow_ray_vis(t: ShadowTri, r: ShadowRay, shadows: bool, rd: u32) -> vec3<f32> {
+    if (r.skip_self) { trace_self = vec2<u32>(t.prim, t.inst); }
+    let vis = light_vis(shadows, r.P, r.D, r.tmax, rd);
+    trace_self = TRACE_SELF_NONE;
+    return vis;
+}
+
+// 阴影射线朝环境的可见性（sky_tr），跳过自己的图元同上
+fn shadow_ray_sky(t: ShadowTri, r: ShadowRay, rd: u32) -> vec3<f32> {
+    if (r.skip_self) { trace_self = vec2<u32>(t.prim, t.inst); }
+    let vis = sky_tr(r.P, r.D, rd);
+    trace_self = TRACE_SELF_NONE;
+    return vis;
+}
+
+// 这盏灯写进 film 的第几个灯组（LIGHTGROUP_NONE：不进灯组）
+fn light_lightgroup(li: Light) -> u32 {
+    let slot = li.cy.w & LIGHTGROUP_SLOT_MASK;
+    return select(slot, LIGHTGROUP_NONE, slot == LIGHTGROUP_SLOT_MASK);
+}
+
+// 上游点光与聚光的两样附加项：衰减范围的窗与聚光锥（场景脚本的灯才有；场景包的点光 range 是 0、不是聚光，恒为 1）。
+// Cycles 的点光没有这两项，聚光锥也不是这个式子
+fn local_atten(li: Light, x: vec3<f32>) -> f32 {
+    let dl = li.pos.xyz - x;
+    let d2 = max(dot(dl, dl), 1e-8);
+    var atten = 1.0;
+    let range = li.color.w;
+    if (range > 0.0) {
+        let q = d2 / (range * range);
+        let win = clamp(1.0 - q * q, 0.0, 1.0);
+        atten *= win * win;
+    }
+    if (u32(li.pos.w) == 2u) {
+        let m = clamp((dot(-dl * inverseSqrt(d2), li.dir.xyz) - li.ext.x) * li.ext.y, 0.0, 1.0);
+        atten *= m * m;
+    }
+    return atten;
+}
+
+// 直接光里一盏灯的贡献（已乘 BSDF、MIS 权重与可见性，没乘通量）写进颜色与它的灯组：乘通量，照积分器直接光一处的规矩
+// 夹取（上游的亮度夹取；编译开关 sample_clamp 的变体里再照 Cycles 的口径夹），再 film_add_light。照 Cycles 每盏灯单独夹
+// （film/light_passes.h film_write_direct_light 按每条阴影射线夹），灯组与颜色加的是同一个值
+fn film_add_direct(c: vec3<f32>, lightgroup: u32) {
+    var dl = state.throughput * c;
+    if (state.bounce > 0u && !state.legacy.straight) {
+        let lum = luminance(dl);
+        if (lum > P.misc.x) { dl *= P.misc.x / lum; }
+    }
+    @if(sample_clamp) dl = film_clamp_contribution(dl, i32(state.bounce));
+    film_add_light(dl, state.bounce, lightgroup);
+}
+
+// 材质采样的射线在路上打到的一盏灯（已乘 MIS 权重，没乘通量）写进颜色与它的灯组：乘通量，照积分器路上找到的发光一处的规矩
+// 夹取（弹射数用这一段射线的顶点号减 1，照 Cycles 的 film_write_surface_emission），再 film_add_light。
+fn film_add_forward(c: vec3<f32>, lightgroup: u32) {
+    var e = state.throughput * c;
+    if (state.bounce > 1u && !state.legacy.straight) {
+        let lum = luminance(e);
+        if (lum > P.misc.x) { e *= P.misc.x / lum; }
+    }
+    @if(sample_clamp) e = film_clamp_contribution(e, i32(state.bounce) - 1);
+    film_add_light(e, state.bounce, lightgroup);
+}
+
+// 北冥：参数从 (Surface, Lobes, 视线) 换成着色点。
+// 移植的闭包上，平行光与本地灯（本地灯不超过 RIS_EXACT 盏时）照 Cycles 的 integrate_surface_direct_light
+// （kernel/integrator/shade_surface.h:319-487）逐盏算：每盏灯各采一次（选灯概率按 1，两侧密度都不乘它：期望与 Cycles 相同），
+// 采样照 Cycles（../../shaders/area_light.wgsl 的 sun_light_sample、point_light_sample、area_light_sample），求值经
+// surface_shader_bsdf_eval（不多查几何法线），权重 power_heuristic(光源一侧密度, 材质一侧密度)，不做 MIS 的灯材质一侧密度当 0；
+// 每盏单独夹取、单独写进颜色与它的灯组（film_add_direct），不进返回值。上游顶替的闭包、本地灯多于 RIS_EXACT 盏、发光三角
+// 照旧，材质求值经上游顶替专用的 surface_shader_bsdf_eval_legacy，加进返回值。
 fn direct_light(sd: ShadingPoint) -> vec3<f32> {
     var sum = vec3<f32>(0.0);
     state.legacy.dl_spec = vec3<f32>(0.0);
     let o = offset_origin(sd.P, sd.Ng);
+    let ported = sd.closure[0].kind != CLOSURE_LEGACY;
     // Directional lights: uniformly sampled cone (soft shadows), MIS against BSDF sampling.
-    for (var i = 0u; i < P.counts2.x; i++) {
+    for (var i = 0u; i < select(P.counts2.x, 0u, ported); i++) {
         let li = light_at(i);
         let cos_max = li.dir.w;
         let to_light = -li.dir.xyz;
@@ -803,15 +984,11 @@ fn direct_light(sd: ShadingPoint) -> vec3<f32> {
             if (any(vis > vec3<f32>(0.0))) {
                 let pdf_l = 1.0 / (2.0 * PI * (1.0 - cos_max));
                 let frac = e.spec_frac;
-                let wgt = light_mis(pdf_l, sd, l);
+                let wgt = power_heuristic(pdf_l, surface_shader_bsdf_eval(sd, l, SHADER_USE_MIS).pdf);
                 sum += li.color.rgb * f * wgt * tr3(vis);
                 state.legacy.dl_spec += li.color.rgb * f * wgt * tr3(vis) * frac;
             }
         }
-    }
-    if (state.bounce == 0u) {
-        state.legacy.dl_det += sum;
-        state.legacy.dl_det_spec += state.legacy.dl_spec;
     }
     // gpu.rs `KernelSwitches::light_pick`: past the camera hit, the directional lights and one of the other kinds a
     // scene has (local lights, emitters, the sky), weighted by their number.
@@ -834,21 +1011,72 @@ fn direct_light(sd: ShadingPoint) -> vec3<f32> {
     }
     @if(light_pick) let sum_sun = sum;
     @if(light_pick) let spec_sun = state.legacy.dl_spec;
-    @if(!light_pick) sum += local_lights(sd, o, sd.P, false, vec3<f32>(0.0), rng_legacy(D_LOCAL));
-    @if(light_pick) if (take_local) { sum += local_lights(sd, o, sd.P, false, vec3<f32>(0.0), rng_legacy(D_LOCAL)); }
+    // 照 Cycles 逐盏的灯：先平行光（下标在 P.counts2.x 之前），本地灯不超过 RIS_EXACT 盏时接着算本地灯
+    var lamp_end = select(0u, P.counts2.x, ported);
+    var lamp_local = ported && P.counts.x - P.counts2.x <= RIS_EXACT;
+    @if(light_pick) if (!take_local) { lamp_local = false; }
+    if (lamp_local) { lamp_end = P.counts.x; }
+    var local_w = 1.0;
+    @if(light_pick) { local_w = pick_w; }
+    let receiver = light_receiver_set(sd.object);
+    let tri = shadow_tri(sd.object, sd.prim, sd.inst, sd.u, sd.v);
+    for (var i = 0u; i < lamp_end; i++) {
+        let li = light_at(i);
+        // A light gone black (a moon that has set, the sun at night) costs neither its BSDF nor its shadow ray.
+        if (all(li.color.rgb <= vec3<f32>(0.0)) || !light_linked(li, receiver)) { continue; }
+        let sun = i < P.counts2.x;
+        // （随机数的编号同上游：平行光取 D_SUN、D_SUN_VIS，本地灯取 D_LOCAL 与它的阴影射线那一路，各按灯的下标分开）
+        let rd = select(rng_sub(rng_legacy(D_LOCAL), i), rng_sub(rng_legacy(D_SUN), i), sun);
+        let rd_vis = select(rng_sub(rng_legacy(D_LOCAL) ^ 0x40000000u, i), rng_sub(rng_legacy(D_SUN_VIS), i), sun);
+        let u = rng2(rd);
+        var ls = LampSample();
+        var le = li.color.rgb;
+        if (sun) {
+            ls = sun_light_sample(li.dir.xyz, bitcast<f32>(li.cy.y), bitcast<f32>(li.cy.x), u);
+        } else if (u32(li.pos.w) == 3u) {
+            let r = bm_rect(li);
+            let a = area_light_sample(u, sd.P, li.pos.xyz, r.u, r.len_u, r.v, r.len_v, li.dir.xyz, r.invarea);
+            if (!a.ok) { continue; }
+            ls.P = a.P;
+            ls.D = a.D;
+            ls.t = a.t;
+            ls.pdf = a.pdf;
+            ls.eval_fac = a.eval_fac;
+            le = bm_rect_le(li, r);
+        } else {
+            ls = point_light_sample(li.pos.xyz, li.dir.w, bitcast<f32>(li.cy.x), u, sd.P);
+            le *= local_atten(li, sd.P);
+        }
+        // （Cycles 的 light_sample 在密度不大于 0 时不算这盏灯）
+        if (!(ls.pdf > 0.0)) { continue; }
+        let e = surface_shader_bsdf_eval(sd, ls.D, li.cy.w & SHADER_USE_MIS);
+        var c = e.sum * (le * (ls.eval_fac / ls.pdf * power_heuristic(ls.pdf, e.pdf)));
+        if (!sun) { c *= local_w; }
+        if (all(c == vec3<f32>(0.0))) { continue; }
+        // 阴影射线：见 shadow_ray，到灯上那一点为止（平行光不设上限）
+        let vis = shadow_ray_vis(tri, shadow_ray(tri, sd.P, sd.N, sd.Ng, ls.D, ls.P, sun), li.ext.w >= 0.5, rd_vis);
+        if (!any(vis > vec3<f32>(0.0))) { continue; }
+        c *= tr3(vis);
+        // （上游 --signals 的高光份额，照 surface_shader_bsdf_eval_legacy 的写法）
+        state.legacy.split_frac = e.glossy / max(e.sum, vec3<f32>(1e-12));
+        state.legacy.dl_spec += c * state.legacy.split_frac;
+        film_add_direct(c, light_lightgroup(li));
+    }
+    @if(!light_pick) if (!lamp_local) { sum += local_lights(sd, o, sd.P, false, vec3<f32>(0.0), rng_legacy(D_LOCAL)); }
+    @if(light_pick) if (take_local && !lamp_local) { sum += local_lights(sd, o, sd.P, false, vec3<f32>(0.0), rng_legacy(D_LOCAL)); }
     // Emissive triangles (incl. rect lights)
     // (Rough glass takes emitters from both sides: as a point without a hemisphere does, the samples and `emit_mis`
     // alike. The tree's bound has no two-sided cosine; without one the estimate is the same, its noise a little more.)
     var ne = sd.legacy.surface.n;
     if (two_sided(sd.legacy.lobes)) { ne = vec3<f32>(0.0); }
-    state.legacy.mis_x = o;
     state.legacy.mis_n = ne;
     var emitters = P.counts.y;
     @if(light_pick) if (!take_emit) { emitters = 0u; }
     if (emitters > 0u) {
         var es: ES;
         // With the light tree its candidates are already near the point: P.ltree.y of them at camera hits, one elsewhere.
-        if (lt_on()) { es = sample_emitter_ris(o, ne, select(1u, u32(P.ltree.w), state.bounce == 0u), sd, rng_legacy(D_EMIT)); } else if (seen_directly()) { es = sample_emitter_ris(o, ne, select(EMIT_RIS_M / 2u, EMIT_RIS_M, state.bounce == 0u), sd, rng_legacy(D_EMIT)); } else if (P.light_lod.w > 0.0) { es = sample_emitter_ris(o, ne, 2u, sd, rng_legacy(D_EMIT)); } else { es = sample_emitter(o, ne, rng_legacy(D_EMIT)); }
+        // （从没挪动的着色点取：材质采样一侧 emit_mis 从 state.mis_origin_P 算选灯概率，两侧用同一个点）
+        if (lt_on()) { es = sample_emitter_ris(sd.P, ne, select(1u, u32(P.ltree.w), state.bounce == 0u), sd, rng_legacy(D_EMIT)); } else if (seen_directly()) { es = sample_emitter_ris(sd.P, ne, select(EMIT_RIS_M / 2u, EMIT_RIS_M, state.bounce == 0u), sd, rng_legacy(D_EMIT)); } else if (P.light_lod.w > 0.0) { es = sample_emitter_ris(sd.P, ne, 2u, sd, rng_legacy(D_EMIT)); } else { es = sample_emitter(sd.P, ne, rng_legacy(D_EMIT)); }
         if (es.pdf_w > 0.0) {
             let e = surface_shader_bsdf_eval_legacy(sd, es.l, 1.0);
             let f = e.eval;
@@ -856,7 +1084,7 @@ fn direct_light(sd: ShadingPoint) -> vec3<f32> {
                 let vis = emitter_tr(light_origin(sd, o, es.l), es.l, es.dist * 0.999, rng_legacy(D_EMIT_VIS));
                 if (vis > 0.0) {
                     let frac = e.spec_frac;
-                    let wgt = light_mis(es.pdf_w, sd, es.l) * tr1(vis);
+                    let wgt = power_heuristic(es.pdf_w, surface_shader_bsdf_eval(sd, es.l, SHADER_USE_MIS).pdf) * tr1(vis);
                     sum += es.le * f * wgt * es.w;
                     state.legacy.dl_spec += es.le * f * wgt * es.w * frac;
                 }

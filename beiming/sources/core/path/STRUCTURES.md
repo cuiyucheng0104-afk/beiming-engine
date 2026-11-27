@@ -1,6 +1,6 @@
 # 核心帧源 · 内核的四样内部结构
 
-读者｜要改内核、或要在内核里移植闭包、灯、图案节点、降噪、输出通道的人与 agent　冻结标记｜[FREEZE.json](FREEZE.json)（版本 1.2.1，2026-11-27）　来源与历史｜[PROVENANCE.md](PROVENANCE.md)
+读者｜要改内核、或要在内核里移植闭包、灯、图案节点、降噪、输出通道的人与 agent　冻结标记｜[FREEZE.json](FREEZE.json)（版本 1.2.4，2026-11-27）　来源与历史｜[PROVENANCE.md](PROVENANCE.md)
 
 这份条文定死路径追踪内核内部四样东西的形状：**材质记录、光线负载、随机维度、输出通道**。定下来是为了让后面几类移植能分给不同的人同时做：各改各的函数，不改这四样的形状。
 
@@ -134,18 +134,19 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 
 | 字段 | 类型 | 含义 | 谁写 | 状态 |
 |---|---|---|---|---|
-| `P` | vec3 | 位置（世界空间） | `shader_setup_from_hit` | 已落地 |
-| `N` | vec3 | 插值后的平滑法线，打在背面时与 `Ng` 一起翻向来路；不含法线贴图、不含倒角。过程几何的命中里等于 `Ng` | 同上 | 已写未读 |
+| `P` | vec3 | 位置（世界空间）。三角形上照 Cycles 的 `triangle_point_from_uv` 用重心坐标重建，经实例的再乘实例矩阵（第 52 条）；过程几何是 `o + d·t` | `shader_setup_from_hit` | 已落地 |
+| `N` | vec3 | 插值后的平滑法线，打在背面时与 `Ng` 一起翻向来路；不含法线贴图、不含倒角。过程几何的命中里等于 `Ng` | 同上 | 已落地（1.2.1 起凹凸阴影项读它，见 `bsdf_eval_mis_bump_one`） |
 | `Ng` | vec3 | 几何法线，翻向来路 | 同上 | 已落地 |
 | `wi` | vec3 | 指向来路的方向 | 同上 | 已落地 |
-| `object` | u32 | 物体表的下标，软件、硬件两条求交路上都有；不是实例记录号 | 同上 | 已写未读（只被抄进同样没人读的 `state.mis_ray_object`） |
-| `prim` | u32 | 全局三角下标；过程几何的命中里是上游的命中码（最高位是 1） | 同上 | 已写未读 |
-| `u`、`v` | f32 | 重心坐标；过程几何的命中里是上游编码过的法线与属性 | 同上 | 已写未读 |
+| `object` | u32 | 物体表的下标，软件、硬件两条求交路上都有；不是实例记录号 | 同上 | 已落地（灯光链接的接收者、阴影终止偏移读物体扩展表；也抄进 `state.mis_ray_object`） |
+| `prim` | u32 | 全局三角下标；过程几何的命中里是上游的命中码（最高位是 1） | 同上 | 已落地（阴影射线的起点偏移取三角形的顶点与顶点法线） |
+| `u`、`v` | f32 | 重心坐标；过程几何的命中里是上游编码过的法线与属性 | 同上 | 已落地（同上） |
 | `ray_length` | f32 | 这一段光线走了多远 | 同上 | 已写未读 |
 | `flag` | u32 | 着色点标志，位照 Cycles。`SD_BACKFACING`（第 0 位）：打在背面 | 同上 | 已落地 |
 | `object_flag` | u32 | 物体标志，位照 Cycles。第 3 位 `SD_OBJECT_NEGATIVE_SCALE`：物体是镜像的 | 没人写 | 已定义 |
 | `time` | f32 | 这条光线的时刻 | 没人写 | 已定义，恒 0 |
 | `lcg_state` | u32 | 局部求交随机取子集用的小随机数状态 | 没人写 | 已定义 |
+| `inst` | u32 | 放置这个三角形的实例记录（`NO_INST`：没经实例，三角形本身在世界空间；过程几何也记 `NO_INST`）。Cycles 没有这个字段（它从物体取变换） | `shader_setup_from_hit` | 已落地（1.2.3 加；阴影射线的起点偏移 `light.wgsl` 的 `shadow_tri` 读） |
 | `emission` | vec3 | 这个点的自发光，单独一个量，不占闭包 | `shader_setup_closures` | 已落地 |
 | `num_closure` | u32 | 闭包个数。0：只发光、不散射，路径到这里结束 | 同上 | 已落地 |
 | `closure` | `Closure` 的数组，长 `MAX_CLOSURE` | 闭包 | 同上 | 已落地（移植的至多 3 个，上游顶替 1 个） |
@@ -188,7 +189,8 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 - 别的（带清漆或透射的、漫反射粗糙度不为 0 的、不透明度小于 1 的）：一个 `CLOSURE_LEGACY`，求值与采样转给上游。一个材质要么全走移植的闭包、要么全走上游，不混。
 - 发光卡片（上游的 `card`：只发光、不散射）：没有闭包。所有闭包的权重都太小（比如无光照材质：底色、高光都是 0）时也没有闭包，路径到这里结束。
 - `CLOSURE_BSDF_TRANSPARENT` 只占了种类号。
-- 这条路上没有移的几步：凹凸阴影项（见「与 Cycles 不一样」第 45 条）、发光被光泽与清漆衰减（这条路上衰减是 1）、`maybe_ensure_valid_specular_reflection`（Cycles 只在着色器带凹凸校正标志时改法线；这里法线贴图之后不校正）、各向异性的切线。材质函数改了上游的高光强度时，移植的闭包不认（读的是材质记录的高光等级）。
+- 金属与电介质高光的闭包法线照 Cycles 取 `valid_reflection_N`（`maybe_ensure_valid_specular_reflection`：着色法线让镜面反射方向落到几何面以下时往几何法线拧），漫反射用原来的法线（1.2.1 起）。Cycles 只在材质带凹凸校正标志 `SD_USE_BUMP_MAP_CORRECTION` 时这样做，但这个标志由材质属性 `use_bump_map_correction` 决定、Blender 里默认开着，场景包里又没有这个参数，所以这里视为开：没有法线贴图的光滑球在轮廓附近也会拧。求值与采样的入口照 Cycles 乘凹凸阴影项（见「积分器碰材质只经这一组函数」）。
+- 这条路上没有移的几步：发光被光泽与清漆衰减（这条路上衰减是 1）、各向异性的切线、阴影终止偏移（`shift_cos_in`）。材质函数改了上游的高光强度时，移植的闭包不认（读的是材质记录的高光等级）。
 
 ### 材质求值的三步，与只算透明度的一档
 
@@ -212,13 +214,14 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | `surface_shader_prepare_closures(sd)` | 闭包填好之后、算直接光与采样之前的事后处理。滤光泽照 Cycles：全局参数的 `filter_glossy`（存的就是内核里的量 1 / blur_glossy，0 关）大于 0 时，`blur_pdf` = 它乘 `state.min_ray_pdf`，小于 1 时各微表面闭包的 alpha 与 `sqrt(1 − blur_pdf)·0.5` 取大（`bsdf_microfacet_blur`）；上游顶替不模糊。上游的 `Lobes` 也在这里算，对所有闭包都算（上游的灯光函数还读它的 `two_sided`） | 已落地 |
 | `bsdf_eval(c, wi, wo) → ClosureEval { eval, pdf }` | 一个闭包在一个方向上的求值（已含余弦，没乘闭包的 `weight`）与概率密度。照 Cycles 的 `bsdf_eval`，按种类与菲涅耳种类分到金属、电介质高光、漫反射。收一个闭包，不收整个着色点。上游顶替不走这里 | 已落地 |
 | `bsdf_sample(c, Ng, wi, rand) → MicrofacetSample` | 一个闭包上采样方向，照 Cycles 的 `bsdf_sample` 分发；用 `rand` 的前两个 | 已落地（1.2.0 加） |
-| `bsdf_eval_mis_one(c, wi, wo, e) → vec2` | `surface_shader_bsdf_eval_mis` 循环里的一个闭包：求值累加进 `e`，返回 (密度乘取样权重, 取样权重) | 已落地（1.2.0 加） |
+| `bsdf_eval_mis_bump_one(c, Ns, wi, wo, e) → vec2` | `surface_shader_bsdf_eval_mis` 循环里的一个闭包：先照 Cycles `bsdf_eval` 的入口算凹凸阴影项（`Ns` 是着色点的平滑法线 `sd.N`；为 0 时求值与密度都是 0），再求值、乘上它，累加进 `e`，返回 (密度乘取样权重, 取样权重) | 已落地（1.2.1 加） |
+| `bsdf_eval_mis_one(c, wi, wo, e) → vec2` | 同上，不乘凹凸阴影项 | 1.2.1 起没有调用者（由上一行代替）；签名在冻结标记里，删不删等核心帧源的负责人定 |
 | `bsdf_blur(sd, k, roughness) → Closure` | 第 k 个闭包模糊之后的样子，照 Cycles 的 `closure/bsdf.h` `bsdf_blur`（微表面闭包的 alpha 与模糊粗糙度取大）；滤光泽用 | 已落地（1.2.0 加） |
 | `bsdf_eval_accum(e, kind, value)` | 求值累加进漫反射或光泽那一份与 `sum`，照 Cycles 的 `film/light_passes.h` | 已落地（1.2.0 加） |
 | `surface_shader_bsdf_eval_mis(sd, wo, skip, e, sum_pdf, sum_sample_weight) → f32` | 除第 `skip` 个之外的闭包求值累加进 `e`，返回按 `sample_weight` 加权的平均概率密度。照 Cycles 的 `_surface_shader_bsdf_eval_mis`；`skip` 取 `MAX_CLOSURE` 时不跳过 | 已落地（1.2.0 加） |
 | `surface_shader_bsdf_eval(sd, wo, light_shader_flags) → BsdfEval` | 对所有闭包求值求和、概率密度按 `sample_weight` 加权平均（照 Cycles 的同名函数）。`light_shader_flags` 是灯的着色标志，现在没人读 | 已落地（上游的灯光函数经 `surface_shader_bsdf_eval_legacy` 与 `light_mis` 调它） |
 | `surface_shader_bsdf_bssrdf_pick(sd, rand) → BsdfPick { closure, rand }` | 按 `sample_weight` 选一个闭包去采样；用三个随机数里的第三个来选，选完重新拉伸回 0 到 1。照 Cycles 的同名函数 | 已落地 |
-| `surface_shader_bsdf_sample_closure(sd, k, rand) → BsdfSample` | 在第 k 个闭包上采样方向，用 `rand` 的前两个定方向，再并进其余闭包在这个方向上的求值与概率密度；通量的权重是求值之和除以合起来的概率密度（照 Cycles 的同名函数与 `integrate_surface_bsdf_bssrdf_bounce`）。上游顶替不用 `rand`，自己从上游的随机数里取 | 已落地 |
+| `surface_shader_bsdf_sample_closure(sd, k, rand) → BsdfSample` | 在第 k 个闭包上采样方向，用 `rand` 的前两个定方向，再并进其余闭包在这个方向上的求值与概率密度；通量的权重是求值之和除以合起来的概率密度（照 Cycles 的同名函数与 `integrate_surface_bsdf_bssrdf_bounce`）。采到了、又不是透射时，求值照 Cycles `bsdf_sample` 的出口乘凹凸阴影项（1.2.1 起）。上游顶替不用 `rand`，自己从上游的随机数里取 | 已落地 |
 | `surface_shader_emission(sd) → vec3` | 这个点朝来路发出的光：照 Cycles，发光量乘 `emissive_simple_eval`（两面都发光）。上游的发光卡片例外，照旧是单面的 | 已落地 |
 | `surface_shader_transparency(sd) → vec3` | 阴影射线穿过这个点时放过多少光。恒 0 | 已定义、无调用者 |
 | `bsdf_albedo(sd, k) → vec3` | 第 k 个闭包的反照率，口径照 Cycles 的 `bsdf_albedo`（`closure_albedo`：闭包权重，微表面的再乘 `bsdf_microfacet_estimate_albedo`）。上游顶替返回上游的底色 | 已落地 |
@@ -239,7 +242,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 
 上游顶替专用、灯移植完后删的两个：`surface_shader_bsdf_eval_legacy(sd, wo, k) → { eval, spec_frac }`（上游的灯光函数专用的求值，`k` 是上游每盏灯的高光倍率，只对上游顶替有效）与 `surface_shader_bsdf_sample_legacy(sd)`。
 
-上游的七个灯光函数（`direct_light`、`local_lights`、`sample_emitter_ris`、`env_light`、`sun_light`、`light_mis`、`pdf_spec`）与 `light_origin` 收的是着色点。灯记录（`Light`，5 个 vec4）的格式与「把灯压成记录的那一个函数」都归做灯的人独占，这里不定；灯记录里以后带「写进 `film` 的第几个灯组槽位」。
+灯光函数里收着色点的是上游留下的五个（`direct_light`、`local_lights`、`sample_emitter_ris`、`env_light`、`sun_light`）与 `light_origin`（1.2.3 起 `light_mis`、`pdf_spec` 删掉）；照 Cycles 新写的灯的辅助函数只收标量（`shadow_tri`、`shadow_ray`、`shadow_ray_vis`、`shadow_ray_sky`、`light_linked`、`light_receiver_set`、`light_lightgroup`、`local_atten`、`film_add_direct`、`film_add_forward`），逐盏的直接光原地写在 `direct_light` 里，不另加收着色点的一层。灯记录（`Light`，6 个 vec4：上游的五个，加照 Cycles 的 `cy`，整数格：eval_fac 与平行光 one_minus_cosangle 的位、灯光链接的成员掩码、灯组槽位与 `SHADER_USE_MIS`，见 `src/scene.rs` 的 `GpuLight`）的格式与「把灯压成记录的那一个函数」都归做灯的人独占，这里不定。
 
 ## 光线负载
 
@@ -254,7 +257,8 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | `render_pixel_index` | u32 | 写缓冲用的像素下标 | 两个入口（`main`、`aux_sample`）开头 | 已落地 |
 | `sample` | u32 | 第几个样本 | `rng_start` | 已落地 |
 | `bounce` | u32 | 总弹射数，也就是当前着色点是路径上第几个顶点 | 主循环每轮开头 | 已落地 |
-| `diffuse_bounce`、`glossy_bounce`、`transmission_bounce`、`transparent_bounce` | u32 | 分类计数：照采样标签累加并接各自的上限 | 没人写 | 已定义 |
+| `diffuse_bounce`、`glossy_bounce`、`transmission_bounce` | u32 | 分类计数：照采样标签累加，数到 `integrator` 块里各自的上限置 `PATH_RAY_TERMINATE_AFTER_TRANSPARENT` | `path_state_next` | 已落地 |
+| `transparent_bounce` | u32 | 透明的计数 | 没人写 | 已定义 |
 | `rng_pixel` | u32 | 随机数的像素种子 | `rng_start` | 已落地 |
 | `rng_offset` | u32 | 当前弹射的随机维度偏移，初值 `PRNG_BOUNCE_NUM`，每弹射一次加一个 | `main` 开头、`path_state_next` | 已落地 |
 | `flag` | u32 | 路径标志位 `PATH_RAY_*` | 主循环 | `PATH_RAY_MIS_SKIP` 已落地，其余已定义 |
@@ -263,21 +267,22 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | `continuation_probability` | f32 | 这一次弹射俄罗斯轮盘的存活概率，不掷时为 1 | 主循环 | 已落地 |
 | `throughput` | vec3 | 路径的通量权重 | 主循环 | 已落地 |
 | `visibility` | u32 | 这一段光线的可见类 `PATH_RAY_VISIBILITY_*` | `main` 开头、`path_state_next` | 已写未读（只有骨架） |
-| `mis_ray_object` | u32 | 上一个散射点所在的物体（物体表的下标）；介质散射记 `OBJECT_NONE` | 主循环 | 已写未读 |
+| `mis_ray_object` | u32 | 上一个散射点所在的物体（物体表的下标）；介质散射记 `OBJECT_NONE` | 主循环 | 已落地（灯光链接的前向接收者：`light.wgsl` 的 `bm_rect_hits`、`sun_disks`） |
 | `first_hit_object` | u32 | 相机射线首次命中的物体（物体表的下标）；没打到表面（含在介质里先散射了）记 `OBJECT_NONE`。覆盖率用：`film_write_sample` 读它的实体编号 | `main` 开头、主循环第 0 个顶点；只在要辅助层的变体（编译开关 `aux`）里写 | 已落地（1.1.0 加） |
+| `mis_origin_P` | vec3 | 上一个散射点本身（没有沿法线挪开；介质散射处就是散射点）：材质采样的射线打到矩形纯光时从它算命中与概率密度、打到发光三角时从它算灯光树的选灯概率，与光源采样一侧用同一个点。Cycles 没有这个字段（它不挪射线起点，`ray.P` 就是这个点），名字照 `mis_origin_n` 取 | 主循环（表面弹射与介质散射）、`volume.wgsl` | 已落地（1.2.2 加，替掉上游的 `legacy.bm_x` 与 `legacy.mis_x`） |
 | `legacy` | `PathLegacy` | 上游的路径状态，照 Cycles 没有对应 | 各处 | 已落地，对应功能移植后删 |
 
 已登记、还没加的字段（加字段不算破坏，这里只占名字）：`pass_diffuse_weight`、`pass_glossy_weight`（分通道对拍用）、`denoising_feature_throughput`（降噪特征用）。
 
-`PathLegacy` 里现在有：`behind_glass`、`bent`、`straight`、`mirror_path`、`bm_surf`、`rays_off`、`split_frac`、`dl_spec`、`sampled_spec`、`sampled_trans`、`mis_x`、`mis_n`、`dl_det`、`dl_det_spec`、`shadow_hole`、`nee_alone`、`lights_only`、`rng_path`、`bm_x`（这一段射线出发的着色点本身，没有沿法线挪开；材质采样打到矩形纯光时从它算命中与概率密度，与光源采样一侧用同一个点）。没有并进来的上游私有量不是路径状态：求交里过程几何的调用上下文（`gdata_first`、`gdata_count`、`media_voxels`）、灯光瓦片的每像素状态（`lt_list`、`lt_list_n`、`lt_fb`）、循环守卫的计数。
+`PathLegacy` 里现在有：`behind_glass`、`bent`、`straight`、`mirror_path`、`bm_surf`、`rays_off`、`split_frac`、`dl_spec`、`sampled_spec`、`sampled_trans`、`mis_n`、`shadow_hole`、`lights_only`、`rng_path`（1.2.2 起 `bm_x`、`mis_x` 并成正式字段 `mis_origin_P`；1.2.3 删掉没人读的 `dl_det`、`dl_det_spec` 与从来没人写成真的 `nee_alone`）。没有并进来的上游私有量不是路径状态：求交里过程几何的调用上下文（`gdata_first`、`gdata_count`、`media_voxels`）、灯光瓦片的每像素状态（`lt_list`、`lt_list_n`、`lt_fb`）、循环守卫的计数。
 
-`path_state_next(label)` 在每次弹射之后更新路径状态，照 Cycles 的同名函数，**现在只有骨架**：下一段光线的可见类与随机维度的偏移。分类计数、各类弹射上限、其余路径标志位归移植闭包的人照 Cycles 补。`PATH_RAY_MIS_SKIP` 在主循环里设与清：相机射线、上游顶替的穿过光滑玻璃，以及（1.2.0 起）移植的闭包采到的奇异一瓣（`LABEL_SINGULAR`，照 Cycles `path_state_next` 的 `PATH_RAY_SINGULAR | PATH_RAY_MIS_SKIP`）之后设，别的弹射清。
+`path_state_next(label)` 在每次弹射之后更新路径状态，照 Cycles 的同名函数：下一段光线的可见类、随机维度的偏移，表面散射的分类计数与各类上限（见下面「弹射上限」）。其余路径标志位归移植闭包的人照 Cycles 补。`PATH_RAY_MIS_SKIP` 在主循环里设与清：相机射线、上游顶替的穿过光滑玻璃，以及（1.2.0 起）移植的闭包采到的奇异一瓣（`LABEL_SINGULAR`，照 Cycles `path_state_next` 的 `PATH_RAY_SINGULAR | PATH_RAY_MIS_SKIP`）之后设，别的弹射清。
 
 ### 路径标志位与可见类
 
 两个枚举，位都照 Cycles（`PathRayFlag` 与 `PathRayVisibilityFlag`）。
 
-路径标志位（`state.flag`）：`PATH_RAY_REFLECT`（第 0 位）、`PATH_RAY_SINGULAR`（1）、`PATH_RAY_TRANSPARENT`（2）、`PATH_RAY_DIFFUSE_ANCESTOR`（4）、`PATH_RAY_EMISSION`（5）、`PATH_RAY_MIS_HAD_TRANSMISSION`（6）、`PATH_RAY_MIS_SKIP`（7）、`PATH_RAY_SINGLE_PASS_DONE`（8）、`PATH_RAY_TRANSPARENT_BACKGROUND`（9）、`PATH_RAY_TERMINATE_ON_NEXT_SURFACE`（10）、`PATH_RAY_TERMINATE_AFTER_TRANSPARENT`（12）、`PATH_RAY_DENOISING_FEATURES`（17）、`PATH_RAY_SURFACE_PASS`（18）、`PATH_RAY_SHADOW_FOR_AO`（20）、`PATH_RAY_SHADOW_FOR_LIGHT_LINKING`（25）。只有 `PATH_RAY_MIS_SKIP` 已落地（相机射线、穿过光滑玻璃、奇异的一瓣之后，下一次打到发光面、天空、太阳盘、矩形纯光不做多重重要性采样，权重取 1：`emit_mis` 的调用处、`sky_mis`、`sun_disks`、`bm_rect_hits` 都认它）；其余已定义。
+路径标志位（`state.flag`）：`PATH_RAY_REFLECT`（第 0 位）、`PATH_RAY_SINGULAR`（1）、`PATH_RAY_TRANSPARENT`（2）、`PATH_RAY_DIFFUSE_ANCESTOR`（4）、`PATH_RAY_EMISSION`（5）、`PATH_RAY_MIS_HAD_TRANSMISSION`（6）、`PATH_RAY_MIS_SKIP`（7）、`PATH_RAY_SINGLE_PASS_DONE`（8）、`PATH_RAY_TRANSPARENT_BACKGROUND`（9）、`PATH_RAY_TERMINATE_ON_NEXT_SURFACE`（10）、`PATH_RAY_TERMINATE_AFTER_TRANSPARENT`（12）、`PATH_RAY_DENOISING_FEATURES`（17）、`PATH_RAY_SURFACE_PASS`（18）、`PATH_RAY_SHADOW_FOR_AO`（20）、`PATH_RAY_SHADOW_FOR_LIGHT_LINKING`（25）。`PATH_RAY_MIS_SKIP` 已落地（相机射线、穿过光滑玻璃、奇异的一瓣之后，下一次打到发光面、天空、太阳盘、矩形纯光不做多重重要性采样，权重取 1：`emit_mis` 的调用处、`sky_mis`、`sun_disks`、`bm_rect_hits` 都认它）；`PATH_RAY_TERMINATE_AFTER_TRANSPARENT` 已落地（某一类散射数到了上限，见下面「弹射上限」）；其余已定义。
 
 可见类（`state.visibility`）：`PATH_RAY_VISIBILITY_NONE`（0）、`PATH_RAY_VISIBILITY_CAMERA`（第 0 位）、`PATH_RAY_VISIBILITY_TRANSMIT`（1）、`PATH_RAY_VISIBILITY_DIFFUSE`（2）、`PATH_RAY_VISIBILITY_GLOSSY`（3）、`PATH_RAY_VISIBILITY_VOLUME_SCATTER`（4）、`PATH_RAY_VISIBILITY_SHADOW_OPAQUE`（5）、`PATH_RAY_VISIBILITY_SHADOW_TRANSPARENT`（6）。相机、透射、漫反射、光泽、介质散射五位有人写；两位阴影类已定义。没有读者。
 
@@ -301,7 +306,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 
 ### 求交
 
-上游的接口原样冻结：`trace(o, d, tmax_in, mode) → Hit { t, tri, u, v, inst }`，硬件与软件两条求交路径返回同一个结构；没打到时 `tri` 是 `0xffffffff`。调用处从 `Ray` 里取字段。软件求交的三角形求交是照 Cycles 移植的、防水的那一个，三角形缓冲存三个原顶点（「与 Cycles、与上游不一样的地方」第 46 条）；苹果显卡的硬件求交在公共边上漏是平台限制（第 47 条）。
+上游的接口原样冻结：`trace(o, d, tmax_in, mode) → Hit { t, tri, u, v, inst }`，硬件与软件两条求交路径返回同一个结构；没打到时 `tri` 是 `0xffffffff`。调用处从 `Ray` 里取字段。要跳过的图元（Cycles 的 `Ray.self`）不进参数，放在模块级的私有变量 `trace_self` 里，只有阴影射线设它（第 51 条）。软件求交的三角形求交是照 Cycles 移植的、防水的那一个，三角形缓冲存三个原顶点（「与 Cycles、与上游不一样的地方」第 46 条）；苹果显卡的硬件求交在公共边上漏是平台限制（第 47 条）。
 
 以后要的新问法各加一个新函数，不改已有的。现在定了签名的一个：
 
@@ -317,13 +322,18 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 
 | 格 | 字段 | 类型 | 含义 | 状态 |
 |---|---|---|---|---|
-| 0 | `max_bounce`、`max_diffuse_bounce`、`max_glossy_bounce`、`max_transmission_bounce` | u32 | 各类弹射的上限 | 已定义，全 0（弹射上限现在读上游的 `counts.z`） |
+| 0 | `max_bounce` | u32 | 总弹射的上限 | 已定义，0（总上限读上游的 `counts.z`） |
+| 0 | `max_diffuse_bounce`、`max_glossy_bounce`、`max_transmission_bounce` | u32 | 漫反射、光泽（含奇异的反射）、透射各自的上限，口径见表下「弹射上限」 | 已落地：`Params::set_preset` 照预设的 `maxDiffuseBounces`、`maxGlossyBounces`、`maxTransmissionBounces` 原样写，预设不写就是 `u32::MAX`（不限）；`path_state_next` 读 |
 | 1 | `transparent_max_bounce`、`transparent_min_bounce`、`min_bounce` | u32 | 透明弹射的上下限；俄罗斯轮盘的起始深度 | 已定义，0（轮盘的起始深度现在读上游的 `counts.w`） |
 | 1 | `sampling_pattern` | u32 | 采样图案，只有 0（Sobol-Burley） | 已定义 |
 | 2 | `sample_clamp_direct`、`sample_clamp_indirect` | f32 | 夹取的直接光、间接光上限：存**用户值 × 3**（照 Cycles 宿主一侧 `scene/integrator.cpp:311-315` 的存法），0 关（Cycles 关着时存浮点最大值，见「与 Cycles、与上游不一样的地方」第 38 条）。内核照 Cycles 的 `film_clamp_light` 比的是一次贡献**三个分量绝对值之和**（`reduce_add`），超了按比例缩到上限，所以灰的贡献每个分量夹到用户值；按「弹射数」选上限：大于 0 用间接光的 | 已落地：`render-pack` 照 `--clamp-direct`、`--clamp-indirect` 写；内核在编译开关 `sample_clamp` 的变体里经 `film.wgsl` 的 `film_clamp_contribution` 读。别的入口恒 0，照旧用上游的亮度夹取 `misc.x` |
 | 2 | `filter_glossy`、`light_inv_rr_threshold` | f32 | 滤光泽：存 1 / blur_glossy（照 Cycles 宿主一侧 `scene/integrator.cpp:269` 的存法），内核直接用，不再取倒数；0 关（Cycles 关着时存浮点最大值，见「与 Cycles、与上游不一样的地方」第 38 条）。写它的是命令行（换算在写的那一侧：`render-pack --filter-glossy <用户值>` 写 1 / 用户值，用户值 0 写 0）。灯的轮盘阈值 | `filter_glossy` 已落地（`surface_shader_prepare_closures` 读，`render-pack` 写，别的入口恒 0）；`light_inv_rr_threshold` 已定义，0 |
 | 3 | `seed` | u32 | 随机数的全局种子 | 已落地，见下 |
 | 3 | `sobol_index_mask` | u32 | Sobol 打乱后的索引取哪几位 | 已落地，见下 |
+
+**弹射上限**的口径（总的与分类的同一种，都是 Cycles 内核一侧的值）：上限 N 的意思是第 N 次散射（总的数全部散射，分类的只数这一类）之后的那个顶点是最后一个。总上限在主循环里比 `depth == P.counts.z`；分类上限照 Cycles `kernel/integrator/path_state.h:176-209` 在 `path_state_next` 里数（采样标签带 `LABEL_REFLECT` 的，再带 `LABEL_DIFFUSE` 记漫反射、不带的记光泽，奇异的反射也记光泽；不带 `LABEL_REFLECT` 的记透射，上游顶替的穿过光滑玻璃也记透射），数到 `max_*_bounce` 置 `PATH_RAY_TERMINATE_AFTER_TRANSPARENT`。带这一位的顶点照 Cycles（`surface_shader.h:1262-1266` 的 `max_closures` 取 0）只收射线路上打到的灯（发光面、天空、矩形纯光照常加，多重重要性采样的权重照常），闭包不参与（主循环照旧建了闭包才判这一位，建出来的不用）、不做直接光、不再散射，`last_direct`、`last_sun` 变体里也一样；路径在介质里撞上就停（Cycles `shade_volume.h:1738-1742` 只衰减不散射，期望里乘的是透过率）。总上限到了的那个顶点在 `last_direct`、`last_sun` 变体里还做直接光，这是上游的开关，桌面默认关。
+
+**Cycles 界面值换到这里一律加一**：界面上总上限或某一类上限是 G，这里写 G + 1。依据是内核一侧的用法：Cycles 每次散射之后先把计数加一，再比 `计数 >= kernel_data.integrator.max_*`（`path_state.h:143-146`、`183`、`190`、`206`），所以内核值 N 让第 N 次散射之后的顶点只收灯；界面值 0 是「只有直接光」（相机看到的顶点还做直接光，它之后的顶点只收灯），对应内核值 1。宿主一侧把界面值加一写进内核的那个文件（`scene/integrator.cpp`）不在本机的 Cycles 源码缓存里，没有逐行对过；另用 Blender 5.2 在一个高光包上按几组界面值各渲 16 个种子，球下影区的均值与核心逐顶点累加的直接光比：加一对得上，不加一少一个顶点的直接光，影区暗三成多。`render-pack` 的预设（`cinematic` 的 `maxBounces: 8`）本来就是内核值；第 3、4 级照参考包清单的 `bounces` 加一传进来（`../chassis/level3.mjs` 的 `MATCH`）。
 | 3 | `pass_kind` | u32 | 这一趟调度写什么：`PASS_KIND_COLOR`（0）颜色样本，`PASS_KIND_AUX`（1）辅助样本。两侧同名常数 | Rust 一侧照实填（要辅助层时清零之后、第一个颜色样本之前以 1 调度一次）；内核不读：两种样本各走自己的入口（见「编号登记表」的「编译开关与入口」） |
 | 3 | `background_transparent` | u32 | 背景对相机不可见：相机射线没打到表面的样本不透明度与颜色都记 0 | 已落地：`render-pack` 照场景包的 `world.visibleToCamera` 填；别的入口恒 0 |
 
@@ -508,7 +518,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 
 - 灯组数是这次渲染请求的灯组数，不是场景里的。开渲之前按 `步长 × 16 × 宽 × 高` 算缓冲大小（`film_bytes`），超过显卡单个缓冲绑定的上限就报错，并写明这个分辨率下这次最多能要几组。参考数：英伟达那块显卡上单个缓冲最大 2 GiB，4K 时每像素最多 16 个 vec4，也就是 6 个灯组。
 - 输出通道的灯组在代码里统一叫 `lightgroup`。它与上游那个「每 16 盏灯一组的包围球表」（`LIGHT_GROUP`、`light_group_at`）不是一回事。
-- 请求灯组的入口现在只有 Rust 的 `Params.film = KernelFilm::new(n)`；命令行与任务描述里还没有请求灯组的字段。读回在 `Frame.lightgroups`（每组一层，每个像素的均值）。
+- 请求灯组：`core-render render-pack --passes` 请求场景包里的全部灯组（组名按在灯清单里第一次出现的次序，下标就是灯记录里的槽位），层文件 `lightgroup-<名>.f32`，通道声明里是 `lightgroup:<名>`；Rust 的入口是 `Params.film = KernelFilm::new(n)`。任务描述里还没有请求灯组的字段。读回在 `Frame.lightgroups`（每组一层，每个像素的均值）。
 
 几条写死的语义（通道的名字、单位、取法照仓库里已经冻结的通道契约，这里只定它们在缓冲里的位置）：
 
@@ -529,7 +539,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | 函数 | 做什么 | 状态 |
 |---|---|---|
 | `film_pixel_first()` | 这个像素在 `film` 里的第一个 vec4。步长只在这里乘 | 已落地 |
-| `film_add_light(L, bounce, lightgroup)` | 路径上的一次贡献（已乘通量、已夹取）：加进这个样本的颜色；`lightgroup` 不是 `LIGHTGROUP_NONE` 时，同一个值直接加进那个灯组（还要求槽位小于请求的灯组数、值是有限的）。`bounce`：这次贡献出在路径的第几个顶点，现在没人用（留给按直接光、间接光分夹取上限） | 加进颜色的一支已落地（主循环 11 处调用）。**往灯组里写的那一支已定义，没有场景走到过**：各处传的都是 `LIGHTGROUP_NONE` |
+| `film_add_light(L, bounce, lightgroup)` | 路径上的一次贡献（已乘通量、已夹取）：加进这个样本的颜色；`lightgroup` 不是 `LIGHTGROUP_NONE` 时，同一个值直接加进那个灯组（还要求槽位小于请求的灯组数、值是有限的）。`bounce`：这次贡献出在路径的第几个顶点，现在没人用（留给按直接光、间接光分夹取上限） | 加进颜色的一支已落地。往灯组里写的那一支 1.2.2 起落地：`light.wgsl` 的 `film_add_direct`（逐盏的直接光）、`film_add_forward`（材质采样打中矩形纯光、落进平行光的盘）带灯的槽位；主循环里别的调用（雾、介质、天空、发光三角）照旧传 `LIGHTGROUP_NONE` |
 | `film_write_aux(AuxSample)` | 写辅助样本的两格，覆盖写 | 已落地（入口 `aux_sample` 调它） |
 | `film_write_sample(SampleResult)` | 样本结束时写其余通道。每个样本调一次。四格先都读出来再写回去（读一格写一格地交替，苹果显卡上稳态慢约 1%） | 已落地 |
 
@@ -544,7 +554,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 
 `AuxSample`：`depth`（f32）、`object_id`（u32，小于 2^24）、`motion`（vec2）、`normal`（vec3）、`hit`（vec4，1.2.1 加：命中点与物体表下标加 1）。`motion` 已定义、恒 0，其余已落地。
 
-现在一次 `film_add_light` 里还是几盏灯的和，夹取还在调用处：上游的亮度夹取 `misc.x` 照旧；编译开关 `sample_clamp` 的变体里，每处调用之前再经 `film_clamp_contribution` 照 Cycles 的口径夹一次（1.2.0，十一处）。弹射数照 Cycles 各调用处的口径：直接光用着色点所在的顶点号，路上找到的发光、背景、雾、介质发光用那一段射线的顶点号减 1（相机射线是 −1）。把算灯的函数改成逐盏调用、带上灯组槽位是做灯的人的活；直接光调用处的夹取现在夹的是几盏灯的和，改成逐盏夹也归做灯的人（逐盏写灯组要求每一次贡献已经夹取过，而且与加进颜色的是同一个值）。
+场景包的三种灯（移植的闭包上，本地灯不超过 `RIS_EXACT` 盏时）逐盏调用 `film_add_light`、逐盏夹取：上游的亮度夹取 `misc.x` 与编译开关 `sample_clamp` 的变体里照 Cycles 口径的 `film_clamp_contribution`，都按每一盏灯的贡献夹（Cycles 的 `film_write_direct_light` 按每条阴影射线夹），灯组与颜色加的是同一个值。上游顶替的闭包、多于 `RIS_EXACT` 盏的本地灯、发光三角与天空的直接光仍是几样的和，在主循环的调用处夹。弹射数照 Cycles 各调用处的口径：直接光用着色点所在的顶点号，路上找到的发光、背景、雾、介质发光、矩形纯光与平行光的盘用那一段射线的顶点号减 1（相机射线是 −1）。
 
 读回与写文件：Rust 读回时按 `FILM_*` 取，除以样本数（辅助两格是覆盖写的原值，不除）。上游的 `--hdr`、图像输出、CPU 降噪读的还是颜色、反照率、法线与两个方差量，结果不变。不透明度进 `Frame::alpha`；要辅助层时（`Gpu::render` 的 `aux`：用编译开关 `aux` 的变体，颜色样本与辅助样本两个管线）辅助层与覆盖率进 `Frame::aux`。`core-render render-pack --passes DIR` 把它们照输出通道契约写成层文件，见 [README.md](README.md)「读场景包」。
 
@@ -564,7 +574,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 8. （1.2.0 起删掉：微表面闭包的采样照 Cycles 用采样函数自己返回的求值与密度，再并进其余闭包。）
 9. `sampled_roughness` 的口径是粗糙度（alpha 的平方根），不是 Cycles 的 alpha：积分器拿它算射线锥与「镜面路径」。
 10. 上游顶替专用的求值返回 `{ eval, spec_frac }`，不带概率密度；要密度的地方直接调上游的 `pdf_bsdf`。
-11. 灯光一侧的多重重要性采样（上游的 `light_mis`）里，移植的闭包的密度经闭包分发（`surface_shader_bsdf_eval`），上游顶替仍经上游的 `pdf_bsdf`。直接光的求值（`surface_shader_bsdf_eval_legacy`）对移植的闭包另查一次几何法线，丢掉几何面背后的灯（Cycles 的求值不查）。
+11. 直接光每盏灯各采一次、选灯概率按 1（Cycles 按光源树或灯的分布每个点抽一盏），两侧的概率密度都不乘选灯概率：期望相同，噪声更小，逐样本对不上。移植的闭包上逐盏的灯与环境的求值经 `surface_shader_bsdf_eval`，不再多查几何法线（1.2.3 起与 Cycles 相同）；上游顶替的闭包、多于 `RIS_EXACT` 盏的本地灯与发光三角仍经 `surface_shader_bsdf_eval_legacy`，它对移植的闭包另查一次几何法线（Cycles 的求值不查）。环境的光源采样照 Cycles 的开关：场景包那一路（`render-pack`）的世界只有常量颜色、没有入口光，照 `scene/light.cpp:548`（`is_enabled = has_portal || (use_mis && has_surface_spatial_varying)`）整盏关掉，宿主把 `counts2[1]` 写 0，环境只经材质采样逃逸的射线拿到、权重取 1（`src/main.rs` 的 `Job::background_light`）；场景脚本那一路照旧由上游的判法定。
 12. 按闭包种类分发的 `bsdf_eval` 收一个闭包，不收整个着色点。
 13. `shader_eval_shadow` 收的是命中、方向与距离，不是着色点。
 14. 能量补偿对移植的闭包读材质记录的那一位，对上游顶替仍读全局开关。
@@ -574,13 +584,13 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 **光线负载**
 
 17. 路径状态是模块级的私有变量，不当参数传（Cycles 当参数传）。
-18. `legacy` 里有十九项（见「路径状态」）；射线锥不在里面，在 `Ray`。
+18. `legacy` 里有十四项（见「路径状态」）；射线锥不在里面，在 `Ray`。
 19. `PATH_RAY_MIS_SKIP` 的设与清留在主循环里，不在 `path_state_next` 里。
 20. 路径标志位与可见类是两个枚举，照 Cycles 分开。
 21. `Ray` 的两个向量排在最后；相机光线没有单独的函数与文件。
 22. `trace_local` 的返回值带一个 `lcg_state`（用过之后的小随机数状态）。
 23. 弹射上限、轮盘起始深度、夹取没有接到 `integrator` 块：仍读上游的字段。
-24. 射线的起点沿法线挪开（上游的做法；Cycles 不挪，靠「不打中自己」的图元号）。所以凡是要和光源采样一侧配多重重要性采样权重的地方，要用没挪动的着色点，不能用 `ray.P`；现在它暂时放在 `state.legacy.bm_x`，随上游顶替一起删（新代码不要绑在这个名字上，见「还没接的」）。从挪开的起点量的遮挡距离要与从着色点量的灯距比时，用光源采样一侧的同一条判法（灯距乘 0.999 之内没有遮挡物）。
+24. 射线的起点沿法线挪开（上游的做法；Cycles 不挪，靠「不打中自己」的图元号）。所以凡是要和光源采样一侧配多重重要性采样权重的地方，要用没挪动的着色点，不能用 `ray.P`：它是路径状态的 `mis_origin_P`（1.2.2 起，替掉上游的 `bm_x`、`mis_x`）。阴影射线到灯上那一点为止（不缩短）；材质一侧拿「遮挡物离着色点本身的距离」（`hit.t` 加两个起点之差在方向上的分量）与灯距比，两侧是同一条判法。阴影射线不再沿法线挪开（1.2.3 之后）：照 Cycles 先 `shadow_ray_offset`，再照 `integrate_surface_ray_offset` 决定抬不抬（自交测中不抬，测不中抬 `ray_offset` 的 256 个末位），求交时跳过自己的图元（`light.wgsl` 的 `shadow_ray`，见第 51 条）；过程几何照旧挪开。
 
 **随机维度**
 
@@ -613,12 +623,32 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 42. `render-pack` 一路把上游的亮度夹取（`misc.x`，原来是 2^EV × 预设的 `clampIndirect`，电影预设 64、预览 16）关掉（写浮点最大值），只认 Cycles 的两个上限：物理参考是不夹的。上游的场景脚本照旧用 `misc.x`。
 43. Cycles 口径的夹取与像素滤波各在一个编译开关后面（`sample_clamp`、`pixel_filter`），不是运行时分支：写成运行时分支时，不开的场景回归有 174 处不同（白炉读数差 1e-11 量级，上游场景的原始输出不同）。
 44. 滤光泽只模糊移植的微表面闭包：Cycles 的 `surface_shader_prepare_closures` 对所有 BSDF 闭包都调 `bsdf_blur`（含玻璃、清漆），这里上游顶替的闭包不模糊。场景开着滤光泽时，走上游顶替的材质（带清漆、透射、漫反射粗糙度不为 0 或不透明度小于 1 的，分流条件见「闭包 `Closure`」一节）的光泽一瓣与 Cycles 不同。
-45. 凹凸阴影项 `bump_shadowing_term`（Cycles 在 `closure/bsdf.h` 的求值与采样入口都乘它）没有移：有法线贴图时闭包法线与平滑法线不同，Cycles 在 cosNsI·cosNsN·cosNI < 0 时让求值与漫反射的采样为 0，开着凹凸校正时还对漫反射做柔化；这里都不做。所以带法线贴图的材质与 Cycles 不同：求值那一项对所有闭包都乘，金属也在内；采样为 0 与柔化只影响漫反射。将来做在哪一层见「三条线之间的分工」里的「凹凸阴影项与阴影终止偏移」。
+45. 凹凸阴影项 `bump_shadowing_term`（Cycles 在 `closure/bsdf.h` 的求值与采样入口都乘它）1.2.1 起照移，凹凸校正标志视为开（场景包里没有这个材质参数，取 Blender 的默认：开）。不一样的地方：Cycles 做在 `bsdf_eval`、`bsdf_sample` 里，这里那两个函数只收一个闭包，所以做在收着色点的一层（求值一侧在 `bsdf_eval_mis_bump_one`，采样一侧在 `surface_shader_bsdf_sample_closure`），式子与乘的次序照 Cycles；同在那两处的阴影终止偏移（`shift_cos_in`）没有移。带法线贴图或材质函数改了法线的材质，漫反射的柔化照 Cycles 做；上游顶替的闭包不走这两处，不乘。
 
 **求交**
 
 46. 软件求交（Compute BVH 回退）的三角形求交是照 Cycles 移植的 `ray_triangle_intersect`（`util/math_intersect.h`，Embree 的 Plücker 边测试，在 `../shaders/util.wgsl`），不是上游的 Möller–Trumbore：上游的那个闭区间、无容差，网格的公共边上两个三角形可能都判不中，相机射线从缝里穿过去。接受的范围照上游（`0 < t < tmax`，与沿法线挪开的起点配套，见第 24 条），不是 Cycles 的 `tmin ≤ t ≤ tmax`。为此三角形缓冲（`tri_verts`，每个三角形 3 行）存三个原顶点，不再存上游的 v0、e1 = b − a、e2 = c − a：Plücker 要原顶点，且公共边两端在两个三角形里要逐位相同，v0 + e1 还原不出来。着色处要边向量时现算 v1 − v0、v2 − v0（与宿主一侧原来算的 b − a 是同一次单精度减法）；硬件求交的 BLAS 直接用原顶点建，不再由 v0 + e1 还原。
 47. 平台限制：苹果显卡（Metal）的硬件求交器本身在网格的公共边上漏相机射线。两个三角形的平面、公共边两端在 BLAS 里逐位相同时，英伟达显卡的硬件求交一条不漏，苹果显卡漏得比改之前的软件求交还多（第 2 级「网格的公共边」：64×64、1024 采样、看原点周围约 1 mm 的窄视角下少 65 个像素，最差一个像素少 0.98%，全图均值少 8.1e-5）。内核里修不了，默认的求交照旧走硬件；第 2 级只钉上限（实测数的约 1.5 倍），不断言等于某个数。镜中的矩形纯光一项的平面放在原点，公共边斜穿看的那一小块，读数里带着这一点（在 0.2% 的门内）。
+
+**几何**
+
+48. 场景包那一路的顶点法线照搬 Cycles 内部的存储精度：Cycles 把顶点法线与角法线存成两个 16 位整数的八面体编码（`util/types_normal.h` 的 `packed_normal`，同步时编码：`blender/mesh.cpp:672`、`:765`），渲染静态 BVH 时只被一个物体用的网格把物体变换烘进几何、法线解码后乘逆转置再编码一次（`scene/object.cpp:1172-1238` 的 `apply_static_transforms`，`scene/mesh.cpp:552-585` 的 `Mesh::apply_transform`），着色时用 SIMD 版解码（`packed_normal_decode_simd`，`geom/attribute.h` 的 `attribute_data_fetch_normals`）。轴对齐的法线因此偏开约 2^-16 弧度，低粗糙度的高光对这么大的偏差就敏感。宿主一侧（`src/pack.rs` 的 `kernel_geometry`，函数在 `src/packed_normal.rs`）上传前照这三步过一遍，内核与着色器不动：内核仍存模型空间的法线、按实例矩阵变换，所以烘过的世界空间法线 nw 换回模型空间存（normalize(Lᵀ·nw)，L 是实例矩阵的线性部分），乘回去只差单精度的舍入。位置不烘（照 Cycles 烘进世界空间试过，第 4 级读数没有可见改善）。镜像的行与共用网格的行只编码再解码。场景脚本那一路不变。
+
+**灯**
+
+49. `safe_asinf`（`../shaders/util.wgsl`）不用显卡内建的 `asin`：Cycles 在处理器上调 C 库的 `asinf`，近乎正确舍入，误差在相邻输入之间像随机数；内建 `asin` 的偏差是输入位置的光滑函数（苹果显卡上一段输入里同号地平均偏 0.3 到 2 个末位）。矩形面光的立体角是四个 `asin` 相加抵消出来的，这种偏差进了画面就是一片一片的弧纹，像素抖动平均不掉。改成自己算：|x| ≤ 0.5 用泰勒级数，|x| > 0.5 用 π/2 − 2·asin(√((1 − |x|)/2))，π/2 的低位经 `fma` 并进去。三种写法（内建、级数加半角、`atan2`）对 C 库的段内平均偏差比过，取这一种；函数级比对照旧对 Cycles（`safe_asinf` 一项），另加一项守着这个选择：`safe_asinf_ulp_bias`（`../fncheck/registry.mjs`）在 [1e-6, 1) 上按对数均匀取 100 万组正数，对 C 库 `asinf` 求分段平均偏差（以末位计，每段再按对数等分成小段，取小段平均的绝对值最大者），|x| < 0.5 一段门槛 0.05、0.5 到 0.9 门槛 0.5、0.9 以上门槛 0.2。【实测】苹果显卡上现用的写法三段是 0.007、−0.364、0.100，内建 `asin` 是 1.500、0.709、0.590，`atan2` 是 −1.000、0.484、0.395，去掉 π/2 低位那一步 `fma` 是 0.007、0.720、0.376；负对照「改回内建 `asin`」与「去掉低位那一步 `fma`」都必须判不过（`fncheck.test.mjs`）。
+
+50. 矩形面光（`../shaders/area_light.wgsl` 的 `area_light_rect_sample`）做概率密度 1/S 的那个 S，在远场不用 Cycles 的原式：原式的 S 是四个 `asin` 相加抵消出来的，远场只剩几个末位。Cycles 在处理器上也带着这份单精度偏差，不是像素抖动平均得掉的【实测：Cycles 单精度四项相消的 S 在 96 个抖动平均之后仍偏 +2e-6 到 +4e-6，参考图里带着它】；显卡上偏差更大、形状不同（随位置光滑变化，第 4 级低粗糙度高光的暗区出 ±7e-5 的弧纹）。参考一侧的这份偏差不进内核、不改门，远场暗地板帧因它留下的残差记为已知缺口。远场（原式的 S 不小于 5e-5，且四个角从着色点看两两夹角小于 90°）改用 Van Oosterom–Strackee 的两个三角形（`rect_solid_angle_pdf_S`；三重积在灯的局部坐标里就是 |z0|·len_u·len_v，分母四项同号），带「两个分母都大于 0」的守卫（在前面「四个角两两点积都是正的」判断成立时恒真，现在走不到，留着防以后放宽点积判断）；近场与 S 小于 5e-5 照旧用原式。采样映射与「S 小于 1e-5 退到平面」的判断不变，照旧用原式的 S。阈值扫过 1e-5、5e-5、2e-4、1e-3 定的（第 4 级 r006、r013 的低粗糙度高光：阴影射线改成跳过自己之前，光面掠过地板那一帧 Welch 显著比例 2.1e-2、1.4e-2、1.5e-2、1.6e-2；之后在 r006 四个取值点上 1e-5 多一帧不过，5e-5 与 2e-4 互有高低，都不过的是同样的三帧）。函数级比对：远场一项比双精度里照原式算的真值，近场一项（两个三角形之一大于 π）比单精度的 Cycles。
+
+51. 阴影射线的起点与跳过自己（直接光逐盏的灯与环境一支；材质采样继续弹射的射线、发光三角与上游顶替那一路照旧沿法线挪开）照 Cycles：`shadow_ray_offset` 之后，跳过自己时照 `integrate_surface_ray_offset`（`kernel/integrator/shade_surface.h:42-93`）从着色点沿射线方向对自己的三角形做自交测试，测中不抬、测不中抬 `ray_offset`（`kernel/bvh/util.h:70`）；方向与距离从 `shadow_ray_offset` 挪过的点算，不跟着抬改。求交时跳过自己的图元：不改 `trace` 的签名，要跳过的（全局三角下标, 实例记录）放在 `intersect.wgsl` 的私有变量 `trace_self` 里，`shadow_ray_vis`、`shadow_ray_sky` 测前设、测完清。软件求交在叶子里跳过它。硬件求交（`trace_hw.wgsl` 的 `trace_opaque`）强制不透明、遍历器不报三角形的候选，没法在候选里跳过；改成同一个查询语句里再查：最近命中是自己时从它的距离往后的下一个 f32 再查一次；任意命中先找到自己时，先查它之前、再查它之后。与 Cycles 不一样的地方：恰好与自己同一个距离上的别的面跟着被跳过（Cycles 留着它）。经实例放置的三角形，自交测试在模型空间做（射线照实例记录的逆矩阵行 `proc_point`、`proc_dir` 变过去，与硬件求交同一个空间）。Cycles 的注释说这一步要求「物体的逆变换与求交用的逐位相同」；硬件求交用的是驱动从实例矩阵自己求的逆（`world_to_object`），与宿主一侧算的逆矩阵行不保证逐位相同，这一处差异留着，实测影响见第 52 条。过程几何的一个图元是一整个形体，跳过它就没了自己投在自己身上的影子，所以照旧沿几何法线挪开、不跳过。
+
+52. 着色点的位置（`shaders/shader.wgsl` 的 `shader_setup_from_hit`）在三角形上照 Cycles 的 `triangle_point_from_uv`（`kernel/geom/triangle_intersect.h:123-143`）用命中的重心坐标重建：`tri_a + u·(tri_b − tri_a) + v·(tri_c − tri_a)`，在顶点所在的空间里算；软件求交的三角形已经铺进世界空间，直接得世界坐标，硬件求交的模型实例在模型空间算完再乘实例矩阵（`inst_vec` 加平移，即 Cycles 没把变换烘进几何时的 `transform_point`）。上游原来取 `o + d·t`，点离开三角形所在平面一个舍入量级，第 51 条的自交测试「测中不抬」就失了前提（Cycles 的 `integrate_surface_ray_offset` 以重建的点为前提）。继续弹射的射线、AO 与上游顶替那一路的起点都从这个点挪开，跟着变（挪法不变）；过程几何照旧取 `o + d·t`。硬件求交那条路自交测试的模型空间变换（第 51 条，宿主一侧的逆矩阵行）与驱动求交用的 `world_to_object` 不保证逐位相同，没有统一（驱动的逆在命中时可以从已确定的命中取到 `world_to_object`，没有带进着色点）；【实测】苹果显卡上把自交测试改在世界空间做（顶点乘实例矩阵、射线不变）对照，第 4 级 r006 的 k1、k10 六帧 Welch 显著比例逐位相同，HDR-FLIP 平均值三帧相同、三帧相对差不到 1.2e-5，场景包的地板实例是 x、z 各放大 2.5 倍，逆矩阵里有不能精确表示的 0.4。
+
+53. 矩形面光采样映射（`../shaders/area_light.wgsl` 的 `area_light_rect_sample`，`kernel/light/area.h:67`）里的 `cos(au)`、`sin(au)` 不用显卡内建，改调 `../shaders/util.wgsl` 的 `sincosf`，理由同第 49 条：Cycles 在处理器上调 C 库的 `sinf`、`cosf`，近乎正确舍入；内建的偏差随输入位置光滑变化、一段里同号，采样点整片同号地挪，像素抖动平均不掉。`sincosf` 是教科书的写法：Cody–Waite 两段约简 x = k·π/2 + rh + rl（π/2 拆单精度高低两位，rh 经 `fma` 精确），|rh| ≤ π/4 上 sin 的泰勒级数到 r¹³、cos 到 r¹²，低位 rl 当一阶修正、在最后一次舍入之前并进去，再按象限换位变号；只为 |x| 不过几个 π 的输入（au 在 (−π, π)）。误差形状对 C 库量过（苹果显卡，100 万组，[1e-6, π) 按对数均匀取，分段平均偏差以末位计，sin / cos）：现用的写法三段（[1e-6, 0.5)、[0.5, 1.5)、[1.5, π)）是 −0.034 / −0.001、0.030 / −0.033、−0.030 / −0.016，逐组最大相对误差 1.2e-7（一个末位）；低位先并进约简结果的写法是 −0.034 / −0.002、0.099 / 0.166、0.115 / 0.248（约简结果落在 x 的末位网格上，加低位的舍入对一段输入是同一个量）；先把 cos 舍入成单精度再减修正量的写法在 [0.5, 1.5) 的 sin 偏 −0.30（修正量不到一个末位、整段被同一个方向舍掉）；内建 `sin`、`cos` 是 −0.399 / 0.688、0.202 / −0.216、0.153 / 0.139。函数级比对加三项：`sincosf`（逐组对 C 库，[−3.5, 3.5]）、`sinf_ulp_bias`、`cosf_ulp_bias`（分段平均偏差，三段门槛都是 0.1）；负对照「改回内建 `sin`、`cos`」两项分段平均偏差必须都判不过（`fncheck.test.mjs`）。同一个文件与 `light.wgsl` 里别的内建三角函数（点光与平行光圆盘采样经 `polar_to_cartesian`、远场立体角的 `atan2`、环境与场景脚本那一路的采样方向）这一处没有改；其中 `polar_to_cartesian` 后来也改调 `sincosf`（同心圆映射给平行光的锥、点光与面光的圆盘、GGX 可见法线采样取点，phi 在 [−π/4, 3π/4]）：【实测】第 4 级平行光照抛光金属那一个取值点，苹果显卡对参考的 Welch 读数由 1.1e-3 降到 0，英伟达上不变。
+
+54. GGX 两处求值（`../shaders/microfacet.wgsl` 的 `bsdf_microfacet_eval_ggx`、`bsdf_microfacet_eval_ggx_generalized_schlick`，`kernel/closure/bsdf_microfacet.h:726`）里半向量的 1/|H| 不照原式写成 `safe_divide(1.0, len_ccl(H))`，改调 `../shaders/util.wgsl` 的 `inverse_len`：内建 `inverseSqrt` 再做一次牛顿迭代 y ← y + y/2·(1 − |H|²·y²)，两步都经 `fma`，|H| 为零时给 0。理由：Cycles 在处理器上 `sqrtf` 与除法都正确舍入，误差在相邻输入之间像随机数；显卡上照原式写，1/sqrt 被编成近似指令，偏向一边。`bsdf_D_ggx` 的 1 − cos_NH² 在半向量贴近法线时相消，cos_NH 的偏差被放大约 4/alpha² 倍（alpha = 0.017 时峰顶一个末位是高光亮度的 8e-4），抛光金属的高光整片同号地偏，像素抖动平均不掉：第 4 级平行光照抛光金属那一个取值点，英伟达上照原式写判不过（系统性偏暗约 3.6e-4），改了之后判过，苹果显卡对英伟达的差别也消失。逐组比查不出（alpha 小于 0.1 时 cos_NH 差一两个末位就超过 1e-4），函数级比对加两项守着：`bsdf_microfacet_eval_ggx_peak_bias`、`bsdf_microfacet_eval_ggx_generalized_schlick_peak_bias`（`../fncheck/registry.mjs`），alpha 在 [0.005, 0.1) 按对数均匀取、半向量与法线的夹角在 0 到 2·alpha 的球冠上按面积均匀取，100 万组，把两边概率密度的相对差除以 d ln D/dcos 折回 cos_NH，以 1 以下的末位计，alpha 分 4 小段求平均，门槛 0.03。量取 cos_NH 而不取 D：根源在它，D 的末位随 alpha 放大的倍数不同，做不了一个统一的门槛；单看 1/|H| 又漏掉 H = wi + wo 与 dot(N, H) 两步。【实测】（种子 1，小段平均的绝对值最大者，F82 / 广义 Schlick）现用的写法苹果显卡 −0.001 / 0.005、英伟达 RTX 5090 −0.002 / 0.005；原式苹果显卡 0.048 / 0.052、英伟达 −0.089 / −0.089；内建 `inverseSqrt` 不加迭代与 `1.0 / sqrt` 两台上都与原式相同到小数第三位；结果再偏半个末位是 ±1.51。负对照「改回原式」与「偏半个末位」两台都必须判不过（`fncheck.test.mjs`）。同类写法（由 1/len 或 `normalize` 得到方向、再进贴近 1 的余弦与 1 − cos² 一类相消）别处没有改：可见法线采样的两次 `normalize_ccl` 在采样一侧，求值与概率密度同乘 D、比值约掉；`bsdf_lambda_ggx` 的 1/cos² − 1 在正入射附近相消，但 λ 很小、只进 1 + λ；点光、面光与 `make_orthonormals` 的归一化不进相消；着色法线用的内建 `normalize`（`shaders/shader.wgsl`）是同一类，量过确实偏，改了，见第 55 条；相机射线方向的内建 `normalize`（`shaders/integrator.wgsl`）没有改：H = wi + wo，wo 的长度误差在镜面峰上一阶相消（H ∥ N 时 cos_NH 对 |wo| 的偏导为 0），不被 1 − cos_NH² 放大。
+
+55. 着色法线的单位化不用内建 `normalize`，改调 `../shaders/util.wgsl` 新加的 `normalize_unbiased`（乘第 54 条的 `inverse_len`；长度为零时给零向量）：`shaders/shader.wgsl` 里插值法线（`shader_setup_from_hit`、`mat_in_at`、`surface`，以及给材质函数的 `nv`）、法线贴图（`surface` 里的 `pn`、`tangent_normal`）共六处。理由：|N| 的偏差原样进 cos_NH = dot(N, H)（cos_NH 对 |N| 的偏导约等于 1），经 `bsdf_D_ggx` 的 1 − cos_NH² 放大的倍数与第 54 条的 1/|H| 相同，曲面网格（平滑法线）上的抛光金属会整片同号地偏；平面上法线本来精确，第 4 级那个取值点查不出它。Cycles 的 `triangle_smooth_normal`（`kernel/geom/triangle.h:162`）在处理器上用 `safe_normalize`，正确舍入。函数级比对加一项守着：`normalize_unbiased_len_bias`（`../fncheck/registry.mjs`），对 `safe_normalize` 量 |N| − 1 的平均偏差，以 1 以下的末位计（与第 54 条 cos_NH 的单位相同），方向在整个球面上均匀、长度在 [0.25, 4) 按对数均匀取、分 4 小段，100 万组，门槛 0.03，逐组照常比。【实测】（种子 1，小段平均的绝对值最大者）现用的写法苹果显卡 −0.003、英伟达 RTX 5090 −0.002；内建 `normalize` 苹果显卡 0.048、英伟达 −0.093；另一串同分布的输入上 `a / len_ccl(a)`（`normalize_ccl` 的式子）0.048、−0.095，内建 `normalize` 0.050、−0.094（`util.wgsl` 注释里的数）。负对照「改回内建 `normalize`」两台都必须判不过（`fncheck.test.mjs`）。没有改的：几何法线（`normalize(cross(e1, e2))`）只用来判正反面、换法线的门槛与射线起点，不进 cos_NH；切线不进各向同性的闭包；`ensure_valid_specular_reflection`（`../shaders/microfacet.wgsl`）拧法线的那一支照 Cycles 的式子（`safe_normalize_fallback` 与 Nx·X + Nz·Ng），只在镜面反射方向落到几何面以下时走，结果离着色法线有一个角度，不在镜面峰贴着法线的那一段；过程几何与材质函数返回的法线由各自的代码给出。
 
 ## 编号登记表
 
@@ -753,7 +783,7 @@ Cycles 的体积散射与表面复用 3 到 9 这一段（同一次弹射要么�
 - **只有冻结标记这一道守着的**：上游槽位 `D_*` 的数值、路径标志位（本机没有 Cycles 源码缓存时）、冻结了签名的函数的参数表。它们改了之后库测试照过，红的只有 `freeze.mjs` 与它的测试；所以 `--update` 之前先看清标记的差异里有没有不是自己想改的行。
 - 位置式构造的那条测试是文本匹配，不是语法树：给结构起别名再按位置构造，它认不出来。
 - 查写入语句的两条测试同样是文本匹配：把一处「已写未读」的写入包进永不成立的分支，语句还在，测试照过。
-- **内核里的几处修法只有第 2 级拦得住，CI 里看不见。** 矩形纯光命中一侧用的那个没挪动的着色点的写入（`state.legacy.bm_x = sd.P`）、遮挡距离除以 0.999 的那一处、移植的闭包只在采到方向（概率密度不为 0）时才算权重的那个判断（`surface_shader_bsdf_sample_closure` 里的 `if (m.pdf != 0.0)`）：删掉或改回去，冻结检查、不用显卡的库测试、CI 全过，只有第 2 级（`../chassis/level2.mjs`，要显卡，只在本机跑）的解析场景与负对照会不过。改积分主循环、闭包采样、灯的人，每次都在本机跑一遍第 2 级；复核的人看差异时对着这三处看一眼。
+- **内核里的几处修法只有第 2 级拦得住，CI 里看不见。** 矩形纯光命中一侧用的那个没挪动的着色点的写入（`state.mis_origin_P = sd.P`）、遮挡距离加上两个起点之差的那一处、移植的闭包只在采到方向（概率密度不为 0）时才算权重的那个判断（`surface_shader_bsdf_sample_closure` 里的 `if (m.pdf != 0.0)`）：删掉或改回去，冻结检查、不用显卡的库测试、CI 全过，只有第 2 级（`../chassis/level2.mjs`，要显卡，只在本机跑）的解析场景与负对照会不过。改积分主循环、闭包采样、灯的人，每次都在本机跑一遍第 2 级；复核的人看差异时对着这三处看一眼。
 
 ## 锁
 
@@ -810,7 +840,7 @@ node beiming/sources/core/chassis/level2.mjs            # 对 Cycles 的读数�
 
 后一半那条「相对 2e-6」是数值精度的底，来历照实写在这里：
 
-- 正对、斜向两个读数曾经对解析值有固定的偏离（正对高百万分之二点五，两块显卡都有）。它**不是数值精度**：光源采样一侧从着色点本身算矩形灯，材质采样一侧打到矩形灯时却从沿法线挪开之后的射线起点算，两侧的多重重要性采样权重配不平，估计量有偏。偏离随「挪开的距离 ÷ 灯距」放大，灯高 0.25 m 时是万分之二。这一条已经修了（命中一侧改从没挪动的着色点 `state.legacy.bm_x` 算）。
+- 正对、斜向两个读数曾经对解析值有固定的偏离（正对高百万分之二点五，两块显卡都有）。它**不是数值精度**：光源采样一侧从着色点本身算矩形灯，材质采样一侧打到矩形灯时却从沿法线挪开之后的射线起点算，两侧的多重重要性采样权重配不平，估计量有偏。偏离随「挪开的距离 ÷ 灯距」放大，灯高 0.25 m 时是万分之二。这一条已经修了（命中一侧改从没挪动的着色点算，现在是 `state.mis_origin_P`）。
 - 修好之后的残差才是数值精度的量级：两台机器各用 800 个种子量，正对、斜向对解析值的偏离都在百万分之零点五以内；同一串随机数在两块显卡上算出来还系统地差 2e-7 到 6e-7。底取相对 2e-6，约为残差的五倍。
 - 这两个读数的标准误可以小到相对 1e-6 以下，与残差同量级，所以只按标准误判就是在判这点残差：这是要有一条底的原因。
 - 种子用 32 个，不用 8 个：8 个种子估出来的标准误尾巴很重，均值超过 3 个标准误的概率约 2%（两台机器各 100 组、每组 8 个种子，近灯这个读数都是 2 组不过；它的标准误比那条底大，底帮不上它）。同一批读数按每组 32 个种子分成 25 组，三个场景、两台机器共 150 次判定全过。
@@ -839,7 +869,7 @@ node beiming/sources/core/chassis/level2.mjs            # 对 Cycles 的读数�
 - **英伟达显卡上那个计时场景一次只有 0.12 秒上下**，同一个程序各次之间能差 3% 到 6%：这条线的分辨率只有两三个百分点，离 10% 的余量约三个百分点。要判得准，得把采样数加到一渲一秒以上再比（还没做，见「还没接的」）。
 - **输出通道接上之后（冻结标记 1.1.0：辅助样本、覆盖率计数、透明度），不要辅助层时**（改前改后的程序轮流量，回归工具的计时场景）：苹果显卡各 7 次，中位 1.926 秒 → 1.913 秒，在散布之内；英伟达显卡慢 4% 到 5%（一遍各 7 次 0.1274 → 0.1325 秒，一遍各 9 次 0.1222 → 0.1284 秒，两组几乎不重叠）。同一遍里拆开量（各 9 次）：去掉覆盖率计数 +1.4%，只去掉读辅助那一格（物体扩展表照读）+0.7%，只去掉 `main` 开头按 `pass_kind` 的分支 +2.8%：慢主要在每个颜色样本多读一次输出缓冲的辅助那一格（每个像素记录的第二个 64 字节）。后来把辅助样本改成单独的入口、覆盖率计数放到编译开关 `aux` 后面（只在要辅助层的那次渲染打开），不要辅助层时编出来的颜色内核与改前只差三处：路径状态多一个字段（`first_hit_object`，不写）、每个样本开头置不透明度为 1、相机射线没打到时按 `background_transparent` 的那个分支（后两处是颜色层的 A，与要不要辅助层无关）。改完之后的量法与读数见下一条。要辅助层时多出的是辅助那一趟调度本身：1920×1080 一趟，苹果显卡约 20 毫秒、英伟达显卡约 0.6 毫秒（同一帧 64 采样的求交分别约 430、40 毫秒）。
 - **辅助样本改成单独的入口、覆盖率计数放到编译开关 `aux` 后面之后**：不要辅助层时，英伟达显卡上改前（场景包读入器那一版）与改后轮流各 9 次，中位 0.1227 秒 → 0.1242 秒（+1.2%）；同一台机器另一遍把改前、改后、改前的一份拷贝三个程序轮流各 9 次，中位 0.1223、0.1237、0.1209 秒：同一个程序与它的拷贝之间就差 1.1%，这个计时场景分不出 1% 上下的差别（见上面「分辨率只有两三个百分点」一条）。要辅助层时多出的（同一个程序、同一个场景包，加不加 `--passes` 轮流各 7 次，1920×1080，求交的毫秒数含辅助那一趟）：苹果显卡 256 采样，从 Blender 导出的两份包 +7.7%（1340 → 1444 毫秒，辅助那一趟 23 毫秒）、+2.2%（1593 → 1629，24 毫秒）；英伟达显卡 1024 采样，+8.6%（499 → 542，0.5 毫秒）、+5.9%（574 → 607，0.5 毫秒）。多出的大头在颜色样本数覆盖率（每个样本读一次辅助那一格、查一次物体扩展表），不在辅助那一趟本身。
-- 苹果显卡上慢的那 10.8% 里，约一半来自修矩形纯光两侧不从同一个点算的那一条：主循环多带一个三维向量（`bm_x`）过求交。新加一个变量的七种放法都一样慢。不新加变量、复用路径状态里已经带过求交的那个量（`state.legacy.mis_x`）的写法不慢（苹果显卡累计 6.4%），但要把发光体一侧算选灯概率的起点一起换成射线起点；粗糙玻璃透射时这两个点不同，等于在那一侧引进同一类「两侧不从同一个点算」的不一致。所以现在没有换，留到做灯时与光源采样的起点一起统一。
+- 苹果显卡上慢的那 10.8% 里，约一半来自修矩形纯光两侧不从同一个点算的那一条：主循环多带一个三维向量（`bm_x`）过求交。新加一个变量的七种放法都一样慢。不新加变量、复用路径状态里已经带过求交的那个量（`state.legacy.mis_x`）的写法不慢（苹果显卡累计 6.4%），但要把发光体一侧算选灯概率的起点一起换成射线起点；粗糙玻璃透射时这两个点不同，等于在那一侧引进同一类「两侧不从同一个点算」的不一致。所以当时没有换。1.2.2 做灯时统一了：`bm_x` 与 `mis_x` 并成正式字段 `mis_origin_P`，发光体一侧选灯与算距离也改从没挪动的着色点取；苹果显卡上计时场景的稳态从 1.59 秒回到 1.56 秒（回归工具各 3 次的中位）。
 - **原理化 BSDF 非金属那一半移植之后（冻结标记 1.2.0）**，英伟达显卡上量法改成：计时场景同上，采样数加到 2560（改前的程序一渲 1.2 秒上下；回归工具的计时场景不动，加采样只在对比脚本里），每次新起进程，几个程序轮流各 9 次（奇数轮倒序），取中位；量的时候机器上别人的负载（一分钟平均）在 2.8 到 4.8 之间。三个程序：结构落地之前的 97ece29e、移植之后的 c2765305、把闭包数组的变量下标改成常数之后的版本（「只活在一次调用里的结构」里那一条）。稳态中位 1.2096、1.3644（+12.8%）、1.2724 秒（+5.2%）；同一进程接着再渲一遍，中位 1.2144、1.3647、1.2837 秒。驱动编出来的统计（`VK_KHR_pipeline_executable_properties`，同一份 WGSL 经 naga 生成 SPIR-V 交给驱动；三个程序都是 255 个寄存器）：每个线程的本地内存 336、1200、480 字节，代码 237、385、383 KB；首次编译 3.1、6.1、6.0 秒。改之后还多的那 5% 没有再拆。苹果显卡上同一处改动之后稳态 2.06 → 1.45 秒。
 - **稳态分两档（256 采样时约 0.147 与 0.30 秒）的原因是首次编译变长之后显卡空闲降频，不是着色**：读数是新进程里暖机那一帧（16×16、1 采样）之后的第一渲。移植之后着色器首次编译从 3 秒上下变成 6 秒上下，这段时间显卡空着；空得久了会降到低频档，第一渲开头要等它升频。证据（英伟达显卡，256 采样，轮流各 9 次）：结构落地之前的程序在暖机帧之后先空等 8 秒再渲，稳态中位从 0.1226 秒变成 0.3172 秒（0.236 到 0.437 秒），前 4 个样本那一批从 2.2 毫秒变成 47 毫秒；空等 3 秒时 9 次里有 1 次落到慢档（0.235 秒，那一批 19.7 毫秒）。同一个进程接着再渲一遍都回到 0.12 秒上下。慢档出现与否看机器当时的状态：同一个移植之后的程序，一遍里 9 次有 5 次在慢档（2560 采样时 1.50 到 1.61 秒，快档 1.36 秒），另两遍一次都没有；改成常数下标之后的程序编译照旧 6 秒上下，2560 采样的那一遍 9 次里有 2 次落到慢档（1.44、1.38 秒，那一批 19 毫秒）。所以回归工具的 256 采样计时会偶尔报出这一档（它只量第一渲）：要判英伟达上的稳态，按上一条的量法轮流量，并看同一进程里的第二渲。首次编译只记录。
 
@@ -853,28 +883,25 @@ node beiming/sources/core/chassis/level2.mjs            # 对 Cycles 的读数�
 | `CLOSURE_BSDF_TRANSPARENT`；`FRESNEL_*` 里除 F82、广义 Schlick 之外的四种 | 只占了号 | 移植闭包 |
 | 清漆、透射、光泽、次表面、薄膜、各向异性、漫反射粗糙度不为 0、不透明度小于 1 的材质（现在整个走上游顶替） | 上游顶替 | 移植闭包 |
 | `MATERIAL_FLAG_CLASS_*`、`MATERIAL_CLASS_*`；材质记录的 6 个预留格 | 已定义 | 移植闭包 |
-| 移植的闭包之间按灯的着色标志排除某类闭包（`light_shader_flags`）、不用多重重要性采样的灯把材质一侧的密度置 0 | 没做 | 做灯 |
+| 移植的闭包之间按灯的着色标志排除某类闭包（`SHADER_EXCLUDE_*`） | 没做（不用多重重要性采样的灯把材质一侧的密度置 0 已做） | 做灯 |
 | `surface_shader_transparency`、`shader_eval_shadow`；`CLOSURE_BSDF_TRANSPARENT`；`PATH_RAY_VISIBILITY_SHADOW_*` | 已定义、无调用者 | 移植闭包（透明闭包），并把上游求交里的镂空与穿玻璃改道过来 |
-| `PathState` 的四个分类计数；`path_state_next` 里的计数、上限与其余 `PATH_RAY_*` 位；`integrator` 块的弹射上限、`min_bounce` | 已定义或已写未读 | 移植闭包 |
+| `PathState` 的透明计数；`path_state_next` 里其余的 `PATH_RAY_*` 位；`integrator` 块的 `max_bounce`、透明弹射的上下限、`min_bounce`；介质散射的上限（Cycles 的 `max_volume_bounce`） | 已定义或没做 | 移植闭包 |
 | `BsdfEval` 的 `diffuse`、`glossy`（已写）；`BsdfSample` 的 `eval`、`eta` 的读者；`pass_diffuse_weight`、`pass_glossy_weight` | 已写未读或已定义 | 移植闭包（分通道对拍） |
-| `surface_shader_bsdf_eval` 的 `light_shader_flags` | 已定义，没人读 | 做灯 |
-| `PRNG_LIGHT`、`PRNG_LIGHT_TERMINATE`；`integrator` 块的 `light_inv_rr_threshold` | 已定义 | 做灯 |
-| `state.visibility`、`state.mis_ray_object`、着色点的 `object` 的读者；`ObjectExt` 的 `receiver_light_set`、`lightgroup` | 已写未读或已定义 | 做灯（灯光链接、灯组） |
-| `film_add_light` 往灯组里写的那一支、它的 `bounce` 参数；把算灯的函数改成逐盏调用 | 已定义，没有场景走到过 | 做灯 |
-| 上游的灯光函数、`surface_shader_bsdf_eval_legacy`、`light_mis` 与 `pdf_spec` 里读 `Lobes` 的地方、各 `D_*` 槽位 | 上游顶替 | 做灯（移植完删） |
+| `PRNG_LIGHT`、`PRNG_LIGHT_TERMINATE`；`integrator` 块的 `light_inv_rr_threshold` | 已定义（逐盏的灯照旧取上游的 `D_SUN`、`D_LOCAL` 槽位；Cycles 开着光源树时不做灯的轮盘终止） | 做灯 |
+| `state.visibility` 的读者；`ObjectExt` 的 `lightgroup`（发光网格的灯组） | 已写未读或已定义 | 做灯（发光网格） |
+| `film_add_light` 的 `bounce` 参数 | 已定义，没人读 | 降噪与采样（分直接光、间接光的夹取上限） |
+| 上游的灯光函数（上游顶替的闭包、多于 `RIS_EXACT` 盏的本地灯、发光三角、体积还走它们）、`surface_shader_bsdf_eval_legacy`、各 `D_*` 槽位 | 上游顶替 | 移植闭包与体积之后删 |
 | `trace_local`；着色点的 `lcg_state`、`object_flag`、`prim`、`u`、`v`、`N`、`ray_length` 的读者；`Ray` 的 `self_object`、`self_prim`、`tmin` 的读者 | 已定义、无调用者，或已写未读 | 图案节点（倒角、遮蔽） |
 | `PRNG_SURFACE_AO`、`PRNG_SURFACE_BEVEL`、`path_branched_rng_2D`、`path_rng_2D` | 已定义、无调用者 | 图案节点 |
 | `Material` 的 `pattern_first`、`pattern_count`；`MATERIAL_FLAG_NO_LEGACY_FUNCTION`；`table_first_ext` 的图案节点表一格；`ObjectExt.object_flag` 的读者（镜像位场景包读入器已写） | 已定义 | 图案节点 |
 | `AuxSample.motion`、`FILM_AUX_DATA` 的 zw（运动矢量） | 已定义，恒 0：快门角为 0 的 motion 层已经由宿主从 `FILM_AUX_HIT` 求（见「输出通道」）；快门角大于 0 要快门窗口里的状态，内核没有运动模糊 | 运动模糊 |
-| 请求灯组的命令行与任务描述字段 | 没有 | 做灯（灯组） |
-| 场景包里解析过、校验过、还没生效的：图案节点（`pack::Node`）、灯光链接与分灯组名（`pack::Light` 的 `link`、`group`）；`pack-info` 的统计列在 `notApplied` | 已读未生效 | 图案节点；做灯（灯光链接、灯组） |
+| 请求灯组的任务描述字段（命令行 `render-pack --passes` 已出全部组） | 没有 | 帧源接口 |
+| 场景包里解析过、校验过、还没生效的：图案节点（`pack::Node`）；`pack-info` 的统计列在 `notApplied`（灯光链接与分灯组 1.2.2 起生效） | 已读未生效 | 图案节点 |
 | `FILM_DENOISE_NORMAL` 换成 Cycles 的口径；降噪反照率的「跟反射」与按粗糙度加权；`FILM_LEGACY_VARIANCE`；`denoising_feature_throughput`；`PATH_RAY_DENOISING_FEATURES` | 只取相机首次命中那一点。反照率已照 Cycles 取漫反射类闭包的 `bsdf_albedo` 之和（上游顶替取底色，只发光的面取归一化的发光色），法线是闭包用的法线（含法线贴图）。Cycles（`kernel/film/denoising_passes.h`）开着「跟反射」时沿光滑的反射、透射一直跟到够粗糙的面才写，乘降噪特征的通量，法线是全部闭包按权重的平均。只有法线的坐标系出层时换成了 Cycles 的（见「输出通道」）；两侧差多少还没量 | 降噪与采样 |
 | `sobol_index_mask` 的算法、`sampling_pattern`、分支版取数的有效样本数 | 上游写死的值 | 降噪与采样 |
 | 着色点与光线的 `time` | 已定义，恒 0 | 运动模糊 |
-| `ObjectExt` 的两个阴影终止偏移 | 已定义 | 平滑网格 |
+| `ObjectExt` 的阴影终止着色偏移 `shadow_terminator_shading_offset` | 已定义（几何偏移场景包读入器写 0.1、阴影射线读） | 移植闭包（`shift_cos_in`） |
 | 介质一侧的 `rng_legacy` 槽位（`D_FOG`、`D_MEDIA`、`D_PHASE`、`D_VOL_LIGHT`）；跨射线的跟踪步编号相撞 | 上游顶替 | 移植体积 |
-| 主循环相机命中处那批没人读的局部量（实时预览留下的），与只为它们活着的 `pdf_spec` 调用 | 死量 | 做灯时顺手删（删它要再过一遍两台机器的回归） |
-| 没挪动的着色点 `state.legacy.bm_x`（矩形纯光命中一侧用它）；光源采样的起点、发光体一侧算选灯概率的起点 `state.legacy.mis_x`、阴影射线的起点各用各的点 | 上游顶替，暂放 | 做灯：把这几处统一成没挪动的着色点，`bm_x` 与 `mis_x` 并成一个量（苹果显卡上能省回约 4% 的稳态），新代码按「没挪动的着色点」写，不读 `legacy` 里的这个名字 |
 | 带卡片的矩形灯（上游的发光卡片那条路）：一个侧灯几何（灯 0.2 m 见方、高 0.25 m）下读数对解析值偏高约千分之五（整个场景平移到离原点 100 m 时约百分之一点六），同一个几何不带卡片时在噪声内 | 原因没查；带卡片时那个解析值是否适用也没核对 | 做灯 |
 | 第 2 级没有离原点远的解析场景（射线起点挪开的距离跟着坐标变大，偏差在那里放得最大） | 没有 | 做灯或下一次动第 2 级的人。平移量与灯位要取单精度能精确表示的数（比如 x = 128、灯高 0.25）：x = 100.3 这样的数存下来差百万分之三米，读数会因此偏十万分之一点六，那是场景坐标的表示误差，不是内核的错 |
 | 英伟达显卡上的计时场景加采样数（现在一次 0.12 秒上下），并在暖机帧之后多渲一遍再计时（首次编译之后显卡空闲降频，见「判据」的计时一条） | 没做；1.2.0 落地时只在对比脚本里加过 | 下一次动回归工具的人；改了场景要重记两台机器的基线 |
@@ -884,9 +911,9 @@ node beiming/sources/core/chassis/level2.mjs            # 对 Cycles 的读数�
 移植闭包、做灯、做图案节点三条线会同时动内核。下面几件事落在两条线的交界上，先说定归谁：
 
 - **多闭包的直接光归移植闭包的人（1.2.0 已做）。** 上游的灯光函数拿材质求值经 `surface_shader_bsdf_eval_legacy`，它对移植的闭包改成调 `surface_shader_bsdf_eval` 对全部闭包求和；`light_mis` 对移植的闭包的密度改成经闭包分发。这是「新代码不碰名字带 `legacy` 的函数」的点名例外，只限这两处。
-- **凹凸阴影项与阴影终止偏移**（Cycles 做在它的求值入口里，要用着色点）做在收着色点的分发函数里（`surface_shader_bsdf_eval` 那一层），不做在 `bsdf_eval(c, wi, wo)` 里：后者只收一个闭包，签名不为它改。
+- **凹凸阴影项与阴影终止偏移**（Cycles 做在它的求值入口里，要用着色点）做在收着色点的分发函数里（`surface_shader_bsdf_eval` 那一层），不做在 `bsdf_eval(c, wi, wo)` 里：后者只收一个闭包，签名不为它改。凹凸阴影项 1.2.1 已做（求值一侧 `bsdf_eval_mis_bump_one`、采样一侧 `surface_shader_bsdf_sample_closure`）；阴影终止的着色偏移（`shift_cos_in`）还没做（Blender 的默认值 0 时它不起作用）。阴影终止的几何偏移（阴影射线的起点，`kernel/light/sample.h` 的 `shadow_ray_offset`）1.2.3 已做，在 `light.wgsl` 的 `shadow_ray`。
 - **主循环里的「穿过光滑玻璃」（1.2.0 已改）**：只有奇异的透射一瓣（`LABEL_TRANSMIT | LABEL_SINGULAR`，上游顶替的光滑玻璃）算穿过；移植的闭包的奇异反射一瓣照 Cycles 带着乘了 1e6 的概率密度走普通的一支（多重重要性采样的密度、最小密度照记），并照 Cycles 的 `path_state_next` 置 `PATH_RAY_MIS_SKIP`：这个着色点上光源一侧对奇异的一瓣求值为 0，所以下一次打到发光面、天空、太阳盘、矩形纯光（`bm_rect_hits`）时权重取 1，不按 `power_heuristic` 加权。
-- **阴影链接与发光网格的成员集**由做灯的人另开一张表（见「物体扩展表」）。**直接光调用处的夹取**改成逐盏夹归做灯的人（现在夹的是几盏灯的和，见「输出通道」）。
+- **阴影链接与发光网格的成员集**由做灯的人另开一张表（见「物体扩展表」）。**直接光调用处的夹取**改成逐盏夹（1.2.2 已做，见「输出通道」）。
 - **图案节点的结果在闭包移植完之前只到得了已移植的闭包。** 倒角改的是 `ShaderInputs.N`、遮蔽改的是底色，而上游顶替的闭包与上游的灯光函数读的是 `sd.legacy.surface`。过渡期不许为了让效果到达上游顶替而去写 `legacy` 的表面量；图案节点先在已移植的闭包上验。
 - **材质的图案节点表位置**（`pattern_first`、`pattern_count`）现在没有带进 `ShaderInputs`。做图案节点的人用到时加字段带出来，不另读一次材质记录（过程几何的材质号算法不一样）。
 - **三条线各自加字段，会在冻结标记上相撞**（同一个结构的摘要、版本号那一行）。合并时不手工解这几行：合并之后重跑 `freeze.mjs --update`，版本号由做合并的人定；`src/gpu.rs` 里两条测试的字段名单照合并后的结构补齐。

@@ -7,7 +7,8 @@
 // （许可全文见仓库根的 LICENSES/Apache-2.0.txt）：
 //   采样标签 LABEL_TRANSMIT、LABEL_DIFFUSE 的名字与数值：kernel/types.h（ClosureLabel）
 //   surface_shader_* 这一组函数的名字与分工：kernel/integrator/surface_shader.h
-//   bsdf_eval、bsdf_sample 按闭包种类分发、bsdf_albedo 乘估出来的反照率：kernel/closure/bsdf.h
+//   bsdf_eval、bsdf_sample 按闭包种类分发、两处入口与出口乘凹凸阴影项（bump_shadowing_term 的调用处）、bsdf_albedo 乘估出来的反照率：
+//   kernel/closure/bsdf.h
 //   多个闭包之间按 sample_weight 选一个、求值求和、概率密度按 sample_weight 加权（surface_shader_bsdf_bssrdf_pick、
 //   _surface_shader_bsdf_eval_mis、surface_shader_bsdf_sample_closure）与滤光泽：kernel/integrator/surface_shader.h
 //   求值的漫反射与光泽两份分开累加（bsdf_eval_init、bsdf_eval_accum）：kernel/film/light_passes.h
@@ -144,14 +145,15 @@ fn bsdf_eval_accum(e: ptr<function, BsdfEval>, kind: u32, value: vec3<f32>) {
 // 稳态慢一倍上下（实测）。次序与 Cycles 的循环相同（第 0 个起）。
 fn surface_shader_bsdf_eval_mis(sd: ShadingPoint, wo: vec3<f32>, skip: u32, e: ptr<function, BsdfEval>, sum_pdf_in: f32, sum_sample_weight_in: f32) -> f32 {
     var sum = vec2<f32>(sum_pdf_in, sum_sample_weight_in);
-    if (skip != 0u && 0u < sd.num_closure) { sum += bsdf_eval_mis_one(sd.closure[0], sd.wi, wo, e); }
-    if (skip != 1u && 1u < sd.num_closure) { sum += bsdf_eval_mis_one(sd.closure[1], sd.wi, wo, e); }
-    if (skip != 2u && 2u < sd.num_closure) { sum += bsdf_eval_mis_one(sd.closure[2], sd.wi, wo, e); }
-    if (skip != 3u && 3u < sd.num_closure) { sum += bsdf_eval_mis_one(sd.closure[3], sd.wi, wo, e); }
+    if (skip != 0u && 0u < sd.num_closure) { sum += bsdf_eval_mis_bump_one(sd.closure[0], sd.N, sd.wi, wo, e); }
+    if (skip != 1u && 1u < sd.num_closure) { sum += bsdf_eval_mis_bump_one(sd.closure[1], sd.N, sd.wi, wo, e); }
+    if (skip != 2u && 2u < sd.num_closure) { sum += bsdf_eval_mis_bump_one(sd.closure[2], sd.N, sd.wi, wo, e); }
+    if (skip != 3u && 3u < sd.num_closure) { sum += bsdf_eval_mis_bump_one(sd.closure[3], sd.N, sd.wi, wo, e); }
     return select(0.0, sum.x / sum.y, sum.y > 0.0);
 }
 
-// _surface_shader_bsdf_eval_mis 循环里的一个闭包：求值累加进 e；返回 (pdf·sample_weight, sample_weight)，密度为 0 时前一项是 0
+// _surface_shader_bsdf_eval_mis 循环里的一个闭包，不乘凹凸阴影项。1.2.1 起没有调用者（循环改调下面的
+// bsdf_eval_mis_bump_one）；签名在冻结标记里，删它算改动，留着等核心帧源的负责人定
 fn bsdf_eval_mis_one(c: Closure, wi: vec3<f32>, wo: vec3<f32>, e: ptr<function, BsdfEval>) -> vec2<f32> {
     let ce = bsdf_eval(c, wi, wo);
     var r = vec2<f32>(0.0, c.sample_weight);
@@ -162,9 +164,27 @@ fn bsdf_eval_mis_one(c: Closure, wi: vec3<f32>, wo: vec3<f32>, e: ptr<function, 
     return r;
 }
 
+// _surface_shader_bsdf_eval_mis 循环里的一个闭包：求值累加进 e；返回 (pdf·sample_weight, sample_weight)，密度为 0 时前一项是 0。
+// 照 Cycles 的 closure/bsdf.h bsdf_eval 的入口乘凹凸阴影项（bump_shadowing_term，is_eval 为真）：为 0 时求值与密度都是 0，
+// 不调闭包；不为 0 时乘在求值上，次序照 Cycles（闭包的求值先乘它，再乘闭包的 weight）。`Ns` 是着色点的平滑法线 sd.N。
+// 漫反射类（Cycles 的 CLOSURE_IS_BSDF_DIFFUSE）这里只有 CLOSURE_BSDF_DIFFUSE。阴影终止偏移（shift_cos_in）没有移
+fn bsdf_eval_mis_bump_one(c: Closure, Ns: vec3<f32>, wi: vec3<f32>, wo: vec3<f32>, e: ptr<function, BsdfEval>) -> vec2<f32> {
+    var r = vec2<f32>(0.0, c.sample_weight);
+    let bump_shadowing = bump_shadowing_term(Ns, c.N, wo, true, c.kind == CLOSURE_BSDF_DIFFUSE);
+    if (bump_shadowing == 0.0) { return r; }
+    let ce = bsdf_eval(c, wi, wo);
+    if (ce.pdf != 0.0) {
+        bsdf_eval_accum(e, c.kind, ce.eval * bump_shadowing * c.weight);
+        r.x = ce.pdf * c.sample_weight;
+    }
+    return r;
+}
+
 // 对所有闭包求值求和，概率密度按 sample_weight 加权平均：照 Cycles 的 surface_shader_bsdf_eval（无路径引导）。
-// `light_shader_flags`：灯的着色标志，现在都传 0，没人读（不用多重重要性采样的灯把概率密度置 0 那一步归做灯的人）。
-// 要先调过 surface_shader_prepare_closures。调用者：上游的灯光函数经 surface_shader_bsdf_eval_legacy 与 light_mis 调它。
+// `light_shader_flags`：灯的着色标志（light.wgsl 的 SHADER_USE_MIS 等，位照 Cycles）。照 Cycles（surface_shader.h:405-409），
+// 不带 SHADER_USE_MIS 时概率密度置 0：这盏灯只由光源采样照到，材质采样打中它的概率是 0。按灯排除某类闭包（SHADER_EXCLUDE_*）不移。
+// 要先调过 surface_shader_prepare_closures。调用者：light.wgsl 的直接光（逐盏的灯与环境；上游的
+// 灯光函数取多重重要性采样的密度），surface_shader_bsdf_eval_legacy。
 fn surface_shader_bsdf_eval(sd: ShadingPoint, wo: vec3<f32>, light_shader_flags: u32) -> BsdfEval {
     var r = BsdfEval();
     if (sd.num_closure == 0u) { return r; }
@@ -172,9 +192,10 @@ fn surface_shader_bsdf_eval(sd: ShadingPoint, wo: vec3<f32>, light_shader_flags:
         // 上游顶替：密度与求值直接转给上游的两个函数，次序照上游（先密度后求值）
         r.pdf = pdf_bsdf(sd.legacy.surface, sd.legacy.lobes, sd.wi, wo);
         r.sum = eval_bsdf(sd.legacy.surface, sd.legacy.lobes, sd.wi, wo);
-        return r;
+    } else {
+        r.pdf = surface_shader_bsdf_eval_mis(sd, wo, MAX_CLOSURE, &r, 0.0, 0.0);
     }
-    r.pdf = surface_shader_bsdf_eval_mis(sd, wo, MAX_CLOSURE, &r, 0.0, 0.0);
+    if ((light_shader_flags & SHADER_USE_MIS) == 0u) { r.pdf = 0.0; }
     return r;
 }
 
@@ -221,7 +242,12 @@ fn surface_shader_bsdf_sample_closure(sd: ShadingPoint, k: u32, rand: vec3<f32>)
     }
     if (c.kind == CLOSURE_LEGACY) { return surface_shader_bsdf_sample_legacy(sd); }
     var bs = BsdfSample();
-    let m = bsdf_sample(c, sd.Ng, sd.wi, rand);
+    var m = bsdf_sample(c, sd.Ng, sd.wi, rand);
+    // 照 Cycles 的 closure/bsdf.h bsdf_sample 的出口：采到了、又不是透射时，求值乘凹凸阴影项（is_eval 为假：判据只拦漫反射，
+    // 柔化也只给漫反射）；概率密度不乘。阴影终止偏移（shift_cos_in）没有移
+    if (m.label != LABEL_NONE && (m.label & LABEL_TRANSMIT) == 0) {
+        m.eval *= bump_shadowing_term(sd.N, c.N, m.wo, false, c.kind == CLOSURE_BSDF_DIFFUSE);
+    }
     bs.wo = m.wo;
     bs.label = m.label;
     if (m.pdf != 0.0) {
@@ -312,13 +338,9 @@ fn surface_shader_denoising_albedo(sd: ShadingPoint) -> vec3<f32> {
 //   closure.wgsl     下面两个转接函数；surface_shader_prepare_closures（算上游的 Lobes）；surface_shader_bsdf_eval
 //                    （上游顶替转给上游的 pdf_bsdf、eval_bsdf）；surface_shader_emission（发光卡片单面）；bsdf_albedo 与
 //                    surface_shader_denoising_albedo（上游顶替取上游的底色）；
-//                    light_mis（上游顶替直接调上游的 pdf_bsdf；并读 Lobes 的 p_coat、p_trans、p_spec、a2、bm、coat、coat_alpha
-//                    与 Surface 的粗糙度、法线）；pdf_spec（直接读 Lobes 的 bm、a2，与 Surface 的法线）。
-//                    light_mis 与 pdf_spec 这两处归做灯的人删。
 //   shader.wgsl      shader_eval_inputs（留下上游的 Surface）；shader_setup_closures（发光卡片没有闭包）。
 //   light.wgsl       local_lights（两处问「是不是两面受光」two_sided，候选权重的余弦用上游的着色法线）；
 //                    direct_light（发光体采样用上游的着色法线，并问 two_sided）。归做灯的人删。
-//   integrator.wgsl  相机命中处记的几个量（实时预览留下的 anim、rough0、glass0、refl_e 与清漆判断），现在没有读者。
 // 另有直接读材质记录（Material）的已知例外，都是上游留下的。求交一侧：镂空测试 alpha_pass（shader.wgsl）、阴影穿玻璃
 // glass_at（intersect.wgsl）、硬件求交的 cutout（trace_hw.wgsl）。灯光一侧读发光三角的材质：emitter_radiance、emitter_sel、
 // emit_mis、sample_emitter、sample_emitter_ris（light.wgsl），归做灯的人。还有给材质函数备输入的 mat_in_at（shader.wgsl）。
@@ -328,7 +350,7 @@ fn surface_shader_denoising_albedo(sd: ShadingPoint) -> vec3<f32> {
 // 移植的闭包走 surface_shader_bsdf_eval（全部闭包求和，条文「三条线之间的分工」里点名的例外），在这里多查一次几何法线：
 // 上游的灯光函数靠求值为 0 来丢掉几何面背后的灯（Cycles 的求值有意不查）。高光份额是光泽那一份占的比例。
 // 不带概率密度：试过在这里一并算（上游的 pdf_bsdf），苹果显卡上有玻璃的场景像素末位会变。要密度的地方
-// （light_mis、surface_shader_bsdf_eval）直接调上游的 pdf_bsdf。
+// 经 surface_shader_bsdf_eval（上游顶替在那里直接调上游的 pdf_bsdf）。
 struct BsdfEvalLegacy { eval: vec3<f32>, spec_frac: vec3<f32> };
 
 fn surface_shader_bsdf_eval_legacy(sd: ShadingPoint, wo: vec3<f32>, k: f32) -> BsdfEvalLegacy {
@@ -666,43 +688,6 @@ fn pdf_bsdf(s: Surface, lb: Lobes, v: vec3<f32>, l: vec3<f32>) -> f32 {
     return pg + lb.p_coat * pc + (1.0 - lb.p_coat - lb.p_trans) * (lb.p_spec * ps + (1.0 - lb.p_spec) * pd);
 }
 
-// MIS weight of a light sample (solid-angle pdf `pdf_l`) against BSDF sampling. A_CUTOUT_PATHS: light that reached
-// the sample through a cutout (`state.legacy.shadow_hole`) is light this vertex's BSDF ray cannot bring, a cutout being opaque to
-// it, unless it is a specular or coat sample that keeps the path mirror-like (`state.legacy.mirror_path`). The sample takes the
-// BSDF ray's weight for the rest: 1 - (the share of pdf_bsdf that still tests cutouts) x (the BSDF ray's weight).
-// (Until 2026-11-15 the weight was the plain heuristic: under a card cut out everywhere a uniform sky lit a Lambert
-// plane with 18 % of its light.)
-// 北冥：参数从 (Surface, Lobes, 视线) 换成着色点。函数体直接调上游的 pdf_bsdf、直接读 Lobes 的内部字段，
-// 是登记过的例外（见本文件「上游顶替」一节），归做灯的人删。
-// 移植的闭包的材质一侧密度经闭包分发（surface_shader_bsdf_eval：各闭包按 sample_weight 加权的平均），与采样一侧
-// （surface_shader_bsdf_sample_closure）的合起来的密度是同一个量；条文「三条线之间的分工」里点名的例外。
-fn light_mis(pdf_l: f32, sd: ShadingPoint, l: vec3<f32>) -> f32 {
-    if (state.legacy.nee_alone) { return 1.0; }
-    let s = sd.legacy.surface;
-    let lb = sd.legacy.lobes;
-    let v = sd.wi;
-    var pb: f32;
-    if (sd.closure[0].kind == CLOSURE_LEGACY) { pb = pdf_bsdf(s, lb, v, l); } else { pb = surface_shader_bsdf_eval(sd, l, 0u).pdf; }
-    let w = power_heuristic(pdf_l, pb);
-    if (!approx(A_CUTOUT_PATHS) || !has(F_MASKED) || !state.legacy.shadow_hole) { return w; }
-    var see = 0.0;
-    if ((state.bounce == 0u || state.legacy.mirror_path) && s.roughness < MIRROR_ROUGHNESS && pb > 0.0) {
-        // pdf_bsdf's specular and coat terms.
-        let nov = max(dot(s.n, v), 1e-4);
-        let h = normalize(v + l);
-        let noh = max(dot(s.n, h), 0.0);
-        var p = (1.0 - lb.p_coat - lb.p_trans) * lb.p_spec * g1(lb.a2, nov) * d_ggx(lb.a2, noh) / (4.0 * nov);
-        if (lb.bm) { p = (1.0 - lb.p_coat - lb.p_trans) * lb.p_spec * bm_eval(s, v, l).pdf; }
-        if (has(F_COAT) && lb.coat > 0.0) {
-            let ca2 = lb.coat_alpha * lb.coat_alpha;
-            p += lb.p_coat * g1(ca2, nov) * d_ggx(ca2, noh) / (4.0 * nov);
-        }
-        if (has(F_GLASS) && lb.p_trans > 0.0) { p += pdf_dielectric(s, lb, v, l); }
-        see = min(p / pb, 1.0);
-    }
-    return 1.0 - see * (1.0 - w);
-}
-
 fn basis(n: vec3<f32>) -> mat3x3<f32> {
     let sgn = select(-1.0, 1.0, n.z >= 0.0);
     let a = -1.0 / (sgn + n.z);
@@ -773,17 +758,4 @@ fn sample_bsdf(s: Surface, lb: Lobes, v: vec3<f32>) -> vec3<f32> {
     let rr = sqrt(r.z);
     let phi = 2.0 * PI * r.w;
     return tbn * vec3<f32>(rr * cos(phi), rr * sin(phi), sqrt(max(0.0, 1.0 - rr * rr)));
-}
-
-// Density of l under the base specular lobe alone (VNDF sampling).
-// 北冥：参数从 (Surface, Lobes, 视线) 换成着色点。直接读 Lobes 的 bm、a2，是登记过的例外，归做灯的人删。
-// 它唯一的调用处在积分主循环里实时预览留下的、没人读的那一段。
-fn pdf_spec(sd: ShadingPoint, l: vec3<f32>) -> f32 {
-    let s = sd.legacy.surface;
-    let lb = sd.legacy.lobes;
-    let v = sd.wi;
-    let nov = max(dot(s.n, v), 1e-4);
-    let noh = max(dot(s.n, normalize(v + l)), 0.0);
-    if (lb.bm) { return bm_eval(s, v, l).pdf; }
-    return g1(lb.a2, nov) * d_ggx(lb.a2, noh) / (4.0 * nov);
 }

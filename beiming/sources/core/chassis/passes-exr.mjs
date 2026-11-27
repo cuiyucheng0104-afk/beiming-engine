@@ -26,7 +26,9 @@ export function readPasses(dir, [width, height]) {
   for (const ch of table.channels) {
     const groups = new Map();
     ch.components.forEach((c, at) => {
-      const file = c.type === ch.components[0].type ? `${ch.name}.${c.type}` : `${ch.name}.${c.name}.${c.type}`;
+      // 分灯组 lightgroup:<名> 的文件名里冒号换成连字符（core-render write_passes 的写法；Windows 的文件名不收冒号）
+      const base = ch.name.replaceAll(':', '-');
+      const file = c.type === ch.components[0].type ? `${base}.${c.type}` : `${base}.${c.name}.${c.type}`;
       if (!groups.has(file)) groups.set(file, { type: c.type, list: [] });
       groups.get(file).list.push({ name: c.name, at });
     });

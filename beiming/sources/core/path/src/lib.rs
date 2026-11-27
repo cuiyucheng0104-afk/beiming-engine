@@ -22,6 +22,7 @@ pub mod script;
 pub mod skin;
 pub mod cycles_hash;
 // 北冥：照 Cycles 移植的像素滤波建表
+pub mod packed_normal;
 pub mod pixel_filter;
 pub mod sample;
 pub mod sky;
@@ -1138,7 +1139,7 @@ mod light_lod_tests {
     use super::*;
 
     fn light(p: [f32; 3], range: f32, shadowed: bool) -> scene::GpuLight {
-        scene::GpuLight { pos: [p[0], p[1], p[2], 1.0], dir: [0.0, 0.0, 0.0, 0.05], color: [1.0, 1.0, 1.0, range], ext: [0.0, 0.0, 0.0, shadowed as u32 as f32], x: [1.0; 4] }
+        scene::GpuLight { pos: [p[0], p[1], p[2], 1.0], dir: [0.0, 0.0, 0.0, 0.05], color: [1.0, 1.0, 1.0, range], ext: [0.0, 0.0, 0.0, shadowed as u32 as f32], x: [1.0; 4], ..Default::default() }
     }
 
     #[test]

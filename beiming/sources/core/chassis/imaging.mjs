@@ -425,7 +425,7 @@ export const NEGATIVE = [
   },
   {
     name: '夹取：背景的弹射数没减 1（单面镜里的天空当成了间接光）',
-    inject: { file: 'path/shaders/integrator.wgsl', from: '@if(sample_clamp) c = film_clamp_contribution(c, i32(depth) - 1);\n            if (depth == 0u) { e0 += c; }\n            if (depth == 1u && spec_lobe) { spec_t = 1.0e4; }', to: '@if(sample_clamp) c = film_clamp_contribution(c, i32(depth));\n            if (depth == 0u) { e0 += c; }\n            if (depth == 1u && spec_lobe) { spec_t = 1.0e4; }' },
+    inject: { file: 'path/shaders/integrator.wgsl', from: '@if(sample_clamp) c = film_clamp_contribution(c, i32(depth) - 1);\n            if (depth == 0u) { e0 += c; }\n            film_add_light(c, depth, LIGHTGROUP_NONE);\n            break;', to: '@if(sample_clamp) c = film_clamp_contribution(c, i32(depth));\n            if (depth == 0u) { e0 += c; }\n            film_add_light(c, depth, LIGHTGROUP_NONE);\n            break;' },
     run: bin => clampCases(bin, ['mirrorDirectWhite', 'mirrorIndirect']).cases,
   },
   {

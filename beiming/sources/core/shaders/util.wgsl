@@ -5,7 +5,8 @@
 //
 // 闭包、采样与面光用到的工具函数，照 Cycles（Blender v5.2.3）的 util 与内核源码逐行移植；这些源文件都是 Apache-2.0。
 // 另有两段取自 Apache-2.0 的内核文件里的一小段式子：原理化 BSDF 按高光等级调折射率（kernel/svm/closure.h），
-// 滤光泽的模糊粗糙度（kernel/integrator/surface_shader.h）。
+// 滤光泽的模糊粗糙度（kernel/integrator/surface_shader.h）；还有闭包求值与采样入口乘的凹凸阴影项（kernel/closure/bsdf.h 的
+// bump_shadowing_term，用到 microfacet.wgsl 的 bsdf_G_mono_ggx）。
 // 行号指 intern/cycles/ 下的文件。Cycles 的 normalize、len 与 WGSL 内建的舍入不同（内建 normalize 用 inverseSqrt），
 // 所以照原式写成 normalize_ccl、len_ccl。一维、二维查表函数读 ggx_tables.wgsl 里的 LOOKUP_TABLE；三维的与 _buf 两个
 // 读存储缓冲（数据在 ggx_gen_schlick.tables，见 lookup_table_read_buf 上面的说明）。
@@ -31,9 +32,72 @@ fn inversesqrtf(f: f32) -> f32 {
   return select(0.0, 1.0 / sqrt(f), f > 0.0);
 }
 
-// util/math_base.h:552-555: safe_asinf
+// util/math_base.h:552-555: safe_asinf。Cycles 在处理器上调 C 库的 asinf，结果近乎正确舍入，误差在相邻的输入之间像随机数；
+// 显卡内建的 asin 偏差是位置的光滑函数（苹果显卡上一段输入里平均偏 0.3 到 2 个末位，同号），矩形面光的立体角是四个 asin
+// 相加抵消出来的，这种偏差像素抖动平均不掉。所以不用内建，照教科书的写法自己算（北冥的写法，不是 Cycles 的式子）：
+// |x| ≤ 0.5 用 asin 的泰勒级数（到 x²⁵，截断误差不到 1e-10 倍），|x| > 0.5 用 asin(x) = π/2 − 2·asin(√((1 − |x|)/2))，
+// π/2 拆成单精度的高位与低位（低位 −4.371139e-8），低位先经 fma 并进 2·asin(…)：写成 (高位 − 2·asin) + 低位的话，显卡编译器
+// 会把两个常数合并掉。【实测】苹果显卡上对 C 库 asinf 的段内平均偏差：|x| ≤ 0.5 不到 0.02 个末位（与 C 库相同），0.5 到 0.85 约
+// 0.3 到 0.7 个末位（低位在 fma 的舍入里丢了），0.9 以上不到 0.1；内建 asin 在 1e-4 附近偏 2 个末位、0.3 附近偏 1.1 个
+fn asinf_series(x: f32) -> f32 {
+  let t = x * x;
+  var p = 0.0064472103;
+  p = p * t + 0.0073125259;
+  p = p * t + 0.0083903358;
+  p = p * t + 0.0097616095;
+  p = p * t + 0.0115518009;
+  p = p * t + 0.0139648438;
+  p = p * t + 0.0173527644;
+  p = p * t + 0.0223721591;
+  p = p * t + 0.0303819444;
+  p = p * t + 0.0446428571;
+  p = p * t + 0.075;
+  p = p * t + 0.16666667;
+  return x + x * (t * p);
+}
+
 fn safe_asinf(a: f32) -> f32 {
-  return asin(clamp(a, -1.0, 1.0));
+  let x = clamp(a, -1.0, 1.0);
+  let ax = abs(x);
+  var r = asinf_series(ax);
+  if (ax > 0.5) {
+    r = M_PI_2_F - fma(2.0, asinf_series(sqrt((1.0 - ax) * 0.5)), 4.371139e-8);
+  }
+  return copysignf(r, x);
+}
+
+// C 库的 sinf、cosf，一次给出 (sin x, cos x)。Cycles 在处理器上调 C 库，结果近乎正确舍入；显卡内建的 sin、cos 偏差随位置光滑
+// 变化、一段里同号，像素抖动平均不掉（理由同 safe_asinf）。照教科书的写法自己算（北冥的写法，不是 Cycles 的式子）：
+// Cody–Waite 两段约简 x = k·π/2 + rh + rl（k = round(x·2/π)，π/2 拆成单精度的高位与低位；rh = x − k·高位经 fma 是精确的，
+// rl = −k·低位），|rh| ≤ π/4 上 sin 的泰勒级数到 r¹³、cos 到 r¹²（截断误差不到 1e-12），rl 当一阶修正并进最后一步，再按 k 的
+// 象限换位、变号。rl 不先并进 rh：rh 落在 x 的末位网格上，加 rl 的舍入对一段输入是同一个量，结果整段同号地偏（实测约 0.25 个末位）。
+// 只为 |x| 不过几个 π 的输入（矩形面光采样映射的 au 在 (−π, π)）。级数是奇偶函数、round 对正负对称，sincosf(−x) 与 sincosf(x) 严格对称
+fn sincosf(x: f32) -> vec2f {
+  let k = round(x * 0.63661975);
+  let rh = fma(-k, 1.5707964, x);
+  let rl = k * 4.3711388e-8;
+  let t = rh * rh;
+  var ps = 1.6059044e-10;
+  ps = ps * t - 2.5052108e-8;
+  ps = ps * t + 2.7557319e-6;
+  ps = ps * t - 1.9841270e-4;
+  ps = ps * t + 8.3333333e-3;
+  ps = ps * t - 0.16666667;
+  var pc = 2.0876757e-9;
+  pc = pc * t - 2.7557319e-7;
+  pc = pc * t + 2.4801587e-5;
+  pc = pc * t - 1.3888889e-3;
+  pc = pc * t + 4.1666667e-2;
+  pc = pc * t - 0.5;
+  // sin(rh + rl) ≈ sin rh + rl·cos rh，cos(rh + rl) ≈ cos rh − rl·sin rh（rl 不到 1e-7，二阶项远小于末位）。修正量都在最后一次
+  // 舍入之前并进去：先把 cos rh 舍入成单精度再减 rl·rh 的话，修正量不到一个末位、整段被同一个方向舍掉（实测约 0.3 个末位）
+  let c = 1.0 + fma(t, pc, -rl * rh);
+  let s = rh + fma(rl, c, rh * (t * ps));
+  let q = i32(k) & 3;
+  if (q == 0) { return vec2f(s, c); }
+  if (q == 1) { return vec2f(c, -s); }
+  if (q == 2) { return vec2f(-s, -c); }
+  return vec2f(-c, s);
 }
 
 // C 标准库的 copysignf（Cycles 在 CPU 上直接用它）：WGSL 没有，按位取 b 的符号位，±0 与 NaN 的符号也照搬
@@ -51,9 +115,77 @@ fn len_ccl(a: vec3f) -> f32 {
   return sqrt(dot(a, a));
 }
 
+// 1/|a|，a 为零时给 0：GGX 求值里半向量的 safe_divide(1.0f, len(H))（kernel/closure/bsdf_microfacet.h:726）。Cycles 在处理器上
+// sqrtf 与除法都正确舍入，误差在相邻的输入之间像随机数；显卡上照原式写，1/sqrt 被编成近似指令，结果偏向一边（【实测】镜面峰上
+// cos_NH 的平均偏差，英伟达上 −0.089 个末位、苹果显卡上 0.05 个，见 fncheck/registry.mjs 的 PEAK_BIAS）。bsdf_D_ggx 的 1 − cos_NH²
+// 在半向量贴近法线时相消，cos_NH 的偏差被放大约 4/alpha² 倍：alpha = 0.017 的抛光金属上，峰顶一个末位就是高光亮度的 8e-4，整片
+// 高光同号地偏，像素抖动平均不掉。所以用内建 inverseSqrt 再做一次牛顿迭代（北冥的写法，不是 Cycles 的式子）：
+// y ← y + y/2·(1 − |a|²·y²)，两步都经 fma，近似指令的误差压到舍入误差以下（两台显卡上都不到 0.005 个末位）
+fn inverse_len(a: vec3f) -> f32 {
+  let l2 = dot(a, a);
+  let y = select(0.0, inverseSqrt(l2), l2 > 0.0);
+  return fma(y * 0.5, fma(-l2 * y, y, 1.0), y);
+}
+
+// 着色法线的单位化（插值法线、法线贴图）：内建 normalize 与 a / len_ccl(a) 在显卡上同 1/|H| 一样偏向一边（【实测】|N| − 1 的平均偏差，
+// 英伟达上 −0.094 个末位、苹果显卡上 0.05 个，见 fncheck/registry.mjs 的 NLEN_BIAS）。|N| 的偏差原样进 cos_NH = dot(N, H)，经 bsdf_D_ggx
+// 放大的倍数与 inverse_len 那里相同，曲面网格上的抛光金属会整片同号地偏。所以乘 inverse_len（北冥的写法）；a 为零时给零向量
+fn normalize_unbiased(a: vec3f) -> vec3f {
+  return a * inverse_len(a);
+}
+
 // util/math_float3.h:332-340: normalize(float3)
 fn normalize_ccl(a: vec3f) -> vec3f {
   return a / len_ccl(a);
+}
+
+// util/math_float3.h:542-546: safe_normalize_fallback
+fn safe_normalize_fallback(a: vec3f, fallback: vec3f) -> vec3f {
+  let t = len_ccl(a);
+  if (t != 0.0) {
+    return a * (1.0 / t);
+  }
+  return fallback;
+}
+
+// kernel/closure/bsdf.h:89-150: bump_shadowing_term。Ns 是插值后的平滑法线（Cycles 的 sd->N），N 是闭包的法线（sc->N），
+// I 是出射方向。Cycles 读着色点的另两样：图元是不是曲线（这里没有曲线）、凹凸校正标志 SD_USE_BUMP_MAP_CORRECTION
+// （这里视为开，理由见 microfacet.wgsl 的 maybe_ensure_valid_specular_reflection）；闭包是不是漫反射类
+// （CLOSURE_IS_BSDF_DIFFUSE）由调用方判好传进来。is_eval：求值入口为真，采样入口为假
+fn bump_shadowing_term(Ns: vec3f, N: vec3f, I: vec3f, is_eval: bool, is_diffuse: bool) -> f32 {
+  if (all(N == Ns)) {
+    return 1.0;
+  }
+
+  // 方向要在平滑法线这一侧也合法：I 与 N 在平滑几何的同一侧时拒绝折射，在两侧时拒绝反射
+  let cosNsI = dot(Ns, I);
+  let cosNsN = dot(Ns, N);
+  let cosNI = dot(N, I);
+  if (cosNsI * cosNsN * cosNI < 0.0 && (is_eval || is_diffuse)) {
+    return 0.0;
+  }
+
+  // 上面的判据对所有闭包都做，下面的柔化只给漫反射类
+  if (!is_diffuse) {
+    return 1.0;
+  }
+
+  // （凹凸校正标志关着时 Cycles 在这里返回 1；这里标志视为开）
+
+  let cos_i = abs(cosNsI);
+  let cos_d = abs(cosNsN);
+  if (cos_d >= 1.0 || cos_i >= 1.0) {
+    return 1.0;
+  }
+  if (cos_i < 1e-6) {
+    return 0.0;
+  }
+
+  let tan2_d = 1.0 / sqr(cos_d) - 1.0;
+  let bump_alpha2 = saturate(0.125 * tan2_d);
+
+  // 平滑过渡，免得在垂直处不连续
+  return bsdf_G_mono_ggx(bump_alpha2, cos_i);
 }
 
 // util/math_float3.h:601: average(float3) = reduce_add(a) * (1/3)
@@ -84,9 +216,13 @@ fn to_global(p: vec3f, X: vec3f, Y: vec3f, Z: vec3f) -> vec3f {
   return p.x * X + p.y * Y + p.z * Z;
 }
 
-// util/projection.h:30-33: polar_to_cartesian
+// util/projection.h:30-33: polar_to_cartesian。Cycles 在处理器上调 C 库的 cosf、sinf；这里用上面自己写的 sincosf，不用内建：
+// 显卡内建的 cos、sin 偏差是位置的光滑函数、一段里同号（理由同 safe_asinf），同心圆映射给平行光的锥、点光与面光的圆盘、GGX 可见
+// 法线采样取点，取点整片同向地挪，像素抖动平均不掉（【实测】第 4 级平行光照抛光金属那一个取值点，苹果显卡对参考的 Welch 读数
+// 由 1.1e-3 降到 0，英伟达上不变）。调用方只有 sample_uniform_disk，phi 在 [−π/4, 3π/4]，在 sincosf 的有效范围（|x| 不过几个 π）里
 fn polar_to_cartesian(r: f32, phi: f32) -> vec2f {
-  return vec2f(r * cos(phi), r * sin(phi));
+  let sc = sincosf(phi);
+  return vec2f(r * sc.y, r * sc.x);
 }
 
 // util/projection.h:35-38: disk_to_hemisphere
@@ -336,4 +472,81 @@ fn ray_triangle_intersect(ray_P: vec3f, ray_D: vec3f, ray_tmin: f32, ray_tmax: f
 
   let rcp_uvw = select(ray_triangle_reciprocal(UVW), 0.0, abs(UVW) < 1e-18);
   return TriangleHit(true, min(U * rcp_uvw, 1.0), min(V * rcp_uvw, 1.0), t);
+}
+
+// util/math_intersect.h:252-276: ray_triangle_intersect_self。与 ray_triangle_intersect 同一套边测试（叉积的两个因子对调），
+// 容差放宽成「严格在三条边以内 FLT_EPSILON·|U+V+W|」：起点在三角形上、方向穿过三角形内部时为真（这条射线不会先打中相邻的三角形）
+fn ray_triangle_intersect_self(ray_P: vec3f, ray_D: vec3f, tri_a: vec3f, tri_b: vec3f, tri_c: vec3f) -> bool {
+  // Matches logic in ray_triangle_intersect, self intersection test to validate
+  // if a ray is going to hit self or might incorrectly hit a neighboring triangle.
+
+  // Calculate vertices relative to ray origin.
+  let v0 = tri_a - ray_P;
+  let v1 = tri_b - ray_P;
+  let v2 = tri_c - ray_P;
+
+  // Calculate triangle edges.
+  let e0 = v2 - v0;
+  let e1 = v0 - v1;
+  let e2 = v1 - v2;
+
+  // Perform edge tests.
+  let U = ray_triangle_dot(ray_triangle_cross(v2 + v0, e0), ray_D);
+  let V = ray_triangle_dot(ray_triangle_cross(v0 + v1, e1), ray_D);
+  let W = ray_triangle_dot(ray_triangle_cross(v1 + v2, e2), ray_D);
+
+  // FLT_EPSILON（C 标准库 float.h，2^-23）
+  let eps = 1.192092896e-07 * abs(U + V + W);
+  let minUVW = min(U, min(V, W));
+  let maxUVW = max(U, max(V, W));
+
+  // Note the extended epsilon compared to ray_triangle_intersect, to account
+  // for intersections with neighboring triangles that have an epsilon.
+  return (minUVW >= eps || maxUVW <= -eps);
+}
+
+// kernel/bvh/util.h:64-88: ray_offset（Ray Tracing Gems 第 6 章 "A Fast and Robust Method for Avoiding Self-Intersection"）：
+// 起点沿 Ng 挪 256·Ng 个末位（对浮点数的位做整数加法）；分量的绝对值小于 1/32 时改加 Ng/65536。2^-16 是 2 的幂，
+// 乘积没有舍入，显卡合不合成 FMA 结果都一样
+fn ray_offset(P: vec3f, Ng: vec3f) -> vec3f {
+  let int_scale = 256.0;
+  let of_i = vec3<i32>(i32(int_scale * Ng.x), i32(int_scale * Ng.y), i32(int_scale * Ng.z));
+
+  let p_i = vec3f(
+      bitcast<f32>(bitcast<i32>(P.x) + select(of_i.x, -of_i.x, P.x < 0.0)),
+      bitcast<f32>(bitcast<i32>(P.y) + select(of_i.y, -of_i.y, P.y < 0.0)),
+      bitcast<f32>(bitcast<i32>(P.z) + select(of_i.z, -of_i.z, P.z < 0.0)));
+  let origin = 1.0 / 32.0;
+  let float_scale = 1.0 / 65536.0;
+  return vec3f(select(p_i.x, P.x + float_scale * Ng.x, abs(P.x) < origin),
+               select(p_i.y, P.y + float_scale * Ng.y, abs(P.y) < origin),
+               select(p_i.z, P.z + float_scale * Ng.z, abs(P.z) < origin));
+}
+
+// util/math_fast.h:309-336: fast_atan2f（多项式近似，最大误差约 6.6e-6）。madd(a, b, c) 是 a·b + c（-ffp-contract=off 下不合成
+// FMA，这里照样分两步写）
+fn fast_atan2f(y: f32, x: f32) -> f32 {
+  let a = abs(x);
+  let b = abs(y);
+
+  let k = select(select(select(a / b, b / a, !(b > a)), 1.0, a == b), 0.0, b == 0.0);
+  let s = 1.0 - (1.0 - k); // Crush denormals
+  let t = s * s;
+
+  var r = s * (0.43157974 * t + 1.0) / ((0.05831938 * t + 0.76443945) * t + 1.0);
+
+  if (b > a) {
+    // Account for arg reduction.
+    r = M_PI_2_F - r;
+  }
+  // Test sign bit of x.
+  if ((bitcast<u32>(x) & 0x80000000u) != 0u) {
+    r = M_PI_F - r;
+  }
+  return copysignf(r, y);
+}
+
+// util/math_fast.h:339-342: vector_angle
+fn vector_angle(a: vec3f, b: vec3f) -> f32 {
+  return 2.0 * fast_atan2f(len_ccl(a - b), len_ccl(a + b));
 }

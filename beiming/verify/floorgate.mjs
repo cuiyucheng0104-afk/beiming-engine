@@ -34,11 +34,14 @@ export function floorGate({ pack, value }) {
   return { status: value <= threshold ? 'pass' : 'fail', metric, k, floor: f, threshold, value, judging: { metric, k, threshold } };
 }
 
-/** 第 3 级的 Welch 检验：α、块大小、每边种子数都照阈值文件；门看返回的 pass。Welch 不乘 k：t 统计量本来就除以了换种子的标准误 */
+/**
+ * 第 3 级的 Welch 检验：α、块大小、每边种子数、等价下限都照阈值文件；门看返回的 pass。Welch 不乘 k：t 统计量本来就除以了换种子的标准误。
+ * 等价下限 2^-22（1 附近 2 个单精度末位）：两边都是单精度渲染器，块均值相对差在这以内的单元算数值上相等、不参检。
+ */
 export function welchGate(core, cycles) {
-  const { alpha, blockSize, seeds } = THRESHOLDS.welch;
+  const { alpha, blockSize, seeds, equivalence } = THRESHOLDS.welch;
   if (!Array.isArray(core) || !Array.isArray(cycles) || core.length !== seeds || cycles.length !== seeds) {
     throw bad(`每边要正好 ${seeds} 个种子，收到 ${core?.length} 与 ${cycles?.length}`);
   }
-  return welchTest(core, cycles, { alpha, blockSize });
+  return welchTest(core, cycles, { alpha, blockSize, equivalence });
 }
