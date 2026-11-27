@@ -74,6 +74,8 @@ pub struct Gpu {
     /// The last upload's procedural BLASes by geometry hash (read-only once built; another upload may share them), with
     /// the bytes Metal allocated for each (0 where unknown).
     proc_blases: std::sync::Mutex<std::collections::HashMap<[u8; 32], (wgpu::Blas, u64)>>,
+    /// 北冥：上传时另量一遍 TLAS 的秒数（`pack-info --upload` 开；平时关，不多建）
+    pub time_tlas: bool,
 }
 
 /// Where the last upload's procedural blobs are on the GPU: a rebuild with the same geometries (`ProcLayout::key`)
@@ -1613,7 +1615,7 @@ impl Gpu {
         let no_vis_bufs = KernelBufs::new(&device, merged, guard_room(hwrt), 1, 64, 64, 64, 64);
         let no_vis = vis_bind_group(&device, &vis_layout, &no_vis_view, &no_vis_bufs, true);
         let pl = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: None, bind_group_layouts: &[Some(&layout), Some(&vis_layout)], immediate_size: 0 });
-        Ok(Gpu { instance, adapter, timestamps, device, queue, adapter_info, uniform_tables, whole_tables, switches, pipeline_cache, source: src, module, merged, modules: Default::default(), pipeline_layout: pl, pipelines: Default::default(), layout, vis_layout, no_vis, no_vis_bufs, no_vis_view, no_grid_view, hwrt, pages: Default::default(), proc_cache: Default::default(), proc_blases: Default::default() })
+        Ok(Gpu { instance, adapter, timestamps, device, queue, adapter_info, uniform_tables, whole_tables, switches, pipeline_cache, source: src, module, merged, modules: Default::default(), pipeline_layout: pl, pipelines: Default::default(), layout, vis_layout, no_vis, no_vis_bufs, no_vis_view, no_grid_view, hwrt, pages: Default::default(), proc_cache: Default::default(), proc_blases: Default::default(), time_tlas: false })
     }
 
     /// 北冥：`core-render info --limits` 打的全文：适配器的信息、上限与特性，加上这台设备实际申请到的上限与特性
@@ -1873,6 +1875,9 @@ impl Gpu {
                 .chunks(3)
                 .flat_map(|t| crate::scene::blas_tri(crate::ltree::tri_vertices(t)))
                 .collect();
+            // 北冥：分段计时：展开三角形（之后是建 BLAS、建 TLAS）
+            timings.push(("blas_verts_ms".into(), tb.elapsed().as_secs_f64() * 1000.0));
+            let tblas = Instant::now();
             let vbuf = buf_room("blas_verts", bytemuck::cast_slice(&verts), room.tris * 36, wgpu::BufferUsages::BLAS_INPUT | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::STORAGE);
             let huge_scene = huge(groups, !scene.gpu_instances.is_empty());
             let mut first = 0usize;
@@ -2040,6 +2045,19 @@ impl Gpu {
             self.queue.submit([enc.finish()]);
             self.device.poll(wgpu::PollType::wait_indefinitely())?;
             drop(entries);
+            // 北冥：分段计时要分开 BLAS 与 TLAS 时（`time_tlas`），建完之后单独把 TLAS 再建一遍、量它，BLAS 那段取「一次建完」
+            // （从展开之后算起）减去这一遍 TLAS。不在建的时候拆成两次提交：拆开之后苹果显卡上 BLAS 那一次就慢了约 60 毫秒，量的就不是平时的数了
+            if self.time_tlas {
+                let all = tblas.elapsed().as_secs_f64() * 1000.0;
+                let ttlas = Instant::now();
+                let mut enc = d.create_command_encoder(&Default::default());
+                enc.build_acceleration_structures(std::iter::empty::<&wgpu::BlasBuildEntry>(), [&t]);
+                self.queue.submit([enc.finish()]);
+                self.device.poll(wgpu::PollType::wait_indefinitely())?;
+                let tlas = ttlas.elapsed().as_secs_f64() * 1000.0;
+                timings.push(("blas_build_ms".into(), all - tlas));
+                timings.push(("tlas_build_ms".into(), tlas));
+            }
             accel = Some(Accel { tlas: t, verts: vbuf, inst_base: base, proc_base, blas_per_tri });
             timings.push(("accel_build_ms".into(), tb.elapsed().as_secs_f64() * 1000.0));
         }
