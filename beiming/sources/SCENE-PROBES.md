@@ -4,10 +4,10 @@ Three 和 Blender 的 `caps().ext["scene.probes"]` 列出各自支持的探针�
 
 ```js
 const request = { kind: 'probe.ground', of: ['hand.*'], tol: 0.001 };
-const result = await session.query(24, request);
+const result = await session.probe(24, request);
 ```
 
-把同样的请求列表写进镜头的 `params.sceneProbes`，每次 `render` 就按列表顺序把各项读数写进 `meta.ext["scene.probes"]`。只请求元数据时也会量测。列表最多 16 项。`of` 支持实体名和 `前缀.*`，省略时取已登记实体。各探针最多交回 50 项明细，省略的数量记为 `truncated`。相机探针按本次输出画幅量测。直接 `query` 时用镜头的基准画幅。这里的 `query` 是帧源会话方法。HTTP 的 `/observe/query` 继续查询已保存的元数据。
+把同样的请求列表写进镜头的 `params.sceneProbes`，每次 `render` 就按列表顺序把各项读数写进 `meta.ext["scene.probes"]`。只请求元数据时也会量测。列表最多 16 项。`of` 支持实体名和 `前缀.*`，省略时取已登记实体。各探针最多交回 50 项明细，省略的数量记为 `truncated`。相机探针按本次输出画幅量测。直接调用可选的 `session.probe(f, request)` 时用镜头的基准画幅。帧源契约的 `session.query` 只接受 `caps.sceneQuery` 登记的种类，传入 `probe.*` 会报 `contract.unsupported-query`。HTTP 的 `/observe/query` 继续查询已保存的元数据。
 
 | kind | 帧源 | 读数 |
 | --- | --- | --- |
@@ -26,6 +26,6 @@ const result = await session.query(24, request);
 node --test beiming/sources/o11.test.mjs beiming/sources/three/s7.test.mjs beiming/sources/blender/s12.test.mjs
 ```
 
-校准场景植入 0.0019 米穿地、0.139 米形变、0.025 米/帧滑步、2 帧滞后、1 米镜头边界，以及已知的三角面数和剖面交线。现场资产额外核对了 024 僵尸手工程的评值网格。Blender 5.2.0 逐帧检查原工程 1–600 帧，`ZH_Hand` 的最低点出现在第 379 帧，实测下陷 0.00190464046，四舍五入为原记录的 0.0019。同一帧导入 Blender 帧源后，`query` 和渲染返回的每帧元数据读数相同。
+校准场景植入 0.0019 米穿地、0.139 米形变、0.025 米/帧滑步、2 帧滞后、1 米镜头边界，以及已知的三角面数和剖面交线。现场资产额外核对了 024 僵尸手工程的评值网格。Blender 5.2.0 逐帧检查原工程 1–600 帧，`ZH_Hand` 的最低点出现在第 379 帧，实测下陷 0.00190464046，四舍五入为原记录的 0.0019。同一帧导入 Blender 帧源后，直接探针和渲染返回的每帧元数据读数相同。
 
 其余数值的校准证据来自可执行夹具。Robot Pop 的位移定义和绑定工程未公开，03C 的截面脚本所需装配矩阵和网格缓存缺失，22-1 的 12,121,208 面来自原视频视口读数。05-3 的 1 米规则和 VOWLORN 的 0.025 米/帧上限以已知阈值校准。13-2 和 024-1 的原始关节滞后读数有待选定对应关节和帧段后复核。

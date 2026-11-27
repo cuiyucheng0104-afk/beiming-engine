@@ -1,4 +1,4 @@
-// Optional SourceSession.query extension. The older five sceneQuery capabilities keep their F-contract shapes.
+// Plans for the optional session.probe method and per-frame metadata.
 import { types } from 'node:util';
 import { SourceError } from './three/hosts.mjs';
 
@@ -22,7 +22,7 @@ const bad = (message) => new SourceError('usage.bad-argument', message);
 const ownValue = (object, key) => Object.getOwnPropertyDescriptor(object, key)?.value;
 const isProbe = (kind) => typeof kind === 'string' && Object.hasOwn(OPTIONS, kind);
 
-export function sceneProbeKind(query) {
+function sceneProbeKind(query) {
   if (!query || typeof query !== 'object' || types.isProxy(query)) return undefined;
   const kind = ownValue(query, 'kind');
   return isProbe(kind) ? kind : undefined;

@@ -28,7 +28,7 @@ const approximate = (value, expected, tolerance = 1e-6) =>
 
 for (const renderer of ['three', 'blender']) {
   const three = renderer === 'three';
-  test(`O11 session query and meta/0.1 on ${renderer}`, { timeout: 120000 }, async (t) => {
+  test(`O11 session probe, F8 and meta/0.1 on ${renderer}`, { timeout: 120000 }, async (t) => {
     if (!three && !findBlender()) { t.skip('Blender unavailable'); return; }
     let source;
     try {
@@ -50,7 +50,9 @@ for (const renderer of ['three', 'blender']) {
     const output = { size: [64, 36], fps: '24/1' };
     assert.ok(source.caps().ext['scene.probes'].includes('probe.ground'));
     const session = await source.open({ film: 'o11', output, shot }, env);
-    const query = (f, plan) => session.query(f, plan);
+    assert.ok(!source.caps().sceneQuery.includes(ground.kind));
+    await assert.rejects(session.query(1, ground), { code: 'contract.unsupported-query' });
+    const probe = (f, plan) => session.probe(f, plan);
     const frame = async (f) => {
       const { meta, layers } = await session.render(f, {}, ['meta']);
       assert.deepEqual(layers, {});
@@ -58,7 +60,7 @@ for (const renderer of ['three', 'blender']) {
       assert.ok(validMeta(meta), JSON.stringify(validMeta.errors));
       for (const check of Object.values(checks)) assert.deepEqual(check(meta), []);
       const actual = meta.ext['scene.probes'];
-      assert.deepEqual(actual, await Promise.all(plans.map((plan) => query(f, plan))));
+      assert.deepEqual(actual, await Promise.all(plans.map((plan) => probe(f, plan))));
       return actual;
     };
     const third = await frame(3);
@@ -73,20 +75,20 @@ for (const renderer of ['three', 'blender']) {
     approximate(third[4].items[0].value, 0.6);
     assert.equal(third[4].items[0].lagFrames, 2);
     assert.equal(third[4].items[0].plateaus, 1);
-    assert.deepEqual((await query(0, joints)).items[0], { a: 'follow', value: null, plateaus: 0, lagFrames: null });
-    assert.equal((await query(1, { ...ground, tol: 0.002 })).items.length, 0);
-    assert.equal((await query(1, { kind: 'belowGround', of: ['finger'], tol: 0.001 })).kind, 'belowGround');
-    await assert.rejects(query(4, near), { code: 'usage.bad-argument' });
-    await assert.rejects(query(0, three ? section : foot), { code: 'contract.unsupported-query' });
+    assert.deepEqual((await probe(0, joints)).items[0], { a: 'follow', value: null, plateaus: 0, lagFrames: null });
+    assert.equal((await probe(1, { ...ground, tol: 0.002 })).items.length, 0);
+    assert.equal((await session.query(1, { kind: 'belowGround', of: ['finger'], tol: 0.001 })).kind, 'belowGround');
+    await assert.rejects(probe(4, near), { code: 'usage.bad-argument' });
+    await assert.rejects(probe(0, three ? section : foot), { code: 'contract.unsupported-query' });
 
     if (three) {
       approximate(first[5].items[0].value, 0.025);
       const bone = { kind: 'probe.joint-vel', of: ['rig'], bone: 'lag', against: ['rig'], againstBone: 'pilot' };
-      assert.equal((await query(3, bone)).items[0].lagFrames, 2);
+      assert.equal((await probe(3, bone)).items[0].lagFrames, 2);
       const shifted = { kind: 'probe.near-clip', of: ['shifted'] };
-      assert.equal((await query(1, shifted)).items.length, 0);
-      assert.equal((await query(2, shifted)).items.length, 1);
-      assert.equal((await query(2, foot)).items[0].value, null);
+      assert.equal((await probe(1, shifted)).items.length, 0);
+      assert.equal((await probe(2, shifted)).items.length, 1);
+      assert.equal((await probe(2, foot)).items[0].value, null);
     } else {
       assert.equal(first[5].items.length, 8);
       assert.ok(first[5].items.every(({ ends }) => ends.every((point) => point[1] === 0)));
@@ -95,13 +97,13 @@ for (const renderer of ['three', 'blender']) {
       // Two children instance one mesh datablock. Only the right instancer is registered directly.
       const [sink] = first[7].items;
       assert.deepEqual([sink.a, sink.unit, sink.value, sink.at[1]], ['instance_assembly', 'm', 0.1875, -0.1875]);
-      const ordinaryGround = await query(1, { ...instanceGround, kind: 'belowGround' });
+      const ordinaryGround = await session.query(1, { ...instanceGround, kind: 'belowGround' });
       assert.equal(sink.value, ordinaryGround.items[0].value);
       const segments = first[8].items;
       assert.equal(segments.length, 16);
       assert.ok(segments.every(({ ends }) => ends.every((point) => point[1] === 0)));
       assert.equal(segments.filter(({ ends }) => ends.every((point) => point[0] < 0)).length, 8);
-      assert.equal((await query(1, { ...instanceSection, of: ['instance_assembly.right'] })).items.length, 8);
+      assert.equal((await probe(1, { ...instanceSection, of: ['instance_assembly.right'] })).items.length, 8);
       approximate(first[9].items[0].value, 0.125);
       approximate(third[9].items[0].value, 0);
     }

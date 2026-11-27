@@ -19,7 +19,7 @@ import { types } from 'node:util';
 import { hashCardContents, validateCard } from '../../cards/index.mjs';
 import { checkInstanceNames, expandOverlays, implFor, orderPairs, parseCardRef, resolveParams, unfitReason } from '../../cards/runtime.mjs';
 import { caps, DRAFT_MAX_SIZE } from './caps.mjs';
-import { sceneProbeKind, planProbe, planProbes, withProbeCaps } from '../scene-probe-plan.mjs';
+import { planProbe, planProbes, withProbeCaps } from '../scene-probe-plan.mjs';
 import { measureProbe, probeFrames, withProbeMeta } from '../scene-probe-measure.mjs';
 
 const { structuredClone } = globalThis;
@@ -614,9 +614,14 @@ export async function startSource({ blenderBin = findBlender(), limitMs, handsha
       async query(f, q) {
         if (current !== session) throw bad('会话已经关了');
         planFrame(frames, f);
-        if (sceneProbeKind(q)) return probe(f, planProbe('blender', q, frames, names), output.size);
         const plan = planQuery(CAPS, q, names);
         return finishQuery(plan.kind, await worker.call('query', { frame: f, plan, ...trackInput(f) }));
+      },
+
+      async probe(f, q) {
+        if (current !== session) throw bad('会话已经关了');
+        planFrame(frames, f);
+        return probe(f, planProbe('blender', q, frames, names), output.size);
       },
 
       /** 按请求顺序导出镜头局部整帧；省略 frames 时导出全镜头。 */

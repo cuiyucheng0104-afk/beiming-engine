@@ -222,14 +222,14 @@ test('S12：Blender 实测穿插、接触、最小间隙、评值网格、坐标
   assert.deepEqual([gap.a, gap.b], ['part.b', 'part.a']);
   const atThreshold = { kind: 'probe.contact', items: [gap] };
   const belowThreshold = { kind: 'probe.contact', items: [] };
-  assert.deepEqual(await session.query(1, { ...smallGap, tol: gap.value }), atThreshold);
-  assert.deepEqual(await session.query(1, suppressSmallGap), belowThreshold);
+  assert.deepEqual(await session.probe(1, { ...smallGap, tol: gap.value }), atThreshold);
+  assert.deepEqual(await session.probe(1, suppressSmallGap), belowThreshold);
   assert.deepEqual((await query('contact', ['part.b'], { against: ['part.a'], tol: suppressSmallGap.tol }, 1)).items, [gap]);
   assert.deepEqual((await session.render(1, {}, ['meta'])).meta.ext['scene.probes'], [atThreshold, belowThreshold]);
   const manyGaps = { kind: 'probe.contact', of: ['crowd.*'], against: ['part.a'] };
-  const limited = await session.query(0, manyGaps);
+  const limited = await session.probe(0, manyGaps);
   assert.equal(limited.truncated, 3);
-  const filtered = await session.query(0, { ...manyGaps, tol: 27 });
+  const filtered = await session.probe(0, { ...manyGaps, tol: 27 });
   assert.ok(filtered.items.length > 0 && filtered.items.length < 50);
   assert.deepEqual(filtered, { kind: 'probe.contact', items: limited.items.filter(({ value }) => value >= 27) });
   const [touch] = (await query('contact', ['part.a', 'part.c'])).items;

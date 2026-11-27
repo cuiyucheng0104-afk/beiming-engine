@@ -13,7 +13,7 @@ import { caps } from '../../sources/three/caps.mjs';
 import { planFrame, planOpen, planQuery, planRender, SourceError } from '../../sources/three/plan.mjs';
 import { coverage2x, HALF_FLOATS } from '../../sources/three/source.js';
 import { writeExr } from '../../verify/exr/exr.mjs';
-import { sceneProbeKind, planProbe, planProbes, withProbeCaps } from '../../sources/scene-probe-plan.mjs';
+import { planProbe, planProbes, withProbeCaps } from '../../sources/scene-probe-plan.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 // 页面只拿得到这两处：本系统的代码，和 0.187.0 的 three；另外只读放行仓库锁定的字体子集（fonts/ 下的 woff2，以及 routes/c-style/fonts/ 下的 woff2 与 fonts.json，许可和脚本拿不到）
@@ -191,13 +191,15 @@ export async function startSource({ cards = [] } = {}) {
        */
       async query(f, q) {
         planFrame(manifest.frames, f);
-        if (sceneProbeKind(q)) {
-          const plan = planProbe('three', q, manifest.frames, names);
-          return page.evaluate(([frame, p]) => globalThis.__session.probe(frame, p), [f, plan]);
-        }
         const res = await page.evaluate(([frame, snap]) => window.__session.query(frame, snap), [f, planQuery(CAPS, q, manifest.entities.map((e) => e.name)).q]);
         if (!res.ok) throw new SourceError(res.code, res.message, res.next);
         return res.result;
+      },
+
+      async probe(f, q) {
+        planFrame(manifest.frames, f);
+        const plan = planProbe('three', q, manifest.frames, names);
+        return page.evaluate(([frame, p]) => globalThis.__session.probe(frame, p), [f, plan]);
       },
 
       async close() {
