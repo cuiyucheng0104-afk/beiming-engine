@@ -66,7 +66,7 @@
 | `audio/`、`assets/`、`fonts/`、`media/` | 《北冥》的声音工程、底板与纸纹、字体子集（OFL）、样片与参考帧 | 只读；新素材放作品目录 |
 | `site/` | 作品站源码 | 由作品站维护者改 |
 
-**命名**（D04、D13）：对外只用「北冥风格路线 · WebGL 三渲二」「北冥原生 · BNE」「北冥代码动画风格 · 86 式」「北冥光追 · 物理路径追踪」，产品名不带 RTX。上游项目名（RAEA、ThreeRT、两套风格库名）在技术说明、署名与许可说明里如实写，例如「基于 RAEA 原生运行时（FSL-1.1-ALv2）」「基于 ThreeRT 路径追踪运行时（MIT）」；不得当我方的产品名、路线名、目录名或文件名。已有内部目录 `examples/raea/`、`docs/raea/`、npm 命令 `raea:*` 与变量 `RAEA_BIN` 沿用上游项目名。来源与许可见 [THIRD-PARTY.md](../THIRD-PARTY.md)。
+**命名**（D04、D13）：对外只用「北冥风格路线 · WebGL 三渲二」「北冥原生 · BNE」「北冥代码动画风格 · 86 式」「北冥光追 · 物理路径追踪」，产品名不带 RTX。上游项目名（RAEA、ThreeRT、两套风格库名）在技术说明、署名与许可说明里如实写，例如「基于 RAEA 原生运行时（FSL-1.1-ALv2）」「基于 ThreeRT 路径追踪运行时（MIT）」；不得当我方的产品名、路线名、目录名或文件名。已有内部目录 `examples/raea/`、`docs/raea/`和环境变量 `RAEA_BIN` 沿用上游项目名。来源与许可见 [THIRD-PARTY.md](../THIRD-PARTY.md)。
 
 ## 常用命令
 

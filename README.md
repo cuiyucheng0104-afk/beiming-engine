@@ -51,7 +51,7 @@ npm run beiming:build              # out/beiming.mp4（1920×1040，24 fps，10 
 npm run beiming:build -- --4k      # 3840×2080 工作版：out/beiming_4k.mp4
 ```
 
-`sh build.sh` 也可重建样片，接受相同的选项。
+`sh build.sh` 也可重建样片。不带 `--json` 时，兼容脚本接受 `--4k`、`--no-audio`、`--quiet` 和 `--help`（或 `-h`）。如需 `--workers` 或 `--uhd`，请通过 `npm run beiming:build --` 传入。
 
 样片源码与页面入口在 [films/beiming-10s](films/beiming-10s/README.md)。迁移后的像素对比和金标准登记步骤见[迁移记录](docs/migrations/R15-sample-relocation.md)。
 
