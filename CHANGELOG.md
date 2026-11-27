@@ -259,6 +259,7 @@
 ### Removed
 
 - 不兼容：`engine/core/noise.js` 的 `createNoise2D` / `createNoise3D` 不再接受无种子调用（以前默认用 `Math.random`，分段并行渲染时各段画面会对不上）。调用时传入种子随机源，例如 `createNoise3D(mulberry(7))`。
+- 退役九个重复 npm 脚本。`build` 改用 `beiming:build`，`raea:*` 和 `native:*` 的准备、预检、渲染迁到 `b:prepare`、`b:preflight`、`b:render`，`routes:check`、`routes:next` 迁到 `plan:check`、`plan:next`。
 - 旧作品站的生成物 `showcase/`（由 `site/` 与 `tools/build-showcase.py` 取代）。
 
 ### Fixed
