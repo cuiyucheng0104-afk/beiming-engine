@@ -38,6 +38,20 @@ test('--list：只列步骤与命令，不执行；lint 是 eslint + ruff 的别
   assert.match(r.stderr, /node tools\/repo-check\.mjs/);
 });
 
+test('GitHub Actions 中的 --json 保持标准输出合法，普通调用仍有分组和注解', async t => {
+  const { root, cleanup } = makeRepo(base({ 'tools/repo-check.mjs': exitWith(1, '仓库检查失败') }));
+  t.after(cleanup);
+  const env = { GITHUB_ACTIONS: 'true' };
+  const args = ['--root', root, '--only', 'repo,styles'];
+  const structured = await runNode(CHECK_ALL, [...args, '--json'], { env });
+  assert.equal(structured.code, 1);
+  assert.deepEqual(JSON.parse(structured.stdout).steps.map(step => [step.id, step.status]), [['repo', 'fail'], ['styles', 'pass']]);
+  const human = await runNode(CHECK_ALL, args, { env });
+  assert.equal(human.code, 1);
+  assert.match(human.stdout, /::group::repo/);
+  assert.match(human.stdout, /::error/);
+});
+
 test('没有归档计划及其工具时全部通过：exit 0；测试步骤带上 run-tests 的汇总', { skip: !python() && '没有 Python' }, async t => {
   const { root, cleanup } = makeRepo(base());
   t.after(cleanup);

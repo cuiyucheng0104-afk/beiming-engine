@@ -11,7 +11,7 @@
 //   new-film-cwd   以别名为当前目录、用相对路径运行 new-film（Windows 上 cwd 保留联接路径，与上一项是两种情况）
 //   repo-check     经别名运行 tools/repo-check.mjs --json，结果要与真实路径下一致
 //   run-tests      经别名运行 tools/run-tests.mjs --list --json，发现的测试组要与真实路径下一致
-//   check-all      经别名运行 tools/check-all.mjs，确认 changelog 子命令真正通过
+//   check-all      经别名运行 tools/check-all.mjs，确认样式和更新日志检查都通过
 //   python-gbk     PYTHONIOENCODING=gbk 时 tools/casebook.py list 输出到管道仍要 exit 0（中文 Windows 控制台的情况）
 // 建的作品与别名在结束、出错或被中断时都会删掉（--keep 保留）。删别名只删链接本身，绝不递归进目标目录。
 // 退出码：0 全部通过（eol 只提示）；1 有检查未通过；2 用法错误；130 / 143 被中断（已清理）。
