@@ -208,6 +208,45 @@ export function platesPack({ worldVisible = true } = {}) {
   return { manifest, meshes: [back, front], rows, tables: { instances: [...tilted, ...IDENTITY], camera: [...translate(...PLATES.camera), PLATES.fovY], lights: translate(0, 0, 2) } };
 }
 
+/**
+ * 会动的板（motion 的解析对拍用），count 帧。实体 1 是板：网格自己的坐标里 z = 0 上 2·MOVING.board m 见方、正面朝 +z，
+ * 第 k 帧的实例矩阵是 board(k)；实体 2 是墙：z = MOVING.wallAt 上 2·MOVING.wall m 见方，不动。相机第 k 帧的矩阵是 camera(k)，
+ * fovY 是 MOVING.fovY。测试照这几个数自己求交、自己投影。
+ */
+export const MOVING = { board: 0.6, wall: 10, wallAt: -2, fovY: 0.6 };
+export function movingPack({ count, board, camera }) {
+  const square = (name, half, z) => ({ name, positions: [-half, -half, z, half, -half, z, half, half, z, -half, half, z], normals: Array(4).fill([0, 0, 1]).flat(), indices: [0, 1, 2, 0, 2, 3] });
+  const meshes = [square('board', MOVING.board, 0), square('wall', MOVING.wall, MOVING.wallAt)];
+  const rows = [[0, 0, 1, 0], [1, 0, 2, 0]];
+  const frames = Array.from({ length: count }, (_, k) => k);
+  const manifest = {
+    format: 'scene-pack/0.1',
+    id: 'pack:chassis-moving@1',
+    units: UNITS,
+    geometry: { file: 'geometry.glb', meshes: meshes.map(mesh) },
+    instances: { file: 'instances.u32', shape: [2, 4], names: ['board', 'wall'], class: ['part', 'part'] },
+    materials: [{ name: 'matte', closure: 'surface', params: { baseColor: [0.8, 0.8, 0.8], metallic: 0, roughness: 1 } }],
+    lights: [{ name: 'key', type: 'area-rect', size: [1, 1], watts: 30, color: [1, 1, 1], visibleToCamera: false }],
+    world: { color: [0.2, 0.2, 0.2], visibleToCamera: true },
+    camera: { type: 'persp', near: 0.05, far: 50 },
+    frames: {
+      count,
+      instances: { file: 'frames/instances.f32', shape: [count, 2, 16], fields: ['mat16'] },
+      camera: { file: 'frames/camera.f32', shape: [count, 17], fields: ['mat16', 'fovY'] },
+      lights: { file: 'frames/lights.f32', shape: [count, 1, 16], fields: ['mat16'] },
+    },
+    source: SOURCE,
+  };
+  return {
+    manifest, meshes, rows,
+    tables: {
+      instances: frames.flatMap(k => [...board(k), ...IDENTITY]),
+      camera: frames.flatMap(k => [...camera(k), MOVING.fovY]),
+      lights: frames.flatMap(() => translate(0, 0, 2)),
+    },
+  };
+}
+
 // ------------------------------------------------------------------------------------------------ 必填字段
 
 const isObject = v => v !== null && typeof v === 'object' && !Array.isArray(v);

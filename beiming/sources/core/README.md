@@ -35,7 +35,7 @@ await s.close(); await src.stop();
 | `color` | 出 | R、G、B、A，场景线性，不降噪的样本均值，RGB 已预乘 A |
 | `depth`、`objectId`、`normal` | 出 | 取辅助样本（sub = 0、针孔、像素中心，每像素一个），不做平均；`objectId` 的层引用只带 `id`，覆盖率在同目录的 `objectId.coverage.f32`（帧源接口契约 3.3「带覆盖率的 objectId 怎么装进文件」待定，层引用没有放第二个文件的格子） |
 | `denoiseAlbedo`、`denoiseNormal` | 出 | 法线照 Cycles 降噪特征的相机空间；反照率照 Cycles 取相机首次命中处漫反射类闭包的反照率之和（不跟反射、不按粗糙度加权；带清漆或透射的材质还是上游口径的底色） |
-| `motion` | 不出 | 场景包只有整数帧的状态，快门打开到关上的位置算不出来（场景包契约第 6 节帧间怎么取待定）；能力声明写 `false`。输出通道契约 PS1 对出层方要七个固定通道，这一条现在不满足 |
+| `motion` | 内核出，帧源还不交 | `core-render render-pack --passes` 照输出通道契约 0.2.0-draft 的 5.6（快门角为 0：下一帧的屏幕位置减这一帧的，最后一帧向后差分，只有一帧的包全 0）出 `motion.f32`，通道声明七个固定通道齐了（PS1 满足），解析对拍见 [path/README.md](path/README.md)「读场景包」。帧源这一侧的能力声明（`caps.mjs`）还写 `false`、`render` 要了照旧拒，等能力声明与 `source.mjs` 跟上。现在只有刚体；动态网格端到端没接，除了场景包契约定动态网格的文件写法，内核的辅助样本还要把命中的三角形号与重心坐标写进输出缓冲第 9 格，冻结标记升版本 |
 | `lightgroup:*` | 不出 | 逐盏写灯组要改直接光的夹取，还没做 |
 
 ## 拒绝的请求
@@ -68,7 +68,7 @@ await s.close(); await src.stop();
 
 作业跑起来以后，帧源起的每个 `core-render` 进程（`pack-info`、`render-pack`）都由 `beiming/jobs` 的 `runWithWatchdog` 管：独立进程组、受管进程树。出片链起帧源时带上作业声明的 `maxWallMs`（`startSource({ bin, maxWallMs })`，从起帧源算起），到点先 SIGTERM、过 150 ms 宽限 SIGKILL 整棵进程树，报 `timeout.budget`；只杀这个作业名下的进程，同一块卡上别的作业不受影响。显卡租约由作业拿：走调度器的 `core` 道（[调度器的道](../../jobs/DETAILS.md#调度器的道)），同一块卡上同时只跑一个核心作业，第二个排队，前一个被杀、还了租约才开跑。核对：`beiming/api/core-source.test.mjs` 用一个收到 SIGTERM 不退出、还起了孙进程的假渲染程序，声明 1 秒（把「声明 10 秒、到 10 秒被杀」按 1/10 缩放），到点被杀、两个进程都不在了，排队的核心作业和并发的草稿照常完成。
 
-`usage.budget-required`、`contract.over-budget`、`timeout.budget` 已登记进错误码表（`errors.json`），由帧源接口契约 5.15 点名（两份契约因此升到 `0.2.0-draft`）：服务端的失败信封、诊断和作业结论里报的就是码本身。同一节还登记了 `env.lib-mismatch`（本机动态库的 sha256 和钉住的不同），原生那一路接上之前它暂时报 `env.missing-tool`。
+`usage.budget-required`、`contract.over-budget`、`timeout.budget` 已登记进错误码表（`errors.json`），由帧源接口契约 5.15 点名（两份契约因此升到 `0.2.0-draft`）：服务端的失败信封、诊断和作业结论里报的就是码本身。同一节还登记了 `env.lib-mismatch`（本机动态库的 sha256 和钉住的不同）：核心渲染程序链接 OIDN 的构建档在库对不上时报它（`chassis/build.mjs` 的 `verifyOidnLibs`）。
 
 ## 元数据
 
@@ -86,3 +86,5 @@ node beiming/sources/core/probe.mjs [--out 报告.json] [--machine 名字]   # �
 
 - 七项用的场景、读数名与门限和 three、blender 两个帧源的探针相同，量法写在 `probe.mjs` 文件头。差别：相机约定少了转台摆臂的变换先后（只比 8 个锚点）；转台快门角是 0；用 draft 档；场景包的材质还没有发光闭包，灰阶的色块写成对相机可见的矩形面光。
 - 确定性：能力声明写 `hash-same-machine`。依据：苹果 M5 Pro（Metal）与 RTX 5090（Vulkan）两台机器上，转台第 0、12、24、36、48 帧顺序渲、同一会话再渲一遍、另起帧源乱序渲，颜色层与法线层逐字节相同；两份从 Blender 导出的场景包同一帧渲两遍，颜色、深度、编号、覆盖率、法线层逐字节相同（苹果显卡上量的）。跨机器不比。
+- 场景包同帧两遍（`chassis/rerender.mjs`，记录在 `chassis/rerender/`，用法见 path/README.md「场景包同帧两遍」）：两份从 Blender 导出的包（03B 零件 L-1 第 12 帧、03 头部第 0 帧，两台机器上包的内容摘要相同），1280×720、每像素 256 个采样、内核种子 0，软件与硬件求交各两个独立进程，苹果 M5 Pro（Metal）与 RTX 5090（Linux，Vulkan）上八组都逐位相同（每个通道文件、降噪之后的线性颜色、PNG），出层转 EXR 的往返也逐位相同。跨机器颜色与深度不同（物体编号在零件包上相同、在头部包上也不同）。回归基线里苹果显卡的硬件求交有 3 个上游的程序化阴影场景两遍不同，这两份场景包上没有出现。
+- 结论：**同一台机器、同一个内核种子用哈希档（逐字节相同），跨机器用容差档**；内核种子在键里，只改种子画面就变。两台机器的显卡上限与特性全文在 `chassis/limits/`（`core-render info --limits`）。

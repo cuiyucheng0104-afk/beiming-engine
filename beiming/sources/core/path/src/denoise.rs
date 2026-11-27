@@ -78,32 +78,101 @@ fn luminance(c: Vec3) -> f32 {
     c.dot(Vec3::new(0.2126, 0.7152, 0.0722))
 }
 
-/// Intel Open Image Denoise (RT filter, albedo + normal guided). `None` if unavailable at runtime.
-#[cfg(feature = "oidn")]
-pub fn oidn(w: usize, h: usize, color: &[Vec3], albedo: &[Vec3], normal: &[Vec3], exposure: f32) -> Option<Vec<Vec3>> {
-    thread_local! {
-        static DEVICE: Option<oidn::Device> = oidn::Device::new().ok();
+/// 北冥：OIDN 降噪在哪台设备上做。Cycles 最终渲染默认在 CPU 上降噪（界面属性 `denoising_use_gpu` 默认关）。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum OidnDevice {
+    Cpu,
+    Cuda,
+    Metal,
+    /// 库自己挑（最快的一个）
+    Default,
+}
+
+/// 北冥：辅助层（反照率、法线）的预过滤，照 Cycles 的 `denoising_prefilter`（默认 `Accurate`）。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Prefilter {
+    /// 辅助层当作没有噪声：不单独降噪，颜色那一遍开 `cleanAux`
+    None,
+    /// 颜色与带噪的辅助层一起降噪：`cleanAux` 关
+    Fast,
+    /// 先各用一个 RT 过滤器单独降噪反照率与法线（原地），颜色那一遍开 `cleanAux`
+    Accurate,
+}
+
+impl OidnDevice {
+    pub fn parse(s: &str) -> Option<Self> {
+        Some(match s {
+            "cpu" => Self::Cpu,
+            "cuda" => Self::Cuda,
+            "metal" => Self::Metal,
+            "default" => Self::Default,
+            _ => return None,
+        })
     }
-    DEVICE.with(|dev| {
-        let dev = dev.as_ref()?;
-        let flat = |v: &[Vec3]| -> Vec<f32> { v.iter().flat_map(|c| [c.x, c.y, c.z]).collect() };
-        let (c, a, n) = (flat(color), flat(albedo), flat(normal));
-        let mut out = vec![0f32; c.len()];
-        let mut f = oidn::RayTracing::new(dev);
-        f.srgb(false).hdr(true).hdr_scale(exposure).image_dimensions(w, h).albedo_normal(&a, &n).filter_quality(oidn::Quality::High);
-        if let Err(e) = f.filter(&c, &mut out) {
-            eprintln!("oidn failed: {e:?}");
-            return None;
+}
+
+impl Prefilter {
+    pub fn parse(s: &str) -> Option<Self> {
+        Some(match s {
+            "none" => Self::None,
+            "fast" => Self::Fast,
+            "accurate" => Self::Accurate,
+            _ => return None,
+        })
+    }
+}
+
+/// Intel Open Image Denoise (RT filter, albedo + normal guided).
+/// 北冥：照 Cycles 最终渲染的降噪接法（对照表见 ../README.md「降噪的口径」）：颜色是场景线性的样本均值，不乘曝光、不设
+/// `inputScale`（库自己从图上估）；`hdr` 开、`srgb` 关；引导是反照率加法线，法线是降噪特征的相机空间均值（看 +Z、Y 向上），
+/// 不归一；质量 `HIGH`，预过滤的两个过滤器也是。颜色原地输出。`cleanAux` 直接经 C 接口按 OIDN 的参数名设：`oidn` crate 2.5.1
+/// 的 `RayTracing::clean_aux` 设的名字是 `clean_aux`，OIDN 2.5 不认（只认 `cleanAux`），设了等于没设；单独降噪辅助层
+/// 这个 crate 也没有接口。所以整段都走 crate 的 C 绑定（`oidn::sys`），设备与缓冲用 crate 的安全接口。
+#[cfg(feature = "oidn")]
+pub fn oidn(w: usize, h: usize, color: &[Vec3], albedo: &[Vec3], normal: &[Vec3], device: OidnDevice, prefilter: Prefilter) -> Result<Vec<Vec3>, String> {
+    use oidn::sys::*;
+    let dev = match device {
+        OidnDevice::Cpu => oidn::Device::cpu(),
+        OidnDevice::Cuda => oidn::Device::cuda(),
+        OidnDevice::Metal => oidn::Device::metal(),
+        OidnDevice::Default => oidn::Device::new(),
+    }
+    .map_err(|e| format!("建不了 OIDN 设备（{device:?}）：{e}"))?;
+    let buf = |v: &[Vec3]| dev.create_buffer(&v.iter().flat_map(|c| [c.x, c.y, c.z]).collect::<Vec<f32>>()).map_err(|e| format!("OIDN 缓冲：{e}"));
+    let (c, a, n) = (buf(color)?, buf(albedo)?, buf(normal)?);
+    // 一个 RT 过滤器：inputs 是 (图名, 缓冲)，输出写进 out；color 为真时是颜色那一遍（hdr、srgb、cleanAux）
+    let run = |inputs: &[(&std::ffi::CStr, &oidn::Buffer)], out: &oidn::Buffer, color: bool, clean_aux: bool| -> Result<(), String> {
+        dev.get_error().map_err(|e| format!("OIDN 之前的错：{e}"))?;
+        unsafe {
+            let f = oidnNewFilter(dev.raw(), c"RT".as_ptr());
+            if f.is_null() {
+                return Err(format!("oidnNewFilter：{:?}", dev.get_error()));
+            }
+            for (name, b) in inputs.iter().chain([(c"output", out)].iter()) {
+                oidnSetFilterImage(f, name.as_ptr(), b.raw(), OIDNFormat_OIDN_FORMAT_FLOAT3, w, h, 0, 0, 0);
+            }
+            if color {
+                oidnSetFilterBool(f, c"hdr".as_ptr(), true);
+                oidnSetFilterBool(f, c"srgb".as_ptr(), false);
+                oidnSetFilterBool(f, c"cleanAux".as_ptr(), clean_aux);
+            }
+            oidnSetFilterInt(f, c"quality".as_ptr(), OIDNQuality_OIDN_QUALITY_HIGH as _);
+            oidnCommitFilter(f);
+            oidnExecuteFilter(f);
+            oidnReleaseFilter(f);
         }
-        if let Err(e) = dev.get_error() {
-            eprintln!("oidn error: {e:?}");
-            return None;
-        }
-        Some(out.chunks(3).map(|p| Vec3::new(p[0], p[1], p[2])).collect())
-    })
+        dev.get_error().map_err(|e| format!("OIDN：{e}"))
+    };
+    if prefilter == Prefilter::Accurate {
+        run(&[(c"albedo", &a)], &a, false, false)?;
+        run(&[(c"normal", &n)], &n, false, false)?;
+    }
+    run(&[(c"color", &c), (c"albedo", &a), (c"normal", &n)], &c, true, prefilter != Prefilter::Fast)?;
+    let out = c.read().map_err(|e| format!("读回 OIDN 的输出：{e}"))?;
+    Ok(out.chunks(3).map(|p| Vec3::new(p[0], p[1], p[2])).collect())
 }
 
 #[cfg(not(feature = "oidn"))]
-pub fn oidn(_w: usize, _h: usize, _c: &[Vec3], _a: &[Vec3], _n: &[Vec3], _e: f32) -> Option<Vec<Vec3>> {
-    None
+pub fn oidn(_w: usize, _h: usize, _c: &[Vec3], _a: &[Vec3], _n: &[Vec3], _d: OidnDevice, _p: Prefilter) -> Result<Vec<Vec3>, String> {
+    Err("这个程序没编进 OIDN（cargo 特性 oidn）".into())
 }

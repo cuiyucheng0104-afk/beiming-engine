@@ -581,6 +581,33 @@
         "tools/sfx_library.py",
         "tests/audio/test_sfx_library.py"
       ]
+    },
+    {
+      "id": "R17",
+      "title": "核心帧源 OIDN 档的运行时库：Intel Open Image Denoise 2.5.0、oneTBB 与 oidn crate（库取本机 Blender 自带的那一份，不入仓、不分发）",
+      "kind": "upstream-runtime",
+      "holder": "Intel Corporation（Open Image Denoise 与 oneTBB 的版权人）；Will Usher（oidn crate 的版权人）",
+      "holderBasis": "Blender 安装里的第三方许可说明 text/license/license.md（OpenImageDenoise 2.5.0：Copyright 2018-2026 Intel Corporation，Apache-2.0；oneTBB v2022.3.0：Copyright (c) 2005-2020 Intel Corporation，Apache-2.0）；oidn crate 2.5.1 的 LICENSE.md（MIT，Copyright (c) 2019 Will Usher）；THIRD-PARTY.md 第 14 节",
+      "licensor": "同权利方（OIDN 与 oneTBB 按 Apache-2.0，oidn crate 按 MIT 公开开源许可）",
+      "scope": "Apache-2.0（OIDN、oneTBB）：允许商业与非商业使用、复制、修改与分发，分发时须随附许可全文与 NOTICE、标明改动；MIT（oidn crate）：允许商业与非商业使用、复制、修改与分发，须保留版权与许可声明",
+      "term": "公开开源许可，无期限",
+      "writtenEvidence": "公开许可，以 Blender 安装里的第三方许可说明、oidn crate 包内 LICENSE.md 与仓库 LICENSES/Apache-2.0.txt、LICENSES/MIT.txt 为准",
+      "status": "license-known",
+      "statusNote": "只在核心帧源的 OIDN 构建档（Cargo 特性 oidn，默认档不带）里用：运行时动态链接本机 Blender 安装自带的 OIDN 2.5.0，由它装载 oneTBB；库文件逐个按 sha256 钉在 beiming/sources/core/chassis/oidn-lock.json，构建前与运行前核对。库与编出的程序不入 git、不随仓库分发；现在只在本机与 5090 上做降噪对拍",
+      "evidence": [
+        "THIRD-PARTY.md 第 14 节",
+        "beiming/sources/core/chassis/oidn-lock.json（两种平台的 Blender 版本、OIDN 版本与逐文件 sha256）",
+        "beiming/sources/core/path/README.md「降噪的口径」与「链接 Blender 自带的 OIDN」",
+        "beiming/sources/core/path/Cargo.lock（oidn crate 2.5.1）"
+      ],
+      "obligations": "不把 OIDN、oneTBB 的库文件复制进仓库或随仓库分发；以后要对外分发带 OIDN 的程序或库，随附两份 Apache-2.0 许可（OIDN、oneTBB 各一份）与各自的 NOTICE，并保留 oidn crate 的 MIT 版权与许可声明；把 OIDN 档接进出片链时，起渲染程序之前先核库的 sha256（build.mjs 的 verifyOidnLibs）",
+      "agentRule": "只链接 oidn-lock.json 钉住的那一份库，sha256 对不上就停，不换库、不改锁；不把库文件拷进仓库，也不把编出的 OIDN 档程序提交进 git；要对外分发先问用户",
+      "distribution": "不随 git 仓库分发：库取本机 Blender 安装自带的那一份，编出的程序放在被忽略的 out/chassis/ 下",
+      "gitPaths": [
+        "beiming/sources/core/chassis/oidn-lock.json",
+        "beiming/sources/core/chassis/oidn-parity.mjs",
+        "beiming/sources/core/path/src/denoise.rs"
+      ]
     }
   ],
   "appendix": [

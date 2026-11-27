@@ -118,10 +118,10 @@ const near = (a, b, rel) => Math.abs(a - b) <= rel * Math.max(Math.abs(a), Math.
 
 // ------------------------------------------------------------------------------------------------ 每个通道的文件
 
-const SHAPES = { color: 4, depth: 1, objectId: 1, 'objectId.coverage': 1, normal: 3, denoiseAlbedo: 3, denoiseNormal: 3 };
-const FILES = { color: 'color.f32', depth: 'depth.f32', objectId: 'objectId.u32', 'objectId.coverage': 'objectId.coverage.f32', normal: 'normal.f32', denoiseAlbedo: 'denoiseAlbedo.f32', denoiseNormal: 'denoiseNormal.f32' };
+const SHAPES = { color: 4, depth: 1, objectId: 1, 'objectId.coverage': 1, normal: 3, motion: 2, denoiseAlbedo: 3, denoiseNormal: 3 };
+const FILES = { color: 'color.f32', depth: 'depth.f32', objectId: 'objectId.u32', 'objectId.coverage': 'objectId.coverage.f32', normal: 'normal.f32', motion: 'motion.f32', denoiseAlbedo: 'denoiseAlbedo.f32', denoiseNormal: 'denoiseNormal.f32' };
 
-/** 出层目录：七个文件的字节数照 [高, 宽, 分量数] × 4；stdout 里的层表与文件一致；通道声明过结构定义与 PS1 的名字要求 */
+/** 出层目录：八个文件的字节数照 [高, 宽, 分量数] × 4；stdout 里的层表与文件一致；通道声明过结构定义与 PS1 的名字要求 */
 async function checkFiles(dir, stats, w, h) {
   const names = fs.readdirSync(dir).sort();
   assert.deepEqual(names, [...Object.values(FILES), 'passes.json'].sort());
@@ -133,11 +133,11 @@ async function checkFiles(dir, stats, w, h) {
   const table = JSON.parse(fs.readFileSync(path.join(dir, 'passes.json'), 'utf8'));
   const { validate } = await loadContracts();
   assert.deepEqual(validate(table), { contract: 'passes', schemaErrors: [], violations: {} });
-  assert.deepEqual(table.channels.map(c => c.name), ['color', 'depth', 'objectId', 'normal', 'denoiseAlbedo', 'denoiseNormal']);
+  assert.deepEqual(table.channels.map(c => c.name), ['color', 'depth', 'objectId', 'normal', 'motion', 'denoiseAlbedo', 'denoiseNormal']);
   return table;
 }
 
-test('两块错开的板：深度、编号、法线取首个样本，边缘上只有两块板各自的值；覆盖率等于照内核取数重算的比例；核对记录过 PS2、PS4、PS5、PS6，负对照不过', async (t) => {
+test('两块错开的板：深度、编号、法线取首个样本，边缘上只有两块板各自的值；覆盖率等于照内核取数重算的比例；只有一帧的包 motion 全 0；核对记录过 PS1 到 PS6，负对照不过', async (t) => {
   const bin = renderer(t);
   if (!bin) return;
   const [w, h, spp] = [64, 36, 16];
@@ -145,7 +145,9 @@ test('两块错开的板：深度、编号、法线取首个样本，边缘上�
   if (!r) return;
   const dir = path.join(r.out, 'passes');
   const table = await checkFiles(dir, r.stats, w, h);
-  const [depth, id, cov, normal] = [layer(dir, 'depth.f32'), layer(dir, 'objectId.u32'), layer(dir, 'objectId.coverage.f32'), layer(dir, 'normal.f32')];
+  const [depth, id, cov, normal, motion] = [layer(dir, 'depth.f32'), layer(dir, 'objectId.u32'), layer(dir, 'objectId.coverage.f32'), layer(dir, 'normal.f32'), layer(dir, 'motion.f32')];
+  // 只有一帧的包：motion 每个像素都是 (0, 0)（输出通道契约 5.6）
+  assert.ok(motion.every(v => Object.is(v, 0)), '只有一帧的包 motion 全 0');
   const pixels = [];
   let mixed = 0;
   for (let y = 0; y < h; y++) {
@@ -164,9 +166,9 @@ test('两块错开的板：深度、编号、法线取首个样本，边缘上�
         pixels.push({
           producer: 'core', x, y,
           // aux 取内核自己的辅助样本（就是层里的那一格）；它是不是像素中心的那一条，上面已经照场景规格对过
-          aux: { id: id[p], depth: depth[p], normal: [0, 1, 2].map(c => normal[p * 3 + c]) },
+          aux: { id: id[p], depth: depth[p], normal: [0, 1, 2].map(c => normal[p * 3 + c]), motion: [motion[p * 2], motion[p * 2 + 1]] },
           samples: samples.map(s => ({ id: s.id, depth: s.depth, normal: s.normal })),
-          out: { depth: depth[p], id: id[p], coverage: cov[p], normal: [0, 1, 2].map(c => normal[p * 3 + c]) },
+          out: { depth: depth[p], id: id[p], coverage: cov[p], normal: [0, 1, 2].map(c => normal[p * 3 + c]), motion: [motion[p * 2], motion[p * 2 + 1]] },
         });
       }
     }
@@ -177,8 +179,8 @@ test('两块错开的板：深度、编号、法线取首个样本，边缘上�
   const { validate } = await loadContracts();
   const v = validate(rec);
   assert.deepEqual(v.schemaErrors, []);
-  // PS1 要出层方的声明含七个固定通道：内核不出 motion（场景包只有整数帧的状态），所以这一条照实不过，只差 motion 这一项
-  assert.deepEqual(v.violations, { PS1: ['core 的声明里固定通道 motion 出现了 0 次'] });
+  // PS1 要出层方的声明含七个固定通道：motion 出了，七个齐了
+  assert.deepEqual(v.violations, {});
   // 负对照：辅助层换成颜色样本的平均（深度、编号、法线逐个取平均），PS4 必须不过，边缘像素的深度也不再是任何一块板的
   const avg = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
   const averaged = { ...rec, pixels: pixels.map(p => ({ ...p, out: { ...p.out, depth: avg(p.samples.map(s => s.depth)), id: Math.round(avg(p.samples.map(s => s.id))), normal: [0, 1, 2].map(c => avg(p.samples.map(s => s.normal[c]))) } })) };
@@ -240,7 +242,8 @@ test('从 Blender 导出的场景包（BEIMING_CORE_TEST_PACKS）：每个通道
     for (const [name, file] of Object.entries(FILES)) {
       const v = layer(dir, file);
       assert.ok(v.every(Number.isFinite), `${path.basename(pack)} 的 ${name} 有非有限数`);
-      assert.ok(v.some(x => x !== v[0]), `${path.basename(pack)} 的 ${name} 全是同一个值`);
+      // （motion 在不动的包上本来就全是 0，不查）
+      if (name !== 'motion') assert.ok(v.some(x => x !== v[0]), `${path.basename(pack)} 的 ${name} 全是同一个值`);
     }
     const manifest = JSON.parse(fs.readFileSync(path.join(pack, 'pack.json'), 'utf8'));
     const rows = layer(pack, manifest.instances.file);

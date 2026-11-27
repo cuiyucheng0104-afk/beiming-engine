@@ -105,7 +105,9 @@ const FILM_LEGACY_EMIT: u32 = 4u;     // 上游 `render --signals` 的两组：�
 const FILM_LEGACY_SPEC: u32 = 5u;     // 首次命中处的高光部分。已落地（只在开了 --signals 时写），以后腾出来
 const FILM_AUX_DATA: u32 = 6u;        // 辅助样本覆盖写一次：x 深度，y 实体编号（存成浮点数值，小于 2^24），zw 运动矢量。已定义
 const FILM_AUX_NORMAL: u32 = 7u;      // 辅助样本覆盖写一次：xyz 法线（相机空间，长度 1）。已定义
-                                      // 第 8、9 格预留
+const FILM_AUX_HIT: u32 = 8u;         // 辅助样本覆盖写一次：xyz 命中点（世界坐标），w 物体表下标加 1（存成浮点数值；没打到：0）。
+                                      // 宿主拿它求 motion（main.rs `write_passes`）。已落地
+                                      // 第 9 格预留
 const FILM_FIXED: u32 = 10u;          // 固定部分的长度。只用来与 Rust 一侧对数；内核读的是 P.film.film_lightgroup_first
 
 // 「不属于任何灯组」的槽位
@@ -168,6 +170,7 @@ struct AuxSample {
     object_id: u32,                 // 实体编号（小于 2^24），没打到或打到的不属于任何实体：0
     motion: vec2<f32>,              // 运动矢量
     normal: vec3<f32>,              // 法线（相机空间，长度 1）；没打到：0
+    hit: vec4<f32>,                 // 北冥：xyz 命中点（世界坐标），w 物体表下标加 1；没打到：全 0
 };
 
 // 写辅助样本。辅助那一趟调度（入口 aux_sample，integrator.wgsl）调它。
@@ -176,6 +179,7 @@ fn film_write_aux(aux: AuxSample) {
     let b = film_pixel_first();
     film[b + FILM_AUX_DATA] = vec4<f32>(aux.depth, f32(aux.object_id), aux.motion);
     film[b + FILM_AUX_NORMAL] = vec4<f32>(aux.normal, 0.0);
+    film[b + FILM_AUX_HIT] = aux.hit;
 }
 
 // 样本结束时写其余通道（颜色、样本数、降噪用的反照率与法线、上游的几格）。每个样本调一次。

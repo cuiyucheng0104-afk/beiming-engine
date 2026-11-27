@@ -142,7 +142,7 @@ pub struct KernelFilm {
 }
 
 /// 北冥：输出缓冲 film 固定部分各通道的位置（film.wgsl 里同名，库测试逐个比数值）：颜色与样本数、降噪用的反照率
-/// 与法线、上游降噪用的两个方差量、上游 `--signals` 的两组、辅助样本的两格。第 8、9 格预留。
+/// 与法线、上游降噪用的两个方差量、上游 `--signals` 的两组、辅助样本的三格。第 9 格预留。
 pub const FILM_COMBINED: u32 = 0;
 pub const FILM_DENOISE_ALBEDO: u32 = 1;
 pub const FILM_DENOISE_NORMAL: u32 = 2;
@@ -151,11 +151,29 @@ pub const FILM_LEGACY_EMIT: u32 = 4;
 pub const FILM_LEGACY_SPEC: u32 = 5;
 pub const FILM_AUX_DATA: u32 = 6;
 pub const FILM_AUX_NORMAL: u32 = 7;
+/// 辅助样本的命中点（世界坐标）与物体表下标加 1（没打到：0），宿主拿它求 motion（输出通道契约 5.6）。
+pub const FILM_AUX_HIT: u32 = 8;
 /// 输出缓冲里每个像素固定部分的长度（vec4 个数）：灯组排在它后面。内核不写死这个数，从 `KernelFilm` 读。
 pub const FILM_FIXED: u32 = 10;
 /// 每个像素的步长向上取到这个数的倍数（4 个 vec4 是 64 字节）。量出来的：苹果显卡上步长 10、11 比步长 12、16 的
 /// 稳态慢 5%（同样只写前四格），每个像素的记录对不齐 64 字节时写起来就慢。多出来的格子没人读写。
 pub const FILM_STRIDE_ALIGN: u32 = 4;
+
+/// 北冥：`wgpu::Limits` 的每一项，键是 wgpu 的字段名。这里没开 wgpu 的 serde，从 Debug 的文本 `Limits { 名: 数, … }` 里取：
+/// 这一版的每一项都是整数（`limits_json_takes_every_limit` 守着）；哪天出了不是整数的项，原样记成字符串。
+pub fn limits_json(l: &wgpu::Limits) -> serde_json::Map<String, serde_json::Value> {
+    let s = format!("{l:?}");
+    let body = s.find('{').zip(s.rfind('}')).map_or("", |(a, b)| &s[a + 1..b]);
+    body.split(',')
+        .filter_map(|kv| kv.split_once(':'))
+        .map(|(k, v)| (k.trim().to_string(), v.trim().parse::<u64>().map_or_else(|_| v.trim().into(), Into::into)))
+        .collect()
+}
+
+/// 北冥：一组特性的名字（wgpu 的常量名）。
+pub fn features_json(f: wgpu::Features) -> Vec<&'static str> {
+    f.iter_names().map(|(n, _)| n).collect()
+}
 
 /// 输出缓冲的字节数：每个像素 `film_stride` 个 vec4。`limit` 是显卡单个缓冲绑定的上限（也不许超过单个缓冲的上限）：
 /// 超过就报错，并写明这个分辨率下这次最多能要几个灯组。形状对不上（不是 `KernelFilm::new` 填的）也报错。
@@ -1493,6 +1511,8 @@ pub struct AuxLayers {
     pub normal: Vec<[f32; 3]>,
     /// 首次命中的实体编号等于 `id` 的颜色样本数除以样本数。
     pub coverage: Vec<f32>,
+    /// 辅助样本的命中点（世界坐标）与物体表下标加 1；没打到：全 0（`FILM_AUX_HIT` 的原值）。motion 由它在宿主一侧求。
+    pub hit: Vec<[f32; 4]>,
 }
 
 impl Gpu {
@@ -1590,6 +1610,22 @@ impl Gpu {
         let no_vis = vis_bind_group(&device, &vis_layout, &no_vis_view, &no_vis_bufs, true);
         let pl = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: None, bind_group_layouts: &[Some(&layout), Some(&vis_layout)], immediate_size: 0 });
         Ok(Gpu { instance, adapter, timestamps, device, queue, adapter_info, uniform_tables, whole_tables, switches, pipeline_cache, source: src, module, merged, modules: Default::default(), pipeline_layout: pl, pipelines: Default::default(), layout, vis_layout, no_vis, no_vis_bufs, no_vis_view, no_grid_view, hwrt, pages: Default::default(), proc_cache: Default::default(), proc_blases: Default::default() })
+    }
+
+    /// 北冥：`core-render info --limits` 打的全文：适配器的信息、上限与特性，加上这台设备实际申请到的上限与特性
+    /// （`new_async_with` 照适配器抬高的几项、只请求的三样特性，都在 `device*` 两项里看得到）。
+    pub fn limits_report(&self) -> serde_json::Value {
+        let i = &self.adapter_info;
+        serde_json::json!({
+            "format": "core-limits/0.1",
+            "adapter": { "name": i.name, "vendor": i.vendor, "device": i.device, "deviceType": format!("{:?}", i.device_type), "driver": i.driver, "driverInfo": i.driver_info, "backend": format!("{:?}", i.backend), "subgroupMinSize": i.subgroup_min_size, "subgroupMaxSize": i.subgroup_max_size },
+            "hwrt": self.hwrt,
+            "merged": self.merged,
+            "adapterLimits": limits_json(&self.adapter.limits()),
+            "adapterFeatures": features_json(self.adapter.features()),
+            "deviceLimits": limits_json(&self.device.limits()),
+            "deviceFeatures": features_json(self.device.features()),
+        })
     }
 
     /// Whether this device's kernel buffers have the loop guard's count (`guard_room`; always in the merged layout).
@@ -2042,6 +2078,27 @@ impl Gpu {
 
     /// Bytes Metal allocates for a triangle BLAS over the (first vertex, vertex count, opaque) geometries of `verts`
     /// (non-indexed Float32x3, as every triangle BLAS here; None on other backends).
+    /// 北冥：加速结构占的字节数，取驱动给的预建尺寸（`get_acceleration_structure_build_sizes`，只问尺寸、不建）：`blases` 每项是
+    /// 一个 BLAS，列它各段（不透明、不带下标、32 位浮点三分量顶点）的三角形数；`instances` 是 TLAS 的实例数。返回
+    /// (每个 BLAS 的字节数, TLAS 的字节数, 建这些要的最大临时缓冲)。苹果显卡（Metal）与 Vulkan 有，别的后端 None。
+    /// 驱动的尺寸只看个数与标志，不看顶点，所以拿一块小缓冲顶着就行（Vulkan 根本不读它）。
+    pub fn as_sizes(&self, blases: &[Vec<u32>], instances: u32) -> Option<(Vec<u64>, u64, u64)> {
+        let dummy = self.device.create_buffer(&wgpu::BufferDescriptor { label: Some("as-size"), size: 256, usage: wgpu::BufferUsages::BLAS_INPUT | wgpu::BufferUsages::TLAS_INPUT, mapped_at_creation: false });
+        #[cfg(target_vendor = "apple")]
+        {
+            return as_sizes_on::<wgpu::hal::api::Metal>(&self.device, &dummy, blases, instances);
+        }
+        #[cfg(all(not(target_vendor = "apple"), not(target_arch = "wasm32")))]
+        {
+            return as_sizes_on::<wgpu::hal::api::Vulkan>(&self.device, &dummy, blases, instances);
+        }
+        #[allow(unreachable_code)]
+        {
+            let _ = (dummy, blases, instances);
+            None
+        }
+    }
+
     fn tri_blas_bytes(&self, verts: &wgpu::Buffer, parts: &[(u32, u32, bool)]) -> Option<u64> {
         #[cfg(target_vendor = "apple")]
         {
@@ -2330,13 +2387,22 @@ impl Gpu {
         readback.slice(..).map_async(wgpu::MapMode::Read, |_| {});
         self.device.poll(wgpu::PollType::wait_indefinitely())?;
         let data = readback.slice(..).get_mapped_range()?;
+        // 北冥：调试开关。BEIMING_CORE_FILM_DUMP=<文件> 时把读回的输出缓冲原样写进这个文件（小端 f32，每个像素 film_stride 个
+        // vec4），全局参数原样写进「文件.params」（开头四个 vec4 是相机的位置、前、右、上），给读回一致性的测试拿着色器写下的原值
+        // 去对出层的通道文件
+        if let Some(dump) = std::env::var_os("BEIMING_CORE_FILM_DUMP") {
+            std::fs::write(&dump, &data[..])?;
+            let mut params = dump.clone();
+            params.push(".params");
+            std::fs::write(params, bytemuck::bytes_of(&base))?;
+        }
         // 北冥：每个像素 film_stride 个 vec4，各通道按 FILM_* 的位置取，灯组从 film_lightgroup_first 起。步长与起点
         // 是这次渲染写进全局参数的那两个数，不写死。
         let floats: &[f32] = bytemuck::cast_slice(&data);
         let n = (w * h) as usize;
         let (stride, groups) = (base.film.film_stride as usize * 4, base.film.num_lightgroups as usize);
         let mut frame = Frame { width: w, height: h, color: Vec::with_capacity(n), albedo: Vec::with_capacity(n), normal: Vec::with_capacity(n), emission: Vec::with_capacity(n), specular: Vec::with_capacity(n), variance: Vec::with_capacity(n), lightgroups: vec![Vec::with_capacity(n); groups], alpha: Vec::with_capacity(n), aux: None, samples: spp };
-        let mut layers = aux.then(|| AuxLayers { depth: Vec::with_capacity(n), id: Vec::with_capacity(n), normal: Vec::with_capacity(n), coverage: Vec::with_capacity(n) });
+        let mut layers = aux.then(|| AuxLayers { depth: Vec::with_capacity(n), id: Vec::with_capacity(n), normal: Vec::with_capacity(n), coverage: Vec::with_capacity(n), hit: Vec::with_capacity(n) });
         for p in floats.chunks_exact(stride) {
             let c = p[FILM_COMBINED as usize * 4 + 3].max(1.0);
             let at = |slot: u32, k: usize| Some(p[slot as usize * 4 + k]).filter(|v| v.is_finite()).unwrap_or(0.0);
@@ -2353,11 +2419,12 @@ impl Gpu {
             }
             frame.alpha.push(at(FILM_DENOISE_ALBEDO, 3) / c);
             if let Some(l) = &mut layers {
-                // （辅助两格是覆盖写的原值，不除以样本数；编号存的是浮点数值）
+                // （辅助三格是覆盖写的原值，不除以样本数；编号存的是浮点数值）
                 l.depth.push(at(FILM_AUX_DATA, 0));
                 l.id.push(at(FILM_AUX_DATA, 1) as u32);
                 l.normal.push([at(FILM_AUX_NORMAL, 0), at(FILM_AUX_NORMAL, 1), at(FILM_AUX_NORMAL, 2)]);
                 l.coverage.push(at(FILM_DENOISE_NORMAL, 3) / c);
+                l.hit.push([at(FILM_AUX_HIT, 0), at(FILM_AUX_HIT, 1), at(FILM_AUX_HIT, 2), at(FILM_AUX_HIT, 3)]);
             }
         }
         frame.aux = layers;
@@ -2366,6 +2433,25 @@ impl Gpu {
         timings.push(("readback_ms".into(), t2.elapsed().as_secs_f64() * 1000.0));
         Ok(frame)
     }
+}
+
+/// `Gpu::as_sizes` 在一种后端上：设备与缓冲不是这种后端的（`as_hal` 拿不到）时 None。
+#[cfg(not(target_arch = "wasm32"))]
+fn as_sizes_on<A: wgpu::hal::Api>(device: &wgpu::Device, buf: &wgpu::Buffer, blases: &[Vec<u32>], instances: u32) -> Option<(Vec<u64>, u64, u64)> {
+    use wgpu::hal::{self, Device as _};
+    let d = unsafe { device.as_hal::<A>() }?;
+    let b = unsafe { buf.as_hal::<A>() }?;
+    let size = |entries: &hal::AccelerationStructureEntries<A::Buffer>| unsafe { d.get_acceleration_structure_build_sizes(&hal::GetAccelerationStructureBuildSizesDescriptor { entries, flags: hal::AccelerationStructureBuildFlags::PREFER_FAST_TRACE }) };
+    let mut scratch = 0;
+    let mut blas = vec![];
+    for parts in blases {
+        let tris = parts.iter().map(|&n| hal::AccelerationStructureTriangles { vertex_buffer: Some(&*b), vertex_format: wgpu::VertexFormat::Float32x3, first_vertex: 0, vertex_count: n * 3, vertex_stride: 12, indices: None, transform: None, flags: hal::AccelerationStructureGeometryFlags::OPAQUE }).collect();
+        let s = size(&hal::AccelerationStructureEntries::Triangles(tris));
+        scratch = scratch.max(s.build_scratch_size);
+        blas.push(s.acceleration_structure_size);
+    }
+    let t = size(&hal::AccelerationStructureEntries::Instances(hal::AccelerationStructureInstances { buffer: Some(&*b), offset: 0, count: instances }));
+    Some((blas, t.acceleration_structure_size, scratch.max(t.build_scratch_size)))
 }
 
 #[cfg(test)]
@@ -2992,5 +3078,31 @@ mod tests {
         assert!(!huge([M - 1, 5, 0, 0, 0, 0, 0, 0], false));
         assert!(huge([M / 2, 5, 0, 0, 0, 0, 0, 0], true));
         assert!(!huge([M / 2 - 1, 5, 0, 0, 0, 0, 0, 0], true));
+    }
+
+    /// 北冥：`info --limits` 的上限全文。Debug 文本里的每一项都取到、都是整数，键数等于逗号分开的项数；
+    /// 有显卡时：设备的上限不比适配器的好，抬到适配器上限的那几项相等，请求的特性都在适配器的特性里。没有显卡就跳过后一半。
+    #[test]
+    fn limits_json_takes_every_limit() {
+        let d = wgpu::Limits::default();
+        let m = super::limits_json(&d);
+        assert_eq!(m.len(), format!("{d:?}").matches(':').count());
+        assert!(m.values().all(|v| v.is_u64()), "{m:?}");
+        assert_eq!(m["max_texture_dimension_2d"], d.max_texture_dimension_2d as u64);
+        assert_eq!(m["max_buffer_size"], d.max_buffer_size);
+        let g = match super::Gpu::new_with(super::GpuOptions::default()) {
+            Ok(g) => g,
+            Err(e) => return eprintln!("skipped: {e}"),
+        };
+        let r = g.limits_report();
+        let (al, dl) = (&r["adapterLimits"], &r["deviceLimits"]);
+        assert_eq!(dl.as_object().unwrap().len(), m.len());
+        assert!(g.device.limits().check_limits(&g.adapter.limits()));
+        for k in ["max_storage_buffer_binding_size", "max_buffer_size", "max_texture_dimension_2d", "max_tlas_instance_count"] {
+            assert_eq!(dl[k], al[k], "{k}");
+        }
+        let have: Vec<&str> = r["adapterFeatures"].as_array().unwrap().iter().map(|v| v.as_str().unwrap()).collect();
+        assert!(r["deviceFeatures"].as_array().unwrap().iter().all(|f| have.contains(&f.as_str().unwrap())));
+        assert_eq!(r["hwrt"], g.hwrt);
     }
 }
