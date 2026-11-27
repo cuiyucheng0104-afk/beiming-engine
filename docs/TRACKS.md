@@ -2,7 +2,7 @@
 
 > 读者：要知道画面在哪里执行、做到哪一步的人｜状态：技术分档说明｜依据：2026-11-18，按决定 D01、D03、D04、D06、D12、D13 修订
 
-本页只讲每条路线的**执行面**：画面在哪里算、代码入口、已实现与未完成、怎么验收。选路线见 [routes/README.md](../routes/README.md)；做作品的步骤在四份路线手册里；引擎工程的任务状态以[工程待办](routes/work-breakdown.md)的 T / H 编号为准（`npm run plan:next`）。四条路线新建作品都用 `npm run new`，出片都用 `npm run film -- build films/<名字>`。
+本页只讲每条路线的**执行面**：画面在哪里算、代码入口、已实现与未完成、怎么验收。选路线见 [routes/README.md](../routes/README.md)；做作品的步骤在四份路线手册里；T / H 编号的历史分工与证据见[归档计划](routes/work-breakdown.md)。四条路线新建作品都用 `npm run new`，出片都用 `npm run film -- build films/<名字>`。
 
 ## A · 北冥风格路线 · WebGL 三渲二
 
