@@ -4,7 +4,7 @@
 > **依据**：决策 D08（`docs/decisions/2026-11-10-industrial-baseline.md`）；导演方法的四个关口见 `routes/directing/DIRECTING.md` §1。
 > **实现**：`engine/production/review.js`（记录）、`engine/production/state.js`（状态机与闸门），命令入口 `node engine/production/film.js`。出片编排 `tools/film`（P06）调用同一套库。
 
-同目录还有：[SOP.md](SOP.md)（从需求到交付的生产链总表）、[RUBRIC.md](RUBRIC.md)（分数与问题怎么写进记录、送审线、代理审片规程）、[review.template.md](review.template.md)（送审单）、[issue.schema.json](issue.schema.json)（问题条目格式）。评分标尺只有一份：[docs/quality/RUBRIC.md](../quality/RUBRIC.md)（六维锚点、一票否决、机器证据对照）。
+同目录还有：[SOP.md](SOP.md)（从需求到交付的生产链总表）、[SCORING-GUIDE.md](SCORING-GUIDE.md)（分数与问题怎么写进记录、送审线、代理审片规程）、[review.template.md](review.template.md)（送审单）、[issue.schema.json](issue.schema.json)（问题条目格式）。评分标尺只有一份：[docs/quality/RUBRIC.md](../quality/RUBRIC.md)（六维锚点、一票否决、机器证据对照）。
 
 ## 1. 四个关口
 
@@ -80,7 +80,7 @@ node engine/production/film.js gate films/<名> deliver   # 能否写「已交�
 
 - **不能自己批准**：approve / reject / waive 只能由用户或指定审片人做。记录里 `reviewer.kind` 必须是 `human`，`reviewer.name` 写用户或指定审片人（命令行默认「用户」）——名字一眼就是 agent 的（`claude`、`Claude Code`、`codex`、`AI 助手`、`助手`、`代理`……，名单在 `engine/production/vocab.js` 的 `isAgentName`，与 `qa.waivers[].approvedBy` 同一份）判 `review-agent-reviewer`；并带原话与出处；没有原话、原话是占位符（`用户原话`、`{{…}}`、`TODO`、`代理检查通过`……）或自评口吻的记录无效，状态计算当它不存在。`recordedBy` 写实际录入的人或 agent（默认 agent）。
 - **不能替人看片**：全速带声的完整观看只能由人做；agent 不能写「已带声看过」。
-- **能做代理审片**：按 [RUBRIC.md](RUBRIC.md) §3 的规程看联系表、切点帧条、事件帧条、声画数据、读字与安全区，按评分标尺打分并写问题条目（[issue.schema.json](issue.schema.json)），用 `--decision comment` 记录。代理审片的结论只能写「代理检查通过 / 未通过」。
+- **能做代理审片**：按 [SCORING-GUIDE.md](SCORING-GUIDE.md) §3 的规程看联系表、切点帧条、事件帧条、声画数据、读字与安全区，按评分标尺打分并写问题条目（[issue.schema.json](issue.schema.json)），用 `--decision comment` 记录。代理审片的结论只能写「代理检查通过 / 未通过」。
 - **不能编原话**：二手转述不是原话。例如九分钟版文档转述过「用户要求完全沿用原版十秒」，那是转述，不能补成样片的审片记录。
 - **豁免**：用户明确说跳过 look 或 animatic 时，照录原话写 waive；final 不能豁免（用户不看片就要交付时，状态停在 qa-passed，对外写「技术检查通过，未经用户审看」）。
 

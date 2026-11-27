@@ -302,7 +302,7 @@ const review = defineCommand({
     'must-change': { type: 'string', arg: '<文字>', describe: 'reject 时下次必须改什么' },
     summary: { type: 'string', arg: '<文字>', describe: 'comment（代理审片）的结论' },
     notes: { type: 'string', arg: '<文字>', describe: '备注' },
-    score: { type: 'list', arg: '<维度=分>', describe: '评分 1–10，可重复（docs/creative-review/RUBRIC.md）' },
+    score: { type: 'list', arg: '<维度=分>', describe: '评分 1–10，可重复（docs/creative-review/SCORING-GUIDE.md）' },
     veto: { type: 'list', arg: '<否决项>', describe: `一票否决项，可重复（${Object.keys(VETOES).join(' / ')}）` },
     'evidence-frame': { type: 'list', arg: '<帧>', describe: '支撑评分的证据帧号，可重复' },
     'issues-file': { type: 'string', arg: '<JSON 文件>', describe: '问题条目数组（docs/creative-review/issue.schema.json）' },

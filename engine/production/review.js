@@ -21,7 +21,7 @@
 //   gateVerdict(records, gate, film)   某道闸的当前结论：approved / waived / rejected / stale / missing，附依据记录
 //   validateCreativeAcceptance(c)      RenderResult.creativeAcceptance 的 v2 规则：accepted 至少要一条人工认可（带原话与出处）
 //   常量：GATES、RECORD_GATES、DECISIONS、REVIEWER_KINDS、SOURCE_KINDS、RUBRIC_DIMENSIONS、VETOES、ISSUE_LAYERS、ISSUE_PRIORITIES
-// 评分维度与一票否决项的含义见 docs/creative-review/RUBRIC.md（两边的 id 由测试保持一致）。
+// 评分维度与一票否决项的含义见 docs/creative-review/SCORING-GUIDE.md（两边的 id 由测试保持一致）。
 import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { normalizeRelativePath, validateCreativeAcceptance as validateCreativeContract } from './project.js';
@@ -147,7 +147,7 @@ export function validateReview(record, { film = null } = {}) {
     if (!isObj(record.scores)) err('review-scores', 'scores', 'scores 是 { 维度 id: 1–10 }');
     else for (const [k, v] of Object.entries(record.scores)) {
       if (!Object.hasOwn(RUBRIC_DIMENSIONS, k)) err('review-scores', `scores.${k}`, `没有评分维度 ${k}；可用：${Object.keys(RUBRIC_DIMENSIONS).join(' / ')}`);
-      else if (!(Number.isInteger(v) && v >= 1 && v <= 10)) err('review-scores', `scores.${k}`, '分数是 1–10 的整数（锚点见 docs/creative-review/RUBRIC.md）');
+      else if (!(Number.isInteger(v) && v >= 1 && v <= 10)) err('review-scores', `scores.${k}`, '分数是 1–10 的整数（锚点见 docs/creative-review/SCORING-GUIDE.md）');
     }
   }
   if (record.vetoes !== undefined) {

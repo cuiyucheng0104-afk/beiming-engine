@@ -216,6 +216,7 @@
 - 核心底盘的 `limits.mjs`、`rerender.mjs` 记录里 `kernel` 记跑记录的那个程序自己的摘要（给了程序时从文件名取，取不到记 null），另记程序的 sha256；底盘调 cargo 时 `CARGO_NET_OFFLINE` 为真就带 `--offline`，清构建目录一律不联网。
 - 核心内核的来源说明（`beiming/sources/core/path/PROVENANCE.md`）补上选底盘时的探针读数（RTX 5090 上软硬求交计时与两遍逐位结果）与钉点对账：实测、分叉、基线都钉在上游 `c946cc96`。
 - 北冥一级组件的入口说明由 CI 检查，每份预算为 1500 token。
+- 审片落分与送审规程改名为 `docs/creative-review/SCORING-GUIDE.md`，与质量标尺及 agent 验收题库的评分细则区分。
 - 旧链共用作品描述读取和命令行解析。三个原生例片与模版已迁至 film.json v2，旧文件可以显式执行 `film.js upgrade`。
 - 旧链的终渲默认运行机器 QA，人工创作闸通过 `--delivery-mode review` 启用。用户认可仍由审片记录确认。
 - 《北冥》10 秒样片源码与页面移入 `films/beiming-10s/`，保留原入口和已登记的金标准。
@@ -262,6 +263,7 @@
 - 不兼容：`engine/core/noise.js` 的 `createNoise2D` / `createNoise3D` 不再接受无种子调用（以前默认用 `Math.random`，分段并行渲染时各段画面会对不上）。调用时传入种子随机源，例如 `createNoise3D(mulberry(7))`。
 - 退役九个重复 npm 脚本。`build` 改用 `beiming:build`，`raea:*` 和 `native:*` 的准备、预检、渲染迁到 `b:prepare`、`b:preflight`、`b:render`，`routes:check`、`routes:next` 迁到 `plan:check`、`plan:next`。
 - 旧作品站的生成物 `showcase/`（由 `site/` 与 `tools/build-showcase.py` 取代）。
+- 移除根目录的路线跳转页 `ROUTES.md`，三处路线入口统一指向 `routes/README.md`。
 
 ### Fixed
 - 修复 Metal 离屏分段计时读数全为零的问题。时间戳标记会提交一个不读写资源的计算工作组，从而保留 GPU 计时记录。

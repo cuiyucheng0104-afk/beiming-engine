@@ -367,7 +367,7 @@ shasum -a 256 "$F"
 | swiftshader | SwiftShader | 33.1 秒 | 2.8–4.0 秒 |
 
 后两行 `page.mjs` 都打印了"正在用软件渲染"的提示，但照常往下跑。也就是说，环境变量写错一个值，就会慢约 5–15 倍地出片，像素还不同（见 2.7）。C 路线快照的注释记录过同一现象（新版无头浏览器在 macOS 上 `gl` 回退软件渲染，约慢 6 倍，`$甲/core/render/browser.mjs:3`）。【通用工艺】默认把 SwiftShader / llvmpipe / Microsoft Basic Render 当作失败，只有显式允许时才继续；在渲染记录里写入 UA、`--use-angle` 和 `UNMASKED_RENDERER`。
-- 记录实际 GPU、图形后端和编码器；Vulkan 不等于 NVENC，原生路线默认的 OpenH264 也不能写成 NVENC（`AGENTS.md:41`、`ROUTES.md:95`）。
+- 记录实际 GPU、图形后端和编码器；Vulkan 不等于 NVENC，原生路线默认的 OpenH264 也不能写成 NVENC（见[执行路线分档](../../../docs/TRACKS.md)）。
 
 ### 7.3 失败、重试与残留（本次复现）
 

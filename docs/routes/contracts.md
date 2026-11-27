@@ -222,7 +222,7 @@ Three 适配器先包装现有镜头，不直接改写其全局 `update(t,f)` �
 | `actualDevice`、`actualGraphicsBackend`、`actualEncoder`、`softwareFallback` | 实际执行证据（rendered / passed / accepted 必填前三项） |
 | `output{path, sha256, width, height, fps, frames, pixFmt, color}`、`frameHashes`、`timing{阶段: 秒}` | 产物与耗时 |
 | `technicalAcceptance{status, evidence[]}` | 渲染器只写 `not-run`；`passed` 必须指向一份可解析、`ok: true` 的 QA 报告（`tools/qa` 写的仓库相对路径，或相对运行目录的 `qa/report.json`） |
-| `creativeAcceptance{status, reviews[]}` | `status`：`not-reviewed` / `ai-reviewed` / `rejected` / `accepted`；`reviews[]` 每条 `{ reviewerKind: human \| ai, reviewer, decision, quote, source{kind, ref, at}, scores?, vetoes?, evidenceFrames?, record? }`（`scores` / `vetoes` 的 id 见 [docs/creative-review/RUBRIC.md](../creative-review/RUBRIC.md) §1）。AI 只能 `comment`；`accepted` 至少要一条人工 `approve`，带审阅人原话与出处。出片编排用 `creativeAcceptanceOf(作品, { runShas })`（`engine/production/state.js`）从审片记录生成，不手拼 |
+| `creativeAcceptance{status, reviews[]}` | `status`：`not-reviewed` / `ai-reviewed` / `rejected` / `accepted`；`reviews[]` 每条 `{ reviewerKind: human \| ai, reviewer, decision, quote, source{kind, ref, at}, scores?, vetoes?, evidenceFrames?, record? }`（`scores` / `vetoes` 的 id 见 [docs/creative-review/SCORING-GUIDE.md](../creative-review/SCORING-GUIDE.md) §1）。AI 只能 `comment`；`accepted` 至少要一条人工 `approve`，带审阅人原话与出处。出片编排用 `creativeAcceptanceOf(作品, { runShas })`（`engine/production/state.js`）从审片记录生成，不手拼 |
 
 校验：`node engine/production/film.js validate-result <run.json> [--film <作品>] [--json]`（不给 `--film` 时按运行目录找作品；exit 0 通过、4 不合格、2 找不到），库 `validateRenderResult(run, { strict: true, runDir, repoRoot })`。T01 的旧形状（`creativeAcceptance` 只写 `events` / `styleComparison`）只在默认口径下兼容，运行记录一律用严格口径。
 

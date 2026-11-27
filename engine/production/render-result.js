@@ -38,7 +38,7 @@ const ISO_TIME = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2
  *   { reviewerKind: 'human' | 'ai', reviewer, decision: approve | reject | waive | comment, quote, source: { kind, ref, at },
  *     scores?: { 维度 id: 1–10 }, vetoes?: [否决项 id], evidenceFrames?: [帧号], record?: 'review/<闸>-<日期>.json' }
  * 规则：AI 评审只能是 comment（代理审片）；人工的 approve / reject / waive 必须带审阅人原话与出处（占位符或自评口吻无效），reviewer 不能是 agent 的名字。
- * 维度与否决项的 id 见 engine/production/vocab.js 与 docs/creative-review/RUBRIC.md。
+ * 维度与否决项的 id 见 engine/production/vocab.js 与 docs/creative-review/SCORING-GUIDE.md。
  * @param {unknown} creative
  * @param {{ path?: string }} [options]
  * @returns {{ ok: boolean, diagnostics: Array<{code:string,path:string,message:string}>, humanApproved: boolean }}

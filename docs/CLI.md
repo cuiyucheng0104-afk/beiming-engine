@@ -93,7 +93,7 @@
 |---|---|
 | `AGENTS.md` | 150 行 |
 | `routes/README.md` | 120 行 |
-| `ROUTES.md` | 10 行（只做跳转页） |
+| 兼容检查中的旧跳转页 `ROUTES.md` | 仅文件存在时检查，10 行 |
 | 每份路线手册 | 300 行 |
 | `AGENTS.md` + `routes/README.md` + 手册里到第一条命令 | 300 行 |
 | 从 `AGENTS.md` 沿链接到四份路线手册 | 不超过 3 跳 |
