@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "lock/lock.schema.json",
   "title": "锁文件",
-  "description": "只管结构。和片子描述、元数据对不对得上由 LK1 到 LK12 管；issuer 和 rev、image、machine 出不出现由 LK13 管，全片种子由 LK14 管。seeds 必须有 film 这个键，别的键是镜头的 id；shots 的键是镜头的 id。",
+  "description": "只管结构。和片子描述、元数据对不对得上由 LK1 到 LK12 管；issuer 和 rev、image、machine 出不出现由 LK13 管，全片种子由 LK14 管，viewChain 和 view 对不对得上由 LK15 管。seeds 必须有 film 这个键，别的键是镜头的 id；shots 的键是镜头的 id。",
   "type": "object",
   "required": ["format", "issuer", "film", "contracts", "seeds", "shots", "sources", "cards", "assets", "templates", "view"],
   "additionalProperties": false,
@@ -94,6 +94,23 @@
       "type": "object",
       "propertyNames": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
       "additionalProperties": { "$ref": "#/$defs/hash" }
+    },
+    "viewChain": {
+      "type": "object",
+      "description": "键必须是 view 的键、view 里的汇总哈希必须能由这条链复算，由 LK15 管。",
+      "propertyNames": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["file", "sha256"],
+          "additionalProperties": false,
+          "properties": {
+            "file": { "type": "string", "pattern": "^(?!/)(?![\\s\\S]*(^|/)\\.\\.(/|$))[^\\\\:]+$" },
+            "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+          }
+        }
+      }
     },
     "machine": {
       "type": "object",

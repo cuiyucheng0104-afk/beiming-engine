@@ -243,5 +243,19 @@
       "LK10"
     ],
     "why": "片子描述的 overlays 是空数组，cards 里还留着 from 是 overlays 的 two-d.overlay"
+  },
+  {
+    "file": "LK15-chain-key-not-in-view.json",
+    "violates": [
+      "LK15"
+    ],
+    "why": "viewChain 有 agx-base 这条链，view 里只有 agx-mhc：链的键不是 view 的键"
+  },
+  {
+    "file": "LK15-summary-hash-mismatch.json",
+    "violates": [
+      "LK15"
+    ],
+    "why": "viewChain.agx-mhc 的两个算子调了次序，view.agx-mhc 还是原来那条链的汇总哈希，复算对不上"
   }
 ]

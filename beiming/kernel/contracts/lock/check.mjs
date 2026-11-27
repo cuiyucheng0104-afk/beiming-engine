@@ -1,5 +1,5 @@
 // 锁文件契约的判定函数：每条不变量一个，照 CONTRACT.md 第 4 节「怎么查」一栏写。
-// LK2、LK5 只看锁文件本身，锁文件（lock/1.0）和锁核对记录（lock-check/0.1）里的锁都判；
+// LK2、LK5、LK13、LK15 只看锁文件本身，锁文件（lock/1.0）和锁核对记录（lock-check/0.1）里的锁都判；
 // 其余要片子描述或元数据观测的，只在锁核对记录里出现那一段时判。不归这条管的对象返回空数组。
 import { createHash } from 'node:crypto';
 
@@ -18,6 +18,12 @@ if (derivedSeed(7800, 's01') !== 2013376959) throw new Error('镜头种子的派
 // 5.7：全片种子 = 片子 id 的 SHA-256 前 4 个字节按大端读成的无符号 32 位整数
 const filmSeedOf = (id) => createHash('sha256').update(String(id), 'utf8').digest().readUInt32BE(0);
 if (filmSeedOf('toon-demo') !== 899845905) throw new Error('全片种子的派生算法和 5.7 的算例对不上');
+
+// 5.9：规范化 JSON（对象的键从小到大排，数组保持次序，没有空白，字符串和数照 JSON.stringify）的 UTF-8 字节的 SHA-256
+const canon = (v) => (Array.isArray(v) ? `[${v.map(canon).join(',')}]`
+  : v && typeof v === 'object' ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${canon(v[k])}`).join(',')}}` : JSON.stringify(v));
+const chainHash = (chain) => `sha256:${createHash('sha256').update(canon(chain), 'utf8').digest('hex')}`;
+if (canon([{ sha256: 'b', file: 'a' }]) !== '[{"file":"a","sha256":"b"}]') throw new Error('规范化 JSON 和 5.9 的写法对不上');
 
 const big = (s) => (/^[0-9]+$/.test(s) ? BigInt(s) : NaN); // 版本号按精确整数比（写法约定「数值」）
 const major = (v) => big(String(v).split('.')[0]);
@@ -149,4 +155,11 @@ export const checks = {
     const want = film.seed ?? filmSeedOf(film.id), how = film.seed !== undefined ? '片子描述顶层写的' : `照 5.7 用片子 id ${film.id} 派生出来的`;
     return lock.seeds?.film === want ? [] : [`seeds.film 是 ${lock.seeds?.film}，${how}是 ${want}`];
   }),
+
+  // 键不在 view 里的链只报这一样，不再复算
+  LK15: onLock((lock) => Object.entries(lock.viewChain ?? {}).flatMap(([name, chain]) => {
+    if (!has(lock.view, name)) return [`viewChain 有 ${name}，view 里没有这个键`];
+    const want = chainHash(chain);
+    return lock.view[name] === want ? [] : [`view.${name} 是 ${lock.view[name]}，照 5.9 由 viewChain.${name} 复算是 ${want}`];
+  })),
 };
