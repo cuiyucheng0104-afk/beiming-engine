@@ -182,7 +182,9 @@
       "properties": {
         "baseColor": { "$ref": "#/$defs/unitRgb" },
         "metallic": { "type": "number", "minimum": 0, "maximum": 1 },
-        "roughness": { "type": "number", "minimum": 0, "maximum": 1 }
+        "roughness": { "type": "number", "minimum": 0, "maximum": 1 },
+        "emissionColor": { "$ref": "#/$defs/rgb" },
+        "emissionStrength": { "type": "number", "minimum": 0 }
       }
     },
     "table": {

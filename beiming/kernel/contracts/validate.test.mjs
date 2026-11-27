@@ -29,3 +29,16 @@ test('合法记录改坏一处就被对应的那一条拒掉', () => {
   rec.holds[0].result = 6;
   assert.deepEqual(Object.keys(loaded.validate(rec).violations), ['T10']);
 });
+
+test('场景包材质的自发光参数：负的强度、负的颜色分量是结构非法', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const head = JSON.parse(await readFile(new URL('./scene-pack/examples/head.json', import.meta.url), 'utf8'));
+  const lens = () => head.materials.find((m) => m.name === 'lens').params;
+  assert.deepEqual(loaded.validate(head).schemaErrors, []);
+  for (const [key, bad] of [['emissionStrength', -1], ['emissionColor', [0.2, -0.1, 0.5]]]) {
+    const keep = lens()[key];
+    lens()[key] = bad;
+    assert.ok(loaded.validate(head).schemaErrors.some((e) => e.includes(`/params/${key}`)), key);
+    lens()[key] = keep;
+  }
+});
