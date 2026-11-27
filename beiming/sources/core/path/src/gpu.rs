@@ -2934,7 +2934,7 @@ mod tests {
         );
         let mut ray = members("Ray");
         ray.sort();
-        assert_eq!(ray, ["D", "P", "cone_a", "cone_w", "self_object", "self_prim", "time", "tmax", "tmin"]);
+        assert_eq!(ray, ["D", "P", "cone_a", "cone_w", "self_inst", "self_object", "self_prim", "time", "tmax", "tmin"]);
         for (write, count) in [
             ("state.rng_offset = PRNG_BOUNCE_NUM;", 1),
             ("state.min_ray_pdf = 3.4028235e38;", 1),
@@ -3019,8 +3019,13 @@ mod tests {
             ("c.sample_weight = 1.0;", 1),
             ("c.fresnel_type = FRESNEL_F82_TINT;", 1),
             // 光线（main）
-            ("ray.self_object = OBJECT_NONE;", 1),
-            ("ray.self_prim = OBJECT_NONE;", 1),
+            ("ray.self_object = OBJECT_NONE;", 2),
+            ("ray.self_prim = OBJECT_NONE;", 2),
+            ("ray.self_inst = NO_INST;", 2),
+            ("ray.self_object = select(OBJECT_NONE, sd.object, on_tri);", 1),
+            ("ray.self_prim = select(OBJECT_NONE, sd.prim, on_tri);", 1),
+            ("ray.self_inst = select(NO_INST, sd.inst, on_tri);", 1),
+            ("trace_self = vec2<u32>(ray.self_prim, ray.self_inst);", 1),
         ] {
             assert_eq!(template.matches(write).count(), count, "这处写入该有 {count} 处：{write}");
         }
