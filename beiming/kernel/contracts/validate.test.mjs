@@ -42,3 +42,12 @@ test('场景包材质的自发光参数：负的强度、负的颜色分量是�
     lens()[key] = keep;
   }
 });
+
+test('锁文件的算子链：空数组是结构非法', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const lock = JSON.parse(await readFile(new URL('./lock/examples/view-chain.json', import.meta.url), 'utf8'));
+  assert.deepEqual(loaded.validate(lock).schemaErrors, []);
+  const [key] = Object.keys(lock.viewChain);
+  lock.viewChain[key] = [];
+  assert.ok(loaded.validate(lock).schemaErrors.some((e) => e.includes(`/viewChain/${key}`)), key);
+});

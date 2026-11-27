@@ -20,6 +20,7 @@ const filmSeedOf = (id) => createHash('sha256').update(String(id), 'utf8').diges
 if (filmSeedOf('toon-demo') !== 899845905) throw new Error('全片种子的派生算法和 5.7 的算例对不上');
 
 // 5.9：规范化 JSON（对象的键从小到大排，数组保持次序，没有空白，字符串和数照 JSON.stringify）的 UTF-8 字节的 SHA-256
+// shortcut: Array.prototype.sort 按 UTF-16 码元排，算子链每项的键只有 file、sha256 时与 5.9 的码位序相同；放开键时改成按码位比较
 const canon = (v) => (Array.isArray(v) ? `[${v.map(canon).join(',')}]`
   : v && typeof v === 'object' ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${canon(v[k])}`).join(',')}}` : JSON.stringify(v));
 const chainHash = (chain) => `sha256:${createHash('sha256').update(canon(chain), 'utf8').digest('hex')}`;

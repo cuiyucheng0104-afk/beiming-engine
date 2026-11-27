@@ -101,6 +101,7 @@
       "propertyNames": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
       "additionalProperties": {
         "type": "array",
+        "minItems": 1,
         "items": {
           "type": "object",
           "required": ["file", "sha256"],
