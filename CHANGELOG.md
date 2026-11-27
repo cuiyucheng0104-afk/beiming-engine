@@ -260,6 +260,8 @@
 - CI 的 smoke-render 拆成并行两路：`render (tests)`（全部测试）与 `render (smoke)`（`tests/ci/smoke-render.mjs`，含金标准），用 matrix 共用一份环境准备；原先两步串行，PR #36 那轮分别是 546 秒与 424 秒，加上约 480 秒的环境准备（headless shell 安装占 441 秒）共 24 分 18 秒。新增汇总任务 `smoke-render`，检查名沿用，两路都通过才绿；`smoke-render` 产物（`release.yml` 取接触印与静帧）仍由 smoke 一路上传，测试报告改传 `render-tests`。`tests/ci/workflows.test.mjs` 同步断言两路条件、汇总任务与产物名。注意：`tests/golden/linux-swiftshader/manifest.json` 还不存在，CI 的金标准一步目前只首次采集、不比对（PR #36 那轮约 236 秒），拆分不改变这一点。
 - 离屏出片阶段 1 纯浪费清理（性能规格书 WP0.1–WP0.3，输出与改前逐字节相同）：Fast 的 NVENC 探测改异步（`probeNvencAsync`、`resolveEncodeAsync`，与建宿主、加载作品并发，并发调用只起一个子进程）；`offscreen render|stills|batch` 新增 `--frame-hashes auto|on|off`（`--json` 的 auto 仍计算，`off` 返回 `frameHashes: null`），`film build --renderer offscreen` 显式传 `off`；显示层空帧不再清画布、读回与上传全幅纹理。《晨渡》1080p Fast 12 帧冷启动 2.458 → 2.132 s、144 帧 5.872 → 5.106 s（交替 3 轮中位数）。WP0.4 的 YUV 读回零拷贝试作后撤回（4K 堆峰值与 GC 耗时变差）。设计与实测见 [docs/offscreen/spec-perf-first-principles.md](docs/offscreen/spec-perf-first-principles.md)。
 
+- P10 补录两家模型的假服务工具调用、独立账本和真实入口验收记录。
+
 ### Removed
 
 - 默认验收去掉早期 T/H 工程计划步骤。历史计划和任务卡仍可用 `plan:check`、`plan:next` 手动查阅。
