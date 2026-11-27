@@ -201,5 +201,6 @@ node tools/work-plan.mjs --verify-diff <任务>   # 基线（默认取认领记�
 node tools/work-plan.mjs --cards                # 按 JSON 生成 work-breakdown.md 的依赖总览与任务卡
 ```
 
+- 默认查询以 2026-11-27 UTC 为归档时间。`--now` 可以指定时间，`--file` 查询自定义计划时默认使用当前时间。
 - 退出码：0 合格（可以有提示）；4 计划不合格（结构错误、两个在办任务写入范围重叠、认领过期、证据或指引文件不存在；`--strict` 时可领取任务的重叠与输入里写错的路径也算）或 `--verify-diff` 有越界改动；2 未知路线（列出注册表合法取值）、未知任务、参数冲突；3 `--verify-diff` 时没有 git。
 - 旧名 `npm run routes:check`、`npm run routes:next` 保留一个版本：照常工作，并在 stderr 与 `--json` 的 `warnings` 里提示改名。
