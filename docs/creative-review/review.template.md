@@ -1,7 +1,7 @@
 # 送审单模板
 
 > **怎么用**：每次送用户看（⛔1–⛔4 任一关口）前，复制本页到 `films/<名>/review/<闸>-<日期>.md`，按节填写，连同证据文件一起给用户。用户回复后，用 `node engine/production/film.js review …` 把结论记成同名的 `.json`（命令见第 6 节）；`.md` 是给人看的送审单，`.json` 才是状态机认的记录。
-> 评分标尺见 [docs/quality/RUBRIC.md](../quality/RUBRIC.md)，落分与代理审片规程见 [RUBRIC.md](RUBRIC.md)；闸门规则见 [README.md](README.md)。填写说明（以「填写说明」开头的行）交稿前删掉。
+> 评分标尺见 [docs/quality/RUBRIC.md](../quality/RUBRIC.md)，落分与代理审片规程见 [SCORING-GUIDE.md](SCORING-GUIDE.md)；闸门规则见 [README.md](README.md)。填写说明（以「填写说明」开头的行）交稿前删掉。
 
 ---
 
@@ -23,7 +23,7 @@
 
 ## 3. 代理审片证据
 
-填写说明：按评分标尺 §1 的看片顺序与 RUBRIC.md §3 的代理审片规程给出证据路径；切点与事件帧号取 `film.js expect`；没有做的项写「未做」和原因，不要省略。
+填写说明：按评分标尺 §1 的看片顺序与 SCORING-GUIDE.md §3 的代理审片规程给出证据路径；切点与事件帧号取 `film.js expect`；没有做的项写「未做」和原因，不要省略。
 
 - 联系表：
 - 切点前后帧条（每个切点 ±3 帧以上）：
@@ -46,7 +46,7 @@
 | `composition` 构图与留白 | | | |
 | `avText` 声画与文字 | | | |
 
-一票否决项（评分标尺 §3；id 见 RUBRIC.md §1）：无 ／ 列出 id 与帧号。
+一票否决项（评分标尺 §3；id 见 SCORING-GUIDE.md §1）：无 ／ 列出 id 与帧号。
 
 代理结论：代理检查通过 ／ 代理检查未通过（未通过不送审，先返修）。
 

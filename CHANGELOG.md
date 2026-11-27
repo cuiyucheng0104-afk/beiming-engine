@@ -216,6 +216,7 @@
 - 核心底盘的 `limits.mjs`、`rerender.mjs` 记录里 `kernel` 记跑记录的那个程序自己的摘要（给了程序时从文件名取，取不到记 null），另记程序的 sha256；底盘调 cargo 时 `CARGO_NET_OFFLINE` 为真就带 `--offline`，清构建目录一律不联网。
 - 核心内核的来源说明（`beiming/sources/core/path/PROVENANCE.md`）补上选底盘时的探针读数（RTX 5090 上软硬求交计时与两遍逐位结果）与钉点对账：实测、分叉、基线都钉在上游 `c946cc96`。
 - 北冥一级组件的入口说明由 CI 检查，每份预算为 1500 token。
+- 审片落分与送审规程改名为 `docs/creative-review/SCORING-GUIDE.md`，与质量标尺及 agent 验收题库的评分细则区分。
 - 旧链共用作品描述读取和命令行解析。三个原生例片与模版已迁至 film.json v2，旧文件可以显式执行 `film.js upgrade`。
 - 旧链的终渲默认运行机器 QA，人工创作闸通过 `--delivery-mode review` 启用。用户认可仍由审片记录确认。
 - 《北冥》10 秒样片源码与页面移入 `films/beiming-10s/`，保留原入口和已登记的金标准。

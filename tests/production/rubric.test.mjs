@@ -24,8 +24,8 @@ test('只有一把尺子：vocab.js 的维度与否决项 = 评分标尺 docs/qu
   assert.deepEqual(EVAL_VETOES.map(v => [v.id, v.title]), Object.entries(VETOES));
 });
 
-test('docs/creative-review/RUBRIC.md 只写落分方法，不另立标尺：列出全部 id、链到评分标尺，层与优先级与 vocab.js 一致', () => {
-  const md = doc('RUBRIC.md');
+test('docs/creative-review/SCORING-GUIDE.md 只写落分方法，不另立标尺：列出全部 id、链到评分标尺，层与优先级与 vocab.js 一致', () => {
+  const md = doc('SCORING-GUIDE.md');
   assert.match(md, /\.\.\/quality\/RUBRIC\.md/);
   for (const [id, label] of Object.entries(RUBRIC_DIMENSIONS)) assert.ok(md.includes(`| \`${id}\` | ${label} |`), `维度 ${id}「${label}」`);
   for (const [id, label] of Object.entries(VETOES)) assert.ok(md.includes(`| \`${id}\` | ${label} |`), `否决项 ${id}「${label}」`);
@@ -58,7 +58,7 @@ test('README.md 的状态文字与关口和 state.js / review.js 一致；同目
   const md = doc('README.md');
   for (const label of Object.values(STATE_LABELS)) assert.ok(md.includes(label), `状态文字「${label}」`);
   for (const g of RECORD_GATES) assert.ok(md.includes(`\`${g}\``), `关口 ${g}`);
-  for (const f of ['SOP.md', 'RUBRIC.md', 'review.template.md', 'issue.schema.json']) assert.ok(existsSync(join(REPO, 'docs', 'creative-review', f)), f);
+  for (const f of ['SOP.md', 'SCORING-GUIDE.md', 'review.template.md', 'issue.schema.json']) assert.ok(existsSync(join(REPO, 'docs', 'creative-review', f)), f);
   // 送审单模板的评分表覆盖全部维度
   const tpl = doc('review.template.md');
   for (const [id, label] of Object.entries(RUBRIC_DIMENSIONS)) assert.ok(tpl.includes(`\`${id}\` ${label}`), `送审单缺 ${id}`);

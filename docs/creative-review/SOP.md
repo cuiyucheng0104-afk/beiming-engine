@@ -1,7 +1,7 @@
 # 一部作品的生产链
 
 > **解决什么**：从接到需求到交付，每个阶段交什么文件、跑什么命令、谁来写、什么时候能进下一阶段。三条路线共用这一张表，路线差异在 §3。
-> **怎么用**：导演方法（为什么这样排、每一步怎么判断好坏）看 `routes/directing/DIRECTING.md`；本页只管「交什么、跑什么、谁写、过哪道闸」。闸门规则见 [README.md](README.md)；评分标尺见 [docs/quality/RUBRIC.md](../quality/RUBRIC.md)，落分与代理审片见 [RUBRIC.md](RUBRIC.md)；机器 QA 门见 [docs/quality/QA-GATE.md](../quality/QA-GATE.md)。
+> **怎么用**：导演方法（为什么这样排、每一步怎么判断好坏）看 `routes/directing/DIRECTING.md`；本页只管「交什么、跑什么、谁写、过哪道闸」。闸门规则见 [README.md](README.md)；评分标尺见 [docs/quality/RUBRIC.md](../quality/RUBRIC.md)，落分与代理审片见 [SCORING-GUIDE.md](SCORING-GUIDE.md)；机器 QA 门见 [docs/quality/QA-GATE.md](../quality/QA-GATE.md)。
 > **出处**：阶段顺序以 `docs/cases/ppt-animation.md`「实际流程」为底（提取 → 整数帧时间轴 → 分层 → 镜头 → 声音 → 渲染 → 封装 → 验收），关口取自 `routes/directing/DIRECTING.md` §1（其十步骨架改编自 `cases/vendor/lemo-opuscar/DIRECTOR.md` @bebbbe1，MIT）。
 > **命令的状态**：标【现在】的命令已在仓库里，可以直接跑；标【接线中】的由出片编排 `tools/film`（工作包 P06）统一接上，接上之前用所选路线手册「最快上手」里的入口。
 
