@@ -227,6 +227,9 @@ jobs:
           key: fonts-${{ hashFiles('fonts/fonts.lock.json') }}
       - name: 取锁定的 OFL 字体（= npm run fonts:fetch）
         run: node tools/fonts/fetch.mjs
+      - name: 生成 WonderX 字体子集
+        if: matrix.part == 'tests-rest'
+        run: node tools/fonts/subset.mjs films/wonderx-m0
       - name: 缓存 Playwright 浏览器
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -255,6 +258,7 @@ jobs:
         env:
           BEIMING_PY: ${{ steps.py.outputs.python-path }}
           TESTS_ARGS: ${{ matrix.tests_args }}
+          BEIMING_B20_TRACE: ${{ matrix.part == 'tests-beiming-bench' && format('{0}/out/ci/b20-media.jsonl', github.workspace) || '' }}
         run: >-
           node tools/run-tests.mjs --parallel --timeout 900 --require browser,ffmpeg,python $TESTS_ARGS
           --skip-grep "R35 墨线：宽线"

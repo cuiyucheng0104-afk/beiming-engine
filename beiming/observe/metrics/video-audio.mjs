@@ -92,28 +92,32 @@ function reading(tags, key) {
 
 // 色差以 8 位 YUV 码值表示（默认 0.15 约合 -64.6 dB，区分 H.264 静止底噪与暗调慢推镜）。连续近似帧组成冻结段，起止均含端点。
 export function blackFreezeDup(filePath, { blackLevel = 32, blackPercent = 98,
-  freezeDiff = 0.15, freezeFrames = 3, duplicateDiff = 0 } = {}) {
+  freezeDiff = 0.15, freezeFrames = 3, duplicateDiff = 0, cutThreshold } = {}) {
   range(blackLevel, 0, 255, 'blackLevel', true);
   range(blackPercent, 0, 100, 'blackPercent', true);
   range(freezeDiff, 0, 255, 'freezeDiff');
   range(freezeFrames, 2, Infinity, 'freezeFrames', true);
   range(duplicateDiff, 0, 255, 'duplicateDiff');
+  if (cutThreshold !== undefined) range(cutThreshold, 0, 255, 'cutThreshold');
   return measure('blackFreezeDup', 'frames', async () => {
     const black = [], duplicates = [], freezes = [];
+    const cuts = cutThreshold === undefined ? null : [];
     let start = 0, last = -1;
     function close(end) {
       if (end - start + 1 >= freezeFrames) freezes.push([start, end]);
     }
     await frames(filePath, `format=yuv444p,blackframe=amount=0:threshold=${blackLevel},signalstats`, (n, tags) => {
       if (reading(tags, 'lavfi.blackframe.pblack') >= blackPercent) black.push(n);
-      const diff = Math.max(...['Y', 'U', 'V'].map(c => reading(tags, `lavfi.signalstats.${c}DIF`)));
+      const ydif = reading(tags, 'lavfi.signalstats.YDIF');
+      if (cuts && n > 0 && ydif > cutThreshold) cuts.push(n);
+      const diff = Math.max(ydif, reading(tags, 'lavfi.signalstats.UDIF'), reading(tags, 'lavfi.signalstats.VDIF'));
       if (n > 0 && diff <= duplicateDiff) duplicates.push(n);
       if (n > 0 && diff > freezeDiff) { close(n - 1); start = n; }
       last = n;
     });
     close(last);
     return { value: { blackFrames: black.length, freezeSegments: freezes.length, duplicateFrames: duplicates.length },
-      details: { black, freezes, duplicates } };
+      details: { black, freezes, duplicates, ...(cuts && { cuts }) } };
   });
 }
 

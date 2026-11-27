@@ -284,10 +284,14 @@ function run(tool, args) {
 }
 // 成片这一头正式谓词核要的量测：画幅、帧率、帧数、色彩标签、黑帧、冻结段（半开区间）、换镜头帧；crop 只看画面的一块认切点
 async function filmed(file, crop, cutThreshold = 24) {
-  const [spec, still, cuts] = await Promise.all([metric(deliverSpec(file)), metric(blackFreezeDup(file)), metric(cutYdif(file, cutThreshold, crop))]);
+  const [spec, still, croppedCuts] = await Promise.all([
+    metric(deliverSpec(file)),
+    metric(blackFreezeDup(file, crop ? {} : { cutThreshold })),
+    crop ? metric(cutYdif(file, cutThreshold, crop)) : null,
+  ]);
   const { width, height, fps, frames, color_space: colorTag } = spec.value;
   return { width, height, fps, frames, colorTag, blackFrames: still.details.black,
-    freezes: still.details.freezes.map(([from, to]) => ({ in: from, out: to + 1 })), cuts: cuts.value };
+    freezes: still.details.freezes.map(([from, to]) => ({ in: from, out: to + 1 })), cuts: croppedCuts?.value ?? still.details.cuts };
 }
 export const readFilm = orMissing((file, { crop, cutThreshold = 24 } = {}) => filmed(file, crop, cutThreshold));
 
