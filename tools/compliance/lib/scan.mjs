@@ -20,6 +20,7 @@ import { reuseReport } from './reuse.mjs';
 import { loadAllowlist, applyAllowlist } from './allowlist.mjs';
 import { rightsReport } from './rights.mjs';
 import { docClaims, platesProvenance } from './aigc.mjs';
+import { scanCardLeaks } from '../../../beiming/cards/scan-card-leaks.mjs';
 import { UsageError } from './cli.mjs';
 
 export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
@@ -40,9 +41,11 @@ export const ENTRY_DOCS = new Set(['README.md', 'AGENTS.md', 'ROUTES.md', 'CLAUD
 export const isEntryDoc = rel => ENTRY_DOCS.has(rel) || /^routes\/[^/]+\/README\.md$/.test(rel);
 const RIGHTS = { id: 'comp.rights-register', title: '授权登记册与案例目录一致', kind: 'rights',
   hint: '运行 node tools/compliance/rights-inventory.mjs --write 重新生成 docs/rights/register.md；新增的第三方或客户素材先在 docs/rights/register.json 登记' };
+const CARD_PRIVATE = { id: 'comp.card-private', title: '公开技术卡含私有来源', kind: 'content',
+  hint: '把原包出处与真值地址移到实验室的私有覆盖层' };
 export const RULES = [
   ...CONTENT_RULES.map(r => ({ id: r.id, title: r.title, hint: r.hint, kind: 'content' })),
-  { ...NAME_RULE, kind: 'name' }, PROVENANCE, REUSE, LICENSE, RIGHTS, AIGC, ALLOWLIST,
+  { ...NAME_RULE, kind: 'name' }, PROVENANCE, REUSE, LICENSE, RIGHTS, AIGC, ALLOWLIST, CARD_PRIVATE,
 ];
 
 export function resolveRuleIds(list) {
@@ -84,6 +87,13 @@ export function scanRepository({ root = REPO_ROOT, staged = false, only = null, 
   const contentRules = CONTENT_RULES.filter(r => want(r.id));
   for (const rel of files) {
     if (want(NAME_RULE.id)) for (const p of checkFileName(rel)) add(NAME_RULE, { file: rel, ...p });
+    if (want(CARD_PRIVATE.id) && /^beiming\/cards\/(?:[^/]+\/)+card\.json$/.test(rel)) {
+      const entry = read(rel);
+      if (entry.text == null) add(CARD_PRIVATE, { file: rel, level: 'error', message: '公开技术卡无法作为文本检查' });
+      else for (const leak of scanCardLeaks(entry.text, { checkOverlayFields: true })) {
+        add(CARD_PRIVATE, { file: rel, level: 'error', message: `公开技术卡含私有内容（${leak.code}）` });
+      }
+    }
     if (!contentRules.length) continue;
     const e = read(rel);
     if (e.text == null) { if (e.binary) stats.binaryFiles++; else stats.skipped++; continue; }

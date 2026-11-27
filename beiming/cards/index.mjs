@@ -1,4 +1,4 @@
-export { mergeOverlay, scanCardLeaks, validateCard } from './validate-card.mjs';
+export { mergeOverlay, runCardParity, scanCardLeaks, validateCard } from './validate-card.mjs';
 export { createCardRegistry, estimateTokens } from './registry.mjs';
 export {
   checkVersionBump,

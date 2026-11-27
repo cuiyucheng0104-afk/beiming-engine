@@ -1,18 +1,23 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import fs, { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
   checkVersionBump, createCardRegistry, estimateTokens, getCardStatus, hashCardContents,
-  makeStatusKey, mergeOverlay, scanCardLeaks, statusLevels, validateCard, verifyCardLock,
+  makeStatusKey, mergeOverlay, runCardParity, scanCardLeaks, statusLevels, validateCard, verifyCardLock,
   verifyStatusUpdateAuthor,
 } from './index.mjs';
+import { evaluate as fitCamera } from './camera/fit/evaluate.mjs';
 import fullCard from '../kernel/contracts/card-file/examples/full.json' with { type: 'json' };
 import minimalCard from '../kernel/contracts/card-file/examples/minimal.json' with { type: 'json' };
 import typedCard from '../kernel/contracts/card-file/examples/typed-params.json' with { type: 'json' };
 import counterexamples from '../kernel/contracts/card-file/counterexamples/index.json' with { type: 'json' };
 
-const labUrl = 'lab://synthetic-test/0';
+const labUrl = 'lab:' + '//synthetic-test/0';
 const syntheticHash = 'a'.repeat(64);
 const parityReport = `sha256:${syntheticHash}`;
 const statusDate = '2024-02-29';
@@ -127,6 +132,11 @@ test('拦截原包路径特征和合成的三类本机绝对路径', () => {
   for (const path of paths) assert.deepEqual(scanCardLeaks({ title: path }), [{ code: 'local-path', path: '/title' }]);
 });
 
+test('普通相对路径写进私有出处字段时也会被拦截', () => {
+  assert.deepEqual(scanCardLeaks({ provenance: { studied: ['synthetic/sample.txt:3'] } }, { checkOverlayFields: true }),
+    [{ code: 'private-overlay-field', path: '/provenance/studied' }]);
+});
+
 test('裸 SHA-256 被拦，只有合法状态报告字段豁免', () => {
   assert.deepEqual(scanCardLeaks({ title: `来源 ${syntheticHash.toUpperCase()}` }), [{ code: 'bare-sha256', path: '/title' }]);
   assert.deepEqual(scanCardLeaks({ status: [{ parityReport }] }), []);
@@ -148,18 +158,21 @@ test('未提供覆盖层目录或覆盖层文件缺失时跳过', (t) => {
   assert.deepEqual(mergeOverlay(fullCard), expected);
   assert.equal(read.mock.callCount(), 0);
   assert.deepEqual(mergeOverlay(fullCard, 'synthetic-overlay'), expected);
-  assert.equal(read.mock.callCount(), 1);
+  assert.equal(read.mock.callCount(), 2);
 });
 
 test('覆盖层合并真值并保留公共字段和输入数据', (t) => {
-  const read = t.mock.method(fs, 'readFileSync', () => JSON.stringify({
-    id: 'synthetic.ignored',
-    provenance: { lab: labUrl, note: '忽略覆盖' },
-    verify: { parity: { truth: labUrl, gates: ['忽略覆盖'] } },
-    priors: [{ source: 'synthetic.txt' }],
-  }));
+  const read = t.mock.method(fs, 'readFileSync', (filename) => {
+    if (filename.endsWith('.yaml')) throw Object.assign(new Error(), { code: 'ENOENT' });
+    return JSON.stringify({
+      id: 'synthetic.ignored',
+      provenance: { lab: labUrl, note: '忽略覆盖' },
+      verify: { parity: { truth: labUrl, gates: ['忽略覆盖'] } },
+      priors: [{ source: 'synthetic.txt' }],
+    });
+  });
   const { card, hasTruth, skipParity } = mergeOverlay(fullCard, 'synthetic-overlay');
-  assert.match(read.mock.calls[0].arguments[0], /camera\.fit\.json$/);
+  assert.match(read.mock.calls[1].arguments[0], /camera\.fit\.json$/);
   assert.equal(hasTruth, true);
   assert.equal(skipParity, false);
   assert.equal(card.id, fullCard.id);
@@ -180,7 +193,10 @@ test('无真值的覆盖层仍跳过对拍', (t) => {
 });
 
 test('覆盖层存在但损坏时报告错误，不回显内容', (t) => {
-  t.mock.method(fs, 'readFileSync', () => `{"truth":${labUrl}}`);
+  t.mock.method(fs, 'readFileSync', (filename) => {
+    if (filename.endsWith('.yaml')) throw Object.assign(new Error(), { code: 'ENOENT' });
+    return `{"truth":${labUrl}}`;
+  });
   assert.throws(() => mergeOverlay(fullCard, 'synthetic-overlay'), { message: '私有覆盖层必须是有效的 JSON' });
 });
 
@@ -188,6 +204,77 @@ test('覆盖层拒绝非法卡名且不尝试读取', (t) => {
   const read = t.mock.method(fs, 'readFileSync');
   assert.throws(() => mergeOverlay({ ...fullCard, id: '../synthetic' }, 'synthetic-overlay'), TypeError);
   assert.equal(read.mock.callCount(), 0);
+});
+
+function temporaryDir(t) {
+  const dir = fs.mkdtempSync(join(tmpdir(), 'card-overlay-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  return dir;
+}
+
+test('同一对拍用例在缺少实验室时由测试运行器标为跳过，有合成真值时逐项比对', async (t) => {
+  const dir = temporaryDir(t);
+  // 合成盒子半宽 2、纵向视场角 90 度、前面深度 1、占幅 0.8，需要距离 3.5。
+  const expected = new Map([[labUrl, 3.5]]);
+  const compare = ({ verify }) => {
+    const camera = fitCamera({}, { bbox: { min: [-2, -1, -1], max: [2, 1, 1] },
+      aspect: 1, margin: 0.8, fovYDeg: 90, azimuthDeg: 0, elevationDeg: 0 }, 0);
+    assert.ok(Math.abs(camera.distance - expected.get(verify.parity.truth)) < 1e-6);
+  };
+  await t.test('缺少本卡覆盖层', (st) => runCardParity(st, fullCard, dir, assert.fail));
+
+  fs.writeFileSync(join(dir, fullCard.id + '.json'), '{}');
+  fs.writeFileSync(join(dir, fullCard.id + '.yaml'), [
+    '# 合成测试覆盖层',
+    'provenance:',
+    '  studied: ["synthetic.txt:1-3"]',
+    '  note: 忽略这个公开字段',
+    `verify: { parity: { truth: "${labUrl}" } }`,
+    `ablation: { lab: "${labUrl}" }`,
+    'priors:',
+    '  - source: "synthetic.txt:7"',
+  ].join('\n'));
+  await t.test('存在本卡 YAML 与合成真值', (st) => runCardParity(st, fullCard, dir, (merged) => {
+    compare(merged);
+    assert.deepEqual(merged.provenance.studied, ['synthetic.txt:1-3']);
+    assert.equal(merged.provenance.note, fullCard.provenance.note);
+    assert.equal(merged.ablation[0].lab, labUrl);
+    assert.equal(merged.priors[0].source, 'synthetic.txt:7');
+  }));
+  await assert.rejects(runCardParity(t, fullCard, dir, () => { throw new Error('比对未通过'); }), /比对未通过/);
+});
+
+test('YAML 重复键、别名、私有标签与多文档报错时隐藏文档内容', (t) => {
+  const dir = temporaryDir(t);
+  fs.writeFileSync(join(dir, fullCard.id + '.json'), '{}');
+  for (const content of ['a: 1\na: 2', 'a: &val synthetic\nb: *val', 'a: !synthetic private', 'a: 1\n---\nb: 2']) {
+    fs.writeFileSync(join(dir, fullCard.id + '.yaml'), content);
+    assert.throws(() => mergeOverlay(fullCard, dir), { message: '私有覆盖层必须是有效的 YAML' });
+  }
+});
+
+test('暂存区门禁拦截三类合成泄漏，公开报告哈希和相邻实现文件仍可提交', (t) => {
+  const dir = temporaryDir(t);
+  const cardDir = join(dir, 'beiming', 'cards', 'synthetic', 'probe');
+  fs.mkdirSync(cardDir, { recursive: true });
+  const target = join(cardDir, 'card.json');
+  const git = (...args) => assert.equal(spawnSync('git', args, { cwd: dir }).status, 0);
+  git('init', '-q');
+  const script = fileURLToPath(new URL('../../tools/compliance/scan.mjs', import.meta.url));
+  const scan = () => spawnSync(process.execPath, [script, '--root', dir, '--staged', '--only', 'card-private', '--json'], { encoding: 'utf8' });
+  for (const value of ['实验室' + '/synthetic/sample.txt', syntheticHash, labUrl]) {
+    fs.writeFileSync(target, JSON.stringify({ title: value }));
+    git('add', '--', 'beiming/cards/synthetic/probe/card.json');
+    fs.writeFileSync(target, '{}'); // 工作区已清理，门禁仍须读取索引。
+    const result = scan();
+    assert.equal(result.status, 4);
+    assert.equal(result.stdout.includes(value), false);
+    assert.equal(JSON.parse(result.stdout).result.findings[0].rule, 'comp.card-private');
+  }
+  fs.writeFileSync(target, JSON.stringify({ status: [{ parityReport }] }));
+  fs.writeFileSync(join(cardDir, 'selftest.test.mjs'), JSON.stringify(labUrl));
+  git('add', '--', 'beiming/cards/synthetic/probe');
+  assert.equal(scan().status, 0);
 });
 
 test('20 张合成卡均为合法卡文件', () => {
