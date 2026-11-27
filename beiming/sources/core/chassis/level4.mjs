@@ -4,16 +4,27 @@
 //     floor  核心一个种子对参考包 seed00 的整帧 HDR-FLIP 平均值 ≤ k × 地板。color 的地板读参考包的 floor.seedVsSeedFlipMean；
 //            分灯组的地板参考包里没有，拿参考包 seed00 对 seed01 的同一个通道现算（量法与标准答案机量地板时相同），报告里写明是现算的
 //     welch  核心 16 个种子对参考包 16 个种子
-//   只判 l4/a（高光，27 帧）与 l4/b（点光、平行光）；别的只记不判：l4/c 链接（Cycles 有反弹光，比照记录见下）、l4/d 倒角与 AO
-//   （图案节点还没生效）、l4/e 镜子与 l4/f 真包（当初只记的理由是核心没有分类弹射上限；现在核心照参考包设置了漫反射、光泽、透射各自的上限，判不判没改）。
+//   判 l4/a（高光，27 帧）、l4/b（点光、平行光）、l4/d（倒角与遮蔽这两种图案节点）、l4/e（镜面地面）；别的只记不判：l4/c 链接
+//   （Cycles 有反弹光，比照记录见下）、l4/f 真包。
+//   判两道门的 l4/d、l4/e 另判形状量具（../../../verify/gauges.mjs，线在阈值文件的 level4 一段；核心 16 个种子的均值对参考包的收敛图，
+//   见 SHAPES）：
+//     高光 IoU     亮度大于峰值一半的掩膜（倒角、镜面）
+//     圆角剖面     倒角那一圈的带状区里核心与参考的降噪法线（denoiseNormal）夹角的均方根，与带状区里高光掩膜的像素数（高光带宽）
+//     勾线 IoU     遮蔽方块上降噪反照率（denoiseAlbedo）小于本色一半的掩膜
+//     半影宽       地面上亮度落在受光水平 10% 到 90% 之间的像素数
+//   降噪前后各比一次（只记，给对拍闸的轮次表）：SHAPES 里的包与 03B 零件（part_03B），核心种子 0 对参考包 seed00 的 color 的
+//   HDR-FLIP（差距）与参考包 seed00 对 seed01（地板），先不降噪，再各自拿自己的降噪特征（denoiseAlbedo、denoiseNormal）经同一个
+//   降噪器（core-render denoise：render-pack 用的 OIDN，处理器）降噪之后再比一次。
 //   另有四项：
 //     能量比  每个取值点每个分灯组：核心 16 个种子均值对收敛图的整帧 RGB 之和，要在 [0.97, 1.03]（判，含只记两道门的取值点）
 //     自检    黑世界、只有一盏灯的取值点：每像素 1 个样本时灯组之和逐像素等于 color（相对 1e-6）
 //     链接    内核侧构造一个没有别的反弹路径的场景（一块板、黑世界、一盏只链接到画面外另一个物体的灯）：那盏灯的灯组严格为 0；
 //            l4/c 与对照包（去掉链接）在被排除的实体（参考包核对记录 linkReading 的 excludedEntities）的整像素上 linked/control 只记录
 //     负对照  关掉灯光链接（链接一项必须不过）、材质采样打中矩形纯光不做多重重要性采样（l4/a 两道门至少一项不过），
-//            阴影射线不做明暗交界线的偏移（l4/a 两道门至少一项不过）；在 out/ 下的源码副本里改、另编
+//            阴影射线不做明暗交界线的偏移（l4/a 两道门至少一项不过），倒角不起作用、遮蔽恒为 1（各自那一包的两道门或形状量具
+//            至少一项不过）；在 out/ 下的源码副本里改、另编
 //   node beiming/sources/core/chassis/level4.mjs --root <参考包根目录> [--only <场景包名>] [--no-negative] [--out 报告.json]
+//   （--only 时负对照只跑查这一包的那几项：l4-bevel、l4-ao 各一项）
 //   参考包根目录同第 3 级（coverage.json、scene-packs/、refs/、checks.json）；不给 --root 时读 BEIMING_CORE_LADDER_ROOT。
 // 退出码：0 全部过；4 有一项不过；3 缺工具链或参考包；2 用法错误。
 import { spawnSync } from 'node:child_process';
@@ -24,15 +35,23 @@ import process from 'node:process';
 import { CliError, defineCommand, isMain, runCli } from '../../../../tools/lib/cli.mjs';
 import { readExr } from '../../../verify/exr/exr.mjs';
 import { floorGate, welchGate, THRESHOLDS } from '../../../verify/floorgate.mjs';
+import { bevelBand, entityMask, highlightBand, highlightMask, lineMask, maskIoU, meanImage, normalAngleRms, penumbraWidth, relDiff } from '../../../verify/gauges.mjs';
 import { hdrFlip } from '../../../verify/hdrflip.mjs';
-import { OUT, PRESETS, buildRenderer, missing } from './build.mjs';
+import { OUT, PRESETS, buildOidnRenderer, buildRenderer, missing } from './build.mjs';
 import { MATCH, SEEDS } from './level3.mjs';
 import { IDENTITY, translate, writePack } from './scenepack.mjs';
 
 const WORK = path.join(OUT, 'level4');
 /** 判两道门的取值点（编号前缀） */
-export const JUDGED = ['l4/a/', 'l4/b/'];
-export const ENERGY = [0.97, 1.03];
+export const JUDGED = ['l4/a/', 'l4/b/', 'l4/d/', 'l4/e/'];
+export const ENERGY = THRESHOLDS.level4.energy;
+/** 各包判哪几个形状量具：entities 是参考包物体编号层里的实体号（场景包实例表的第 3 列） */
+export const SHAPES = {
+  'l4-bevel': { highlight: {}, bevel: { entities: [1] } },
+  'l4-ao': { aoLine: { entities: [2, 3] }, penumbra: { entities: [1] } },
+  'l4-mirror': { highlight: {}, penumbra: { entities: [1] } },
+};
+const SHADER = 'path/shaders/shader.wgsl';
 export const SELF_REL = 1e-6;
 /** 对照包：去掉链接的 l4-link，不在覆盖表里，按参考包清单的 ref 认 */
 export const CONTROL = 'l4-link-control';
@@ -42,6 +61,8 @@ export const NEGATIVES = [
   { name: '关掉灯光链接', check: 'link', inject: [{ file: LIGHT, from: 'fn light_linked(li: Light, receiver_set: u32) -> bool {\n', to: 'fn light_linked(li: Light, receiver_set: u32) -> bool {\n    return true;\n' }] },
   { name: '材质采样打中矩形纯光不做多重重要性采样（权重取 1）', check: 'l4a', inject: [{ file: LIGHT, from: 'let w = select(power_heuristic(pdf_b, e.pdf), 1.0, (state.flag & PATH_RAY_MIS_SKIP) != 0u);', to: 'let w = 1.0;' }] },
   { name: '阴影射线不做明暗交界线的偏移', check: 'l4a', inject: [{ file: AREA, from: '    if (offset_cutoff > 0.0) {\n      var NL', to: '    if (offset_cutoff > 1e30) {\n      var NL' }] },
+  { name: '倒角不起作用（返回着色法线）', check: 'l4-bevel', inject: [{ file: SHADER, from: '    if (radius <= 0.0 || num_samples < 1u) { return (*sd).N; }', to: '    return (*sd).N;' }] },
+  { name: '遮蔽恒为 1（没有一条射线被挡）', check: 'l4-ao', inject: [{ file: SHADER, from: '    if (max_dist <= 0.0 || num_samples < 1u) { return 1.0; }', to: '    return 1.0;' }] },
 ];
 
 const frame = (w, h, data) => ({ width: w, height: h, data, channels: 3 });
@@ -84,7 +105,8 @@ export function readRefLayers(root, address) {
       for (let i = 0; i < n; i++) { rgb[3 * i] = c[`${ch}.R`][i]; rgb[3 * i + 1] = c[`${ch}.G`][i]; rgb[3 * i + 2] = c[`${ch}.B`][i]; }
       layers[ch] = rgb;
     }
-    return { w: e.width, h: e.height, layers, id: c['objectId.id'], coverage: c['objectId.coverage'] };
+    const triple = (ch, k) => { if (!c[`${ch}.${k[0]}`]) return null; const v = new Float32Array(3 * n); for (let i = 0; i < n; i++) for (let j = 0; j < 3; j++) v[3 * i + j] = c[`${ch}.${k[j]}`][i]; return v; };
+    return { w: e.width, h: e.height, layers, id: c['objectId.id'], coverage: c['objectId.coverage'], albedo: triple('denoiseAlbedo', 'RGB'), normal: triple('denoiseNormal', 'XYZ') };
   };
   return { ref, names, seeds: ref.files.filter((f) => /^seed\d+\.exr$/.test(f)).map(load), converged: load('converged.exr') };
 }
@@ -107,7 +129,7 @@ export function renderPasses(bin, packDir, { frame: k, size: [w, h], spp, seed, 
     const layers = { color };
     for (const c of table.channels.filter((x) => x.name.startsWith('lightgroup:'))) layers[c.name] = readF32(path.join(dir, `lightgroup-${c.name.slice('lightgroup:'.length)}.f32`));
     const s = JSON.parse(fs.readFileSync(stats, 'utf8'));
-    return { layers, id: new Uint32Array(readF32(path.join(dir, 'objectId.u32')).buffer), adapter: s.adapter ?? s.gpu ?? null };
+    return { layers, albedo: readF32(path.join(dir, 'denoiseAlbedo.f32')), normal: readF32(path.join(dir, 'denoiseNormal.f32')), id: new Uint32Array(readF32(path.join(dir, 'objectId.u32')).buffer), adapter: s.adapter ?? s.gpu ?? null };
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 }
 
@@ -146,7 +168,67 @@ function gates(w, h, cores, seeds, ref, refFloor) {
   };
 }
 
-/** 判一个取值点：逐通道两道门、能量比、自检（黑世界单灯时） */
+/**
+ * 形状量具（SHAPES 里这一包的几项）：核心是 { color, albedo, normal }（16 个种子的均值），参考是收敛图（另带 id、coverage）。
+ * 每项 { value, threshold, pass }，再带两边的原始读数；量不出（掩膜都空、带状区空）记 pass 为假
+ */
+export function shapeReadings(spec, core, ref, w, h) {
+  const G = THRESHOLDS.level4, out = {};
+  const hl = (rgb) => highlightMask(rgb, { fraction: G.highlightFraction });
+  if (spec.highlight) {
+    const v = maskIoU(hl(core.color), hl(ref.color));
+    out.highlightIoU = { value: v, threshold: G.highlightIoU, pass: v !== null && v >= G.highlightIoU };
+  }
+  if (spec.bevel) {
+    const { band, planes } = bevelBand(ref.normal, w, h, entityMask(ref.id, ref.coverage, spec.bevel.entities));
+    const rms = normalAngleRms(core.normal, ref.normal, band);
+    out.bevelNormalRms = { value: rms, threshold: G.normalAngleRmsDeg, pass: rms !== null && rms <= G.normalAngleRmsDeg, bandPixels: band.reduce((a, x) => a + x, 0), planes };
+    const c = highlightBand(hl(core.color), band, w, h), r = highlightBand(hl(ref.color), band, w, h), d = relDiff(c, r);
+    out.highlightBand = { value: d, threshold: G.highlightBandRel, pass: d !== null && d <= G.highlightBandRel, core: c, ref: r };
+  }
+  if (spec.aoLine) {
+    const region = entityMask(ref.id, ref.coverage, spec.aoLine.entities);
+    const v = maskIoU(lineMask(core.albedo, region), lineMask(ref.albedo, region));
+    out.aoLineIoU = { value: v, threshold: G.aoLineIoU, pass: v !== null && v >= G.aoLineIoU };
+  }
+  if (spec.penumbra) {
+    const region = entityMask(ref.id, ref.coverage, spec.penumbra.entities);
+    const c = penumbraWidth(core.color, region), r = penumbraWidth(ref.color, region), d = relDiff(c, r);
+    out.penumbraWidth = { value: d, threshold: G.penumbraRel, pass: d !== null && d <= G.penumbraRel, core: c, ref: r };
+  }
+  return out;
+}
+
+/** 拿 core-render denoise 降噪一张图：颜色、反照率、法线各 RGB 浮点（行主序），返回降噪后的 RGB */
+export function denoiseImage(bin, w, h, color, albedo, normal) {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-level4-dn-'));
+  try {
+    const put = (name, a) => { const f = path.join(tmp, `${name}.f32`); fs.writeFileSync(f, new Uint8Array(Float32Array.from(a).buffer)); return f; };
+    const out = path.join(tmp, 'out.f32');
+    const r = spawnSync(bin, ['denoise', '--width', String(w), '--height', String(h), '--color', put('color', color), '--albedo', put('albedo', albedo), '--normal', put('normal', normal), '-o', out, '--device', 'cpu'], { encoding: 'utf8' });
+    if (r.status !== 0) throw new Error(`core-render denoise 失败：${r.stderr.trim().split('\n').at(-1)}`);
+    return readF32(out);
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+}
+
+/**
+ * 降噪前后各比一次：{ noisy: { gap, floor }, denoised: { gap, floor } | { skipped } }（HDR-FLIP 平均值）。降噪用带 OIDN 的构建档
+ * （build.mjs 的 buildOidnRenderer，库要与 oidn-lock.json 对上）；这台机器没有那份库时降噪后一半记 skipped 与原因，不算错
+ */
+export function denoiseComparison(w, h, core, seeds) {
+  const flip = (a, b) => hdrFlip(frame(w, h, a), frame(w, h, b)).value;
+  const [c, r0, r1] = [core, seeds[0], seeds[1]];
+  const noisy = { gap: flip(r0.color, c.color), floor: flip(r0.color, r1.color) };
+  let bin;
+  try { bin = buildOidnRenderer().bin; } catch (e) { if (e.missing) return { noisy, denoised: { skipped: e.message } }; throw e; }
+  const dn = (x) => denoiseImage(bin, w, h, x.color, x.albedo, x.normal);
+  const [dc, d0, d1] = [dn(c), dn(r0), dn(r1)];
+  return { noisy, denoised: { gap: flip(d0, dc), floor: flip(d0, d1) } };
+}
+/** 做降噪前后比较的包 */
+export const DENOISE_COMPARE = [...Object.keys(SHAPES), 'part_03B'];
+
+/** 判一个取值点：逐通道两道门、能量比、自检（黑世界单灯时）、形状量具（SHAPES 里有这一包时） */
 export function judgePoint(root, bin, g, { override } = {}) {
   const cyc = readRefLayers(root, g.ref);
   const { ref } = cyc;
@@ -170,9 +252,15 @@ export function judgePoint(root, bin, g, { override } = {}) {
   const single = manifest.lights.length === 1 && manifest.world.color.every((c) => c === 0);
   const selfCheck = single ? groupSumError(renderPasses(bin, packDir, { frame: g.frame, size: g.size, spp: 1, seed: 0, override: override ?? MATCH(ref) }).layers) : null;
   const energyOk = channels.every((c) => c.energy === null || (c.energy >= ENERGY[0] && c.energy <= ENERGY[1]));
+  const spec = SHAPES[g.pack];
+  const shapes = spec ? shapeReadings(spec, { color: meanImage(runs.map((r) => r.layers.color)), albedo: meanImage(runs.map((r) => r.albedo)), normal: meanImage(runs.map((r) => r.normal)) },
+    { ...cyc.converged, color: cyc.converged.layers.color }, w, h) : null;
   return {
     ids: g.ids, pack: g.pack, frame: g.frame, ref: g.ref, judged: g.judged, adapter, spp: ref.samples, size: g.size, channels,
     gatesOk: channels.every((c) => c.ok), energyOk, selfCheck, selfOk: selfCheck === null || selfCheck <= SELF_REL,
+    shapes, shapesOk: !shapes || Object.values(shapes).every((x) => x.pass),
+    denoise: DENOISE_COMPARE.includes(g.pack) ? denoiseComparison(w, h, { color: runs[0].layers.color, albedo: runs[0].albedo, normal: runs[0].normal },
+      cyc.seeds.slice(0, 2).map((x) => ({ color: x.layers.color, albedo: x.albedo, normal: x.normal }))) : null,
     runs: g.pack.startsWith('l4-link') ? runs.map((r) => r.layers['lightgroup:key']) : undefined,
     objectId: g.pack.startsWith('l4-link') ? cyc.converged : undefined,
   };
@@ -224,7 +312,7 @@ export function linkCheck(bin) {
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 }
 
-const mark = (r) => ({ ...r, ok: (!r.judged || r.gatesOk) && r.energyOk && r.selfOk });
+const mark = (r) => ({ ...r, ok: (!r.judged || (r.gatesOk && r.shapesOk)) && r.energyOk && r.selfOk });
 const strip = ({ runs, objectId, ...r }) => r;
 
 export async function runLevel4({ root, only, negative = true, log = () => {} }) {
@@ -245,8 +333,9 @@ export async function runLevel4({ root, only, negative = true, log = () => {} })
     record: linked && control && reading ? { ...linkRatio(linked, control, reading.excludedEntities), oracle: reading } : null,
   };
   const negatives = [];
-  if (negative && !only) {
-    for (const n of NEGATIVES) {
+  if (negative) {
+    // 给了 --only 时只跑查这一包的负对照（图案节点的两项）
+    for (const n of NEGATIVES.filter((x) => !only || x.check === only)) {
       log(`负对照：${n.name}`);
       const b = buildRenderer({ inject: n.inject }).bin;
       let caught;
@@ -254,6 +343,10 @@ export async function runLevel4({ root, only, negative = true, log = () => {} })
       if (n.check === 'link') {
         detail = linkCheck(b);
         caught = !detail.ok;
+      } else if (n.check.startsWith('l4-')) {
+        // 图案节点：那一包的两道门或形状量具至少一项不过
+        detail = points.filter((g) => g.pack === n.check).map((g) => { const r = judgePoint(root, b, g); return { pack: g.pack, gatesOk: r.gatesOk, shapesOk: r.shapesOk, shapes: r.shapes }; });
+        caught = detail.length > 0 && detail.some((d) => !d.gatesOk || !d.shapesOk);
       } else {
         // l4/a 每个包的第 0、2 帧（0° 与 75°）
         const pts = points.filter((g) => g.ids.some((id) => id.startsWith('l4/a/')) && g.frame !== 1);
@@ -277,7 +370,7 @@ export const command = defineCommand({
   usage: ['node beiming/sources/core/chassis/level4.mjs --root <参考包根目录> [--only <场景包名>] [--no-negative] [--out 报告.json]'],
   options: {
     root: { type: 'string', arg: '<目录>', describe: '参考包根目录（coverage.json、scene-packs/、refs/）；默认读 BEIMING_CORE_LADDER_ROOT' },
-    only: { type: 'string', arg: '<场景包名>', describe: '只判这一包（不跑负对照）' },
+    only: { type: 'string', arg: '<场景包名>', describe: '只判这一包（负对照只跑查这一包的那几项）' },
     'no-negative': { type: 'boolean', describe: '不跑负对照' },
     out: { type: 'string', arg: '<文件>', describe: '报告写到哪里（默认 out/chassis/level4/report.json）' },
   },
@@ -296,6 +389,8 @@ export const command = defineCommand({
     for (const r of report.rows) {
       const ch = r.channels.map((c) => `${c.name} FLIP ${c.floor.value.toExponential(2)}/${c.floor.threshold?.toExponential(2) ?? '—'}${c.floor.status === 'pass' ? '' : `（${c.floor.status}）`} Welch ${c.welch.significantRatio.toExponential(1)}${c.welch.pass ? '' : '✗'}${c.energy === null ? '' : ` 能量比 ${c.energy?.toFixed(4)}`}`).join('；');
       ctx.out(`${r.ok ? '✓' : '✗'} ${r.pack}#${r.frame}${r.judged ? '' : '（两道门只记）'}  ${ch}${r.selfCheck === null ? '' : `  自检 ${r.selfCheck.toExponential(1)}`}`);
+      if (r.denoise) ctx.out(`    降噪前 差距 ${r.denoise.noisy.gap.toExponential(3)} 地板 ${r.denoise.noisy.floor.toExponential(3)}；降噪后 ${r.denoise.denoised.skipped ? `没比（${r.denoise.denoised.skipped}）` : `差距 ${r.denoise.denoised.gap.toExponential(3)} 地板 ${r.denoise.denoised.floor.toExponential(3)}`}（只记）`);
+      for (const [k, x] of Object.entries(r.shapes ?? {})) ctx.out(`    ${x.pass ? '✓' : '✗'} ${k} ${x.value === null ? '量不出' : x.value.toPrecision(4)}（线 ${x.threshold}）`);
     }
     ctx.out(`${report.link.constructed.ok ? '✓' : '✗'} 链接（内核侧场景）：key 层最大 ${report.link.constructed.keyMax}，颜色最大 ${report.link.constructed.colorMax}`);
     if (report.link.record) ctx.out(`  l4/c 链接比（只记）：核心 ${report.link.record.core.ratio?.toExponential(3)}，Cycles 收敛图 ${report.link.record.cycles.ratio?.toExponential(3)}，核对记录 ${report.link.record.oracle.ratio.toExponential(3)}（${report.link.record.pixels} 个像素）`);
