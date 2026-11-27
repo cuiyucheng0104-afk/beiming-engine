@@ -340,6 +340,44 @@ test('两次终渲提交严格串行，第二项在等待时状态为 queued', {
   assert.deepEqual(starts, ['first', 'second']);
 });
 
+test('两个核心作业同时提交，第二个排队；同时提交的草稿不受影响，照常并发', { timeout: 30_000 }, async t => {
+  const gate = Promise.withResolvers();
+  const starts = [];
+  const { queue, enqueue } = queueFixture(t, { scheduler: device(), handlers: {
+    core: async ({ job }) => { starts.push(job.id); if (job.id === 'first') await gate.promise; },
+    draft: ({ job }) => { starts.push(job.id); return queue.getJob('first').status; },
+  } });
+  const first = queue.runJob(enqueue({ id: 'first', kind: 'core', vramMB: 200 }).id);
+  const second = queue.runJob(enqueue({ id: 'second', kind: 'core', vramMB: 200 }).id);
+  await stillPending(second);
+  assert.equal(queue.getJob('second').status, 'queued');
+  const draft = await queue.runJob(enqueue({ id: 'draft', kind: 'draft', vramMB: 200 }).id);
+  assert.equal(draft.result, 'running', '核心作业在跑时草稿照常拿到租约');
+  assert.deepEqual(starts, ['first', 'draft']);
+  gate.resolve();
+  assert.deepEqual((await Promise.all([first, second])).map(job => job.status), ['succeeded', 'succeeded']);
+  assert.deepEqual(starts, ['first', 'draft', 'second']);
+});
+
+test('终渲等着时核心作业不抢跑，核心作业也不被终渲抢占', { timeout: 30_000 }, async t => {
+  const gate = Promise.withResolvers();
+  const order = [];
+  const { queue, enqueue } = queueFixture(t, { scheduler: device(), handlers: {
+    core: async ({ job, signal }) => { order.push(job.id); if (job.id === 'core-1') await gate.promise; return signal.aborted; },
+    final: () => { order.push('final'); },
+  } });
+  const core1 = queue.runJob(enqueue({ id: 'core-1', kind: 'core', vramMB: 400 }).id);
+  const final = queue.runJob(enqueue({ id: 'final', kind: 'final', vramMB: 800 }).id);
+  const core2 = queue.runJob(enqueue({ id: 'core-2', kind: 'core', vramMB: 100 }).id);
+  await stillPending(final);
+  assert.deepEqual(order, ['core-1']);
+  gate.resolve();
+  const done = await Promise.all([core1, final, core2]);
+  assert.deepEqual(done.map(job => job.status), ['succeeded', 'succeeded', 'succeeded']);
+  assert.equal(done[0].result, false, '核心作业没有收到抢占');
+  assert.deepEqual(order, ['core-1', 'final', 'core-2']);
+});
+
 test('终渲占满主预算时预览并发运行', { timeout: 30_000 }, async t => {
   const gate = Promise.withResolvers();
   const { queue, enqueue } = queueFixture(t, { scheduler: device(), handlers: {

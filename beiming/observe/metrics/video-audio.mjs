@@ -84,6 +84,8 @@ async function frames(file, filters, visit) {
   visit(frame, tags);
 }
 
+export { frames as readSignalFrames };
+
 function reading(tags, key) {
   const value = tags.get(key);
   if (!Number.isFinite(value)) throw new Error(`缺少帧量测 ${key}`);

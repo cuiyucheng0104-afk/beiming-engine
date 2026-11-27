@@ -17,10 +17,13 @@
 //!                         (北冥：读场景包、渲一帧。读不对时 stderr 一行 {"error":{code,at,message}}，退出码照错误码的前缀。
 //!                         --passes：照输出通道出层，每个通道一个文件，加通道声明 passes.json，见 write_passes。
 //!                         像素滤波、夹取、滤光泽照 Cycles 的口径，见 CyclesFilm；上游的亮度夹取在这一路关掉)
+//!   core-render denoise --width W --height H --color c.f32 --albedo a.f32 --normal n.f32 -o out.f32 [--device cpu|cuda|metal|default]
+//!                         [--prefilter accurate|fast|none]   # 北冥：现成的三张图走同一个 OIDN 降噪（编进了 oidn 特性时），给对拍用
 //!   core-render fncheck-host <函数标识>   # 北冥：宿主一侧照 Cycles 移植的函数，给函数级比对外壳逐组算（stdin 进 f32，stdout 出 f32）
 //!   core-render serve [--presets DIR]      # JSON-lines jobs on stdin, keeps the GPU device and game runtimes warm
 //!   core-render setup <bundle.js>          # setup cost in the embedded runtime
-//!   core-render info                       # print adapter info
+//!   core-render info [--limits]            # print adapter info (北冥：--limits 打适配器与设备的上限、特性全文的 JSON)
+//!   core-render as-size --blas N,N,… [--instances K]   # 北冥：问驱动这些三角形数的 BLAS 与 K 个实例的 TLAS 各占多少字节（不建）
 
 use beiming_core_path::script::ScriptHost;
 use beiming_core_path::{default_presets_dir, denoise, gpu, pack, post, prepare, scene};
@@ -55,6 +58,8 @@ struct Job {
     transparent: bool,
     /// 北冥：照 Cycles 口径的成像参数（只有 render-pack 给）。给了就关掉上游的亮度夹取（`Params::misc[0]`）。
     cycles_film: Option<CyclesFilm>,
+    /// 北冥：出层时求 motion 要的相邻一帧（render-pack 给；只有一帧的包是 None，motion 全 0）。
+    motion: Option<beiming_core_path::motion::Step>,
 }
 
 /// 北冥：render-pack 的像素滤波、夹取与滤光泽，照 Cycles 宿主一侧写进内核的口径（scene/film.cpp、scene/integrator.cpp:
@@ -178,6 +183,11 @@ fn main() -> Result<()> {
     match cmd {
         "info" => {
             let g = gpu::Gpu::new()?;
+            // 北冥：--limits 打适配器与设备的上限、特性全文（`Gpu::limits_report`），不加时照旧一行
+            if args.iter().any(|a| a == "--limits") {
+                println!("{}", serde_json::to_string(&g.limits_report())?);
+                return Ok(());
+            }
             println!("{}", serde_json::json!({ "adapter": g.adapter_info.name, "hwrt": g.hwrt, "backend": format!("{:?}", g.adapter_info.backend), "hwrt": g.hwrt, "device_type": format!("{:?}", g.adapter_info.device_type), "driver": g.adapter_info.driver }));
         }
         "render" => {
@@ -208,6 +218,7 @@ fn main() -> Result<()> {
                 passes: None,
                 transparent: false,
                 cycles_film: None,
+                motion: None,
             };
             let stats = render(&g, &job, &presets, init_ms, &mut Hosts::default())?;
             println!("{}", serde_json::to_string(&stats)?);
@@ -296,6 +307,7 @@ fn main() -> Result<()> {
                         passes: None,
                         transparent: false,
                         cycles_film: None,
+                        motion: None,
                     };
                     // (A `live` job asks for the real-time renderer, which this build does not have.)
                     match v["live"].as_u64() {
@@ -313,7 +325,20 @@ fn main() -> Result<()> {
                 }
             }
         }
+        // 北冥：`as-size --blas N,N,… [--instances K]`：每个数是一个 BLAS 的三角形数，问驱动这些 BLAS 与 K 个实例的 TLAS 占多少
+        // 字节（`Gpu::as_sizes`，不建、不要几何），给大场景估显存。这块显卡没有硬件求交或后端不认时报错
+        "as-size" => {
+            let g = gpu::Gpu::new()?;
+            if !g.hwrt {
+                return Err(anyhow!("as-size：这块显卡没开硬件求交，没有加速结构可问"));
+            }
+            let blases: Vec<Vec<u32>> = flag("--blas").ok_or_else(|| anyhow!("as-size 要 --blas N,N,…"))?.split(',').map(|n| n.trim().parse::<u32>().map(|n| vec![n])).collect::<Result<_, _>>()?;
+            let instances: u32 = flag("--instances").map(|s| s.parse()).transpose()?.unwrap_or(0);
+            let (blas, tlas, scratch) = g.as_sizes(&blases, instances).ok_or_else(|| anyhow!("as-size：{:?} 后端问不到加速结构的尺寸", g.adapter_info.backend))?;
+            println!("{}", serde_json::json!({ "adapter": g.adapter_info.name, "backend": format!("{:?}", g.adapter_info.backend), "blasTriangles": blases.iter().map(|b| b[0]).collect::<Vec<_>>(), "blasBytes": blas, "instances": instances, "tlasBytes": tlas, "maxScratchBytes": scratch }));
+        }
         "fncheck-host" => fncheck_host(args.get(2).map(String::as_str).unwrap_or(""))?,
+        "denoise" => denoise_files(&flag)?,
         _ => {
             eprintln!("usage: core-render render <bundle.js> -o out.png [--assets DIR] [--state f.json] [--camera JSON] [--spp N] | pack-info <pack dir> | render-pack <pack dir> -o out.png | serve | setup | info | fncheck-host <id>");
             std::process::exit(2);
@@ -404,6 +429,7 @@ fn pack_command(cmd: &str, args: &[String], presets: &Path) -> Result<()> {
     let init_ms = t0.elapsed().as_secs_f64() * 1000.0;
     let t = Instant::now();
     let b = pack::build(&p, frame, size, flag("--preset").as_deref(), presets, overrides.as_ref())?;
+    let motion = pack::motion_step(&p, frame, size, &b)?;
     let timings = vec![("gpu_init_ms".into(), init_ms), ("pack_ms".into(), t.elapsed().as_secs_f64() * 1000.0)];
     let job = Job {
         // （场景来自场景包，不来自游戏脚本：`finish` 不读 `game`）
@@ -422,6 +448,7 @@ fn pack_command(cmd: &str, args: &[String], presets: &Path) -> Result<()> {
         passes: flag("--passes").map(PathBuf::from),
         transparent: !p.world_visible,
         cycles_film: Some(film),
+        motion,
     };
     let mut stats = finish(&g, b.scene, &job, init_ms, timings, t_total)?;
     stats["pack"] = serde_json::json!({ "id": p.id, "frame": frame, "frames": p.count });
@@ -438,22 +465,23 @@ fn pack_command(cmd: &str, args: &[String], presets: &Path) -> Result<()> {
 /// 通道的数值照输出通道契约：color 是 RGBA（RGB 是样本均值，已经预乘 A）；depth、objectId、normal 取辅助样本；
 /// denoiseAlbedo 是上游口径的反照率均值；denoiseNormal 照 Cycles 的降噪特征换到它的相机空间（看 +Z、Y 向上：
 /// kernel/film/denoising_passes.h 把世界空间的法线经 worldtocamera 变过去），见 STRUCTURES.md「输出通道」。
-/// 不出 motion（场景包没有帧间的状态）与分灯组。另写一份通道声明 passes.json（passes/0.1，只列交出的六个通道）。
+/// motion 照输出通道契约 5.6（快门角为 0）：辅助样本的命中点在相邻一帧的屏幕位置之差，宿主一侧用双精度求（`motion::layer`），
+/// `motion` 是 None（只有一帧的包）时全 0。不出分灯组。另写一份通道声明 passes.json（passes/0.1，列交出的七个固定通道）。
 /// 返回给 stdout 统计的一段：每个通道的文件、形状 [高, 宽, 分量数]、分量名与类型。
-fn write_passes(dir: &Path, frame: &gpu::Frame, params: &gpu::Params) -> Result<serde_json::Value> {
+fn write_passes(dir: &Path, frame: &gpu::Frame, params: &gpu::Params, motion: Option<&beiming_core_path::motion::Step>) -> Result<serde_json::Value> {
     let aux = frame.aux.as_ref().ok_or_else(|| anyhow!("要出层，渲染却没有带辅助层"))?;
     std::fs::create_dir_all(dir)?;
     let (h, w) = (frame.height as usize, frame.width as usize);
-    let v3 = |v: [f32; 4]| Vec3::new(v[0], v[1], v[2]);
-    let (right, up, fwd) = (v3(params.cam_right), v3(params.cam_up), v3(params.cam_fwd));
-    let denoise_normal: Vec<f32> = frame.normal.iter().flat_map(|n| { let n = Vec3::from(*n); [n.dot(right), n.dot(up), n.dot(fwd)] }).collect();
+    let denoise_normal: Vec<f32> = camera_normals(frame, params).iter().flat_map(|n| [n.x, n.y, n.z]).collect();
     let color: Vec<f32> = frame.color.iter().zip(&frame.alpha).flat_map(|(c, a)| [c[0], c[1], c[2], *a]).collect();
     let flat = |v: &[[f32; 3]]| v.iter().flatten().copied().collect::<Vec<f32>>();
-    let f32s: [(&str, &str, &[&str], Vec<f32>); 6] = [
+    let motion = beiming_core_path::motion::layer(motion, &aux.hit, frame.width, frame.height).map_err(|e| anyhow!(e))?;
+    let f32s: [(&str, &str, &[&str], Vec<f32>); 7] = [
         ("color", "color.f32", &["R", "G", "B", "A"], color),
         ("depth", "depth.f32", &["Z"], aux.depth.clone()),
         ("objectId.coverage", "objectId.coverage.f32", &["coverage"], aux.coverage.clone()),
         ("normal", "normal.f32", &["X", "Y", "Z"], flat(&aux.normal)),
+        ("motion", "motion.f32", &["X", "Y"], motion),
         ("denoiseAlbedo", "denoiseAlbedo.f32", &["R", "G", "B"], flat(&frame.albedo)),
         ("denoiseNormal", "denoiseNormal.f32", &["X", "Y", "Z"], denoise_normal),
     ];
@@ -478,12 +506,46 @@ fn write_passes(dir: &Path, frame: &gpu::Frame, params: &gpu::Params) -> Result<
             ch("depth", &[("Z", f)], "none", "sub0"),
             ch("objectId", &[("id", "u32"), ("coverage", f)], "none", "sub0"),
             ch("normal", &[("X", f), ("Y", f), ("Z", f)], "none", "sub0"),
+            ch("motion", &[("X", f), ("Y", f)], "none", "sub0"),
             ch("denoiseAlbedo", &[("R", f), ("G", f), ("B", f)], lin, "accumulate"),
             ch("denoiseNormal", &[("X", f), ("Y", f), ("Z", f)], "none", "accumulate"),
         ],
     });
     std::fs::write(dir.join("passes.json"), serde_json::to_vec_pretty(&table)?)?;
     Ok(serde_json::json!({ "dir": dir, "table": "passes.json", "layers": layers }))
+}
+
+/// 北冥：降噪特征的法线换到 Cycles 降噪特征的相机空间（看 +Z、Y 向上），出层的 denoiseNormal 与 OIDN 的引导用同一份。
+fn camera_normals(frame: &gpu::Frame, params: &gpu::Params) -> Vec<Vec3> {
+    let v3 = |v: [f32; 4]| Vec3::new(v[0], v[1], v[2]);
+    let (right, up, fwd) = (v3(params.cam_right), v3(params.cam_up), v3(params.cam_fwd));
+    frame.normal.iter().map(|n| { let n = Vec3::from(*n); Vec3::new(n.dot(right), n.dot(up), n.dot(fwd)) }).collect()
+}
+
+/// 北冥：`denoise`：拿现成的三张图（颜色、反照率、法线，各是 RGB f32 小端、行主序、没有文件头）走 render-pack 用的同一个
+/// `denoise::oidn()`，输出同样格式的一张图；stdout 一行统计。给对拍用：别家渲染器的带噪颜色与降噪特征喂进来，和它自己降噪的结果比。
+fn denoise_files(flag: &dyn Fn(&str) -> Option<String>) -> Result<()> {
+    let need = |k: &str| flag(k).ok_or_else(|| anyhow!("denoise 要 {k}"));
+    let (w, h): (usize, usize) = (need("--width")?.parse()?, need("--height")?.parse()?);
+    let device = flag("--device").unwrap_or_else(|| "cpu".into());
+    let prefilter = flag("--prefilter").unwrap_or_else(|| "accurate".into());
+    let dev = denoise::OidnDevice::parse(&device).ok_or_else(|| anyhow!("--device 只认 cpu、cuda、metal、default"))?;
+    let pre = denoise::Prefilter::parse(&prefilter).ok_or_else(|| anyhow!("--prefilter 只认 accurate、fast、none"))?;
+    let read = |k: &str| -> Result<Vec<Vec3>> {
+        let bytes = std::fs::read(need(k)?)?;
+        if bytes.len() != w * h * 12 {
+            return Err(anyhow!("{k} 有 {} 字节，{w}×{h} 的 RGB f32 要 {}", bytes.len(), w * h * 12));
+        }
+        Ok(bytemuck::pod_collect_to_vec::<u8, f32>(&bytes).chunks(3).map(|p| Vec3::new(p[0], p[1], p[2])).collect())
+    };
+    let (color, albedo, normal) = (read("--color")?, read("--albedo")?, read("--normal")?);
+    let t = Instant::now();
+    let out = denoise::oidn(w, h, &color, &albedo, &normal, dev, pre).map_err(|e| anyhow!(e))?;
+    let ms = t.elapsed().as_secs_f64() * 1000.0;
+    let raw: Vec<f32> = out.iter().flat_map(|c| [c.x, c.y, c.z]).collect();
+    std::fs::write(need("-o")?, bytemuck::cast_slice(&raw))?;
+    println!("{}", serde_json::json!({ "denoise": "oidn", "device": device, "prefilter": prefilter, "quality": "high", "width": w, "height": h, "denoise_ms": (ms * 10.0).round() / 10.0 }));
+    Ok(())
 }
 
 /// PREFIX-diffuse.raw, -specular.raw, -emission.raw (RGB f32 each).
@@ -551,7 +613,7 @@ fn finish(g: &gpu::Gpu, mut sc: scene::Scene, job: &Job, init_ms: f64, mut timin
     }
     let frame = g.render(&sc, &prep.tri_verts, prep.groups, bytemuck::cast_slice(&prep.nodes), &prep.emitters, &prep.gpu_emitter_tris, beiming_core_path::ltree::nodes_of(prep.light_tree.as_ref()), &prep.env, &prep.env_cdf, &prep.energy, params, spp, job.passes.is_some(), &mut timings)?;
     let passes = match &job.passes {
-        Some(dir) => Some(write_passes(dir, &frame, &params)?),
+        Some(dir) => Some(write_passes(dir, &frame, &params, job.motion.as_ref())?),
         None => None,
     };
     if let Some(prefix) = &job.signals {
@@ -565,13 +627,24 @@ fn finish(g: &gpu::Gpu, mut sc: scene::Scene, job: &Job, init_ms: f64, mut timin
     let (w, h) = (frame.width as usize, frame.height as usize);
     let color: Vec<Vec3> = frame.color.iter().map(|c| Vec3::from(*c)).collect();
     let denoise = job.denoise.unwrap_or(preset.native.denoise);
-    // Exposure is needed up front so OIDN knows the display scale of the HDR input.
     let (exposure, ev100) = post::exposure_scale(&post::Image { w, h, px: color.clone() }, &sc.camera.exposure, &preset.post);
     let mut denoiser = "none";
     let color = if denoise {
         let albedo: Vec<Vec3> = frame.albedo.iter().map(|c| Vec3::from(*c)).collect();
         let normal: Vec<Vec3> = frame.normal.iter().map(|c| Vec3::from(*c).normalize_or_zero()).collect();
-        match denoise::oidn(w, h, &color, &albedo, &normal, exposure) {
+        // 北冥：OIDN 的法线是相机空间的均值（照 Cycles），只在编进了 OIDN 时算；小波降噪照旧用世界空间、逐像素归一的。
+        // 设备与预过滤取 Cycles 最终渲染的默认：CPU、ACCURATE（质量 HIGH 在 oidn() 里）。Cycles 的渲染缓冲第一行是画面最下面
+        // 一行，这里的帧第一行是最上面一行；卷积网络对上下翻转不逐位不变，所以照 Cycles 的行序喂进去、出来再翻回
+        let oidn = if cfg!(feature = "oidn") {
+            let flip = |v: &[Vec3]| -> Vec<Vec3> { v.chunks(w).rev().flatten().copied().collect() };
+            denoise::oidn(w, h, &flip(&color), &flip(&albedo), &flip(&camera_normals(&frame, &params)), denoise::OidnDevice::Cpu, denoise::Prefilter::Accurate)
+                .map(|c| flip(&c))
+                .map_err(|e| eprintln!("oidn: {e}"))
+                .ok()
+        } else {
+            None
+        };
+        match oidn {
             Some(c) => {
                 denoiser = "oidn";
                 c

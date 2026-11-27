@@ -1,6 +1,6 @@
 # 第三方来源、固定版本与许可义务
 
-本仓库整合了三类上游材料。**许可证与署名文件是仓库的一部分，不可删除、不可改写、不可在改写后冒充原创。** 本页列出固定版本、用途与义务；逐文件清单见 `cases/catalog.json` 与 `cases/vendor/lock.json`，逐路径的机器可读许可对照见 [REUSE.toml](REUSE.toml)，许可全文在 [LICENSES/](LICENSES/)，授权登记见 [docs/rights/register.md](docs/rights/register.md)。作品站构建时另外用到的依赖与字体见第 6 节；FSL 使用边界、派生代码、署名区块、CC BY 署名与路线模版、声音的第三方材料见第 7–11 节。
+本仓库整合了三类上游材料。**许可证与署名文件是仓库的一部分，不可删除、不可改写、不可在改写后冒充原创。** 本页列出固定版本、用途与义务；逐文件清单见 `cases/catalog.json` 与 `cases/vendor/lock.json`，逐路径的机器可读许可对照见 [REUSE.toml](REUSE.toml)，许可全文在 [LICENSES/](LICENSES/)，授权登记见 [docs/rights/register.md](docs/rights/register.md)。作品站构建时另外用到的依赖与字体见第 6 节；FSL 使用边界、派生代码、署名区块、CC BY 署名与路线模版、声音的第三方材料见第 7–11 节。核心帧源 OIDN 档在运行时动态链接的库见第 14 节。
 
 ## 1. 上游仓库
 
@@ -133,5 +133,18 @@ Skia Canvas 仅在仓库外做过 C 模版对照实验（MIT），没有加入�
 | W3C《中文排版需求》（[clreq](https://www.w3.org/TR/clreq/)） | 以原文页面的许可声明为准 | `engine/overlay/cjk.js` | 行首行尾禁则、符号分离禁则、标点宽度调整、汉字与西文间距的规则 |
 | [852wa/JIZURA](https://github.com/852wa/JIZURA) | MIT，Copyright (c) 2026 hakoniwa | `engine/overlay/kinetic.js` | 文字入场部件的分类方式；用它在中文上渲过样张来挑动效 |
 | [dososo/blcaptain-measure-cjk](https://github.com/dososo/blcaptain-measure-cjk)（分寸 · Measure） | 代码 Apache-2.0；规则文本与数据 CC BY 4.0，作者 爆裂队长NEXT（BLCaptain） | `engine/overlay/cjk.js`、QA 检查 `texts.cjk-break` | 行高取值区间的建议（默认行高 1.7 落在它建议的 1.6–1.9 内）、把排版规则做成机器检查的做法 |
+
+## 14. 核心帧源 OIDN 档的运行时库（不入仓、不分发）
+
+核心帧源的渲染程序有一个可选的构建档（`beiming/sources/core/chassis/build.mjs` 的 `buildOidnRenderer`，Cargo 特性 `oidn`），默认档不带它。这一档在运行时动态链接本机 Blender 安装自带的那一份 Intel Open Image Denoise，由它再装载 oneTBB；库文件按 sha256 钉在 `beiming/sources/core/chassis/oidn-lock.json`，构建前与运行前核对。库不进仓库、不随仓库分发，编出的程序也不进 git。登记见 [docs/rights/register.md](docs/rights/register.md) R17。
+
+| 依赖 | 锁定版本 | 实际许可 | 用途与义务 |
+|---|---|---|---|
+| [Intel Open Image Denoise](https://www.openimagedenoise.org/)（OIDN） | 2.5.0（苹果 M5 Pro 的 Blender 5.2.0 与 RTX 5090 的 Blender 5.2.3 自带的同一版本；逐文件 sha256 见 `oidn-lock.json`） | Apache-2.0，Copyright 2018-2026 Intel Corporation（据 Blender 安装里的第三方许可说明 `text/license/license.md`） | OIDN 档的降噪，与 Cycles 用同一个库。只在本机动态链接，不复制、不分发库文件。以后要对外分发带 OIDN 的程序或库，随附 Apache-2.0 许可全文（`LICENSES/Apache-2.0.txt`）与 OIDN 的 NOTICE |
+| [oneTBB](https://github.com/uxlfoundation/oneTBB)（`libtbb`、`libtbbmalloc`、`libtbbmalloc_proxy`） | Blender 自带的那一份（Blender 的第三方许可说明写 v2022.3.0；逐文件 sha256 见 `oidn-lock.json`） | Apache-2.0，Copyright (c) 2005-2020 Intel Corporation（同上） | OIDN 运行时装载的线程库。义务同上：分发时随附 Apache-2.0 许可全文与 oneTBB 的 NOTICE |
+| [oidn](https://github.com/Twinklebear/oidn-rs)（Rust 绑定 crate） | `2.5.1`（锁在 `beiming/sources/core/path/Cargo.lock`） | MIT，Copyright (c) 2019 Will Usher | 只在 OIDN 档编进渲染程序（Rust 一侧的调用接口）。分发编出的程序时保留它的 MIT 版权与许可声明 |
+
+- 对外分发带 OIDN 的程序时，要附两份 Apache-2.0 许可（OIDN、oneTBB 各一份，各带自己的 NOTICE）和 oidn crate 的 MIT 许可；现在只在本机与 5090 上做对拍，没有分发。
+- 把 OIDN 档接进出片链时，起渲染程序之前要先核库的 sha256（`build.mjs` 的 `verifyOidnLibs`，对 `oidn-lock.json`），见 [beiming/sources/core/path/README.md](beiming/sources/core/path/README.md)「链接 Blender 自带的 OIDN」。
 
 <!-- REUSE-IgnoreEnd -->

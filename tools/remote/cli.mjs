@@ -6,6 +6,7 @@
 //   node tools/remote/cli.mjs doctor <机器> [--commit <rev>] [--route a|b|c] [--gpu required]
 //   node tools/remote/cli.mjs render <机器> films/<名> [--commit <rev>] [--profile <档位>]   用 tools/film/cli.mjs build 出片并取回
 //   node tools/remote/cli.mjs run    <机器> [--commit <rev>] [--fetch <路径或模式>]… -- <命令…>
+//   node tools/remote/cli.mjs compare <左运行记录.json> <右运行记录.json>
 //   node tools/remote/cli.mjs cleanup <机器> [--run <run-id>] [--all]
 // 机器档案在仓库外（BEIMING_MACHINES 或 ~/.config/beiming/machines.json），也可以用 --ssh / --shell / --root 临时给出；格式见 tools/remote/README.md。
 // 做法：git bundle 只发远端缺的提交 → 远端缓存仓库里按 sha 建独立工作树 → 整机槽位锁 → （setup）→ 运行命令 → 产物与运行记录回传 → 本地核对 sha256 → 删除远端工作树。
@@ -20,6 +21,7 @@ import { EXIT, CliError, runCli, isMain, log, usageError, onCleanup, choice } fr
 import { resolveMachine, loadMachines, machinesFile } from './lib/profiles.mjs';
 import { makeTransport, killTransports } from './lib/transport.mjs';
 import { encodeToken } from './lib/shell.mjs';
+import { compareRuns } from './lib/compare.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const AGENT = path.join(ROOT, 'tools', 'remote', 'agent.mjs');
@@ -34,6 +36,7 @@ const HELP = `北冥仓库 · 控制机 ↔ 工作站
   node tools/remote/cli.mjs doctor  <机器> [--commit <rev>] [--route a|b|c] [--gpu required] [--json]
   node tools/remote/cli.mjs render  <机器> films/<名> [--commit <rev>] [--profile <档位>] [--json]
   node tools/remote/cli.mjs run     <机器> [--commit <rev>] [--fetch <路径或模式>]… [--dest <本地目录>] -- <命令…>
+  node tools/remote/cli.mjs compare <左运行记录.json> <右运行记录.json> [--mode strict|inventory] [--left-root <目录>] [--right-root <目录>] [--json]
   node tools/remote/cli.mjs cleanup <机器> [--run <run-id>] [--all] [--json]
 
 通用选项：
@@ -167,7 +170,7 @@ function finish(r, label) {
   };
 }
 
-const SUBS = ['machines', 'check', 'setup', 'doctor', 'render', 'run', 'cleanup'];
+const SUBS = ['machines', 'check', 'setup', 'doctor', 'render', 'run', 'compare', 'cleanup'];
 
 if (isMain(import.meta.url)) {
   const argv = process.argv.slice(2);
@@ -180,11 +183,26 @@ if (isMain(import.meta.url)) {
       commit: { type: 'string' }, 'allow-dirty': { type: 'boolean' }, 'no-setup': { type: 'boolean' }, wait: { type: 'string' }, keep: { type: 'boolean' },
       dest: { type: 'string' }, fetch: { type: 'string', multiple: true }, route: { type: 'string', multiple: true }, gpu: { type: 'string' }, profile: { type: 'string' },
       run: { type: 'string' }, all: { type: 'boolean' }, machines: { type: 'string' }, ssh: { type: 'string' }, shell: { type: 'string' }, root: { type: 'string' }, transport: { type: 'string' },
+      mode: { type: 'string' }, 'left-root': { type: 'string' }, 'right-root': { type: 'string' },
     },
     run: async (o, pos) => {
       const [sub, name, target] = pos;
       if (!sub) throw usageError(`缺少子命令（${SUBS.join(' / ')}）`);
       if (!SUBS.includes(sub)) throw usageError(`不认识的子命令 ${sub}（可选：${SUBS.join('、')}）`);
+      if (sub === 'compare') {
+        if (!name || !target) throw usageError('compare 需要两个运行记录文件');
+        const allowed = new Set(['mode', 'left-root', 'right-root', 'json']);
+        if (dd >= 0 || Object.keys(o).some(key => !allowed.has(key))) throw usageError('compare 只接受 --mode、--left-root、--right-root、--json');
+        const comparison = compareRuns(name, target, { mode: o.mode, leftRoot: o['left-root'], rightRoot: o['right-root'] });
+        const human = `交付清单${comparison.inventoryMatches ? '一致' : '不同'}；产物字节${comparison.byteIdentical ? '一致' : '不同'}` +
+          (comparison.contentDifferences.length ? `\n内容有差异：${comparison.contentDifferences.join('、')}` : '');
+        return {
+          comparison, human,
+          exitCode: comparison.ok ? EXIT.OK : EXIT.CONTRACT,
+          error: comparison.ok ? null : { code: 'remote.parity-mismatch', message: '双机交付物不符合所选比较规则', hint: '用 --json 查看清单差异与摘要' },
+        };
+      }
+      if (o.mode !== undefined || o['left-root'] !== undefined || o['right-root'] !== undefined) throw usageError('比较选项只能用于 remote compare');
       if (sub === 'machines') {
         const db = loadMachines({ file: o.machines });
         const list = Object.entries(db.machines).map(([n, mm]) => ({ name: n, transport: mm.transport || 'ssh', ssh: mm.ssh || null, shell: mm.shell || null, root: mm.root || null }));

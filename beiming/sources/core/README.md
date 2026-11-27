@@ -14,7 +14,7 @@
 
 ```js
 import { startSource } from './beiming/sources/core/source.mjs';
-const src = await startSource();            // 渲染程序：bin 参数 → 环境变量 BEIMING_CORE_RENDER → chassis/build.mjs 现编（要 cargo）
+const src = await startSource();            // 渲染程序：bin 参数 → 环境变量 BEIMING_CORE_RENDER → chassis/build.mjs 现编（要 cargo）；maxWallMs 见「作业准入与预算」
 const s = await src.open(input, { lock: null, tier: 'draft', workspace, filmDir });
 s.manifest();                               // { frames, entities: [{ id, name, class }] }，编号照场景包实例表
 const { meta, layers } = await s.render(0, { samples: 64, scale: 1 }, ['meta', 'color', 'depth', 'objectId', 'normal']);
@@ -22,6 +22,7 @@ await s.query(0, { kind: 'bbox3d', of: ['kit.*'] });
 await s.close(); await src.stop();
 ```
 
+- 出片链：`beiming/api/pipeline.mjs` 的帧源池按镜头条目的 `source: core` 起这个帧源，渲染程序只用编好的那份（`findRenderer()`：环境变量 `BEIMING_CORE_RENDER`，再没有就取 `chassis/build.mjs` 按这份内核源码编好、放在 `out/chassis/bin/` 下的那份），都没有报 `env.missing-tool`，作业里不现编。只开草稿档（看板用）；终渲档照下面「拒绝的请求」一表在 `open` 时拒，错误码不变。核对：`beiming/api/core-source.test.mjs`（一个场景包经队列里的作业出一帧，和直接调 `core-render render-pack` 出的颜色层、编号层逐字节相同；设 `BEIMING_CHASSIS_E2E=1` 又有编好的程序才跑）。
 - 镜头条目：`source: core`、`host: offscreen`、`mode: build-script`，`entry` 是场景包（`scene-pack/0.1`）的目录或它的 `pack.json`，相对片子描述所在的目录。场景包第 f 帧就是镜头局部第 f 帧，包的帧数要不少于镜头的 `out − in`。片子描述里怎么写一个镜头用了场景包，帧源接口契约没定（第 6 节），这是这里的写法。
 - 装载之前的判定（宿主、作者模式、锁、卡、资产、叠加层）与 three 帧源共用 `../three/plan.mjs` 的 `planOpen`；卡、资产、叠加层这个帧源都没接，带着来报 `contract.unsupported-input`。
 - 层写在 `env.workspace/r<会话内序号>-f<帧号>/` 下，文件名与格式见 [path/README.md](path/README.md)「读场景包」；同目录另有一张 `preview.png`。
@@ -34,7 +35,7 @@ await s.close(); await src.stop();
 | `color` | 出 | R、G、B、A，场景线性，不降噪的样本均值，RGB 已预乘 A |
 | `depth`、`objectId`、`normal` | 出 | 取辅助样本（sub = 0、针孔、像素中心，每像素一个），不做平均；`objectId` 的层引用只带 `id`，覆盖率在同目录的 `objectId.coverage.f32`（帧源接口契约 3.3「带覆盖率的 objectId 怎么装进文件」待定，层引用没有放第二个文件的格子） |
 | `denoiseAlbedo`、`denoiseNormal` | 出 | 法线照 Cycles 降噪特征的相机空间；反照率照 Cycles 取相机首次命中处漫反射类闭包的反照率之和（不跟反射、不按粗糙度加权；带清漆或透射的材质还是上游口径的底色） |
-| `motion` | 不出 | 场景包只有整数帧的状态，快门打开到关上的位置算不出来（场景包契约第 6 节帧间怎么取待定）；能力声明写 `false`。输出通道契约 PS1 对出层方要七个固定通道，这一条现在不满足 |
+| `motion` | 内核出，帧源还不交 | `core-render render-pack --passes` 照输出通道契约 0.2.0-draft 的 5.6（快门角为 0：下一帧的屏幕位置减这一帧的，最后一帧向后差分，只有一帧的包全 0）出 `motion.f32`，通道声明七个固定通道齐了（PS1 满足），解析对拍见 [path/README.md](path/README.md)「读场景包」。帧源这一侧的能力声明（`caps.mjs`）还写 `false`、`render` 要了照旧拒，等能力声明与 `source.mjs` 跟上。现在只有刚体；动态网格端到端没接，除了场景包契约定动态网格的文件写法，内核的辅助样本还要把命中的三角形号与重心坐标写进输出缓冲第 9 格，冻结标记升版本 |
 | `lightgroup:*` | 不出 | 逐盏写灯组要改直接光的夹取，还没做 |
 
 ## 拒绝的请求
@@ -50,9 +51,28 @@ await s.close(); await src.stop();
 
 成片档的拒绝与帧源契约的 F25 冲突：F25 不看档位，宿主与作者模式都声明过时 `open` 就该成功；错误码表里 `contract.unsupported-mode` 也只指宿主或作者模式。所以帧源核对记录里只记 draft 档的 `open`，这一条待契约改（给只进看板的帧源留出 `final` 的例外，或者登记专用码）。
 
+## 作业准入与预算
+
+经服务端提交的渲染作业，要渲的镜头里有 `source: core` 的（草稿档；终渲档照上表在 `open` 时拒），请求体要带 `budget: { maxTriangles, spp, maxWallMs }`，入队之前由 `admitBudget` 判，不过就不进队列：
+
+| 不过的情形 | 错误码 |
+|---|---|
+| 没带 `budget`、少一项或多一项、值不是正整数（`maxWallMs` 不超过 2³¹−1） | `usage.budget-required` |
+| 声明的 `spp` 超过这一档的上限 `SPP_MAX`（草稿档是终稿档的默认采样数 64） | `contract.over-budget` |
+| 声明的 `maxWallMs` 超过这一档的上限 `WALL_MAX`（草稿档 10 分钟：核心作业不被终渲抢占，这个数就是终渲最多被一个核心作业挡住的时间；渲不完的拆成几个作业排队） | `contract.over-budget` |
+| 镜头生效的每像素采样数（取值次序同 `planRender`）超过声明的 `spp` | `contract.over-budget` |
+| 场景包在要渲的某一帧上画出来的三角形数（`core-render pack-info --frame k` 那一行统计的 `triangles`）超过 `maxTriangles` | `contract.over-budget` |
+| 一次准入里全部 `pack-info` 加起来超过 `ADMIT_MS`（5 秒：准入在 HTTP 处理里同步跑，这就是一次提交最多挡住服务端多久；`pack-info` 只读清单与网格计数、不碰显卡，小包几毫秒） | `contract.over-budget` |
+
+草稿档的核验作业（`verify`）片子里有核心镜头时也进 `core` 道，但不要求声明预算、不过上表的准入：墙钟取这一档的上限 `WALL_MAX`，由服务端填进作业记录。终渲档的核验作业片子里有核心镜头时，在入队之前就拒（`contract.unsupported-mode`），不进 `core` 道：这一档没有墙钟上限，进了不被抢占的 `core` 道就可能没有时限地挡住同卡的终渲（[调度器的道](../../jobs/DETAILS.md#调度器的道)）。
+
+作业跑起来以后，帧源起的每个 `core-render` 进程（`pack-info`、`render-pack`）都由 `beiming/jobs` 的 `runWithWatchdog` 管：独立进程组、受管进程树。出片链起帧源时带上作业声明的 `maxWallMs`（`startSource({ bin, maxWallMs })`，从起帧源算起），到点先 SIGTERM、过 150 ms 宽限 SIGKILL 整棵进程树，报 `timeout.budget`；只杀这个作业名下的进程，同一块卡上别的作业不受影响。显卡租约由作业拿：走调度器的 `core` 道（[调度器的道](../../jobs/DETAILS.md#调度器的道)），同一块卡上同时只跑一个核心作业，第二个排队，前一个被杀、还了租约才开跑。核对：`beiming/api/core-source.test.mjs` 用一个收到 SIGTERM 不退出、还起了孙进程的假渲染程序，声明 1 秒（把「声明 10 秒、到 10 秒被杀」按 1/10 缩放），到点被杀、两个进程都不在了，排队的核心作业和并发的草稿照常完成。
+
+`usage.budget-required`、`contract.over-budget`、`timeout.budget` 已登记进错误码表（`errors.json`），由帧源接口契约 5.15 点名（两份契约因此升到 `0.2.0-draft`）：服务端的失败信封、诊断和作业结论里报的就是码本身。同一节还登记了 `env.lib-mismatch`（本机动态库的 sha256 和钉住的不同）：核心渲染程序链接 OIDN 的构建档在库对不上时报它（`chassis/build.mjs` 的 `verifyOidnLibs`）。
+
 ## 元数据
 
-- `source.renderer` 是 `core`，`host` 是 `offscreen`，`version` 是内核源码的内容摘要（`chassis/build.mjs` 的 `sourceKey`，编好的程序按它命名）。帧源契约 3.4 的表里 core 的 `version` 写的是锁文件锁定的提交号，两者对不上：带锁文件 `open` 会被拒，待契约定用哪一个。
+- `source.renderer` 是 `core`，`host` 是 `offscreen`，`version` 是内核源码的内容摘要（`chassis/build.mjs` 的 `sourceKey`，编好的程序按它命名）。服务端签的锁（`api/runtime.mjs` 的 `lockContext`）里 `sources.core.version` 记的就是这个摘要，`scenePacks` 记每个核心镜头的场景包哈希（场景包契约 5.7；镜头写了 `renderer` 时取它的 `entry`，包里有符号链接就不签，报 `env.lock-required`），带这份锁 `open` 照常。帧源契约 3.4 的表里 core 的 `version` 写的是锁文件锁定的提交号，和这个摘要不是一种东西，待契约定用哪一个。
 - 相机：`world` 是场景包相机表的 `mat16`，`proj` 照每帧元数据契约 5.1 从 `fovY`、清单的 `near`、`far` 和输出尺寸算；相机表带景深两列时带 `focusDist`、`fstop`、`sensorHeightM`。
 - 实体：这一帧画出来的实体（实例矩阵左上 3×3 行列式不为 0）逐顶点投影，算 `bbox2d`、`bbox3d`、`pxArea`、`depth`（算式与页面宿主共用 `../../host/page/measure.js`，同样不做近裁剪面的裁剪：跨到相机后面的实体 `bbox2d` 不对）。`visible` 写 `null`（场景包里没有角色）。
 - `lights`、`stats.noise` 写 `null`，在能力声明的 `metaNull` 里；`texts` 是空数组。
@@ -66,3 +86,5 @@ node beiming/sources/core/probe.mjs [--out 报告.json] [--machine 名字]   # �
 
 - 七项用的场景、读数名与门限和 three、blender 两个帧源的探针相同，量法写在 `probe.mjs` 文件头。差别：相机约定少了转台摆臂的变换先后（只比 8 个锚点）；转台快门角是 0；用 draft 档；场景包的材质还没有发光闭包，灰阶的色块写成对相机可见的矩形面光。
 - 确定性：能力声明写 `hash-same-machine`。依据：苹果 M5 Pro（Metal）与 RTX 5090（Vulkan）两台机器上，转台第 0、12、24、36、48 帧顺序渲、同一会话再渲一遍、另起帧源乱序渲，颜色层与法线层逐字节相同；两份从 Blender 导出的场景包同一帧渲两遍，颜色、深度、编号、覆盖率、法线层逐字节相同（苹果显卡上量的）。跨机器不比。
+- 场景包同帧两遍（`chassis/rerender.mjs`，记录在 `chassis/rerender/`，用法见 path/README.md「场景包同帧两遍」）：两份从 Blender 导出的包（03B 零件 L-1 第 12 帧、03 头部第 0 帧，两台机器上包的内容摘要相同），1280×720、每像素 256 个采样、内核种子 0，软件与硬件求交各两个独立进程，苹果 M5 Pro（Metal）与 RTX 5090（Linux，Vulkan）上八组都逐位相同（每个通道文件、降噪之后的线性颜色、PNG），出层转 EXR 的往返也逐位相同。跨机器颜色与深度不同（物体编号在零件包上相同、在头部包上也不同）。回归基线里苹果显卡的硬件求交有 3 个上游的程序化阴影场景两遍不同，这两份场景包上没有出现。
+- 结论：**同一台机器、同一个内核种子用哈希档（逐字节相同），跨机器用容差档**；内核种子在键里，只改种子画面就变。两台机器的显卡上限与特性全文在 `chassis/limits/`（`core-render info --limits`）。

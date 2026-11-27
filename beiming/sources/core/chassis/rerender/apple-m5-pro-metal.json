@@ -1,0 +1,171 @@
+{
+ "format": "core-rerender/0.1",
+ "gpu": {
+  "adapter": "Apple M5 Pro",
+  "backend": "Metal",
+  "driver": ""
+ },
+ "kernel": "cb56f058b71a593d",
+ "binSha256": "d6a519478885766fc29f1f084828967b642ed7a754dd11d916b74280c74c1cdd",
+ "upstreamCommit": "c946cc96bdb08979224e851a7fc67a066b1b456b",
+ "packs": [
+  {
+   "id": "pack:part-03b-l-1@1",
+   "contentSha256": "84d4a8e13df8afac4ef270dbd1553f5e4acfb5fe10487050d67ce0bda2e3f744",
+   "frame": 12,
+   "spp": 256,
+   "width": 1280,
+   "height": 720,
+   "seed": 0,
+   "modes": {
+    "sw": {
+     "same": true,
+     "differ": [],
+     "hwrt": false,
+     "denoise": "atrous",
+     "traceMs": [
+      2001.7,
+      2023
+     ],
+     "files": {
+      "out.png": "cdc5d93f668a446b6365303c3549a3dcb6821bee75b6540536127f49d63723d7",
+      "hdr.raw": "a2496bdaa578a7d54263f14e2fee276f3984519cd71e6bcea76e6968b1c6b394",
+      "passes/color.f32": "0341fa7585ca504a8cb716d702168e01fc8aed30f07cae4893233d269fd22124",
+      "passes/denoiseAlbedo.f32": "0e8a0a108c0d98b0212595060befdd68fb1e6adaf8def8963b543544311b5730",
+      "passes/denoiseNormal.f32": "768f2fa6d4a9ccea15b7b49aa84a0038df417f0b579de59eac946145817795fc",
+      "passes/depth.f32": "6a235426c4c58540fc4205c6483cd7b54fbd1cf06dd5734b62e6fc4230219c8e",
+      "passes/normal.f32": "89bda99799d52c2d1d5c82524bff7610adc8df54574d435a59789941af7a835a",
+      "passes/objectId.coverage.f32": "f512f684334c7364d7d9bbf62d2d4e04d61fb44a1497b368cab41f22e74019c9",
+      "passes/objectId.u32": "e26c16c953b9ebda165f1f2c701c9bda9e7d04be4b6b74d44df7fb72e21d113e",
+      "passes/passes.json": "3327b31ac2f63a9500ed05100fa0c508f52f749b62b82586f2f2299d71ef61ef"
+     }
+    },
+    "hw": {
+     "same": true,
+     "differ": [],
+     "hwrt": true,
+     "denoise": "atrous",
+     "traceMs": [
+      2030.6,
+      1525.9
+     ],
+     "files": {
+      "out.png": "7afc1eaf5e27810802c8972ede974c1c0bbe10e010bf4574de0f4aa9d4da0d27",
+      "hdr.raw": "62efe3788a061822c4a605dd7f31a61742a07591ec447aa473e1cc1698136a47",
+      "passes/color.f32": "cd717f1b84345c84c896cce5edd242a8b5d6bfbd8554a99b62c0645753d47650",
+      "passes/denoiseAlbedo.f32": "e1e7a4a2abb330aab471549b1b10d72482987456e8dd43854b596e3ed790fc1a",
+      "passes/denoiseNormal.f32": "0a6e17fc7f0202e81fb97804a294a7ca8401a3b35a92c677745e9cc091c167fb",
+      "passes/depth.f32": "0aaaa49d3982fd921287ee539a56bdf3d8dda500b39e76084887841d88d552cd",
+      "passes/normal.f32": "d2e0565ea67f905725c2a961576aebb406561235f2bf704747f1cf7ab1814e01",
+      "passes/objectId.coverage.f32": "d8430be90abdb939f0e7832b8d40253fd8041e29f070e338a7f83165a0a324cd",
+      "passes/objectId.u32": "e26c16c953b9ebda165f1f2c701c9bda9e7d04be4b6b74d44df7fb72e21d113e",
+      "passes/passes.json": "3327b31ac2f63a9500ed05100fa0c508f52f749b62b82586f2f2299d71ef61ef"
+     }
+    }
+   },
+   "exr": {
+    "from": "sw",
+    "sha256": "8d4175bdd907afae7013a0a167648606e5e7d23e4ffd5ce390de935731a058c2",
+    "channels": [
+     "color.A",
+     "color.B",
+     "color.G",
+     "color.R",
+     "denoiseAlbedo.B",
+     "denoiseAlbedo.G",
+     "denoiseAlbedo.R",
+     "denoiseNormal.X",
+     "denoiseNormal.Y",
+     "denoiseNormal.Z",
+     "depth.Z",
+     "normal.X",
+     "normal.Y",
+     "normal.Z",
+     "objectId.coverage",
+     "objectId.id"
+    ],
+    "roundTrip": true,
+    "problems": []
+   }
+  },
+  {
+   "id": "pack:head-03@1",
+   "contentSha256": "39984f7940382dd350537fb192f45bb00c9d042ec92aca203fa23fe12814168c",
+   "frame": 0,
+   "spp": 256,
+   "width": 1280,
+   "height": 720,
+   "seed": 0,
+   "modes": {
+    "sw": {
+     "same": true,
+     "differ": [],
+     "hwrt": false,
+     "denoise": "atrous",
+     "traceMs": [
+      3444.7,
+      3779.8
+     ],
+     "files": {
+      "out.png": "3262bb9adf9b3d7a2a9d9624ac189818bc9f529a01b1c11e50b29098b521d5e5",
+      "hdr.raw": "c47fec7a88940f4068a934f8221e97e99b929eaedda4cfcfcfa1deb9b65a9350",
+      "passes/color.f32": "87f148fda07318db1d3c59f78c1e83aad55eaec23b4d25bf0169dc0ef21da28c",
+      "passes/denoiseAlbedo.f32": "a9592b0a04b6e7272bb3837ca571233fd1c75bd65753f32db6c8f8d971d7a449",
+      "passes/denoiseNormal.f32": "ce264af11fb5ebb052d47af8b2fd26938ae890252dcab6877e4dfd08acd0a1e4",
+      "passes/depth.f32": "1358cd648abd414dcac2c4fe15f6b3dcc5aacc5d0e362525fe9444922b56d403",
+      "passes/normal.f32": "db28d84b97726298ad0b15f1f55340a8e0030e807669307d847d79f913249d72",
+      "passes/objectId.coverage.f32": "abcdea773407967da0b3b730dc07cc05fc1488f29f9acbd67312bd0154d85610",
+      "passes/objectId.u32": "f788e28662c94de87e4593b9862c2718e8c13b810c18d4ce99d19478562c5e2d",
+      "passes/passes.json": "3327b31ac2f63a9500ed05100fa0c508f52f749b62b82586f2f2299d71ef61ef"
+     }
+    },
+    "hw": {
+     "same": true,
+     "differ": [],
+     "hwrt": true,
+     "denoise": "atrous",
+     "traceMs": [
+      1639.9,
+      1647.9
+     ],
+     "files": {
+      "out.png": "a2dd608739643272d505ae553d85f3abead5aa9429abed8176c586b8bb1807aa",
+      "hdr.raw": "1babfa1b9098636bad385c74d70251ccd8779ce3cce4e173d7638deceacd9142",
+      "passes/color.f32": "572488620459d3b0ec7cef7c481d4605f9076cc0993585c1bb08347cde418265",
+      "passes/denoiseAlbedo.f32": "04c3b834b0fc8938f043f66418c2affeefd6fefd8a224069740a2e8fe3e74040",
+      "passes/denoiseNormal.f32": "4addd6bb6cf587f8923c54cba045be40a4f221f8b7e10a96c190caf5ddab0e36",
+      "passes/depth.f32": "affd2d4a84d318003b9f0d61c2aa4f7551188fee451a518beb0fd2d55899efad",
+      "passes/normal.f32": "dfe40b4adb01cefecf2930d076afe8c894363cd760cac939d31ff835ed54d5f7",
+      "passes/objectId.coverage.f32": "02cd23c36e957b568983faaab4328163b0701f1e6e77af2c2ee3541860e3f138",
+      "passes/objectId.u32": "f788e28662c94de87e4593b9862c2718e8c13b810c18d4ce99d19478562c5e2d",
+      "passes/passes.json": "3327b31ac2f63a9500ed05100fa0c508f52f749b62b82586f2f2299d71ef61ef"
+     }
+    }
+   },
+   "exr": {
+    "from": "sw",
+    "sha256": "182c9916111255ce63bba7d208ede0c4c1938eeee04bad24cd93e0bfb542f537",
+    "channels": [
+     "color.A",
+     "color.B",
+     "color.G",
+     "color.R",
+     "denoiseAlbedo.B",
+     "denoiseAlbedo.G",
+     "denoiseAlbedo.R",
+     "denoiseNormal.X",
+     "denoiseNormal.Y",
+     "denoiseNormal.Z",
+     "depth.Z",
+     "normal.X",
+     "normal.Y",
+     "normal.Z",
+     "objectId.coverage",
+     "objectId.id"
+    ],
+    "roundTrip": true,
+    "problems": []
+   }
+  }
+ ]
+}

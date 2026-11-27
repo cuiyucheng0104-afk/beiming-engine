@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 2,
+  "id": "funtech-fx-ab",
+  "title": "墨烟成字",
+  "route": "a",
+  "backend": "three",
+  "output": {
+    "profile": "web-1080p24",
+    "width": 1920,
+    "height": 1080,
+    "fps": 24,
+    "frameCount": 216
+  },
+  "shots": [
+    {
+      "id": "S1",
+      "in": 0,
+      "out": 72,
+      "module": "shots/effects.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide"
+    },
+    {
+      "id": "S2",
+      "in": 72,
+      "out": 144,
+      "module": "shots/effects.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide"
+    },
+    {
+      "id": "S3",
+      "in": 144,
+      "out": 216,
+      "module": "shots/effects.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide"
+    }
+  ],
+  "events": [
+    {
+      "id": "ink",
+      "frame": 6,
+      "shot": "S1",
+      "visual": "ink"
+    },
+    {
+      "id": "smoke",
+      "frame": 78,
+      "shot": "S2",
+      "visual": "smoke"
+    },
+    {
+      "id": "type",
+      "frame": 150,
+      "shot": "S3",
+      "visual": "type"
+    }
+  ],
+  "audio": {
+    "mode": "none"
+  },
+  "deliveries": [
+    "web-1080p24"
+  ],
+  "style": {
+    "id": "beiming-original",
+    "version": 1,
+    "lock": "../../engine/style/beiming-original.v1.json",
+    "baseline": "../../media/shot_1.6.jpg",
+    "note": "画风登记在 engine/style/registry.json；视觉基准取样片的晨江大远景（registry 的 baselineFrames 之一）。定调改了色板或后期就是新版本，按 routes/a-webgl/LOOKDEV.md 签认后登记"
+  },
+  "assets": [],
+  "credits": [
+    {
+      "what": "流体 GLSL 与粒子着色实现参考",
+      "owner": "HASHIMOTO Takuma",
+      "license": "MIT",
+      "source": "https://github.com/FunTechInc/use-shader-fx/tree/338e63427310a6b13947f68c5863e4cf4bbb62f1/packages/use-shader-fx/src/fxs"
+    }
+  ],
+  "aigc": {
+    "contains": true,
+    "kinds": [
+      "visual"
+    ],
+    "note": "AI 辅助编写程序化镜头和着色器，由北冥 WebGL 管线逐帧渲染。"
+  },
+  "gates": {
+    "look": "required",
+    "animatic": "required",
+    "final": "required"
+  }
+}

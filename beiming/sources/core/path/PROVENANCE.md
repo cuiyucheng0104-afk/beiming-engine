@@ -35,6 +35,27 @@ Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee
 
 许可全文在仓库根的 `LICENSES/`（`MIT.txt`、`Apache-2.0.txt`、`BSD-3-Clause.txt`）。其余文件（`shaders/` 下的 `film`、`light`、`volume`、`records`、`trace_hw` 与 `src/` 下表里没列的那些）没有照 Cycles 定义什么，是 MIT。这张表按「在哪个文件里定义」算：结构的字段、常数、式子写在哪个文件，哪个文件就标；别的文件只是用到这些名字的（比如 `src/merged.rs` 与 `src/gpu.rs` 的库测试里按名字核对两侧的字段表与编号、`src/lib.rs` 填积分器参数），不另标。
 
+### 选底盘时的探针读数
+
+选 ThreeRT 当写实一路的底盘，依据是分叉之前在上游固定提交上量的一次探针，判法是 [GATES.md](../GATES.md) 的三条选底盘规则。读数照实验记录抄在这里（记录本身不在仓库里）。
+
+| 项 | 值 |
+|---|---|
+| 机器 | RTX 5090，Linux，Vulkan |
+| 构建 | 上游 `c946cc96` 的干净源码，Rust 1.100.0，`cargo build --locked --release -j 6`，77 秒编过 |
+| 场景 | 03B 全机第 70 帧：140 个实例、1,458,021 个三角形，单一平材质，1280×720、每像素 256 个采样，场景种子 0、内核种子 0（`THREERT_SEED`） |
+| 硬件光线查询（`hwrt` 为真，整机一个顶层实例） | 打包上传 0.1175 / 0.1182 秒，建树 0.0284 / 0.0277 秒，256 采样稳态 0.0653 / 0.0645 秒 |
+| 软件求交（展开成 1,458,021 个三角形） | 0.1013 / 0.1011 秒，0.5656 / 0.5700 秒，0.7904 / 0.7901 秒 |
+| 同机对照（`pt`，见 GATES.md） | 原样稳态 0.9718 / 0.9710 秒；加 AO（每点 8 条）与 Bevel（每点 4 条）2.1394 / 2.1340 秒 |
+| 两遍逐位 | 硬件、软件各两个独立进程，线性 RGB f32 输出都是 0 位差异（硬件帧 sha256 `9a3807d53482b848b83b7158cb526141a085f101a088a9718fad7dae2dd4b62c`） |
+| 内核种子 | 只把内核种子从 0 改成 1（160×90、1 采样的硬件冒烟帧），两帧相差 85,749 位 |
+
+三条都过：编得过、无窗口出帧、Vulkan 上开得起硬件光线查询；硬件求交两遍里较慢的 0.0653 秒低于对照加 AO 与 Bevel 两遍里较快的 2.1340 秒；两遍 0 位差异。口径的出入照实写：ThreeRT 一侧是单一平材质、一个顶层实例、不带 AO 与 Bevel，`pt` 一侧保留实例结构并带 AO 与 Bevel，所以这个比值只说明三条规则过了，不当速度门的数（速度门的数仍待定，见 GATES.md）。程序：正式计时用上游锁定构建的程序（sha256 `74837b4d48c0b48a171b909a96cec9070c78d8c5883f7d3e1054d3767bc5bfe9`）；按同一提交重编的程序摘要不同（`13d1fe1016a76c37950ac9900f776ec9d2b38e02e94492e91a215463dd50623d`），只在 160×90 的冒烟帧上量过与锁定版线性像素相同（`893c93256df30639ee309ac80ff0a1ab39d4780a5874306b2bbfb538c3d12c71`），1280×720 上没有逐位比过。
+
+### 钉点对账
+
+本目录的来源注释、`../chassis/build.mjs` 的 `COMMIT`、两份回归基线的 `upstreamCommit`、上面探针的构建记录，钉的都是 `c946cc96bdb08979224e851a7fc67a066b1b456b`（上游的提交时间 2026-11-17 23:07 +0800）。更早的一次只读源码评估（2026-11-18，浅克隆后读文档与源码，没编、没跑）记的提交是 `8cfb017`：本仓库的全部历史、本机两份上游检出（都是只含 `c946cc96` 一个提交的浅克隆）与探针的记录里都找不到这个对象，它和 `c946cc96` 谁先谁后、差了什么，查不清；要查得取上游的完整历史，这里没有取。凡是实测、分叉与基线，说的都是 `c946cc96`。
+
 ## 切掉了什么，为什么能切
 
 上游是一个游戏引擎：同一套内核既给实时预览用，也给离线出图用。核心帧源只要离线出图，所以按下面七类逐类删掉，每删一类都重新编译、重跑库测试，并核对第 2 级的 24 个渲染读数与删之前逐个相等。
@@ -61,14 +82,14 @@ Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee
 |---|---|---|
 | `src/api.rs` | `renderer/src/api.rs` | 删去切掉的几类 |
 | `src/bvh.rs` | `renderer/src/bvh.rs` | 没改 |
-| `src/denoise.rs` | `renderer/src/denoise.rs` | 没改 |
+| `src/denoise.rs` | `renderer/src/denoise.rs` | 小波降噪没改；`oidn()` 改照 Cycles 的口径（见 [README.md](README.md)「降噪的口径」）：不设 `inputScale`（库自己估），签名去掉曝光、加上设备与预过滤，法线由调用方给降噪特征的相机空间均值；过滤器改走 `oidn::sys` 的 C 接口（`cleanAux` 照 OIDN 的参数名设，`ACCURATE` 先单独降噪反照率与法线），返回带原因的错误 |
 | `src/desc.rs` | `renderer/src/desc.rs` | 删去切掉的几类 |
 | `src/files.rs` | `renderer/src/files.rs` | 删去切掉的几类；预设的内嵌路径改指本目录的 `presets/` |
-| `src/gpu.rs` | `renderer/src/gpu.rs` | 删去切掉的几类；接进北冥的五个着色器（见下一节）；全局参数追加四块（第四块是像素滤波表，见下一节「像素滤波与夹取」）、成像的两个编译开关、材质表与物体扩展表的上传、输出缓冲的分配与读回（见下一节末）；加了守着内核结构的测试（见下一节「四样内部结构的冻结」） |
+| `src/gpu.rs` | `renderer/src/gpu.rs` | 删去切掉的几类；接进北冥的五个着色器（见下一节）；全局参数追加四块（第四块是像素滤波表，见下一节「像素滤波与夹取」）、成像的两个编译开关、材质表与物体扩展表的上传、输出缓冲的分配与读回（见下一节末）；加了守着内核结构的测试（见下一节「四样内部结构的冻结」）；显卡上限与特性的全文：`limits_json`、`features_json` 与 `Gpu::limits_report`（`info --limits` 打的那一份），加测试 `limits_json_takes_every_limit` |
 | `src/heap.rs` | `renderer/src/heap.rs` | 删去切掉的几类；多一张物体扩展表（见下一节末） |
 | `src/lib.rs` | `renderer/src/lib.rs` | 删去切掉的几类；文档里的程序名；填全局参数追加的四块 |
 | `src/ltree.rs` | `renderer/src/ltree.rs` | 删去切掉的几类 |
-| `src/main.rs` | `renderer/src/main.rs` | 删去切掉的几类；库名与程序名；`render-pack` 的像素滤波、夹取、滤光泽参数与关掉上游的亮度夹取（见下一节「像素滤波与夹取」）；比对外壳用的 `fncheck-host` 子命令 |
+| `src/main.rs` | `renderer/src/main.rs` | 删去切掉的几类；库名与程序名；`render-pack` 的像素滤波、夹取、滤光泽参数与关掉上游的亮度夹取（见下一节「像素滤波与夹取」）；比对外壳用的 `fncheck-host` 子命令；`info --limits`；`camera_normals`（降噪特征的法线换到 Cycles 降噪特征的相机空间，出层的 `denoiseNormal` 与编进 OIDN 时的引导用同一份）；编进 OIDN 时 `render-pack` 照 Cycles 的行序、CPU 设备、`ACCURATE` 预过滤降噪；`denoise` 子命令（现成的三张图走同一个 `oidn()`） |
 | `src/merged.rs` | `renderer/src/merged.rs` | 删去切掉的几类；加了锁住两侧格式与编号的测试（见下一节末与「四样内部结构的冻结」） |
 | `src/pipeline_cache.rs` | `renderer/src/pipeline_cache.rs` | 没改 |
 | `src/post.rs` | `renderer/src/post.rs` | 没改 |
@@ -91,7 +112,7 @@ Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee
 | `rust-toolchain.toml` | `rust-toolchain.toml` | Rust 版本不变（1.100.0）；去掉只给浏览器构建用的 wasm32 目标，注释重写 |
 | `LICENSE-upstream.txt` | `LICENSE` | 原样 |
 
-`PROVENANCE.md`、`README.md`、`STRUCTURES.md`、`FREEZE.json`、`.gitignore` 是北冥新写的。`src/pack.rs`（场景包读入器）也是北冥新写的（MIT，文件头写明）：三种灯的换算是辐射度量学的式子，只对过 Cycles 的口径、没有搬代码，出处写在它的注释里。`shaders/hash.wgsl` 与 `src/cycles_hash.rs` 也不是上游的文件：照 Cycles 移植的哈希函数，见下一节「随机维度」。
+`PROVENANCE.md`、`README.md`、`STRUCTURES.md`、`FREEZE.json`、`.gitignore` 是北冥新写的。`src/pack.rs`（场景包读入器）与 `src/motion.rs`（motion 层在宿主一侧的求法）也是北冥新写的（MIT，文件头写明）：三种灯的换算是辐射度量学的式子，只对过 Cycles 的口径、没有搬代码，出处写在它的注释里。`shaders/hash.wgsl` 与 `src/cycles_hash.rs` 也不是上游的文件：照 Cycles 移植的哈希函数，见下一节「随机维度」。
 
 ## 北冥加了什么
 
@@ -203,6 +224,7 @@ Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee
 - `film_write_sample` 里四格先都读出来再写回去（读一格写一格地交替，苹果显卡上稳态慢约 1%）。
 - 降噪、`--hdr`、图像输出、`--signals` 读的还是颜色、反照率、法线、两个方差量与那两组，结果不变（三个场景开、关降噪各渲一遍，图像、`--hdr` 与三份 `--signals` 输出逐字节相同）。
 - 辅助样本与覆盖率（冻结标记 1.1.0）：内核的第二个入口 `aux_sample`（编译开关 `aux` 的变体里才有），过像素中心打一条针孔射线，只求交与取几何量，写深度、实体编号（读物体扩展表）、相机空间的着色法线，经 `film_write_aux` 覆盖写辅助两格。`Gpu::render` 要辅助层时用 `aux` 的变体，在清零之后、第一个颜色样本之前从这个入口调度一次（起先是 `main` 开头按 `P.integrator.pass_kind` 分支、覆盖率每次都数，英伟达显卡上不要辅助层时稳态慢 4% 到 5%，所以拆开）。路径状态加了 `first_hit_object`（相机射线首次命中的物体），`aux` 的变体里 `film_write_sample` 拿它的实体编号与辅助那一格比，相等就给 `FILM_DENOISE_NORMAL.w` 加 1；不透明度（`SampleResult.alpha`，背景对相机不可见而相机射线没打到时 0）累加在 `FILM_DENOISE_ALBEDO.w`。这三处都只写各通道的 w 与新的两格，颜色、反照率、法线、方差的写法没动：两台机器上回归基线逐位相同，库测试 `requested_lightgroups_leave_the_picture_alone` 另查要辅助层时颜色、反照率、法线逐位相同。
+- motion 层（冻结标记 1.2.1，输出通道契约 0.2.0-draft 的 5.6）：`aux_sample` 另把命中点（世界坐标）与物体表下标加 1 写进预留的第 8 格 `FILM_AUX_HIT`（`AuxSample` 加 `hit`），读回进 `AuxLayers::hit`。另一帧的位置与投影不在内核里算：新文件 `src/motion.rs`（北冥新写，MIT）在宿主一侧用双精度求刚体的 M_G × M_F⁻¹ × X 与两次投影（相机的基照 `scene::camera_data` 的取法），`pack::motion_step` 把场景包的实例行对到内核的物体表下标，`main.rs` 的 `write_passes` 写 `motion.f32` 并在通道声明里列出 `motion`。只多写一格，颜色、反照率、法线、深度、编号、覆盖率的写法没动。
 - 库测试 `the_film_layout_is_the_kernels`（`src/merged.rs`）逐个比两侧的位置常数，查 film 只在 `film.wgsl` 里下标、步长只在一处乘，并锁住缓冲大小的算法与报错。
 
 ### 随机维度

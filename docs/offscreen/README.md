@@ -343,7 +343,7 @@ M3 的目标是让离屏出真片（计划见 [plan-m3.md](plan-m3.md)）。头�
 
 ### 7.18 GPU 分段计时与 4K 热点
 
-`offscreen profile <作品.mjs> --frames … --size …`（`engine/offscreen/gputimer.mjs`）：three 每次 `render()` 结束都立刻提交，在两次提交之间插一个只写时间戳的空计算通道，按队列顺序把一帧切成 `pre`、`paper`、`scene`、`ink:ids`、`ink:edge`、`ink:stroke`、`fog`、`bloom`、`grade`、`kuwahara`、`overlay`、`compose` 等段（标记在 `tsl/look.js`、`tsl/ink.js`、`film.mjs`；没挂计时器时标记什么都不做，开计时画面逐字节不变，有测试）。先把要测的帧整遍渲一次预热，再每帧一个计时器连续提交、最后一起读回；第一版逐帧等读回，GPU 在帧间空转降频，1080p 读数偏高约六成，已改掉。读数含 GPU 等 CPU 提交的空闲；部分实现会量化时间戳，很短的段读数不准。C 路线（`c2d.mjs`）的画布作品目前只有 `pre` 一段。
+`offscreen profile <作品.mjs> --frames … --size …`（`engine/offscreen/gputimer.mjs`）：three 每次 `render()` 结束都立刻提交，在两次提交之间插一个带时间戳的计算通道，提交一个不读写资源的工作组，避免 Metal 跳过空通道，按队列顺序把一帧切成 `pre`、`paper`、`scene`、`ink:ids`、`ink:edge`、`ink:stroke`、`fog`、`bloom`、`grade`、`kuwahara`、`overlay`、`compose` 等段（标记在 `tsl/look.js`、`tsl/ink.js`、`film.mjs`；没挂计时器时标记什么都不做，开计时画面逐字节不变，有测试）。先把要测的帧整遍渲一次预热，再每帧一个计时器连续提交、最后一起读回；第一版逐帧等读回，GPU 在帧间空转降频，1080p 读数偏高约六成，已改掉。读数含 GPU 等 CPU 提交的空闲；部分实现会量化时间戳，很短的段读数不准。C 路线（`c2d.mjs`）的画布作品目前只有 `pre` 一段。
 
 交叉核对（《化鹏闪羽》，Kuwahara 展开后，5 帧 `0,36,72,108,140`，各两次）：4K 每帧中位数 92.7 / 94.6 ms，`offscreen:bench` 稳态 96.7 ms；1080p 12.9 / 15.3 ms，bench 11.0 ms（测前 GPU 已被其他进程占 24%，单帧在 10–25 ms 之间跳，1080p 的绝对值只能看量级）。
 

@@ -13,6 +13,7 @@ node tools/remote/cli.mjs setup   rtx [--commit <提交>]              # 按该�
 node tools/remote/cli.mjs doctor  rtx [--route a] [--gpu required]   # 远端环境自检，报告随运行记录取回
 node tools/remote/cli.mjs render  rtx films/<名> [--commit <提交>] [--profile <档位>]
 node tools/remote/cli.mjs run     rtx [--fetch <路径或模式>]… -- <远端命令…>
+node tools/remote/cli.mjs compare <左运行记录.json> <右运行记录.json>
 node tools/remote/cli.mjs cleanup rtx [--run <run-id>] [--all]
 ```
 
@@ -30,6 +31,21 @@ node tools/remote/cli.mjs cleanup rtx [--run <run-id>] [--all]
 `render` 在远端运行 `node tools/film/cli.mjs build films/<名> --json`，所以要求该提交里有统一出片命令；没有时退出 3，可以改用 `run … -- <出片命令>` 加 `--fetch`。
 
 退出码：远端命令的退出码原样返回；0 成功；2 用法错误；3 连不上、远端缺工具或缺环境；5 远端槽位被占；1 传输或哈希核对失败；130 / 143 中断（远端随即停止并清理）。
+
+## 双机交付清单
+
+让两台机器用同一完整 Git 提交和同一命令各运行一次。作业把交付物写到固定的工作树相对路径，通过 C2 信封的 `outputs` 声明产物，或用 `--fetch` 取回。用两次命令的 `runJson` 对照：
+
+```sh
+node tools/remote/cli.mjs compare out/remote/mac/<run-id>.json out/remote/linux/<run-id>.json --json
+```
+
+两边须是不同主机上的成功运行，取回清单须完整且非空。比较时逐件重算本地产物的 SHA-256 和字节数。默认在各记录旁的 `<run-id>/` 目录读取产物。用过 `run --dest`、`render` 默认原路径取回，或归档到其他位置时，用 `--left-root <目录>` 和 `--right-root <目录>` 指定对应的产物根目录。
+
+- `--mode strict` 是默认规则。交付物的相对路径、类型、字节数和 SHA-256 均须相同。
+- `--mode inventory` 核对相对路径和 C2 声明的产物类型。报告列出两边的 SHA-256、字节数和内容不同项，可用于容差档的交付清单验收。画质和音质容差由对应的验证工具量测。
+
+符合所选规则时退出 0，记录或产物核对失败、清单不符以及严格模式下字节不同均退出 4。用法错误退出 2。比较离线进行，摘要包含平台、架构、传输类型与运行号。
 
 ## 机器档案
 

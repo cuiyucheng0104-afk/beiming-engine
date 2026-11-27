@@ -20,7 +20,7 @@ import process from 'node:process';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { CliError, defineCommand, isMain, runCli } from '../../../../tools/lib/cli.mjs';
-import { COMMIT, KERNEL, OUT, PRESETS, UPSTREAM, buildRenderer, cargoPath, ensureNodeModules, ensureUpstream, freshTarget, missing, sourceKey } from './build.mjs';
+import { COMMIT, KERNEL, OUT, PRESETS, UPSTREAM, buildRenderer, cargoNet, cargoPath, ensureNodeModules, ensureUpstream, freshTarget, missing, sourceKey } from './build.mjs';
 import { analytic, furnace } from './level2.mjs';
 
 const WORK = path.join(OUT, 'regress');
@@ -96,7 +96,7 @@ async function level2(bin) {
 function cargoTests() {
   // 编好的程序已经在缓存里时 buildRenderer 不碰构建目录：这里自己确认测试是从现在这份源码编的
   freshTarget(path.join(OUT, 'target'), sourceKey());
-  const r = spawnSync(cargoPath(), ['test', '--locked'], { cwd: KERNEL, encoding: 'utf8', maxBuffer: 1 << 28, env: cleanEnv({ CARGO_TARGET_DIR: path.join(OUT, 'target') }) });
+  const r = spawnSync(cargoPath(), cargoNet(['test', '--locked']), { cwd: KERNEL, encoding: 'utf8', maxBuffer: 1 << 28, env: cleanEnv({ CARGO_TARGET_DIR: path.join(OUT, 'target') }) });
   if (r.error) throw r.error;
   const sums = [...r.stdout.matchAll(/^test result: \w+\. (\d+) passed; (\d+) failed; (\d+) ignored/gm)];
   if (!sums.length) throw new Error(`cargo test 没跑起来（编不过？）：\n${r.stderr.split('\n').slice(-30).join('\n')}`);

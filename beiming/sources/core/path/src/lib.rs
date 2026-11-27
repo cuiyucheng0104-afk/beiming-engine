@@ -11,6 +11,8 @@ pub mod gpu;
 pub mod heap;
 pub mod ltree;
 pub mod merged;
+// 北冥：输出通道 motion（输出通道契约 5.6），宿主一侧用双精度求
+pub mod motion;
 pub mod pack;
 pub mod post;
 pub mod procasset;

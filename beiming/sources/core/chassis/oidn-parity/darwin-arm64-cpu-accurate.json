@@ -1,0 +1,40 @@
+{
+ "format": "core-oidn-parity/0.1",
+ "platform": "darwin-arm64",
+ "blender": "5.2.0",
+ "oidn": "2.5.0",
+ "oidnLibs": {
+  "libOpenImageDenoise.dylib": "f5b32f2f72bcc9797861845c78a48e1e3db45872c5e00db4c2517f2b67a24e92",
+  "libOpenImageDenoise_core.dylib": "042318cf91982a50a54aa3a94940508b2b83a9ad953782329898d6a9ef6b212b",
+  "libOpenImageDenoise_device_cpu.dylib": "0390327a30062ac90653fa15e9dec931c6d0b83ac3e92eded405fbb70ab936e3",
+  "libOpenImageDenoise_device_metal.dylib": "4e9937ed9c8f9244627a3b014f526d4f707c2be29a2fb2aed4c88a9ed191592a"
+ },
+ "kernel": "49d9641599b5f0bf",
+ "device": "cpu",
+ "prefilter": "accurate",
+ "quality": "high",
+ "rows": "cycles",
+ "spp": 16,
+ "width": 320,
+ "height": 240,
+ "exrSha256": "ca745ef4fd134819a80472171ba04eb85bd65204b450cb821a042b9b5d4a87ee",
+ "sceneSha256": "911135423cbcd373a2e69a601e97c6ee0d5c134c7a74f9f718ee5839425fe0da",
+ "tolerance": 0.001,
+ "maxAbs": 0.000148773193359375,
+ "maxRel": 0.0000053670057951735905,
+ "worst": {
+  "ratio": 0.005198254362009257,
+  "x": 201,
+  "y": 186,
+  "component": "B",
+  "ours": 1.8575278520584106,
+  "ref": 1.8575375080108643
+ },
+ "pass": true,
+ "bitwiseEqual": false,
+ "noisyVsCombined": {
+  "maxAbs": 8.692972183227539,
+  "maxRel": 2.600882763683076
+ },
+ "denoiseMs": 162.5
+}

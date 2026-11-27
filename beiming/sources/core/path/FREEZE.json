@@ -1,7 +1,7 @@
 {
   "schema": "beiming.core.freeze/1",
   "name": "核心帧源路径追踪内核的四样内部结构",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "frozen": "2026-11-25",
   "structures": [
     "材质记录",
@@ -210,7 +210,7 @@
     "shaders/film.wgsl": {
       "structs": {
         "SampleResult": "cc682c8c93a44399ef94c201d8cb9d032e0b8ca078e94df90aa68ecafb9e503f",
-        "AuxSample": "d162dd22479feb07adad8861ce35c331b2fe7a4ed4f640fca118dd9fa3f05480"
+        "AuxSample": "d08eb021ff7ecb88c1be4bc9c1abaa89941005b8e6ee28f078d50a306e396f66"
       },
       "constants": {
         "LIGHTGROUP_NONE": "u32 = 0xffffffffu",
@@ -222,7 +222,8 @@
         "FILM_LEGACY_SPEC": "u32 = 5u",
         "FILM_AUX_DATA": "u32 = 6u",
         "FILM_AUX_NORMAL": "u32 = 7u",
-        "FILM_FIXED": "u32 = 10u"
+        "FILM_FIXED": "u32 = 10u",
+        "FILM_AUX_HIT": "u32 = 8u"
       },
       "functions": {
         "film_pixel_first": "() -> u32",

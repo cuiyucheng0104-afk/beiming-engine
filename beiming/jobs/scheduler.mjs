@@ -1,4 +1,6 @@
-const priorities = { final: 3, preview: 2, verify: 1, draft: 0 };
+const priorities = { final: 3, preview: 2, verify: 1, draft: 0, core: 0 };
+// 同类只许一个在跑：终渲，和核心帧源的作业（一个作业独占这块卡上的核心渲染程序，第二个排队）
+const exclusive = new Set(['final', 'core']);
 
 function isLight(kind) {
   return kind === 'preview' || kind === 'verify';
@@ -25,13 +27,13 @@ export class Scheduler {
   #draining = false;
   #dirty = false;
 
-  // 一个设备使用一个调度器实例。终渲和草稿只能占主预算。
+  // 一个设备使用一个调度器实例。终渲、草稿和核心只能占主预算；核心不被抢占。
   constructor({ totalMB = 8192, previewReserveMB = Math.floor(totalMB / 8), budgetsMB = {} } = {}) {
     this.#totalMB = checkBudget(totalMB, 1, Number.MAX_SAFE_INTEGER);
     this.#previewReserveMB = checkBudget(previewReserveMB, 0, totalMB - 1);
     this.#mainMB = totalMB - this.#previewReserveMB;
     const lightMB = Math.max(1, this.#previewReserveMB);
-    const defaults = { final: this.#mainMB, draft: Math.ceil(this.#mainMB / 2), preview: lightMB, verify: lightMB };
+    const defaults = { final: this.#mainMB, draft: Math.ceil(this.#mainMB / 2), core: Math.ceil(this.#mainMB / 2), preview: lightMB, verify: lightMB };
     this.#budgets = { ...defaults, ...budgetsMB };
     for (const [kind, mb] of Object.entries(this.#budgets)) this.request({ kind, vramMB: mb });
   }
@@ -84,7 +86,7 @@ export class Scheduler {
     let lightUsedMB = 0;
     const drafts = [];
     for (const running of this.#running) {
-      if (entry.kind === 'final' && running.kind === 'final') return false;
+      if (entry.kind === running.kind && exclusive.has(entry.kind)) return false;
       usedMB += running.vramMB;
       if (isLight(running.kind)) lightUsedMB += running.vramMB;
       else mainUsedMB += running.vramMB;
