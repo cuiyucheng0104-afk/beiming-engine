@@ -381,19 +381,19 @@ export function createDeck({ root = document.body, win = window, model, audio = 
 
     if (govern(dt)) ui?.toast?.(`帧率持续偏低（低于 32 fps），已自动降档：${model.getSnapshot().tier}`);
 
-    // 播放状态变了：起停音频；暂停中的跳转：音频跟到同一时刻
     const snap0 = model.getSnapshot();
-    if (audio) {
-      if (snap0.playing && !wasPlaying) audio.play(snap0.time);
-      if (!snap0.playing && (wasPlaying || snap0.frame !== lastFrame)) { audio.pause(); audio.seek(snap0.time); }
-    }
-    wasPlaying = snap0.playing;
-    lastFrame = snap0.frame;
-
+    if (snap0.playing && !wasPlaying) audio?.play(snap0.time);
     if (snap0.playing && audio?.isPlaying()) model.followTime(audio.currentTime());
     else model.step(dt);
 
+    // 声卡可能已越过目标拍，按步进后的停点同步音频，再画这一帧。
     const snap = model.getSnapshot();
+    if (audio && !snap.playing && (wasPlaying || snap0.playing || snap.frame !== lastFrame)) {
+      audio.pause();
+      audio.seek(snap.time);
+    }
+    wasPlaying = snap.playing;
+    lastFrame = snap.frame;
     if (snap.tier !== lastTier) {
       const prev = lastTier;
       lastTier = snap.tier;
