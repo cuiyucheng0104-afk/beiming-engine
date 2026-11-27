@@ -96,7 +96,7 @@ pub fn rng2(pixel_seed: u32, index: u32, d: u32) -> [f32; 2] {
 }
 
 /// 北冥：`path_branched_rng_2D` of sample.wgsl（`index` 已是样本号乘分支数加分支号，`d` 是偏移加维度）：下标照 `rng2`
-/// 按像素打乱，点的 Owen 打乱只用维度的种子（蓝噪声图案的取法，见 STRUCTURES.md 第 56 条）。
+/// 按像素打乱，点的 Owen 打乱只用维度的种子（蓝噪声图案的取法，见 STRUCTURES.md 第 57 条）。
 pub fn branched2(pixel_seed: u32, index: u32, d: u32) -> [f32; 2] {
     let i = rng_index_at(index, pixel_seed ^ hash_hp(d) ^ 0xf8ade99a);
     let v = hash_hp(d);

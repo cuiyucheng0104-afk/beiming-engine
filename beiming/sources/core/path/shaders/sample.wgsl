@@ -217,7 +217,7 @@ fn path_rng_3D(dimension: u32) -> vec3<f32> { return rng3(state.rng_offset + dim
 // 求值的几个分支点的结果归一化之后求和，它的期望取决于这几个点的联合分布；点按像素打乱（Sobol-Burley 图案）时每个像素的
 // 联合分布各不相同，像素之间、种子之间的差 1024 个采样也平均不掉。CPU 上照这里的发生器模拟立方体棱边旁 1 mm 处的倒角法线
 // （32 个像素、各 1024 个采样）：按像素打乱点时种子间方差 8.8e-4、平均偏角 16.5°；只用维度的种子时 2.6e-7、17.2°，与
-// Cycles 蓝噪声的取法（同一条序列错开）相同。不分支的取数（rng1 到 rng4）照旧按像素打乱，见 STRUCTURES.md「与 Cycles、与上游不一样的地方」第 56 条。
+// Cycles 蓝噪声的取法（同一条序列错开）相同。不分支的取数（rng1 到 rng4）照旧按像素打乱，见 STRUCTURES.md「与 Cycles、与上游不一样的地方」第 57 条。
 fn path_branched_rng_2D(branch: u32, num_branches: u32, dimension: u32) -> vec2<f32> {
     let s = rng_seed(state.rng_offset + dimension);
     let i = rng_index_at(state.sample * num_branches + branch, s ^ 0xf8ade99au);
