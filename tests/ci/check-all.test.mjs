@@ -1,6 +1,6 @@
 // tools/check-all.mjs：步骤的选择与别名、阻塞与只报告、退出码按最重的取（附录 C1）、--json 信封（C2）、
 // 必需工具缺失时报环境问题、内置语法检查（JS / JSON / Python / sh）只查仓库自己的文件。
-// 夹具是临时目录里的小仓库，里面的 repo-check、work-plan 等都是几行的替身脚本，用退出码模拟各种结果。
+// 夹具是临时目录里的小仓库，里面的 repo-check、c-styles 等都是几行的替身脚本，用退出码模拟各种结果。
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
@@ -10,7 +10,6 @@ const CHANGELOG = '# 更新日志\n\n## [Unreleased]\n\n### Added\n\n- 一条\n\
 const exitWith = (code, line) => `console.log(${JSON.stringify(line)});\nprocess.exit(${code});\n`;
 const base = (over = {}) => ({
   'tools/repo-check.mjs': exitWith(0, '✓ 0 个错误'),
-  'tools/work-plan.mjs': exitWith(0, '计划有效'),
   'tools/c-styles.mjs': exitWith(0, 'STYLES.md 已是最新'),
   'tools/casebook.py': 'print("OK: 0 records")\n',
   'CHANGELOG.md': CHANGELOG,
@@ -29,54 +28,54 @@ test('--help 只打印用法、exit 0；未知步骤 exit 2 并列出可用步�
   const r = await runNode(CHECK_ALL, ['--only', 'nosuch', '--json']);
   assert.equal(r.code, 2);
   assert.equal(r.json.error.code, 'usage.bad-value');
-  assert.match(r.json.error.hint, /repo、plan、tests/);
+  assert.match(r.json.error.hint, /repo、tests/);
 });
 
 test('--list：只列步骤与命令，不执行；lint 是 eslint + ruff 的别名', async () => {
-  const r = await runNode(CHECK_ALL, ['--list', '--only', 'lint,plan', '--json']);
+  const r = await runNode(CHECK_ALL, ['--list', '--only', 'lint,repo', '--json']);
   assert.equal(r.code, 0, r.stderr);
-  assert.deepEqual(r.json.steps.map(s => [s.id, s.blocking, s.status]), [['plan', true, 'listed'], ['eslint', false, 'listed'], ['ruff', false, 'listed']]);
-  assert.match(r.stderr, /node tools\/work-plan\.mjs --check/);
+  assert.deepEqual(r.json.steps.map(s => [s.id, s.blocking, s.status]), [['repo', true, 'listed'], ['eslint', false, 'listed'], ['ruff', false, 'listed']]);
+  assert.match(r.stderr, /node tools\/repo-check\.mjs/);
 });
 
-test('全部通过：exit 0；测试步骤带上 run-tests 的汇总', { skip: !python() && '没有 Python' }, async t => {
+test('没有归档计划及其工具时全部通过：exit 0；测试步骤带上 run-tests 的汇总', { skip: !python() && '没有 Python' }, async t => {
   const { root, cleanup } = makeRepo(base());
   t.after(cleanup);
   const r = await runNode(CHECK_ALL, ['--root', root, ...FAST, '--json'], { timeoutMs: 300000 });
   assert.equal(r.code, 0, r.stderr);
   const by = Object.fromEntries(r.json.steps.map(s => [s.id, s]));
-  assert.deepEqual(Object.keys(by), ['repo', 'plan', 'tests', 'styles', 'cases', 'directing', 'syntax', 'changelog', 'floorgate']);
+  assert.deepEqual(Object.keys(by), ['repo', 'tests', 'styles', 'cases', 'directing', 'syntax', 'changelog', 'floorgate']);
   assert.equal(by.floorgate.status, 'skip', '没有 GATES.md 与 beiming/verify/floorguard.mjs 时跳过');
-  for (const id of ['repo', 'plan', 'tests', 'styles', 'cases', 'syntax', 'changelog']) assert.equal(by[id].status, 'pass', `${id}：${by[id].reason}`);
+  for (const id of ['repo', 'tests', 'styles', 'cases', 'syntax', 'changelog']) assert.equal(by[id].status, 'pass', `${id}：${by[id].reason}`);
   assert.equal(by.directing.status, 'skip', '没有 tools/check_directing_docs.py 时跳过');
   assert.equal(by.tests.details.summary.tests, 1);
   assert.equal(by.changelog.details.unreleasedEntries, 1);
 });
 
 test('有阻塞步骤失败：exit 1，信封列出失败的步骤，--fail-fast 后面的不再运行', async t => {
-  const { root, cleanup } = makeRepo(base({ 'tools/work-plan.mjs': exitWith(1, '✗ T03 写入范围重叠') }));
+  const { root, cleanup } = makeRepo(base({ 'tools/repo-check.mjs': exitWith(1, '仓库检查失败') }));
   t.after(cleanup);
-  const r = await runNode(CHECK_ALL, ['--root', root, '--only', 'repo,plan,styles', '--json']);
+  const r = await runNode(CHECK_ALL, ['--root', root, '--only', 'repo,styles', '--json']);
   assert.equal(r.code, 1);
   assert.equal(r.json.error.code, 'CHECKS_FAILED');
-  assert.match(r.json.error.message, /plan（工程计划）/);
-  assert.equal(r.json.steps.find(s => s.id === 'plan').reason, '✗ T03 写入范围重叠');
-  const ff = await runNode(CHECK_ALL, ['--root', root, '--only', 'plan,styles', '--fail-fast', '--json']);
+  assert.match(r.json.error.message, /repo（仓库规范）/);
+  assert.equal(r.json.steps.find(s => s.id === 'repo').reason, '仓库检查失败');
+  const ff = await runNode(CHECK_ALL, ['--root', root, '--only', 'repo,styles', '--fail-fast', '--json']);
   assert.deepEqual(ff.json.steps.map(s => s.status), ['fail', 'not-run']);
 });
 
 test('退出码取最重的：环境缺失（3）优先于契约（4）与失败（1）；子命令用法错误记成 check-all 自己的失败', async t => {
   const { root, cleanup } = makeRepo(base({
-    'tools/repo-check.mjs': exitWith(4, '契约不通过'), 'tools/work-plan.mjs': exitWith(1, '失败'), 'tools/c-styles.mjs': exitWith(2, '用法错误'),
+    'tools/repo-check.mjs': exitWith(4, '契约不通过'), 'tools/c-styles.mjs': exitWith(2, '用法错误'),
   }));
   t.after(cleanup);
-  const r = await runNode(CHECK_ALL, ['--root', root, '--only', 'repo,plan,styles', '--json']);
+  const r = await runNode(CHECK_ALL, ['--root', root, '--only', 'repo,styles', '--json']);
   assert.equal(r.code, 4);
-  assert.deepEqual(r.json.steps.map(s => s.exitCode), [4, 1, 1]);
-  assert.match(r.json.steps[2].reason, /用法错误/);
+  assert.deepEqual(r.json.steps.map(s => s.exitCode), [4, 1]);
+  assert.match(r.json.steps[1].reason, /用法错误/);
   const missing = makeRepo(base({ 'tools/repo-check.mjs': null }));
   t.after(missing.cleanup);
-  const m = await runNode(CHECK_ALL, ['--root', missing.root, '--only', 'repo,plan', '--json']);
+  const m = await runNode(CHECK_ALL, ['--root', missing.root, '--only', 'repo,styles', '--json']);
   assert.equal(m.code, 3);
   assert.match(m.json.steps[0].reason, /缺少 tools\/repo-check\.mjs/);
 });

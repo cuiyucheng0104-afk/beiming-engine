@@ -189,9 +189,9 @@ npm run check:repo                              # 全部规则；--json、--only
 - 退出码：0 没有错误（可以有提示）；4 有规范错误；2 用法错误；1 有规则自身出错（结果不完整）。
 - **限期豁免**：属主还没轮到改的存量问题记在 `tools/repo-check/core/waivers.json`（规则、文件、匹配文字、属主、原因）；命中的错误降为提示并标出属主，`--strict` 时不降。问题修好后条目不再命中，检查会提示删掉它：豁免只减不增。
 
-## 13. 引擎工程待办（`npm run plan:check`、`npm run plan:next`）
+## 13. 历史工程计划（`npm run plan:check`、`npm run plan:next`）
 
-工程计划 `docs/routes/work-plan.json` 是引擎与工具的工程待办（D06）：T 编号是早先拆出的工程任务，H 编号是工业级加固的工作包。做作品不用它（作品由 film.json 与 `films/<名>/review/` 记录）。字段、领取与检查规则见 [docs/routes/work-breakdown.md](routes/work-breakdown.md)。
+`docs/routes/work-plan.json` 归档了引擎与工具的早期工作计划（D06）。T 编号对应工程任务，H 编号对应工业级加固工作包。默认 `npm run check` 跳过工程计划查询。手动命令仍可查看历史记录，当前认领按本轮任务书执行。字段和历史状态见 [docs/routes/work-breakdown.md](routes/work-breakdown.md)。
 
 ```sh
 npm run plan:check                              # = node tools/work-plan.mjs --check；--strict、--json、--now <ISO 日期>、--file <计划>

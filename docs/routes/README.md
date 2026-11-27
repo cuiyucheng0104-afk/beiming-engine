@@ -1,6 +1,6 @@
 # 引擎工程手册
 
-> 读者：改引擎、加共享能力、分派工程任务的人｜状态：工程手册入口｜依据：[决定书](../decisions/2026-11-10-industrial-baseline.md) D01、D06、D12、D13；任务状态以 [work-plan.json](work-plan.json) 为准
+> 读者：改引擎、加共享能力、分派工程任务的人｜状态：工程手册入口｜依据：[决定书](../decisions/2026-11-10-industrial-baseline.md) D01、D06、D12、D13。早期工程计划见 [work-plan.json](work-plan.json) 档案。
 
 做作品不从这里开始：新片按[四条路线总指引](../../routes/README.md)在 A、B、C、D 里选一条，用 `npm run new` 建作品，进度由作品的 `film.json` 与 `films/<名>/review/` 记录（D06）。本手册给要改 `engine/`、加共享能力或领取工程任务的人：A（北冥风格路线 · WebGL 三渲二）、B（北冥原生 · BNE）与 D（北冥光追 · 物理路径追踪）各自的工程细节、共用的契约、验收与工作站，以及任务怎么领。C（北冥代码动画风格 · 86 式）与 A 共用页面渲染器 `engine/render`（D01，新片也可走离屏渲染器 `engine/offscreen`，见 [离屏出片](../offscreen/README.md)，D12）。
 
@@ -14,7 +14,7 @@
 | 硬件光追、WGSL 程序材质、三维晶圆 HUD 与帧级缓存（D） | [北冥光追路线工程手册](pathtrace.md) | 从 `engine/pathtrace/` 与 `tools/film/lib/pathtrace-steps.mjs` 开始 |
 | 各执行线共用的数据与接口 | [模块契约](contracts.md) | 作品描述以 `film.json` v2 为准，校验器 `engine/production/film.js` 统一核对 |
 | 在 5090 出片、比较质量与速度 | [验收与 RTX](validation-and-rtx.md) | 运行环境、画面、动作、技术输出与性能分开检查 |
-| 分派多代理、领取工程任务 | [工作分解](work-breakdown.md) | `npm run plan:next`，按任务卡的写入范围分工 |
+| 分派多代理、领取工程任务 | [工作分解](work-breakdown.md) | 由集成负责人按当轮任务书划分写入范围 |
 | 追问某项原生能力的实际源码 | [固定版本源码对照](../raea/architecture.md) | 沿函数、调用者与条件分支核对 |
 
 ## 三种状态分开写
@@ -22,8 +22,8 @@
 | 状态 | 内容 |
 |---|---|
 | 已运行 | 《北冥》10 秒样片；B 路线 10 秒原生例片与 GLB 转换回读；A/C 离屏出片《晨渡》对拍；D 路线模版在 RTX 4070 双次冷渲逐字节确定性验证 |
-| 已有工具 | 引擎工程待办 `npm run plan:check`、`npm run plan:next`；新建作品 `npm run new`；统一出片 `npm run film`；仓库规范检查 `npm run check:repo` |
-| 设计与待实现 | FrameState、跨后端适配、风格等价、完整人物表演；以 work-plan.json 里 planned 的任务为准，不报告成已有 API |
+| 已有工具 | 历史计划查询 `npm run plan:check`、`npm run plan:next`；新建作品 `npm run new`；统一出片 `npm run film`；仓库规范检查 `npm run check:repo` |
+| 设计与待实现 | FrameState、跨后端适配、风格等价、完整人物表演；以当轮任务和验收证据核对实际进度 |
 
 ## 引擎工程的顺序
 
@@ -34,15 +34,15 @@
 5. **改已有模块先出基线。** 改 `engine/` 已有模块前先渲基线，改后逐帧比对；技术验收与创作验收分开记录。
 6. **保存证据再更新状态。** 源码版本、输入哈希、实际后端、命令、产物与未解决问题都写进任务的 evidence。
 
-## 工程计划
+## 历史工程计划
 
 ```sh
 npm run plan:check                  # 结构、依赖、认领与过期、证据与指引路径、写入范围冲突
-npm run plan:next -- --route a      # 依赖已满足、可以领取的任务：a / b / c / d / shared（旧名 beiming、raea 等也认）
+npm run plan:next -- --route a      # 查询归档时按该路线可领取的历史任务：a / b / c / d / shared
 node tools/work-plan.mjs --verify-diff <任务>   # 改动是否都在该任务的写入范围里
 ```
 
-工具是 [tools/work-plan.mjs](../../tools/work-plan.mjs)：只读，不改状态、不执行任务、不启动渲染；旧名 `npm run routes:check`、`routes:next` 保留一个版本并提示改名。T 编号是早先拆出的工程任务，H 编号是工业级加固的工作包；领取、认领、取代与检查规则见[工作分解](work-breakdown.md)。改了 work-plan.json 要重新生成那一页的任务卡（`node tools/work-plan.mjs --cards`），`node --test tools/work-plan.test.mjs` 会逐字核对。
+工具是只读的 [tools/work-plan.mjs](../../tools/work-plan.mjs)。归档保留当时的 T/H 编号和状态，`plan:next` 显示的是历史任务，当前认领以当轮任务书为准。档案和生成任务卡的对应关系由 `node --test tools/work-plan.test.mjs` 核对。
 
 ## 记录模板
 
