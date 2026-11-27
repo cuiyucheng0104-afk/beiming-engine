@@ -258,17 +258,18 @@ test('修订号按双精度读数，整数上限是 9007199254740991', () => {
   assert.equal(title('9007199254740990', 9007199254740990).rev, 9007199254740991);
   assert.equal(title('9007199254740991', 9007199254740991).ok, false);
 });
-test('交付通道只认七个固定通道和分灯组写法', () => {
+test('交付通道只认七个固定通道、八个光路通道和分灯组写法', () => {
   const f = fixture('lab'), layers = (list, options) => write(f, patch(set('delivery/layers', list)), options);
   const fixed = ['color', 'depth', 'objectId', 'normal', 'motion', 'denoiseAlbedo', 'denoiseNormal'];
   assert.equal(layers(['depth']).ok, true);
   assert.equal(layers([...fixed, 'lightgroup:key', 'lightgroup:0-rim']).ok, true);
   assert.equal(layers(['lightgroup:key']).ok, true);
+  assert.equal(layers(['color', 'diffuseDirect', 'glossyIndirect', 'transmissionDirect', 'emission', 'environment']).ok, true);
   // 调用方给的资料登记不了别的名字
   const beauty = layers(['beauty'], { passNames: ['beauty'] });
   assert.deepEqual([beauty.step, beauty.code, beauty.at], [6, bad, 'delivery/layers']);
   assert.match(beauty.diagnostics[0].hint, /第 1 项.*lightgroup:<名>/);
-  for (const name of ['wrong', 'Depth', 'lightgroup:', 'lightgroup:-key', 'lightgroup:Key', 'lightgroup:a b', 'color ']) {
+  for (const name of ['wrong', 'Depth', 'diffuseDirekt', 'lightgroup:', 'lightgroup:-key', 'lightgroup:Key', 'lightgroup:a b', 'color ']) {
     assert.deepEqual([layers(['color', name]).step, layers(['color', name]).code], [6, bad], name);
   }
   assert.equal(layers(['depth', 'depth']).code, bad);

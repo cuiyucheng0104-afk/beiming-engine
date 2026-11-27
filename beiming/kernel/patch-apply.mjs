@@ -15,8 +15,9 @@ const argument = 'usage.bad-argument';
 const unknown = 'contract.unknown-key';
 const badPath = 'contract.bad-path';
 const pathOK = path => typeof path === 'string' && /^[^/#\s]+(?:\/[^/#\s]+)*$/u.test(path);
-// 输出通道契约 3.1：七个固定通道，加分灯组的写法。调用方给的资料不能再登记别的名字。
-const FIXED_PASSES = new Set(['color', 'depth', 'objectId', 'normal', 'motion', 'denoiseAlbedo', 'denoiseNormal']);
+// 输出通道契约 3.1：七个固定通道、八个可选的光路通道，加分灯组的写法。调用方给的资料不能再登记别的名字。
+const FIXED_PASSES = new Set(['color', 'depth', 'objectId', 'normal', 'motion', 'denoiseAlbedo', 'denoiseNormal',
+  'diffuseDirect', 'diffuseIndirect', 'glossyDirect', 'glossyIndirect', 'transmissionDirect', 'transmissionIndirect', 'emission', 'environment']);
 const passName = name => FIXED_PASSES.has(name) || /^lightgroup:[a-z0-9][a-z0-9-]*$/.test(name);
 
 // 修订号是存储元数据，不是片子描述的键。载体是本模块私有的表，读它用这个函数。

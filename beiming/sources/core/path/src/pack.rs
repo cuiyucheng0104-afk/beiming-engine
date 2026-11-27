@@ -220,12 +220,15 @@ fn rel_path(v: &Value, at: &str, ext: &str) -> R<String> {
 
 // ------------------------------------------------------------------------------------------ 读出来的包
 
-/// 材质参数（参数登记表：`baseColor`、`metallic`、`roughness`）；`mix` 的 `set` 只列其中几个。
+/// 材质参数（参数登记表：`baseColor`、`metallic`、`roughness`，可选的 `emissionColor`、`emissionStrength`）；`mix` 的 `set` 只列其中几个。
+/// 自发光两项只读、只校验，这一版不着色。
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Params {
     pub base_color: Option<[f64; 3]>,
     pub metallic: Option<f64>,
     pub roughness: Option<f64>,
+    pub emission_color: Option<[f64; 3]>,
+    pub emission_strength: Option<f64>,
 }
 
 /// 一个图案节点（节点登记表的四种）。只读、只校验，这一版不求值。
@@ -632,7 +635,7 @@ fn table(v: &Value, at: &str) -> R<Table> {
 
 fn params(v: &Value, at: &str, min_one: bool) -> R<Params> {
     let o = object(v, at)?;
-    only(o, at, &["baseColor", "metallic", "roughness"])?;
+    only(o, at, &["baseColor", "metallic", "roughness", "emissionColor", "emissionStrength"])?;
     if min_one && o.is_empty() {
         return Err(bad(at, "至少要有 1 个参数"));
     }
@@ -640,6 +643,8 @@ fn params(v: &Value, at: &str, min_one: bool) -> R<Params> {
         base_color: o.get("baseColor").map(|c| rgb(c, &join(at, "baseColor"), true)).transpose()?,
         metallic: o.get("metallic").map(|x| unit(x, &join(at, "metallic"))).transpose()?,
         roughness: o.get("roughness").map(|x| unit(x, &join(at, "roughness"))).transpose()?,
+        emission_color: o.get("emissionColor").map(|c| rgb(c, &join(at, "emissionColor"), false)).transpose()?,
+        emission_strength: o.get("emissionStrength").map(|x| non_negative(x, &join(at, "emissionStrength"))).transpose()?,
     })
 }
 
@@ -1680,6 +1685,20 @@ mod tests {
         v["instances"]["names"] = json!(["kit.ab", "kit.a"]);
         assert!(parse_manifest(&v).is_ok(), "kit.ab 不以「kit.a.」开头，两个都是叶子");
         assert_eq!(err_of(|v| { v["camera"].as_object_mut().unwrap().remove("sensorHeight"); }).at, "camera.sensorHeight");
+    }
+
+    #[test]
+    fn emission_params_are_read_not_shaded() {
+        let mut v = manifest();
+        v["materials"][0]["params"]["emissionColor"] = json!([2, 1, 0]);
+        v["materials"][0]["params"]["emissionStrength"] = json!(3);
+        v["materials"][0]["pattern"][1]["set"]["emissionStrength"] = json!(0.5);
+        let p = parse_manifest(&v).unwrap();
+        assert_eq!((p.materials[0].params.emission_color, p.materials[0].params.emission_strength), (Some([2.0, 1.0, 0.0]), Some(3.0)));
+        let e = err_of(|v| v["materials"][0]["params"]["emissionStrength"] = json!(-1));
+        assert_eq!((e.code, e.at.as_str()), (BAD_VALUE, "materials[0].params.emissionStrength"));
+        let e = err_of(|v| v["materials"][0]["params"]["emissionColor"] = json!([0.2, -0.1, 0.5]));
+        assert_eq!((e.code, e.at.as_str()), (BAD_VALUE, "materials[0].params.emissionColor[1]"));
     }
 
     /// 一个带一个三角形的 GLB（JSON 块加二进制块），用来测几何的读法与越界检查。

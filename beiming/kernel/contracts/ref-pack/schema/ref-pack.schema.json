@@ -98,7 +98,7 @@
     "packHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "channelName": {
       "type": "string",
-      "pattern": "^(color|depth|objectId|normal|motion|denoiseAlbedo|denoiseNormal|lightgroup:[a-z0-9][a-z0-9-]*)$"
+      "pattern": "^(color|depth|objectId|normal|motion|denoiseAlbedo|denoiseNormal|diffuseDirect|diffuseIndirect|glossyDirect|glossyIndirect|transmissionDirect|transmissionIndirect|emission|environment|lightgroup:[a-z0-9][a-z0-9-]*)$"
     }
   }
 }
