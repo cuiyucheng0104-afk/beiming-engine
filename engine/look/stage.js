@@ -226,7 +226,7 @@ void main(){
   gl_FragColor = vec4(uVolColor * (sum * stepLen * uVolD.y * phase), 1.);
 }`;
 
-// 可分离高斯（线性取样 5 点，σ = 2 纹素）；uDir = (1 / 宽, 0) 或 (0, 1 / 高)
+// 可分离高斯（线性取样 5 点）；uDir 是以 1080 画高为基准的横向或纵向 UV 步长
 const BLUR_FS = /* glsl */`
 uniform sampler2D tSrc; uniform vec2 uDir;
 varying vec2 vUv;
@@ -241,14 +241,14 @@ void main(){
 const DOF_FS = /* glsl */`
 ${FOG_GLSL}
 uniform sampler2D tColor, tDepth, tSmall, tLarge;
-uniform vec4 uDof;   // x 焦平面视距, y 往近虚到最大的距离, z 往远虚到最大的距离, w 输出高 / 1080
+uniform vec3 uDof;   // x 焦平面视距, y 往近虚到最大的距离, z 往远虚到最大的距离
 uniform vec2 uDof2;  // 前景 / 背景最大弥散圆
 varying vec2 vUv;
 void main(){
   vec3 col = texture2D(tColor, vUv).rgb;
   float d = texture2D(tDepth, vUv).x;
   float dist = length(viewPosAt(vUv, min(d, .9999999)));
-  float c = (d >= .9999999 || dist > uDof.x ? clamp((max(dist, uDof.x) - uDof.x) / uDof.z, 0., 1.) * uDof2.y : clamp((uDof.x - dist) / uDof.y, 0., 1.) * uDof2.x) * uDof.w;
+  float c = d >= .9999999 || dist > uDof.x ? clamp((max(dist, uDof.x) - uDof.x) / uDof.z, 0., 1.) * uDof2.y : clamp((uDof.x - dist) / uDof.y, 0., 1.) * uDof2.x;
   col = mix(col, texture2D(tSmall, vUv).rgb, min(c / 9., 1.));
   col = mix(col, texture2D(tLarge, vUv).rgb, smoothstep(9., 28., c));
   gl_FragColor = vec4(col, 1.);
@@ -268,9 +268,14 @@ export function createStageLight(fx) {
     uVolA: { value: new THREE.Vector4() }, uVolB: { value: new THREE.Vector4() }, uVolC: { value: new THREE.Vector4() }, uVolD: { value: new THREE.Vector4(16, 1, 8, 0.15) },
     uVolColor: { value: new THREE.Vector3() } };
   const volMat = fx.material(SHAFT_FS, volU), blurMat = fx.material(BLUR_FS, { tSrc: { value: null }, uDir: { value: new THREE.Vector2() } });
-  const dofU = { ...fogUniforms(), tColor: { value: null }, tDepth: { value: null }, tSmall: { value: null }, tLarge: { value: null }, uDof: { value: new THREE.Vector4() }, uDof2: { value: new THREE.Vector2() } };
+  const dofU = { ...fogUniforms(), tColor: { value: null }, tDepth: { value: null }, tSmall: { value: null }, tLarge: { value: null }, uDof: { value: new THREE.Vector3() }, uDof2: { value: new THREE.Vector2() } };
   const dofMat = fx.material(DOF_FS, dofU);
-  const blur = (src, dir, target) => { blurMat.uniforms.tSrc.value = src; blurMat.uniforms.uDir.value.set(1 / target.width * (dir === 'x' ? 1 : 0), 1 / target.height * (dir === 'y' ? 1 : 0)); fx.draw(blurMat, target); };
+  function blur(src, dir, target, referenceStep) {
+    const step = referenceStep * H / 1080;
+    blurMat.uniforms.tSrc.value = src;
+    blurMat.uniforms.uDir.value.set(dir === 'x' ? step / W : 0, dir === 'y' ? step / H : 0);
+    fx.draw(blurMat, target);
+  }
   const mats = [mat, volMat, blurMat, dofMat];
 
   let W = 0, H = 0, T = {};
@@ -278,8 +283,12 @@ export function createStageLight(fx) {
     if (w === W && h === H) return;
     for (const k in T) T[k].dispose();
     W = w; H = h;
-    const half = [Math.max(1, w >> 1), Math.max(1, h >> 1)], quarter = [Math.max(1, w >> 2), Math.max(1, h >> 2)];
-    T = { vol: renderTarget(...half), full: renderTarget(w, h), hA: renderTarget(...half), hB: renderTarget(...half), qA: renderTarget(...quarter), qB: renderTarget(...quarter) };
+    const half = [Math.max(1, w >> 1), Math.max(1, h >> 1)];
+    // 在参考画高上建两级景深缓冲，让双线性插值也随画幅缩放；低档沿用较小的缓冲。
+    const scale = Math.min(1, 1080 / h);
+    const level = divisor => [w, h].map(size => Math.max(1, Math.floor(size * scale / divisor)));
+    const small = level(2), large = level(4);
+    T = { vol: renderTarget(...half), full: renderTarget(w, h), hA: renderTarget(...small), hB: renderTarget(...small), qA: renderTarget(...large), qB: renderTarget(...large) };
   }
 
   // 灯焰抖动：两个不成倍数的正弦，只取决于 t 与灯的序号
@@ -324,11 +333,11 @@ export function createStageLight(fx) {
     if (sp && vol) shaft(vol, depth, camera, sp, t); else u.uVolOn.value = 0;
     if (!dof) { fx.draw(mat, target); return; }
     fx.draw(mat, T.full);                                           // 光与雾先合成到整幅缓冲
-    blur(T.full.texture, 'x', T.hA); blur(T.hA.texture, 'y', T.hB);   // 半分辨率 → 小虚
-    blur(T.hB.texture, 'x', T.qA); blur(T.qA.texture, 'y', T.qB);     // 四分之一 → 大虚
+    blur(T.full.texture, 'x', T.hA, 2); blur(T.hA.texture, 'y', T.hB, 2);   // 半分辨率 → 小虚
+    blur(T.hB.texture, 'x', T.qA, 4); blur(T.qA.texture, 'y', T.qB, 4);     // 四分之一 → 大虚
     dofU.tColor.value = T.full.texture; dofU.tDepth.value = depth; dofU.tSmall.value = T.hB.texture; dofU.tLarge.value = T.qB.texture;
     dofU.uProjInv.value.copy(camera.projectionMatrixInverse);
-    dofU.uDof.value.set(dof.focus, dof.near, dof.far, H0 / 1080); dofU.uDof2.value.set(dof.maxNear, dof.maxFar);
+    dofU.uDof.value.set(dof.focus, dof.near, dof.far); dofU.uDof2.value.set(dof.maxNear, dof.maxFar);
     fx.draw(dofMat, target);
   }
 

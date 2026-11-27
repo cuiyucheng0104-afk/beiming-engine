@@ -1,7 +1,7 @@
 // B20：12 份标准答案工程契约校验、技术卡驱动真实成片渲染与真实读回满分验证、噪声地板量测测试
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import process from 'node:process';
@@ -337,7 +337,31 @@ test('B20-5 R1/R2 回归守卫：18-1 全帧像素 OCR 与单帧篡改/截短、
       assert.equal(m15Audio.verdict.pass, false, '15-2 无声题混入音轨必须判 pass === false');
     };
 
-    await Promise.all([check18(), check30(), check15()]);
+    const trace = process.env.BEIMING_B20_TRACE;
+    if (trace) {
+      mkdirSync(dirname(trace), { recursive: true });
+      for (const tool of ['ffmpeg', 'ffprobe']) {
+        symlinkSync(join(HERE, '../../tests/ci/b20-media-trace.py'), join(root, tool));
+      }
+      const originalPath = process.env.PATH;
+      process.env.PATH = `${root}:${originalPath}`;
+      t.after(() => { process.env.PATH = originalPath; });
+    }
+    async function runCheck(id, check) {
+      if (!trace) return check();
+      const record = (event, status) => appendFileSync(trace, `${JSON.stringify({
+        event, id, status, monotonicNs: process.hrtime.bigint().toString(),
+      })}\n`);
+      record('check-start');
+      try {
+        await check();
+        record('check-end', 'passed');
+      } catch (error) {
+        record('check-end', 'failed');
+        throw error;
+      }
+    }
+    await Promise.all([runCheck('18-1', check18), runCheck('30-1', check30), runCheck('15-2', check15)]);
   } finally {
     rmSync(root, { recursive: true, force: true });
     assert.equal(existsSync(root), false, 'R1 回归临时目录应已彻底清理');

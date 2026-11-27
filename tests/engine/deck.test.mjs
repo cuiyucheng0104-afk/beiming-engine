@@ -2,7 +2,7 @@
 // deck-audio.js 的起播参数（相位锁定、导览 cue）。
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createDeckModel, createGovernor, TIERS, TIER_CONFIGS, FPS_WINDOW_SIZE, LOW_FPS_STREAK } from '../../engine/stage/deck.js';
+import { createDeck, createDeckModel, createGovernor, TIERS, TIER_CONFIGS, FPS_WINDOW_SIZE, LOW_FPS_STREAK } from '../../engine/stage/deck.js';
 import { stemStartArgs, cueStartArgs } from '../../engine/stage/deck-audio.js';
 
 test('deckModel：章节与节拍按事件帧切分，保持确定性步进', () => {
@@ -100,6 +100,42 @@ test('deckModel：播放中以声卡时钟为准——手动模式走到目标�
   assert.equal(model.getSnapshot().splitRatio, 1);
   model.setSplit(-1);
   assert.equal(model.getSnapshot().splitRatio, 0);
+});
+
+test('deck：到拍的回调内停声并对齐画面，从停点恢复，自动播放可越过节拍', t => {
+  const model = createDeckModel({ shots: [{ id: 's', in: 0, out: 96 }], events: [{ frame: 24 }, { frame: 48 }], fps: 24, dur: 4 });
+  let next, now = 0, clock = 0, playing = false, rendered;
+  const win = new EventTarget(), calls = [];
+  win.requestAnimationFrame = callback => { next = callback; return 1; };
+  win.cancelAnimationFrame = () => { next = null; };
+  const tick = () => { now += 16; next(now); };
+  const audio = {
+    isPlaying: () => playing, currentTime: () => clock,
+    play(time) { calls.push(['play', time]); clock = time; playing = true; },
+    pause() { calls.push(['pause']); playing = false; },
+    seek(time) { calls.push(['seek', time]); clock = time; },
+  };
+  const deck = createDeck({ root: new EventTarget(), win, model, audio,
+    onRender(time) { rendered = { time, playing, clock }; } });
+  t.after(() => deck.dispose());
+  model.nextBeat(); deck.start(); tick();
+  assert.deepEqual(calls.splice(0), [['play', 0]]);
+  clock = 1.03; tick();
+  assert.equal(model.getSnapshot().frame, 24);
+  assert.equal(model.getSnapshot().playing, false);
+  assert.deepEqual(rendered, { time: 1, playing: false, clock: 1 });
+  assert.deepEqual(calls.splice(0), [['pause'], ['seek', 1]]);
+  tick(); tick();
+  assert.deepEqual(calls, []);
+  model.nextBeat(); tick();
+  assert.deepEqual(calls.splice(0), [['play', 1]]);
+  model.toggleAuto(); clock = 2.25; tick();
+  assert.deepEqual(rendered, { time: 2.25, playing: true, clock: 2.25 });
+  assert.deepEqual(calls, []);
+  model.togglePlay(); tick();
+  assert.deepEqual(calls.splice(0), [['pause'], ['seek', 2.25]]);
+  model.togglePlay(); tick();
+  assert.deepEqual(calls, [['play', 2.25]]);
 });
 
 test('governor：平均帧率持续低于 32 fps 才降档；卡得厉害更快降；手动锁定的档不降', () => {

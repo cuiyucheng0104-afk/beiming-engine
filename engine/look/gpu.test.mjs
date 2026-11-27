@@ -567,6 +567,53 @@ gpuTest('R65 暗场舞台光：默认关时逐字节不变；局部暖光只亮�
   assert.ok(r.noisy && r.drift, '带噪声的雾与不带的不同；t 变了雾会漂');
 });
 
+// 取同一机位的中央竖带，保留两种原生像素密度。
+const DOF_EDGE_PROBE = `
+import * as THREE from 'three';
+import { createFullscreen, renderTarget } from '/engine/look/pass.js';
+import { createStageLight } from '/engine/look/stage.js';
+const renderer = new THREE.WebGLRenderer({ antialias: false });
+const fx = createFullscreen(renderer), stage = createStageLight(fx);
+const cam = new THREE.PerspectiveCamera(40, 16 / 9, .1, 100);
+const scene = new THREE.Scene();
+for (const [x, color] of [[-20, 0x000000], [20, 0xffffff]]) {
+  const wall = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshBasicMaterial({ color }));
+  wall.position.set(x, 0, -20); scene.add(wall);
+}
+const widths = [];
+for (const scale of [1, 2]) {
+  const W = 128 * scale, H = 1080 * scale, fullWidth = 1920 * scale;
+  cam.setViewOffset(fullWidth, H, (fullWidth - W) / 2, 0, W, H);
+  const source = renderTarget(W, H, { depthBuffer: true, depthTexture: new THREE.DepthTexture(W, H) });
+  const target = renderTarget(W, H, { type: THREE.UnsignedByteType });
+  renderer.setRenderTarget(source); renderer.render(scene, cam);
+  const results = [];
+  for (const focus of [10, 15, 20]) {
+    stage.render({ src: source.texture, depth: source.depthTexture, camera: cam, p: { dof: { focus, far: 10 } } }, target);
+    const pixels = new Uint8Array(W * scale * 4);
+    renderer.readRenderTargetPixels(target, 0, H / 2 - scale, W, scale, pixels);
+    const row = [];
+    for (let x = 0; x < W; x += scale) {
+      let sum = 0;
+      for (let y = 0; y < scale; y++) for (let dx = 0; dx < scale; dx++) sum += pixels[(y * W + x + dx) * 4];
+      row.push(sum / (scale * scale));
+    }
+    function crossing(level) {
+      const x = row.findIndex(value => value >= level);
+      return x - 1 + (level - row[x - 1]) / (row[x] - row[x - 1]);
+    }
+    results.push(crossing(229.5) - crossing(25.5));
+  }
+  widths.push(results); source.dispose(); target.dispose();
+}
+window.RESULT = { widths };`;
+gpuTest('景深在 1080p 与 2160p 折回后的焦外、过渡与焦内边缘宽度一致', async t => {
+  const { widths } = await run('dof-edge', DOF_EDGE_PROBE);
+  t.diagnostic(`10%–90% 边缘宽度（1080p 像素）：${JSON.stringify(widths)}`);
+  for (const [far, mid, sharp] of widths) assert.ok(far > mid && mid > sharp && sharp < 1.5);
+  widths[0].forEach((w, i) => assert.ok(Math.abs(w - widths[1][i]) < 1, `第 ${i} 条边缘相差须小于一个参考像素`));
+});
+
 // 暗场舞台光 · 体积光与景深（engine/look/stage.js）：体积光只在「雾层 × 灯的锥角 × 没被挡」的那段视线上加光，遮挡物背后的雾不加；
 // 景深把焦外的墙顶边缘抹软，焦平面挪到墙上就恢复清晰；两样都确定，且不开时逐字节不变
 const STAGE2_PROBE = `

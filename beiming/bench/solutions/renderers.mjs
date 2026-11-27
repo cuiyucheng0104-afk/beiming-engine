@@ -19,7 +19,7 @@ import { evaluate as evalTimeline } from '../../cards/time/timeline/evaluate.mjs
 import { create as createPanels } from '../../cards/two-d/layout-panels/comp.mjs';
 import { create as createCursor } from '../../cards/two-d/overlay-cursor/comp.mjs';
 import { create as createSubs } from '../../cards/two-d/overlay-subs/comp.mjs';
-import { audioLoudness, blackFreezeDup, cutYdif, deliverSpec } from '../../observe/metrics/index.mjs';
+import { audioLoudness, blackFreezeDup, deliverSpec } from '../../observe/metrics/index.mjs';
 import { checkAssertion, evaluateAssertion, parseFps, scopeRange } from '../../verify/predicates.mjs';
 import {
   argsOf as argsOfL1,
@@ -689,11 +689,10 @@ async function measure23_1(question, film, rendered) {
   const { deliverablePath, artifacts } = rendered;
   const metaDoc = JSON.parse(readFileSync(artifacts.frameMetaPath, 'utf8'));
 
-  const [probe, specRes, bfdRes, cutRes] = await Promise.all([
+  const [probe, specRes, bfdRes] = await Promise.all([
     probeDeliverableSpecAsync(deliverablePath),
     deliverSpec(deliverablePath),
-    blackFreezeDup(deliverablePath),
-    cutYdif(deliverablePath, 24),
+    blackFreezeDup(deliverablePath, { cutThreshold: 24 }),
   ]);
   const actualSize = [probe?.width ?? 0, probe?.height ?? 0];
   const actualFrames = Number.isInteger(probe?.frames) && probe.frames > 0 ? probe.frames : 0;
@@ -714,7 +713,7 @@ async function measure23_1(question, film, rendered) {
     output: buildMeasuredOutput(probe, specRes),
     blackFrames: bfdRes?.details?.black ?? [],
     freezes: (bfdRes?.details?.freezes ?? []).map(([a, b]) => ({ in: a, out: b + 1 })),
-    cuts: cutRes?.value ?? [],
+    cuts: bfdRes?.details?.cuts ?? [],
     orbitTotalDeg: { 'camera:subject': orbitDeg },
   };
   const { base, baseResults } = buildL1Base(question, film, probe, measuredForPred);
@@ -789,11 +788,10 @@ async function measure28_1(question, film, rendered) {
   const { deliverablePath, artifacts } = rendered;
   const metaDoc = JSON.parse(readFileSync(artifacts.frameMetaPath, 'utf8'));
 
-  const [probe, specRes, bfdRes, cutRes] = await Promise.all([
+  const [probe, specRes, bfdRes] = await Promise.all([
     probeDeliverableSpecAsync(deliverablePath),
     deliverSpec(deliverablePath),
-    blackFreezeDup(deliverablePath),
-    cutYdif(deliverablePath, 24),
+    blackFreezeDup(deliverablePath, { cutThreshold: 24 }),
   ]);
   const actualSize = [probe?.width ?? 0, probe?.height ?? 0];
   const actualFrames = Number.isInteger(probe?.frames) && probe.frames > 0 ? probe.frames : 0;
@@ -817,7 +815,7 @@ async function measure28_1(question, film, rendered) {
     output: buildMeasuredOutput(probe, specRes),
     blackFrames: bfdRes?.details?.black ?? [],
     freezes: (bfdRes?.details?.freezes ?? []).map(([a, b]) => ({ in: a, out: b + 1 })),
-    cuts: cutRes?.value ?? [],
+    cuts: bfdRes?.details?.cuts ?? [],
     frames: metaDoc.frames,
     orbitTotalDeg: { 'camera:subject': orbitDeg },
   };
@@ -1504,11 +1502,10 @@ async function render15_2(question, film, outDir) {
 async function measure15_2(question, film, rendered) {
   const { deliverablePath, artifacts } = rendered;
   const metaDoc = JSON.parse(readFileSync(artifacts.frameMetaPath, 'utf8'));
-  const [probe, specRes, bfdRes, cutRes] = await Promise.all([
+  const [probe, specRes, bfdRes] = await Promise.all([
     probeDeliverableSpecAsync(deliverablePath),
     deliverSpec(deliverablePath),
-    blackFreezeDup(deliverablePath),
-    cutYdif(deliverablePath, 24),
+    blackFreezeDup(deliverablePath, { cutThreshold: 24 }),
   ]);
 
   const actualSize = [probe?.width ?? 0, probe?.height ?? 0];
@@ -1533,7 +1530,7 @@ async function measure15_2(question, film, rendered) {
     output: buildMeasuredOutput(probe, specRes),
     blackFrames: bfdRes?.details?.black ?? [],
     freezes: (bfdRes?.details?.freezes ?? []).map(([a, b]) => ({ in: a, out: b + 1 })),
-    cuts: cutRes?.value ?? [],
+    cuts: bfdRes?.details?.cuts ?? [],
     orbitTotalDeg: { 'camera:scene': orbitDeg },
   };
   const baseResults = question.basePredicates.map((text) => evaluateBasePredicate(text, film, measuredForPred, question.deliverable));
@@ -2325,11 +2322,10 @@ async function render5_1(question, film, outDir) {
 async function measure5_1(question, film, rendered) {
   const { deliverablePath, artifacts } = rendered;
 
-  const [probe, specRes, bfdRes, cutRes] = await Promise.all([
+  const [probe, specRes, bfdRes] = await Promise.all([
     probeDeliverableSpecAsync(deliverablePath),
     deliverSpec(deliverablePath),
-    blackFreezeDup(deliverablePath),
-    cutYdif(deliverablePath, 24),
+    blackFreezeDup(deliverablePath, { cutThreshold: 24 }),
   ]);
   const actualFps = Number.isFinite(probe?.fps) && probe.fps > 0 ? probe.fps : 0;
   const actualFrames = Number.isInteger(probe?.frames) && probe.frames > 0 ? probe.frames : 0;
@@ -2351,7 +2347,7 @@ async function measure5_1(question, film, rendered) {
       musicAlign = { corr: null, stretch: null, offsetSec: null };
     }
   }
-  const cuts = cutRes?.value ?? [];
+  const cuts = bfdRes?.details?.cuts ?? [];
   const { peaks } = actualFps > 0 && actualFrames > 0
     ? detectLowBandPeaks(filmPcm, actualFps, actualFrames, { maxHz: hitArgs.maxHz, riseDb: hitArgs.riseDb })
     : { peaks: [] };
