@@ -561,3 +561,37 @@ test('O13-4：CLI board.mjs build --core-vs-cycles <dir/file> 连续两天自动
   ]);
   assert.equal(conflictRes.code, 2);
 });
+
+/* ---------------- 测试 5：每帧打包（按显卡） ---------------- */
+
+test('O13-5：每帧打包读数按显卡并进场景、按 gpu 排序、同显卡读数不一致拒收、快照复核与 HTML 一列', () => {
+  const pack = (gpu, msPerFrame) => ({ gpu, msPerFrame, frames: 5, resolution: [1280, 720] });
+  const board = buildBoard({
+    asOf: AS_OF,
+    coreVsCycles: [
+      { filmType: 'hard-surface', scene: '03b-full', gates: [], pack: [pack('RTX 5090', 120)] },
+      { filmType: 'hard-surface', scene: '03b-full', gates: [], pack: [pack('Apple M5 Pro', 230.5), pack('RTX 5090', 120)] },
+    ],
+  });
+  const s = board.coreVsCycles.scenes[0];
+  assert.deepEqual(s.pack.map(p => [p.gpu, p.msPerFrame]), [['Apple M5 Pro', 230.5], ['RTX 5090', 120]]);
+  assert.equal(s.passedLevel, 0);
+  const html = renderBoardHtml(board);
+  assert.ok(html.includes('每帧打包（按显卡）') && html.includes('RTX 5090：0.12 秒（5 帧，1280×720）'), '打包一列');
+  // 没有打包读数的场景不带这个键（旧快照照常复核）
+  const plain = buildBoard({ asOf: AS_OF, coreVsCycles: [{ filmType: 'toon', scene: 'fox', gates: [{ level: 1, status: 'pass' }] }] });
+  assert.equal(Object.hasOwn(plain.coreVsCycles.scenes[0], 'pack'), false);
+  renderBoardHtml(plain);
+  // 同一显卡两个不同读数、字段不全、多余字段都拒收
+  assert.throws(() => buildBoard({ asOf: AS_OF, coreVsCycles: [
+    { filmType: 'hard-surface', scene: 'x', gates: [], pack: [pack('RTX 5090', 120)] },
+    { filmType: 'hard-surface', scene: 'x', gates: [], pack: [pack('RTX 5090', 121)] },
+  ] }), isBadArgument);
+  assert.throws(() => buildBoard({ asOf: AS_OF, coreVsCycles: [{ filmType: 'toon', scene: 'x', gates: [], pack: [{ gpu: 'RTX 5090', msPerFrame: 1 }] }] }), isBadArgument);
+  assert.throws(() => buildBoard({ asOf: AS_OF, coreVsCycles: [{ filmType: 'toon', scene: 'x', gates: [], pack: [{ ...pack('RTX 5090', 1), note: 1 }] }] }), isBadArgument);
+  assert.throws(() => buildBoard({ asOf: AS_OF, coreVsCycles: [{ filmType: 'toon', scene: 'x', gates: [], pack: [] }] }), isBadArgument);
+  // 快照被改乱序：复核拒收
+  const tampered = JSON.parse(JSON.stringify(board));
+  tampered.coreVsCycles.scenes[0].pack.reverse();
+  assert.throws(() => renderBoardHtml(tampered), isBadArgument);
+});

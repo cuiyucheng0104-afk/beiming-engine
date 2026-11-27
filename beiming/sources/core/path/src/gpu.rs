@@ -74,6 +74,11 @@ pub struct Gpu {
     /// The last upload's procedural BLASes by geometry hash (read-only once built; another upload may share them), with
     /// the bytes Metal allocated for each (0 where unknown).
     proc_blases: std::sync::Mutex<std::collections::HashMap<[u8; 32], (wgpu::Blas, u64)>>,
+    /// 北冥：上传时另量一遍 TLAS 的秒数（`pack-info --upload` 开；平时关，不多建）
+    pub time_tlas: bool,
+    /// 北冥：上一次上传的三角形 BLAS，按「分组或网格 + 建法 + 各段的三角形数、是否不透明 + 顶点的字节」的 SHA-256 做键。下一次上传
+    /// 遇到同一个键就直接用（建好的 BLAS 不再依赖顶点缓冲，只读），只建新的；每次上传之后只留这一次用到的
+    tri_blases: std::sync::Mutex<std::collections::HashMap<[u8; 32], wgpu::Blas>>,
 }
 
 /// Where the last upload's procedural blobs are on the GPU: a rebuild with the same geometries (`ProcLayout::key`)
@@ -1613,7 +1618,7 @@ impl Gpu {
         let no_vis_bufs = KernelBufs::new(&device, merged, guard_room(hwrt), 1, 64, 64, 64, 64);
         let no_vis = vis_bind_group(&device, &vis_layout, &no_vis_view, &no_vis_bufs, true);
         let pl = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: None, bind_group_layouts: &[Some(&layout), Some(&vis_layout)], immediate_size: 0 });
-        Ok(Gpu { instance, adapter, timestamps, device, queue, adapter_info, uniform_tables, whole_tables, switches, pipeline_cache, source: src, module, merged, modules: Default::default(), pipeline_layout: pl, pipelines: Default::default(), layout, vis_layout, no_vis, no_vis_bufs, no_vis_view, no_grid_view, hwrt, pages: Default::default(), proc_cache: Default::default(), proc_blases: Default::default() })
+        Ok(Gpu { instance, adapter, timestamps, device, queue, adapter_info, uniform_tables, whole_tables, switches, pipeline_cache, source: src, module, merged, modules: Default::default(), pipeline_layout: pl, pipelines: Default::default(), layout, vis_layout, no_vis, no_vis_bufs, no_vis_view, no_grid_view, hwrt, pages: Default::default(), proc_cache: Default::default(), proc_blases: Default::default(), time_tlas: false, tri_blases: Default::default() })
     }
 
     /// 北冥：`core-render info --limits` 打的全文：适配器的信息、上限与特性，加上这台设备实际申请到的上限与特性
@@ -1873,6 +1878,9 @@ impl Gpu {
                 .chunks(3)
                 .flat_map(|t| crate::scene::blas_tri(crate::ltree::tri_vertices(t)))
                 .collect();
+            // 北冥：分段计时：展开三角形（之后是建 BLAS、建 TLAS）
+            timings.push(("blas_verts_ms".into(), tb.elapsed().as_secs_f64() * 1000.0));
+            let tblas = Instant::now();
             let vbuf = buf_room("blas_verts", bytemuck::cast_slice(&verts), room.tris * 36, wgpu::BufferUsages::BLAS_INPUT | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::STORAGE);
             let huge_scene = huge(groups, !scene.gpu_instances.is_empty());
             let mut first = 0usize;
@@ -1897,6 +1905,47 @@ impl Gpu {
                     flags: if opaque { wgpu::AccelerationStructureGeometryFlags::OPAQUE } else { wgpu::AccelerationStructureGeometryFlags::empty() },
                 })
                 .collect();
+            // Instanced meshes: one opaque model-space BLAS each, a TLAS instance per placement (custom data
+            // INSTANCE_BIT | record; shadow casters mask 1).
+            // Per mesh: (first triangle, count, opaque) geometries: the opaque part, then the cutout part (any-hit).
+            let mesh_parts: Vec<Vec<(u32, u32, bool)>> = scene.meshes.iter().map(|m| [(m.first, m.opaque, true), (m.first + m.opaque, m.count - m.opaque, false)].into_iter().filter(|p| p.1 > 0).collect()).collect();
+            // 北冥：BLAS 跨帧复用。每个 BLAS 的键：分组号（网格记 GROUPS）、建法（快建还是快追）、各段的三角形数与是否不透明、
+            // 各段顶点的字节。静止的件（场景包里每个网格都在模型空间，动的只是实例矩阵）下一帧键不变，直接用上一次建好的；
+            // 动了的分组、换了姿态的网格键变了，照常新建
+            let tk = Instant::now();
+            let key_of = |tag: usize, fast_build: bool, ps: &[(u32, u32, bool)]| -> [u8; 32] {
+                use sha2::{Digest, Sha256};
+                let mut h = Sha256::new();
+                h.update((tag as u32).to_le_bytes());
+                h.update([fast_build as u8]);
+                for &(first, count, opaque) in ps {
+                    h.update(count.to_le_bytes());
+                    h.update([opaque as u8]);
+                    h.update(bytemuck::cast_slice(&verts[first as usize..(first + count) as usize]));
+                }
+                h.finalize().into()
+            };
+            let group_keys: Vec<Option<[u8; 32]>> = {
+                use rayon::prelude::*;
+                groups.par_iter().enumerate().map(|(i, &(first, count, _, opaque))| (count > 0).then(|| key_of(i, i >= 4, &[((first * 3) as u32, (count * 3) as u32, opaque)]))).collect()
+            };
+            let mesh_keys: Vec<[u8; 32]> = {
+                use rayon::prelude::*;
+                mesh_parts.par_iter().zip(scene.meshes.par_iter()).map(|(ps, m)| key_of(GROUPS, m.deforms, &ps.iter().map(|&(first, count, opaque)| ((pool_first as u32 + first) * 3, count * 3, opaque)).collect::<Vec<_>>())).collect()
+            };
+            timings.push(("blas_key_ms".into(), tk.elapsed().as_secs_f64() * 1000.0));
+            let mut cache = self.tri_blases.lock().unwrap();
+            let mut kept: std::collections::HashMap<[u8; 32], wgpu::Blas> = Default::default();
+            // (BLAS, 这一次要不要建)
+            let mut blas_for = |key: [u8; 32], make: &dyn Fn() -> wgpu::Blas| -> (wgpu::Blas, bool) {
+                if let Some(b) = kept.get(&key).or_else(|| cache.get(&key)).cloned() {
+                    kept.insert(key, b.clone());
+                    return (b, false);
+                }
+                let b = make();
+                kept.insert(key, b.clone());
+                (b, true)
+            };
             let mut blases = vec![];
             for (i, (first, count, mask, _)) in groups.iter().enumerate() {
                 if *count == 0 {
@@ -1905,19 +1954,17 @@ impl Gpu {
                 // Dynamic groups (4..8) are rebuilt whenever something in them moves: built fast rather than traced fast
                 // (the C slice's ~100 k moving triangles: rebuild 4.14 -> 3.1 ms a frame, trace unchanged).
                 let flags = if i >= 4 { wgpu::AccelerationStructureFlags::PREFER_FAST_BUILD } else { wgpu::AccelerationStructureFlags::PREFER_FAST_TRACE };
-                let blas = d.create_blas(
-                    &wgpu::CreateBlasDescriptor { label: None, flags, update_mode: wgpu::AccelerationStructureUpdateMode::Build },
-                    wgpu::BlasGeometrySizeDescriptors::Triangles { descriptors: vec![sizes[i].clone()] },
-                );
+                let (blas, fresh) = blas_for(group_keys[i].expect("a group with triangles has a key"), &|| {
+                    d.create_blas(
+                        &wgpu::CreateBlasDescriptor { label: None, flags, update_mode: wgpu::AccelerationStructureUpdateMode::Build },
+                        wgpu::BlasGeometrySizeDescriptors::Triangles { descriptors: vec![sizes[i].clone()] },
+                    )
+                });
                 // Custom data = the first triangle, or past 2^24 (F_HUGE) the group: `Params::group_first` has its first.
                 let custom = if huge_scene { i as u32 } else { *first as u32 };
                 t[blases.len()] = Some(wgpu::TlasInstance::new(&blas, [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0], custom, *mask));
-                blases.push((blas, i, *first, sizes[i].clone()));
+                blases.push((blas, i, *first, sizes[i].clone(), fresh));
             }
-            // Instanced meshes: one opaque model-space BLAS each, a TLAS instance per placement (custom data
-            // INSTANCE_BIT | record; shadow casters mask 1).
-            // Per mesh: (first triangle, count, opaque) geometries: the opaque part, then the cutout part (any-hit).
-            let mesh_parts: Vec<Vec<(u32, u32, bool)>> = scene.meshes.iter().map(|m| [(m.first, m.opaque, true), (m.first + m.opaque, m.count - m.opaque, false)].into_iter().filter(|p| p.1 > 0).collect()).collect();
             let mesh_sizes: Vec<Vec<wgpu::BlasTriangleGeometrySizeDescriptor>> = mesh_parts
                 .iter()
                 .map(|parts| {
@@ -1935,14 +1982,20 @@ impl Gpu {
                 .collect();
             // Deforming meshes (shared poses) are rebuilt every new pose: built fast rather than traced fast, as the dynamic
             // groups are.
-            let meshes: Vec<wgpu::Blas> = mesh_sizes
+            let meshes: Vec<(wgpu::Blas, bool)> = mesh_sizes
                 .iter()
                 .zip(&scene.meshes)
-                .map(|(s, m)| {
+                .zip(&mesh_keys)
+                .map(|((s, m), key)| {
                     let flags = if m.deforms { wgpu::AccelerationStructureFlags::PREFER_FAST_BUILD } else { wgpu::AccelerationStructureFlags::PREFER_FAST_TRACE };
-                    d.create_blas(&wgpu::CreateBlasDescriptor { label: None, flags, update_mode: wgpu::AccelerationStructureUpdateMode::Build }, wgpu::BlasGeometrySizeDescriptors::Triangles { descriptors: s.clone() })
+                    blas_for(*key, &|| d.create_blas(&wgpu::CreateBlasDescriptor { label: None, flags, update_mode: wgpu::AccelerationStructureUpdateMode::Build }, wgpu::BlasGeometrySizeDescriptors::Triangles { descriptors: s.clone() }))
                 })
                 .collect();
+            let fresh = blases.iter().filter(|b| b.4).count() + meshes.iter().filter(|m| m.1).count();
+            timings.push(("blas_built".into(), fresh as f64));
+            timings.push(("blas_reused".into(), (blases.len() + meshes.len() - fresh) as f64));
+            *cache = kept;
+            drop(cache);
             // What the triangle BLASes hold (Metal's own sizes; each instanced mesh once) and their vertex buffer.
             let group_parts = groups.iter().filter(|g| g.1 > 0).map(|&(first, count, _, opaque)| vec![((first * 3) as u32, (count * 3) as u32, opaque)]);
             let mesh_vertex_parts = mesh_parts.iter().map(|ps| ps.iter().map(|&(first, count, opaque)| ((pool_first as u32 + first) * 3, count * 3, opaque)).collect::<Vec<_>>());
@@ -1959,7 +2012,7 @@ impl Gpu {
                 let row = |r: usize| [w.x_axis[r], w.y_axis[r], w.z_axis[r], w.w_axis[r]];
                 let [r0, r1, r2] = [row(0), row(1), row(2)];
                 let xf = [r0[0], r0[1], r0[2], r0[3], r1[0], r1[1], r1[2], r1[3], r2[0], r2[1], r2[2], r2[3]];
-                t[base + k] = Some(wgpu::TlasInstance::new(&meshes[inst.mesh as usize], xf, INSTANCE_BIT | k as u32, instance_mask(inst.cast_shadow, inst.hidden)));
+                t[base + k] = Some(wgpu::TlasInstance::new(&meshes[inst.mesh as usize].0, xf, INSTANCE_BIT | k as u32, instance_mask(inst.cast_shadow, inst.hidden)));
             }
             // Procedural geometry: one AABB BLAS per distinct geometry (object space; kept across uploads by the
             // geometry's hash, so a rebuild builds only new ones), and per mesh a TLAS instance of it after the model
@@ -1998,7 +2051,8 @@ impl Gpu {
             }
             let entries: Vec<wgpu::BlasBuildEntry> = blases
                 .iter()
-                .map(|(blas, _, first, size)| wgpu::BlasBuildEntry {
+                .filter(|b| b.4)
+                .map(|(blas, _, first, size, _)| wgpu::BlasBuildEntry {
                     blas,
                     geometry: wgpu::BlasGeometries::TriangleGeometries(vec![wgpu::BlasTriangleGeometry {
                         size,
@@ -2011,7 +2065,7 @@ impl Gpu {
                         transform_buffer_offset: None,
                     }]),
                 })
-                .chain(meshes.iter().zip(&mesh_sizes).zip(&mesh_parts).map(|((blas, sizes), parts)| wgpu::BlasBuildEntry {
+                .chain(meshes.iter().zip(&mesh_sizes).zip(&mesh_parts).filter(|((m, _), _)| m.1).map(|(((blas, _), sizes), parts)| wgpu::BlasBuildEntry {
                     blas,
                     geometry: wgpu::BlasGeometries::TriangleGeometries(
                         sizes
@@ -2040,6 +2094,20 @@ impl Gpu {
             self.queue.submit([enc.finish()]);
             self.device.poll(wgpu::PollType::wait_indefinitely())?;
             drop(entries);
+            // 北冥：分段计时要分开 TLAS 时（`time_tlas`），建完之后单独把 TLAS 再建一遍、量它；另一段取「从展开之后到建完」减去这一遍
+            // TLAS，里面有顶点缓冲、键、BLAS 描述、提交与等待，不只是建 BLAS（一个也不建时也有十几毫秒），所以叫 accel_minus_tlas_ms。
+            // 不在建的时候拆成两次提交：拆开之后苹果显卡上 BLAS 那一次就慢了约 60 毫秒，量的就不是平时的数了
+            if self.time_tlas {
+                let all = tblas.elapsed().as_secs_f64() * 1000.0;
+                let ttlas = Instant::now();
+                let mut enc = d.create_command_encoder(&Default::default());
+                enc.build_acceleration_structures(std::iter::empty::<&wgpu::BlasBuildEntry>(), [&t]);
+                self.queue.submit([enc.finish()]);
+                self.device.poll(wgpu::PollType::wait_indefinitely())?;
+                let tlas = ttlas.elapsed().as_secs_f64() * 1000.0;
+                timings.push(("accel_minus_tlas_ms".into(), all - tlas));
+                timings.push(("tlas_build_ms".into(), tlas));
+            }
             accel = Some(Accel { tlas: t, verts: vbuf, inst_base: base, proc_base, blas_per_tri });
             timings.push(("accel_build_ms".into(), tb.elapsed().as_secs_f64() * 1000.0));
         }
@@ -2715,6 +2783,59 @@ mod tests {
     /// 灯组）：颜色、反照率、法线、方差逐位相同；读回的灯组是 2 层、每层一个像素一项、全是 0；不请求时没有灯组层。
     /// 请求得太多（缓冲超过这块显卡的上限）在开渲前报错。要辅助层（`aux`）的一遍同样逐位相同，辅助层每个像素一项，
     /// 不透明度全是 1（背景对相机可见）。（没有显卡时跳过。）
+    /// 北冥：BLAS 跨帧复用。同一个 `Gpu` 上同一个场景再传一次：BLAS 全部复用、一个不建，画面逐位相同；挪动一块之后
+    /// 它所在的分组换了键、重建，画面与新开一个 `Gpu`（什么都没缓存）渲的逐位相同。（没有显卡或没有硬件求交时跳过。）
+    #[test]
+    fn blases_are_reused_across_uploads() {
+        const GAME: &str = r#"
+            const tri = (id, p) => __engine.geometry(id, new Float32Array(p), new Float32Array([0,0,1, 0,0,1, 0,0,1]), new Float32Array([0,0, 1,0, 0,1]), new Uint32Array([0,1,2]));
+            globalThis.__threert = {
+                describe: () => JSON.stringify({ handlers: [], frame: false, keys: {} }),
+                setup: (room, seed) => {
+                    tri(1, [-1,0,0, 0,0,0, -1,1,0]);
+                    tri(2, [0,-1,0, 2,-1,0, 0,1,0]);
+                    __engine.material(3, { name: "wall", color: [0.8, 0.8, 0.8], opacity: 1, metalness: 0, roughness: 0.5, emissive: [0, 0, 0], emissiveIntensity: 0, doubleSided: true });
+                    __engine.object(5, { name: "a", parent: null, castShadow: true, kind: "mesh", geometry: 1, material: 3 });
+                    __engine.object(6, { name: "b", parent: null, castShadow: true, kind: "mesh", geometry: 2, material: 3 });
+                    __engine.object(7, { name: "cam", parent: null, castShadow: false, kind: "camera", camera: { fov: 50, near: 0.1, far: 100, exposure: { mode: "manual", ev100: 0 } } });
+                    __engine.transform(7, new Float32Array([0, 0, 5, 0, 0, 0, 1, 1, 1, 1]));
+                    __engine.environment({ sky: { type: "color", color: [0.2, 0.3, 0.4], intensity: 1, skyLightIntensity: 1 } });
+                    __engine.settings({ name: "reuse", preset: "preview", width: 32, height: 18, time: 0, camera: 7 });
+                    return "{}";
+                },
+                event: () => "{}", commit: () => {}, setState: () => {}, frame: () => {}, outline: () => "[]", inspect: () => "{}", edit: () => {},
+            };
+        "#;
+        let fresh = || Gpu::new_with(GpuOptions::default());
+        let g = match fresh() {
+            Ok(g) if g.hwrt => g,
+            Ok(_) => return eprintln!("skipped: 没有硬件求交"),
+            Err(e) => return eprintln!("skipped: {e}"),
+        };
+        let host = crate::script::ScriptHost::new(GAME).unwrap();
+        host.setup("room", None).unwrap();
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let scene = || crate::scene::build(&host.world.borrow(), root, &root.join("presets"), None).unwrap();
+        let shot = |g: &Gpu| {
+            let mut sc = scene();
+            let mut timings = vec![];
+            let prep = crate::prepare(g, &mut sc, &mut timings);
+            let f = g.render(&sc, &prep.tri_verts, prep.groups, bytemuck::cast_slice(&prep.nodes), &prep.emitters, &prep.gpu_emitter_tris, crate::ltree::nodes_of(prep.light_tree.as_ref()), &prep.env, &prep.env_cdf, &prep.energy, prep.params, 4, false, &mut timings).unwrap();
+            let n = |k: &str| timings.iter().find(|t| t.0 == k).map(|t| t.1 as u32).unwrap();
+            (f.color.iter().flatten().map(|x| x.to_bits()).collect::<Vec<u32>>(), n("blas_built"), n("blas_reused"))
+        };
+        let first = shot(&g);
+        assert!((first.1, first.2) == (1, 0) && first.0.iter().any(|b| f32::from_bits(*b) > 0.0), "第一次：建一个分组 BLAS（{}, {}）", first.1, first.2);
+        let again = shot(&g);
+        assert_eq!((again.1, again.2), (0, 1), "再传一次：全部复用");
+        assert_eq!(again.0, first.0, "复用的 BLAS 渲出来与新建的逐位相同");
+        host.world.borrow_mut().set_transform(6, glam::Vec3::new(0.3, 0.0, 0.0), glam::Quat::IDENTITY, glam::Vec3::ONE).unwrap();
+        let moved = shot(&g);
+        assert_eq!((moved.1, moved.2), (1, 0), "挪了一块：那一组重建");
+        assert_ne!(moved.0, first.0, "挪了之后画面应当变");
+        assert_eq!(moved.0, shot(&fresh().unwrap()).0, "与新开一个 Gpu 渲的逐位相同");
+    }
+
     #[test]
     fn requested_lightgroups_leave_the_picture_alone() {
         const GAME: &str = r#"

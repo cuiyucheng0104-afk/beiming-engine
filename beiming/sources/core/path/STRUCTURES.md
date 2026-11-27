@@ -1,6 +1,6 @@
 # 核心帧源 · 内核的四样内部结构
 
-读者｜要改内核、或要在内核里移植闭包、灯、图案节点、降噪、输出通道的人与 agent　冻结标记｜[FREEZE.json](FREEZE.json)（版本 1.2.4，2026-11-27）　来源与历史｜[PROVENANCE.md](PROVENANCE.md)
+读者｜要改内核、或要在内核里移植闭包、灯、图案节点、降噪、输出通道的人与 agent　冻结标记｜[FREEZE.json](FREEZE.json)（版本 1.2.5，2026-11-27）　来源与历史｜[PROVENANCE.md](PROVENANCE.md)
 
 这份条文定死路径追踪内核内部四样东西的形状：**材质记录、光线负载、随机维度、输出通道**。定下来是为了让后面几类移植能分给不同的人同时做：各改各的函数，不改这四样的形状。
 
@@ -378,7 +378,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | 1 | `shadow_terminator_shading_offset`、`shadow_terminator_geometry_offset` | f32 | 阴影终止的两个偏移（平滑网格用） |
 | 1 | `reserved0`、`reserved1` | f32 | 预留 |
 
-状态：表已上传（个数等于物体数）。**场景包读入器（`src/pack.rs`）写 `entity_id`（实例表的实体编号）与 `object_flag` 的第 3 位（实例表第四列是 1 的镜像实例），经 `Scene::object_ext` 带进上传；库测试 `mirrored_instances_have_flipped_geometric_normals_and_their_ids` 守着写入。`entity_id` 已落地：辅助样本（`aux_sample`）读它写编号层，`film_write_sample` 读它数覆盖率；`object_flag` 已写未读。** 从场景脚本建的场景这张表仍是全 0（编号层全 0）；其余字段已定义、没有人写非 0 的值。`object_ext_at` 的调用者就是上面两处。各家以后只填自己的格子。运动矢量要的前后两刻变换不放这里，到做运动模糊时另定。
+状态：表已上传（个数等于物体数）。**场景包读入器（`src/pack.rs`）写 `entity_id`（实例表的实体编号）与 `object_flag` 的第 3 位（实例表第四列是 1 的镜像实例），经 `Scene::object_ext` 带进上传；库测试 `mirrored_instances_have_flipped_geometric_normals_and_their_ids` 守着写入。`entity_id` 已落地：辅助样本（`aux_sample`）读它写编号层，`film_write_sample` 读它数覆盖率。`object_flag` 的镜像位 1.2.5 起已落地：镜像的实例与原件共用一个没换绕序的网格，`shader_setup_from_hit`（与上游顶替的 `surface`）命中实例时按它把几何法线取反；软件求交把实例平铺时按它换绕序（`src/lib.rs` 的 `flatten_instances`），见「与 Cycles、与上游不一样的地方」第 56 条。** 从场景脚本建的场景这张表仍是全 0（编号层全 0）；其余字段已定义、没有人写非 0 的值。`object_ext_at` 的调用者是上面几处与灯光一侧的接收者集合、阴影终止偏移。各家以后只填自己的格子。运动矢量要的前后两刻变换不放这里，到做运动模糊时另定。
 
 **这张表放不下、也不放的**：阴影链接的集合号，与发光网格的两个 64 位成员集（Cycles 物体记录里的 `light_set_membership`、`shadow_set_membership`、`blocker_shadow_set`）。表里只有接收者集合号与灯组两格，剩下两格 f32 的预留装不下它们，表的长度又是冻结的。做灯的人要用时另开一张表，首地址取 `table_first_ext` 的一个空格并登记。
 
@@ -650,6 +650,8 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 
 55. 着色法线的单位化不用内建 `normalize`，改调 `../shaders/util.wgsl` 新加的 `normalize_unbiased`（乘第 54 条的 `inverse_len`；长度为零时给零向量）：`shaders/shader.wgsl` 里插值法线（`shader_setup_from_hit`、`mat_in_at`、`surface`，以及给材质函数的 `nv`）、法线贴图（`surface` 里的 `pn`、`tangent_normal`）共六处。理由：|N| 的偏差原样进 cos_NH = dot(N, H)（cos_NH 对 |N| 的偏导约等于 1），经 `bsdf_D_ggx` 的 1 − cos_NH² 放大的倍数与第 54 条的 1/|H| 相同，曲面网格（平滑法线）上的抛光金属会整片同号地偏；平面上法线本来精确，第 4 级那个取值点查不出它。Cycles 的 `triangle_smooth_normal`（`kernel/geom/triangle.h:162`）在处理器上用 `safe_normalize`，正确舍入。函数级比对加一项守着：`normalize_unbiased_len_bias`（`../fncheck/registry.mjs`），对 `safe_normalize` 量 |N| − 1 的平均偏差，以 1 以下的末位计（与第 54 条 cos_NH 的单位相同），方向在整个球面上均匀、长度在 [0.25, 4) 按对数均匀取、分 4 小段，100 万组，门槛 0.03，逐组照常比。【实测】（种子 1，小段平均的绝对值最大者）现用的写法苹果显卡 −0.003、英伟达 RTX 5090 −0.002；内建 `normalize` 苹果显卡 0.048、英伟达 −0.093；另一串同分布的输入上 `a / len_ccl(a)`（`normalize_ccl` 的式子）0.048、−0.095，内建 `normalize` 0.050、−0.094（`util.wgsl` 注释里的数）。负对照「改回内建 `normalize`」两台都必须判不过（`fncheck.test.mjs`）。没有改的：几何法线（`normalize(cross(e1, e2))`）只用来判正反面、换法线的门槛与射线起点，不进 cos_NH；切线不进各向同性的闭包；`ensure_valid_specular_reflection`（`../shaders/microfacet.wgsl`）拧法线的那一支照 Cycles 的式子（`safe_normalize_fallback` 与 Nx·X + Nz·Ng），只在镜面反射方向落到几何面以下时走，结果离着色法线有一个角度，不在镜面峰贴着法线的那一段；过程几何与材质函数返回的法线由各自的代码给出。
 
+56. 镜像的实例（行列式为负，物体扩展表 `object_flag` 带 `SD_OBJECT_NEGATIVE_SCALE`）与原件共用一个模型空间的网格与一个 BLAS，实例矩阵原样进 TLAS（场景包读入器 `src/pack.rs` 置 `World::mirror_flag_by_caller`，`src/scene.rs` 的 `Kind::Instanced` 见到它才让镜像的副本共用网格；1.2.5 之前镜像件在建场景时平铺成世界坐标的三角形、换绕序）。内核的几何法线是把模型空间的两条边乘实例矩阵再叉乘，镜像时朝里，所以命中实例且带镜像位时取反（`shader_setup_from_hit`、`surface`）。Cycles 对没烘进几何的物体在物体空间求几何法线、再乘法线矩阵（`kernel/geom/shader_data.h:105` 的 `object_normal_transform`），镜像时自然朝外；烘进几何的（`SD_OBJECT_TRANSFORM_APPLIED`）才按镜像位换叉乘次序（`kernel/geom/triangle.h:40`）。两边求出来的方向一样，数值的舍入不同。软件求交把实例平铺进世界坐标时按镜像位换绕序（`src/lib.rs` 的 `flatten_instances` 与 `src/scene.rs` 的 `swap_corners`）。只看镜像位、不看行列式：场景脚本那一路扩展表全 0、不置 `mirror_flag_by_caller`，那里行列式为负的副本（`Kind::Instanced`）、网格与模型实例照旧在建场景时平铺、换绕序（含姿态模型里预先换过绕序的节点），不走共用网格，库测试 `instanced_objects_share_one_mesh` 两种都守着。共用网格以后交点在模型空间求（与 Cycles 不烘变换的物体一样），t 的舍入与平铺版不同：03B 全机与平铺版逐像素比，编号层与命中逐位相同，深度不逐位相同的像素全在镜像件上（见 [README.md](README.md)「03B 全机：打包秒数」）。不取反画面量得出来：03B 全机第 0 帧（1280×720、16 采样）平均亮度低约 8%，左右对称的小包左右两半分得开（`../chassis/scenepack.test.mjs` 的显卡负对照）。
+
 ## 编号登记表
 
 **要新号向核心帧源的负责人要；改登记表不算变更。** 拿到号之后：在这里登记，在着色器（与 Rust 一侧）加常数，运行 `freeze.mjs --update` 把新常数补进冻结标记。
@@ -893,7 +895,7 @@ node beiming/sources/core/chassis/level2.mjs            # 对 Cycles 的读数�
 | 上游的灯光函数（上游顶替的闭包、多于 `RIS_EXACT` 盏的本地灯、发光三角、体积还走它们）、`surface_shader_bsdf_eval_legacy`、各 `D_*` 槽位 | 上游顶替 | 移植闭包与体积之后删 |
 | `trace_local`；着色点的 `lcg_state`、`object_flag`、`prim`、`u`、`v`、`N`、`ray_length` 的读者；`Ray` 的 `self_object`、`self_prim`、`tmin` 的读者 | 已定义、无调用者，或已写未读 | 图案节点（倒角、遮蔽） |
 | `PRNG_SURFACE_AO`、`PRNG_SURFACE_BEVEL`、`path_branched_rng_2D`、`path_rng_2D` | 已定义、无调用者 | 图案节点 |
-| `Material` 的 `pattern_first`、`pattern_count`；`MATERIAL_FLAG_NO_LEGACY_FUNCTION`；`table_first_ext` 的图案节点表一格；`ObjectExt.object_flag` 的读者（镜像位场景包读入器已写） | 已定义 | 图案节点 |
+| `Material` 的 `pattern_first`、`pattern_count`；`MATERIAL_FLAG_NO_LEGACY_FUNCTION`；`table_first_ext` 的图案节点表一格；倒角一侧对 `ObjectExt.object_flag` 镜像位的读法（几何法线一侧 1.2.5 已读） | 已定义 | 图案节点 |
 | `AuxSample.motion`、`FILM_AUX_DATA` 的 zw（运动矢量） | 已定义，恒 0：快门角为 0 的 motion 层已经由宿主从 `FILM_AUX_HIT` 求（见「输出通道」）；快门角大于 0 要快门窗口里的状态，内核没有运动模糊 | 运动模糊 |
 | 请求灯组的任务描述字段（命令行 `render-pack --passes` 已出全部组） | 没有 | 帧源接口 |
 | 场景包里解析过、校验过、还没生效的：图案节点（`pack::Node`）；`pack-info` 的统计列在 `notApplied`（灯光链接与分灯组 1.2.2 起生效） | 已读未生效 | 图案节点 |

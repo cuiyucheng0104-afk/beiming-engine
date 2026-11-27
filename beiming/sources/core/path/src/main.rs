@@ -8,8 +8,9 @@
 //!                         [--runtime threert-runtime.js (the game is then an ES module importing it)]
 //!                         [--hdr out.raw] [--signals PREFIX] (linear RGB f32: the image; its diffuse / specular /
 //!                         emission apart, PREFIX-{diffuse,specular,emission}.raw)
-//!   core-render pack-info <pack dir> [--frame k] [--record check.json] [--width W --height H]
-//!                         (北冥：读场景包、选一帧建成内核的场景，不渲；stdout 一行统计的 JSON，--record 写场景包核对记录)
+//!   core-render pack-info <pack dir> [--frame k] [--record check.json] [--width W --height H] [--upload N]
+//!                         (北冥：读场景包、选一帧建成内核的场景，不渲；stdout 一行统计的 JSON，--record 写场景包核对记录；
+//!                         --upload N：从第 k 帧起 N 帧逐帧建场景并传上显卡，报每帧的分段秒数)
 //!   core-render render-pack <pack dir> -o out.png [--frame k] [--spp N] [--width W --height H] [--hdr out.raw]
 //!                         [--signals PREFIX] [--no-denoise] [--stats out.json] [--preset name] [--override JSON]
 //!                         [--passes DIR] [--pixel-filter box|gaussian|blackman-harris] [--filter-width PX]
@@ -435,11 +436,40 @@ fn pack_command(cmd: &str, args: &[String], presets: &Path) -> Result<()> {
     let t_total = Instant::now();
     let p = pack::load(&dir)?;
     if cmd == "pack-info" {
+        let load_ms = t_total.elapsed().as_secs_f64() * 1000.0;
+        let t = Instant::now();
         let b = pack::build(&p, frame, size, flag("--preset").as_deref(), presets, overrides.as_ref())?;
+        let build_ms = t.elapsed().as_secs_f64() * 1000.0;
         if let Some(out) = flag("--record") {
             std::fs::write(&out, serde_json::to_vec_pretty(&pack::record(&p, frame, &b))?)?;
         }
-        println!("{}", pack::info(&p, frame, &b));
+        let mut info = pack::info(&p, frame, &b);
+        info["timings_ms"] = serde_json::json!({ "load_ms": load_ms, "build_ms": build_ms });
+        // 北冥：`--upload N`：同一个进程里把第 frame 帧起的 N 帧逐帧建场景、整理三角形、传上显卡（含加速结构），不渲；
+        // 每帧一行分段秒数（打包秒数 = 建场景 + 整理 + 上传），给规模与跨帧复用量时间
+        if let Some(n) = num("--upload")? {
+            if n == 0 || frame + n as usize > p.count {
+                return Err(usage("--upload", format!("要 1 到 {} 帧", p.count - frame)).into());
+            }
+            let t0 = Instant::now();
+            let mut g = gpu::Gpu::new()?;
+            g.time_tlas = true;
+            let init_ms = t0.elapsed().as_secs_f64() * 1000.0;
+            let mut rows = vec![];
+            for k in frame..frame + n as usize {
+                let t = Instant::now();
+                let b = pack::build(&p, k, size, flag("--preset").as_deref(), presets, overrides.as_ref())?;
+                let mut timings: Vec<(String, f64)> = vec![("build_ms".into(), t.elapsed().as_secs_f64() * 1000.0)];
+                let mut sc = b.scene;
+                let prep = prepare(&g, &mut sc, &mut timings);
+                let film = g.film_buffer(size.0, size.1, &gpu::KernelFilm::new(0))?;
+                drop(g.upload(&sc, &film, &prep.tri_verts, prep.groups, bytemuck::cast_slice(&prep.nodes), &prep.emitters, &prep.gpu_emitter_tris, beiming_core_path::ltree::nodes_of(prep.light_tree.as_ref()), &prep.env, &prep.env_cdf, &prep.energy, &mut timings)?);
+                timings.push(("frame_pack_ms".into(), t.elapsed().as_secs_f64() * 1000.0));
+                rows.push(serde_json::json!({ "frame": k, "timings_ms": timings.iter().map(|(k, v)| (k.clone(), serde_json::json!((v * 100.0).round() / 100.0))).collect::<serde_json::Map<_, _>>() }));
+            }
+            info["upload"] = serde_json::json!({ "adapter": g.adapter_info.name, "hwrt": g.hwrt, "gpu_init_ms": init_ms, "frames": rows });
+        }
+        println!("{info}");
         return Ok(());
     }
     let t0 = Instant::now();
