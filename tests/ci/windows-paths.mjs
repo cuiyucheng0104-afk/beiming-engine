@@ -141,15 +141,16 @@ export async function main(argv = process.argv.slice(2)) {
       const ids = r => { try { return JSON.parse(r.stdout).suites.map(s => `${s.id}:${s.files.length}`).join(','); } catch { return `退出码 ${r.code}`; } };
       add('run-tests', '测试发现（经别名）', ta.code === 0 && ids(ta) === ids(tr) ? 'pass' : 'fail', `别名：${ids(ta) || '无'}；真实路径：${ids(tr) || '无'}`);
       // check-all：经别名运行，并核对实际执行的子命令
-      const ca = await node([path.join(A, 'tools', 'check-all.mjs'), '--only', 'changelog', '--json'], { cwd: A });
+      const wantedSteps = ['styles', 'changelog'];
+      const ca = await node([path.join(A, 'tools', 'check-all.mjs'), '--only', wantedSteps.join(','), '--json'], { cwd: A });
       let caDetail = `退出码 ${ca.code}`;
       let caOk = false;
       try {
         const result = JSON.parse(ca.stdout);
         const steps = result.steps ?? [];
-        const [step] = steps;
         caOk = ca.code === 0 && result.ok === true && result.exitCode === 0
-          && steps.length === 1 && step.id === 'changelog' && step.status === 'pass' && step.exitCode === 0;
+          && steps.length === wantedSteps.length
+          && steps.every((step, i) => step.id === wantedSteps[i] && step.status === 'pass' && step.exitCode === 0);
         caDetail += `：${steps.length ? steps.map(s => `${s.id} ${s.status} (${s.exitCode})`).join('，') : (result.error?.message ?? '未返回步骤')}`;
       } catch { caDetail += '：未返回有效的 JSON 检查结果'; }
       add('check-all', '检查总入口（经别名）', caOk ? 'pass' : 'fail', caDetail);
