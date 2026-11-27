@@ -44,7 +44,7 @@ Windows PowerShell：`$env:RAEA_BIN = '<runtime-dir>\raea\bin\raea.exe'`（换�
 ## 2. 准备素材
 
 ```sh
-node engine/native/prepare.mjs examples/raea    # = npm run raea:prepare；加 --preview 另存 kun-preview.png
+node engine/native/prepare.mjs examples/raea    # = npm run b:prepare -- examples/raea；加 --preview 另存 kun-preview.png
 ```
 
 产物在 `examples/raea/media/`（不提交）：底板、纸纹、`kun.glb` / `ferry.glb` 与报告、片名逐帧 PNG、`mix.wav`、`prepared.json`（每个产物的 sha256）。资产桥用 Chromium 的软件 GL 做转换与烘焙，不占独显。细节见 [ASSET-BRIDGE.md](ASSET-BRIDGE.md)。

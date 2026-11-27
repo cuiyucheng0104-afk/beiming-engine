@@ -74,7 +74,7 @@
 npm run new -- <a|b|c|d> <名字> [--title 片名] [--dry-run] [--json] # 新建作品，打印下一步
 npm run check:repo                       # 仓库规范检查（只读）；--only core、--json、--list、--strict
 npm run cases:list && npm run cases:check  # C 的案例目录与快照校验
-npm run build                            # 重建《北冥》样片（A）
+npm run beiming:build                    # 重建《北冥》样片（A）
 ```
 
 每个命令加 `--help` 看用法；已接入命令约定的命令（`new`、`check:repo`、`film`）的 `--help` 不执行任何操作，完整清单见 [docs/CLI.md](../docs/CLI.md) 第 9 节。

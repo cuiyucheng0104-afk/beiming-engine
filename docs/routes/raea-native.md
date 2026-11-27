@@ -9,7 +9,7 @@
 > | 本页旧内容 | 现在 |
 > |---|---|
 > | §3 建议新建的 `examples/raea-starter/`、`settings.mjs` | `node tools/new-film.mjs b <名字>`（模版 `routes/b-native/template/`），设置在 `film.json` 与 `layout.js` |
-> | §4 `raea:prepare / raea:check / raea:render` 与 `delivery/` | `node engine/native/prepare.mjs <作品>`、`node engine/render/native.mjs <作品> [--check-only \| --at …]`，产物在 `<作品>/out/<run-id>/`；`npm run raea:*` 只是例片的别名 |
+> | §4 `raea:prepare / raea:check / raea:render` 与 `delivery/` | `node engine/native/prepare.mjs <作品>`、`node engine/render/native.mjs <作品> [--check-only \| --at …]`，产物在 `<作品>/out/<run-id>/` |
 > | §5「只改 Composition 不能复用包装」的写死常量 | 已去掉：帧数、尺寸、帧率、交付档位、素材清单都从 `film.json` 读；`tests/native/contract.test.mjs` 与 `layout.test.mjs` 核对 |
 > | §7 手册步骤 R01（起步工程）、R02（项目运行包装） | 由 `engine/native/` 与 `engine/render/native.mjs` 取代；其余步骤（分层夹具、角色等）仍是待办，编号只在本页有效，与代码审查问题单的 R01–R14 无关 |
 
@@ -220,7 +220,7 @@ Character 必须用自身 `position / yaw / scale` 放置，不能套 Group 来�
 npm run setup                                          # node 依赖、无头 Chromium、仓库内 .venv（声音脚本的 numpy / scipy / soundfile / numba）
 node engine/native/runtime.mjs fetch --accept-license  # 读过上游许可后获取运行时并校验哈希
 export RAEA_BIN="<runtime-dir>/raea/bin/raea"                # fetch 打印的完整路径
-node engine/native/prepare.mjs examples/raea           # = npm run raea:prepare
+node engine/native/prepare.mjs examples/raea           # = npm run b:prepare -- examples/raea
 node engine/render/native.mjs examples/raea --check-only
 node engine/render/native.mjs examples/raea            # 产物在 examples/raea/out/<run-id>/
 ```
@@ -238,7 +238,7 @@ node engine/render/native.mjs examples/raea            # 产物在 examples/raea
 | 原生渲染：同文件的 `run / requireSuccess` | 以例片目录为 cwd，运行 `render film.tsx --quality master --manifest …` | `out/native-10s.mp4 / render.json / render.stdout.log / render.stderr.log`；非零退出就不继续封装 |
 | 封装与校验：同文件的 FFmpeg／ffprobe 分支 | 复制视频轨，混入 `mix.wav` 编 AAC，截到 10 秒；完整解码计数 | `delivery/beiming-raea-10s.mp4 / technical.json`；核对 1920×1040、24/1、240 帧、AAC、时长误差 ≤0.05 秒，再记录 SHA256 |
 
-不要把预检（`native.mjs --check-only`，旧名 `raea:check`）与上游 `raea check` 混为一谈：前者只是本仓库的文件／工具预检；上游的成片检查现在由出片入口自动运行，结果在 `out/<run-id>/check.json`，P0 / P1 问题判失败。技术通过后仍需检查整片、切点、黑场／意外静帧、声音起止和响度。历史实测的视觉与声音证据见[实验记录](../raea/experiment.md)，不能由本次预检推导。
+不要把预检（`npm run b:preflight -- <作品>`）与上游 `raea check` 混为一谈：前者只是本仓库的文件／工具预检；上游的成片检查现在由出片入口自动运行，结果在 `out/<run-id>/check.json`，P0 / P1 问题判失败。技术通过后仍需检查整片、切点、黑场／意外静帧、声音起止和响度。历史实测的视觉与声音证据见[实验记录](../raea/experiment.md)，不能由本次预检推导。
 
 ## 5. 为什么不能只改 Composition 就复用包装
 
@@ -298,7 +298,7 @@ ffmpeg -v error -i delivery/native-orbit.mp4 -f null -
 | WESL 编译失败／效果静止 | 保留 stderr；检查 `VertexOutput` 与 `FullscreenVertexOutput` 是否混用，shade 签名、纹理名、uniform 类型／数量；先单色再加纹理。ShaderMesh 动画先用 globals.time | [ShaderMesh 参数检查][着色网格]、[shader 构建][着色执行]、[FramePass 构建][帧后期执行] | shader 日志无错误；两帧间预期区域变化。普通 CPU 类型检查不能替代 GPU shader 编译 |
 | 后期没有影响字幕／开 prepass 后边缘改变 | FramePass 在场景相机内执行，页面叠字在后；需要整页后期应另立合成任务。prepass 会改变多重采样条件，重新检查边缘，不同时调所有后期 | [FramePass 接口][帧后期]、[导出合成][合成执行] | 同帧分离三维、页面和后期的诊断图，确认每层的处理范围 |
 | 动画不动／切镜重启／蒙皮爆开 | 查真实 clip 名、time 秒值和局部时钟；对照独立 GLB 回读。Character 查骨架命名、资产目录、唯一实例名、scale、是否错误套 Group | [Model 检查][模型]、[动画执行][动画执行]、[Character][角色] | 局部关节有变化；切点连续；手／脚／视线按事件验收，不只检查包围盒位置 |
-| 视频变成 10 秒／没声音／帧数错误 | 检查是否误调根 `raea:render`；查旧 `-t 10`、240 帧断言与新音轨长度。先看原生输出，再看封装，定位在哪一段改变 | [包装脚本](../../examples/raea/tools/render.mjs)、[软件编码][软件编码] | ffprobe 完整计数、FFmpeg 全解码通过；时长、尺寸、fps、音轨均匹配新项目 |
+| 视频变成 10 秒／没声音／帧数错误 | 检查是否误调旧例片包装脚本；查旧 `-t 10`、240 帧断言与新音轨长度。先看原生输出，再看封装，定位在哪一段改变 | [包装脚本](../../examples/raea/tools/render.mjs)、[软件编码][软件编码] | ffprobe 完整计数、FFmpeg 全解码通过；时长、尺寸、fps、音轨均匹配新项目 |
 
 ## 7. R01–R08：可分派的本手册实施步骤
 

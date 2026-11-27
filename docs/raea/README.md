@@ -10,7 +10,7 @@
 
 ```sh
 node engine/native/runtime.mjs status                   # 运行时版本与可执行文件哈希是否与锁一致
-node engine/native/prepare.mjs examples/raea            # 例片素材（= npm run raea:prepare）
+node engine/native/prepare.mjs examples/raea            # 例片素材（= npm run b:prepare -- examples/raea）
 node engine/render/native.mjs examples/raea             # 例片出片 → examples/raea/out/<run-id>/
 ```
 

@@ -184,7 +184,7 @@
       "path": "build.sh",
       "owner": "P06",
       "spawnedBy": [
-        "npm run build",
+        "sh build.sh",
         "tests/production/render-pipeline.test.mjs"
       ],
       "replacement": "node tools/film/cli.mjs build . --profile beiming-1040p24（P06）；build.sh 留一个版本作兼容壳"

@@ -288,7 +288,7 @@ node engine/render/video.mjs . --size 960x520 --query previs=1 --out <输出目�
 - 声画同源与家族同构：同一物件的声音和画面属于一个家族（`audio/design.py:3-5`：汽笛与鲲鸣同一发声器、同一谐波谱；`keynote-B-kaitou/TREATMENT.md:108`：电流嗡声与乐曲同为 G）；同类图形标注或 UI 弹窗全片锁定同一声音词元，核心镜头靠叠入高五度／八度泛音副层强调，不中途换词元（[craft/sound.md §1.6](craft/sound.md)）。
 - 响度门槛只在一处定义：混音目标写在 `sound/cues.json` 的 `premaster`（A 样片 −14 LUFS、−1.7 dBTP，`audio/cues.json:6-9`）；交付判定写在 ProjectSpec 的 `audio`，以最终 AAC 为准：积分响度 −14±1 LU、真峰值不高于 −1.2 dBTP（`docs/routes/validation-and-rtx.md:37`；`docs/routes/templates/project-beiming.json:12`）。10 秒左右的短片另报最大短期响度（3 s）和最大瞬时响度（400 ms）（[craft/video.md §5.8](craft/video.md)）。
 
-**常见错误**：把精密微声裁成 <5 ms 针尖脉冲导致积分能量过低完全听不见；截取 `raw_pk < 0.05` 的轻擦或静音缝隙做峰值归一化，把话筒底噪硬抬 +30～+50 dB 炸出单侧嘶声；微距斜拍按零件几何底座算声像导致单耳偏重，却误信全片 `audio.mono` 相关系数高就算通过；无源圆珠笔或机械拨盘混入电动变焦镜头、舵机或循环切片产生电机感（以上四条见 [craft/sound.md §5](craft/sound.md)）；近静默只写"近乎静默"，不写目标电平；封装时再跑 loudnorm，把已母带化的 −14.1 LUFS 压成 −14.9（【仓库实证·实测】[craft/video.md §5.8](craft/video.md)）；在共享检出里跑 `audio/mix.py` 或 `sh audio/build.sh`（后者第 9 行调用前者），会重写被跟踪的 `audio/CREDITS`（`audio/mix.py:277`），`npm run build` 也会走到这一步。
+**常见错误**：把精密微声裁成 <5 ms 针尖脉冲导致积分能量过低完全听不见；截取 `raw_pk < 0.05` 的轻擦或静音缝隙做峰值归一化，把话筒底噪硬抬 +30～+50 dB 炸出单侧嘶声；微距斜拍按零件几何底座算声像导致单耳偏重，却误信全片 `audio.mono` 相关系数高就算通过；无源圆珠笔或机械拨盘混入电动变焦镜头、舵机或循环切片产生电机感（以上四条见 [craft/sound.md §5](craft/sound.md)）；近静默只写"近乎静默"，不写目标电平；封装时再跑 loudnorm，把已母带化的 −14.1 LUFS 压成 −14.9（【仓库实证·实测】[craft/video.md §5.8](craft/video.md)）；在共享检出里跑 `audio/mix.py` 或 `sh audio/build.sh`（后者第 9 行调用前者），会重写被跟踪的 `audio/CREDITS`（`audio/mix.py:277`），`npm run beiming:build` 默认也调用 `audio/build.sh` 混音。
 
 **仓库范例**：`keynote-C-kaitou/TREATMENT.md:123-147`（声音表带"材质"列，两处静默与 J/L-cut 写清位置）；`style-65-countdown/TREATMENT.md:98`（低频分频管理，用倍频程能量核对）；`audio/cues.json`（每个镜头写"声场"：远闷宽／近窄干／第一视角最宽）。
 

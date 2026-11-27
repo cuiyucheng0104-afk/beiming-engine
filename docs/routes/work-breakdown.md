@@ -13,7 +13,7 @@ node tools/work-plan.mjs --verify-diff H02   # 改动是否都落在该任务的
 node tools/work-plan.mjs --check --strict --json
 ```
 
-旧名 `npm run routes:check`、`npm run routes:next` 保留一个版本，调用时提示改名。命令约定（退出码、`--json` 信封）见 [docs/CLI.md](../CLI.md)。
+命令约定（退出码、`--json` 信封）见 [docs/CLI.md](../CLI.md)。
 
 - **可以领取**：`plan:next` 列出的任务前置依赖都已 done；领取前还要确认素材与验收输入齐备。
 - **领取**：集成负责人把任务改成 `in-progress` 并写 `claim`（谁、在哪个分支或会话、从哪个提交开始、`startedAt`）。认领默认 14 天到期（计划的 `claimTtlDays`），还在做就改 `expiresAt` 续期。工具只读，不替人改状态。

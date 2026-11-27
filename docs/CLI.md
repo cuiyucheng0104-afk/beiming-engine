@@ -81,7 +81,7 @@
 
 - npm 脚本按「域:动作」命名，如 `env:doctor`、`plan:check`、`cases:restore`；只向 agent 暴露 npm 脚本与 `node <路径>` 两种调用。
 - 改名时旧名保留一个版本作为别名，调用时打印迁移提示（附录 C3）。
-- 上游项目名（如 RAEA）不进新的脚本名、目录名、文件名（D04）；已有的 `raea:*` 作为别名保留。
+- 上游项目名（如 RAEA）不进新的脚本名、目录名、文件名（D04）。
 
 ## 8. 入口预算
 
@@ -109,7 +109,7 @@
 | `new` | `tools/new-film.mjs` | 治理骨架 | 已接入（支持 `--backend webgpu` 生成 A/C 同源离屏作品，D12） |
 | `check:repo` | `tools/repo-check.mjs` | 治理骨架 | 已接入 |
 | `check:fence` | `tools/check-fence.mjs` | 治理骨架 | 已接入（改动围栏硬门禁：自 `--base` 以来已提交、未提交、未跟踪的改动都要在 `--fence` 内、`--forbidden` 外；围栏越界、碰 forbidden、围栏没填或契约写法不对、零改动、有 assume-unchanged / skip-worktree 隐藏改动退出 4，git 执行失败退出 1；不接进 `check`，PR 作者自检用） |
-| `plan:check`、`plan:next` | `tools/work-plan.mjs --check`、`--ready` | 治理骨架 | 已接入；旧名 `routes:check`、`routes:next` 已接入，保留一个版本，调用时提示改名 |
+| `plan:check`、`plan:next` | `tools/work-plan.mjs --check`、`--ready` | 治理骨架 | 已接入 |
 | `setup` | `tools/env/setup.mjs` | 环境 | 已接入 |
 | `env:doctor`、`env:preflight`、`env:lock`、`env:large-files` | `tools/env/doctor.mjs`、`preflight.mjs`、`lock.mjs`、`large-files.mjs` | 环境 | 已接入 |
 | `env:py` | `tools/env/py.mjs` | 环境 | 例外（不适用）：Python 启动器，除 `--help` 外的参数原样交给 Python |
@@ -120,16 +120,15 @@
 | `offscreen`、`offscreen:compare`、`offscreen:bench`、`offscreen:farm` | `engine/offscreen/cli.mjs`、`tools/offscreen/compare.mjs`、`bench.mjs`、`farm.mjs` | 离屏出片 | 已接入：`render` 视频（默认 `--mode pro`：x264 High + rgba 读回，终渲交付；`--mode fast` 为 NVENC 预览档，无 NVENC 时退回 pro；`--encoder x264\|nvenc` 可显式覆盖，`--pix-fmt yuv420p` 走 GPU 打包；`--frame-hashes auto|on|off` 控制逐帧 sha256：`--json` 下 auto 仍计算，`off` 时 `frameHashes` 为 `null`）、`stills` 无损静帧、`probe` 契约与事件探测、`profile` GPU 分段计时、`batch` 单卡异构并发调度、对拍与并发基准；`npm run film -- check\|stills\|render\|animatic\|build <作品> [--renderer offscreen] [--mode pro\|fast] [--encoder x264\|nvenc]`（`backend=webgpu` 默认走离屏）；`offscreen:farm` 为切片分发编排器（WP3：按镜头切点分片、`--transport local` 多槽位并发、`ffmpeg concat -c copy` 无损合并并核验帧数/PTS/色彩标记/逐段 sha256，`offscreen render` 新增 `--gop` / `--timescale` 统一各片编码与时间基），详见 [离屏出片](offscreen/README.md) |
 | `tsl:index`、`tsl:index:check` | `tools/tsl-skill-index.mjs`（`--check`） | 离屏出片 | 已接入：生成 / 核对 beiming-tsl skill 的 TSL 模块符号索引（`skills/beiming-tsl/references/library-index.md`，从 `engine/offscreen/tsl/*.js` 静态生成），漂移退出 4 |
 | `film` | `tools/film/cli.mjs` | 出片编排 | 已接入：四条路线统一的 `npm run film -- build films/<名字>`（子命令 new / check / stills / animatic / build / mix / assemble / render / review / status / qa / plan；终渲默认自动模式，`--delivery-mode review` 启用人工创作闸；A/C 支持 `audio.telemetry: true` 导出 `kinematics.json` / `BEIMING_KINEMATICS`、`dialogue.json` 自动合成 `BEIMING_DIALOGUE_DIR`、`BEIMING_AUDIO_STEMS` 分轨收集，以及 `mix` 阶段 `engine.audio.qa` 前置快败硬门 `audio/qa.json`） |
-| `beiming:build`、`build` | `tools/film/beiming.mjs` | 出片编排 | 已接入；《北冥》样片一键重建，`build` 是旧名，`sh build.sh` 是兼容壳 |
+| `beiming:build` | `tools/film/beiming.mjs` | 出片编排 | 已接入；《北冥》样片一键重建，`sh build.sh` 是兼容壳 |
 | `c:events`、`c:build` | `engine/render/events.mjs`、`build.mjs` | 出片编排 | 已接入（旧入口；新作品用 `npm run film -- build`） |
 | `qa` | `tools/qa/cli.mjs` | 机器 QA | 已接入 |
 | `golden`、`determinism` | `tools/baseline/golden.mjs`、`determinism.mjs` | 金标准 | 已接入 |
 | `audio:build`、`audio:qa`、`audio:cuecheck`、`audio:voice`、`audio:music`、`audio:erb`、`audio:foundry`、`audio:samples` | `tools/audio/build.mjs`、`qa.mjs`、`cuecheck.mjs`、`voice.mjs`、`music.mjs`、`erb.mjs`、`foundry.mjs`、`fetch-samples.mjs` | 声音 | 已接入（`audio:qa` 支持可选 `--kinematics` / `--video` 启用纯 CPU 运动学对冲击同步 `audio.sync`，不传时行为与退出码不变；`audio:music` 为程序化情绪导引乐谱与 ACE-Step 1.5 / Suno v6 Cover 配乐生成 `guide\|build\|probe`，acestep 读 `BEIMING_ACESTEP_URL` 或 `--endpoint` / `--ssh`，suno 读 `BEIMING_SUNO_MCP_URL`；`audio:erb` 从一段录音渲染 N 个新 take，有 nvcc 与 GPU 就整批上 GPU，否则 CPU，读 `BEIMING_NVCC`，用法见 `engine/audio/erb/README.md`；`audio:foundry` 是 L2 声源铸造厂 `gen\|serve\|probe`，按需拉起 MOSS-SoundEffect-v2.0 隔离 venv 子进程生成 48 kHz / 24 bit 干声，SHA256 缓存，过 `sfx_judge` 取证，`--strict` 只收 pass，退出码 5 为空闲显存低于 `--min-free-gib`，读 `BEIMING_AUDIO_L2_PYTHON` / `BEIMING_AUDIO_L2_MODEL_DIR` / `BEIMING_AUDIO_L2_PKG` / `BEIMING_AUDIO_L2_CACHE`，`--ssh` 在远端拉起，不装进主仓 `.venv`） |
 | `fonts:fetch`、`fonts:subset` | `tools/fonts/fetch.mjs`、`subset.mjs` | A 路线 | 已接入；A 作品出片前先 `fonts:subset films/<名字>` |
 | `plates:check`、`plates:bleed`、`lookdev:sweep` | `tools/plates/check.mjs`、`bleed.mjs`、`tools/lookdev/sweep.mjs` | A 路线 | 已接入 |
-| `b:preflight`、`b:render`、`b:prepare`、`b:runtime`、`b:rt` | `engine/render/native.mjs --check-only`、`native.mjs`、`engine/native/prepare.mjs`、`runtime.mjs`、`rt.mjs` | B 路线 | 已接入（`b:rt` 是光追外部后端，实验）；旧名 `native:*`、`raea:*`（例片 `examples/raea`）已接入，保留一个版本 |
-| `native:prepare`、`native:check`、`native:render`、`native:bridge`、`native:sequence` | `engine/native/…`、`engine/render/native.mjs` | B 路线 | 已接入（旧名） |
-| `raea:prepare`、`raea:check`、`raea:render` | `engine/native/prepare.mjs examples/raea`、`engine/render/native.mjs examples/raea [--check-only]` | B 路线 | 已接入（例片的旧名，保留一个版本） |
+| `b:preflight`、`b:render`、`b:prepare`、`b:runtime`、`b:rt` | `engine/render/native.mjs --check-only`、`native.mjs`、`engine/native/prepare.mjs`、`runtime.mjs`、`rt.mjs` | B 路线 | 已接入（`b:rt` 是光追外部后端，实验）；例片可传 `examples/raea` 作为作品目录 |
+| `native:bridge`、`native:sequence` | `engine/native/bridge/export.mjs`、`engine/native/sequence.mjs` | B 路线 | 已接入 |
 | `c:styles`、`c:styles:check` | `tools/c-styles.mjs` | C 路线 | 已接入 |
 | `c:setup`、`c:runtime`、`c:fonts:check` | `tools/c-runtime.mjs setup`、`c-runtime.mjs`、`routes/c-style/fonts/fetch.mjs --check` | C 路线 | 已接入 |
 | `test`、`check`、`lint` | `tools/run-tests.mjs`、`tools/check-all.mjs` | 测试与 CI | 已接入；旧名 `test:routes`、`test:engine`、`test:audio`、`test:cases` 是 `tools/run-tests.mjs --only <域>` 的别名 |
@@ -202,4 +201,3 @@ node tools/work-plan.mjs --cards                # 按 JSON 生成 work-breakdown
 ```
 
 - 退出码：0 合格（可以有提示）；4 计划不合格（结构错误、两个在办任务写入范围重叠、认领过期、证据或指引文件不存在；`--strict` 时可领取任务的重叠与输入里写错的路径也算）或 `--verify-diff` 有越界改动；2 未知路线（列出注册表合法取值）、未知任务、参数冲突；3 `--verify-diff` 时没有 git。
-- 旧名 `npm run routes:check`、`npm run routes:next` 保留一个版本：照常工作，并在 stderr 与 `--json` 的 `warnings` 里提示改名。

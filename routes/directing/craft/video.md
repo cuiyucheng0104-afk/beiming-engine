@@ -40,7 +40,7 @@ build.sh 第 5 步      两遍 9 Mbps → 网页版 → tools/make_html.py → �
 
 ### 1.2 B 北冥原生路线 · BNE
 
-`npm run raea:prepare`（`examples/raea/tools/prepare.mjs`：复制底板、导出模型、生成声音并两遍线性 loudnorm 成 `media/mix.wav`，`prepare.mjs:34-42`）→ `npm run raea:render`（`examples/raea/tools/render.mjs`：查 ComfyUI 队列与 `nvidia-smi` 占用 → 原生运行时 `render film.tsx --quality master` → `-c:v copy` + AAC 320k + `-t 10` 封装 → ffprobe 合约断言 → `delivery/technical.json`，`render.mjs:45-70`）。画面像素路径在原生运行时内部：GPU 合成后转 NV12/P010、CPU 读回再编码，不经过逐帧图片（`docs/raea/architecture.md:18-19,91`）。本次 **未实跑** B 路线渲染（本机未配置运行时可执行文件路径）。
+重构前例片的 `examples/raea/tools/prepare.mjs`（复制底板、导出模型、生成声音并两遍线性 loudnorm 成 `media/mix.wav`，`prepare.mjs:34-42`）→ `examples/raea/tools/render.mjs`（查 ComfyUI 队列与 `nvidia-smi` 占用 → 原生运行时 `render film.tsx --quality master` → `-c:v copy` + AAC 320k + `-t 10` 封装 → ffprobe 合约断言 → `delivery/technical.json`，`render.mjs:45-70`）。画面像素路径在原生运行时内部：GPU 合成后转 NV12/P010、CPU 读回再编码，不经过逐帧图片（`docs/raea/architecture.md:18-19,91`）。本次 **未实跑** B 路线渲染（本机未配置运行时可执行文件路径）。
 
 ### 1.3 C 北冥代码动画风格 · 86 式
 
@@ -429,14 +429,14 @@ C 路线快照里已有对应实现，可以作为补强 A 路线的参照（MIT
 1. **预检**：`ffmpeg -version`；查共享机负载；渲一张静帧，确认日志里的 GPU 字符串不是软件渲染。
 2. **确定性冒烟**：同一帧在同页渲两次、在新页面渲一次，比较 PNG 哈希；含有有状态模拟的镜头，加做"顺序推进 vs 跳帧"。
 3. **样张与联系表**：`still.mjs --range` 加 `tools/contact_sheet.py`，看构图和关键帧。
-4. **声音**：在隔离副本里运行 `sh audio/build.sh`（把 `audio/` 与 `engine/audio/` 复制到别处再跑：它第 9 行调用的 `audio/mix.py` 会重写被跟踪的 `audio/CREDITS`，`audio/mix.py:277`；`npm run build` 也会经 `build.sh:25` 走到这一步），读 `audio/check/report.json`，同时看 `mux_loudnorm.output_i`。
+4. **声音**：在隔离副本里运行 `sh audio/build.sh`（把 `audio/` 与 `engine/audio/` 复制到别处再跑：它第 9 行调用的 `audio/mix.py` 会重写被跟踪的 `audio/CREDITS`，`audio/mix.py:277`；`npm run beiming:build` 默认也使用 `audio/build.sh` 混音），读 `audio/check/report.json`，同时看 `mux_loudnorm.output_i`。
 5. **整片**：`video.mjs`；记录尺寸、fps、worker 数、GPU 字符串、ANGLE 后端、Chrome 版本。
 6. **封装与两档交付**：`mux.sh`，再出网页版；注意第 4、5 节的已知问题。
 7. **交付质检**：第 6 节的命令，按项目门槛判定。
 8. **审片**：agent 做代理审片——联系表、关键动作帧条、切点前后逐帧、逐帧变化曲线（DIRECTING 步骤 10 的命令）；全速带声的完整观看由用户或指定审片人做，记下原话，agent 不代填。技术检查通过不能替代观看（`AGENTS.md:38`）。
 9. **记录**：按 `docs/routes/templates/render-result.json` 填写；`technicalAcceptance` 与 `creativeAcceptance` 分开写。
 
-不要在共享检出目录里跑 `audio/mix.py`、`sh audio/build.sh` 或 `npm run build`：它们都会重写被 git 跟踪的 `audio/CREDITS`（`audio/mix.py:277`）。需要隔离时，把 `audio/` 与 `engine/audio/` 复制到别处再跑（本次就是这样做的，重写出的 CREDITS 与原文件一致）。
+不要在共享检出目录里跑 `audio/mix.py`、`sh audio/build.sh` 或 `npm run beiming:build`：它们都会重写被 git 跟踪的 `audio/CREDITS`（`audio/mix.py:277`）。需要隔离时，把 `audio/` 与 `engine/audio/` 复制到别处再跑（本次就是这样做的，重写出的 CREDITS 与原文件一致）。
 
 ---
 

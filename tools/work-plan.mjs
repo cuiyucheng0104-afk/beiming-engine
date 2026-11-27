@@ -4,7 +4,7 @@
 //   npm run plan:next   = node tools/work-plan.mjs --ready [--route a|b|c|d|shared] 依赖已满足、可以领取的任务
 //   node tools/work-plan.mjs --verify-diff <任务> [--base <提交>]       基线以来的改动是否都落在该任务的写入范围里
 //   node tools/work-plan.mjs --cards                                    按 JSON 生成 work-breakdown.md 的依赖总览与任务卡
-// 旧名 npm run routes:check / routes:next 保留一个版本，调用时提示改名（D06）。做作品不用它：作品由 film.json 与
+// 做作品不用它：作品由 film.json 与
 // films/<名>/review/ 记录；这里只管引擎与工具的工程任务（T 编号）和加固工作包（H 编号）。
 //
 // 计划 schemaVersion 2（v1 照样能读）：
@@ -429,8 +429,6 @@ function loadPlanFile(opt) {
   }
 }
 
-const RENAMED = { 'routes:check': 'plan:check', 'routes:next': 'plan:next' };
-
 async function run(ctx) {
   const { opts } = ctx;
   const actions = ['check', 'ready', 'cards'].filter(k => opts[k]);
@@ -444,8 +442,6 @@ async function run(ctx) {
     now = Date.parse(opts.now);
     if (!ISO_DATE.test(opts.now) || Number.isNaN(now)) throw new CliError('usage.bad-value', `--now 要是 ISO 日期（如 2026-11-10），收到「${opts.now}」`, null);
   }
-  const lifecycle = ctx.env.npm_lifecycle_event;
-  if (RENAMED[lifecycle]) ctx.warn('plan.renamed', `npm run ${lifecycle} 已改名为 npm run ${RENAMED[lifecycle]}（D06：工程计划降级为引擎工程待办），旧名保留一个版本`, `以后用 npm run ${RENAMED[lifecycle]}`);
   const reg = loadRegistry(ROOT);
   if (opts.route !== null && !resolveRoute(opts.route, reg)) throw unknownRouteError(opts.route, reg);
   const { plan, shown } = loadPlanFile(opts.file);
@@ -522,7 +518,6 @@ export const command = defineCommand({
   ],
   description: [
     '做作品不用它：作品由 film.json 与 films/<名>/review/ 记录，见 routes/README.md。这里只管引擎与工具的工程任务（T 编号）与加固工作包（H 编号）。',
-    '旧名 npm run routes:check / routes:next 保留一个版本，调用时提示改名。',
   ],
   options: {
     check: { type: 'boolean', describe: '检查计划（默认动作）：结构、依赖、认领与过期、证据与指引路径、写入范围冲突' },
