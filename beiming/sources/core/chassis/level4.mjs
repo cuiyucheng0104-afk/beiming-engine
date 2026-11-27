@@ -10,8 +10,9 @@
 //   见 SHAPES）：
 //     高光 IoU     亮度大于峰值一半的掩膜（倒角、镜面）
 //     圆角剖面     倒角那一圈的带状区里核心与参考的降噪法线（denoiseNormal）夹角的均方根，与带状区里高光掩膜的像素数（高光带宽）
-//     勾线 IoU     遮蔽方块上降噪反照率（denoiseAlbedo）小于本色一半的掩膜
-//     半影宽       地面上亮度落在受光水平 10% 到 90% 之间的像素数
+//     勾线 IoU     遮蔽方块上降噪反照率（denoiseAlbedo）低于暗端与亮端正中的掩膜（暗端、亮端各按自己的图取，见 gauges.mjs）
+//     半影宽       地面上亮度落在受光水平 10% 到 90% 之间的像素数。只记不判（阈值文件 level4.recordOnly）：这几包的地面上
+//                  没有成形的影子边，数到的几乎是整块地面
 //   降噪前后各比一次（只记，给对拍闸的轮次表）：SHAPES 里的包与 03B 零件（part_03B），核心种子 0 对参考包 seed00 的 color 的
 //   HDR-FLIP（差距）与参考包 seed00 对 seed01（地板），先不降噪，再各自拿自己的降噪特征（denoiseAlbedo、denoiseNormal）经同一个
 //   降噪器（core-render denoise：render-pack 用的 OIDN，处理器）降噪之后再比一次。
@@ -194,8 +195,10 @@ export function shapeReadings(spec, core, ref, w, h) {
   if (spec.penumbra) {
     const region = entityMask(ref.id, ref.coverage, spec.penumbra.entities);
     const c = penumbraWidth(core.color, region), r = penumbraWidth(ref.color, region), d = relDiff(c, r);
-    out.penumbraWidth = { value: d, threshold: G.penumbraRel, pass: d !== null && d <= G.penumbraRel, core: c, ref: r };
+    out.penumbraWidth = { value: d, threshold: G.penumbraRel ?? null, pass: d !== null && d <= G.penumbraRel, core: c, ref: r };
   }
+  // 阈值文件 level4.recordOnly 里的量具只记不判：照记读数，pass 记真
+  for (const k of G.recordOnly ?? []) if (out[k]) Object.assign(out[k], { recordOnly: true, pass: true });
   return out;
 }
 

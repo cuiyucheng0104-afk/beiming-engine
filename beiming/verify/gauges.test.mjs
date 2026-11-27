@@ -33,12 +33,12 @@ test('高光 IoU：同一个高光过门，挪开 3 个像素的高光（负对�
   assert.equal(maskIoU(highlightMask(lit, { region }), a), 1);
 });
 
-test('半影宽：同一条软边过门，宽一倍的软边（负对照）超出 ±10%', () => {
+test('半影宽（只记不判）：同一条软边读数相同，宽一倍的软边读数变大', () => {
   const edge = (s) => gray((x) => 1 / (1 + Math.exp(-(x - 20) / s)));
   const a = penumbraWidth(edge(1.5), all), b = penumbraWidth(edge(1.5), all), c = penumbraWidth(edge(3), all);
   assert.ok(a > 0);
   assert.equal(relDiff(b, a), 0);
-  assert.ok(relDiff(c, a) > G.penumbraRel, `宽一倍时相对差 ${relDiff(c, a)}`);
+  assert.ok(c > a, `宽一倍时 ${c} 对 ${a}`);
 });
 
 test('圆角法线剖面：同一个圆角过门，没有圆角的硬棱（负对照）RMS 超 3°，高光带宽对得上', () => {
@@ -77,8 +77,11 @@ test('勾线掩膜 IoU：同一条线过门，宽一倍的线（负对照）不�
   assert.equal(maskCount(a), 3 * W);
   assert.equal(maskIoU(a, b), 1);
   assert.ok(maskIoU(a, c) < G.aoLineIoU, `宽一倍时 IoU ${maskIoU(a, c)}`);
+  // 反照率整体加一个常数（Cycles 的反照率层多算了粗糙光泽闭包的反照率）：线不变
+  const shifted = gray((x, y) => (Math.abs(y - 15) <= 1 ? 0.02 : 0.8) + 0.06);
+  assert.equal(maskIoU(lineMask(shifted, all), a), 1);
 });
 
-test('阈值文件的第 4 级一段：能量比、高光 IoU、半影宽、圆角剖面、高光带宽、勾线 IoU 的线', () => {
-  assert.deepEqual(G, { energy: [0.97, 1.03], highlightIoU: 0.95, highlightFraction: 0.5, penumbraRel: 0.1, normalAngleRmsDeg: 3, highlightBandRel: 0.15, aoLineIoU: 0.9 });
+test('阈值文件的第 4 级一段：能量比、高光 IoU、圆角剖面、高光带宽、勾线 IoU 的线，半影宽只记', () => {
+  assert.deepEqual(G, { energy: [0.97, 1.03], highlightIoU: 0.95, highlightFraction: 0.5, normalAngleRmsDeg: 3, highlightBandRel: 0.15, aoLineIoU: 0.9, recordOnly: ['penumbraWidth'] });
 });

@@ -3,11 +3,14 @@
 // 量法是写这几个量具时定的，口径写在各函数的注释里；chassis/level4.mjs 拿核心 16 个种子的均值对参考包的收敛图量。
 //   高光掩膜        亮度大于峰值的 fraction 倍（默认一半）的像素；峰值只在 region 里取（不给 region 是整幅）
 //   掩膜 IoU        交集 ÷ 并集；两个都空记 null（量不出，不算过）
-//   半影宽          region 里亮度落在「受光水平」的 lo 到 hi 倍之间的像素数；受光水平取 region 里亮度的 95 百分位
+//   半影宽          region 里亮度落在「受光水平」的 lo 到 hi 倍之间的像素数；受光水平取 region 里亮度的 95 百分位。
+//                   灯的远近衰减也落在这一段里，第 4 级的包上数到的几乎是整块地面，对影子边不灵敏：只记不判
 //   法线角度剖面    带状区：region 里参考法线离开「主平面法线」超过 bandDeg 的像素（圆角与棱边那一圈）；主平面法线是
 //                   邻域里几乎不变的那些参考法线聚成的几个方向。剖面误差：带状区里核心法线与参考法线夹角（度）的均方根
 //   高光带宽        带状区（外扩 1 像素）里落在高光掩膜里的像素数
-//   勾线掩膜        region 里反照率的亮度小于 region 里反照率 95 百分位的 fraction 倍（默认一半）的像素
+//   勾线掩膜        region 里反照率亮度低于「暗端 + fraction ×（亮端 − 暗端）」的像素（fraction 默认一半）；暗端、亮端取 region
+//                   里反照率亮度的 1 与 95 百分位。两头都按自己的图取：核心的反照率层只收漫反射类闭包，Cycles 的还加上粗糙
+//                   光泽闭包的反照率，两边差一个大致不随底色变的常数，阈值只按亮端取时线会被量宽
 
 /** Rec.709 亮度 */
 export const luma = (rgb, i) => 0.2126 * rgb[3 * i] + 0.7152 * rgb[3 * i + 1] + 0.0722 * rgb[3 * i + 2];
@@ -143,11 +146,12 @@ export function highlightBand(highlight, band, w, h) {
   return n;
 }
 
-/** 勾线掩膜：region 里反照率亮度小于 region 里反照率 95 百分位的 fraction 倍 */
+/** 勾线掩膜：region 里反照率亮度低于暗端 + fraction ×（亮端 − 暗端）；暗端、亮端是 region 里反照率亮度的 1 与 95 百分位 */
 export function lineMask(albedo, region, { fraction = 0.5 } = {}) {
-  const top = regionQuantile(albedo, region, 0.95);
+  const bottom = regionQuantile(albedo, region, 0.01), top = regionQuantile(albedo, region, 0.95);
   const m = new Uint8Array(pixels(albedo));
-  if (top > 0) for (let i = 0; i < m.length; i++) m[i] = inRegion(region, i) && luma(albedo, i) < fraction * top ? 1 : 0;
+  const cut = bottom + fraction * (top - bottom);
+  if (top > bottom) for (let i = 0; i < m.length; i++) m[i] = inRegion(region, i) && luma(albedo, i) < cut ? 1 : 0;
   return m;
 }
 

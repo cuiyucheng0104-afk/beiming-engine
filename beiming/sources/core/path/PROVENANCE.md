@@ -104,7 +104,7 @@ Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee
 | `src/world.rs` | `renderer/src/world.rs` | 删去切掉的几类 |
 | `shaders/pathtrace.wgsl`、`intersect.wgsl`、`shader.wgsl`、`closure.wgsl`、`light.wgsl`、`volume.wgsl`、`integrator.wgsl`、`film.wgsl` | `renderer/shaders/pathtrace.wgsl` | 删去只有实时才走的段；加了北冥的接线（见下一节）；按阶段分成八个文件（见下一节末） |
 | `shaders/sample.wgsl` | `renderer/shaders/sample.wgsl` | 少两个只给辐射缓存用的采样维度常量；随机数的状态换成读路径状态；种子的第一次哈希挪到 CPU 上；加了照 Cycles 的取数接口与维度枚举；编号办法、像素种子的算法换成 Cycles 的，上游的 `rng_dim` 换成 `rng_legacy`，索引掩码改读全局参数（见下一节「随机维度」） |
-| `shaders/trace_hw.wgsl` | `renderer/shaders/trace_hw.wgsl` | 没改 |
+| `shaders/trace_hw.wgsl` | `renderer/shaders/trace_hw.wgsl` | `trace_opaque` 的跳过自己（见下文阴影射线一条）；`trace_opaque` 的身体挪进加了起始距离参数的 `trace_opaque_from`（图案节点一节），查询语句仍只有一处 |
 | `shaders/records.wgsl` | `renderer/shaders/records.wgsl` | 去掉每个像素的输出结构 `Pixel`（换成了 `film.wgsl` 的输出缓冲，见下一节末） |
 | `presets/cinematic.json`、`presets/preview.json` | `presets/` 下同名文件 | 没改 |
 | `tests/render/data/panel-decal.glb` | `tests/render/data/panel-decal.glb` | 没改。库测试里一个实例拍平的用例要读它，3232 字节，是上游仓库 `tests/render/data/` 下的测试素材 |
@@ -319,7 +319,7 @@ Cycles 的原理化 BSDF 给金属与电介质高光的闭包用的是 `valid_re
 
 - `src/pack.rs`：`pattern_table` 把每个材质的节点编成图案节点表（每个节点 2 个 vec4，格式见 `STRUCTURES.md`「材质记录」），`build` 填材质记录的 `pattern_first`、`pattern_count`；`pack-info` 的 `notApplied.pattern` 变成空表、另列 `patternMaterials`。`src/heap.rs` 加第 16 张表 `Patterns`，首地址在 `table_first_ext[0].y`；`src/gpu.rs` 加场景特性位 `F_PATTERN`（第 29 位）。
 - `shaders/shader.wgsl`：`shader_eval_inputs` 在贴图与材质函数之后、闭包之前调 `shader_eval_pattern` 依次求值。倒角照 `kernel/svm/bevel.h` 的 `svm_bevel`（三轴取盘、三次 BSSRDF 采样、只查同一个物体、按三轴幂启发式与距离的概率密度比加权、模糊的间接光线上早退），输出换闭包用的法线；遮蔽照 `kernel/svm/ao.h` 的 `svm_ao`（余弦半球、`onlyLocal` 为真只查同一个物体、为假打阴影的问法），法线输入是着色法线；平滑阶梯照 `smoothstep`（经 `map_range.h` 的 SMOOTHSTEP 一支），混合的底色照 MixRGB 的 MIX、金属度与粗糙度照 MapRange 的 LINEAR（标准答案机把场景包接成的 Blender 节点图）。
-- `shaders/intersect.wgsl`：`trace_local` 从空壳变成实现（软件求交一次遍历按物体号过滤，硬件求交在 `trace` 上逐次步进），收命中照 Cycles 处理器一侧的规则；`LocalHit` 加 `inst`，`num_hits` 改成照 Cycles 的命中总数。
+- `shaders/intersect.wgsl`：`trace_local` 从空壳变成实现（软件求交一次遍历按物体号过滤；硬件求交从固定起点按距离步进，每步从上一个命中距离之后的下一个 f32 查起，`shaders/trace_hw.wgsl` 为此加了带起始距离的 `trace_opaque_from`，`trace_opaque` 改成调它、行为不变），收命中照 Cycles 处理器一侧的规则；`LocalHit` 加 `inst`，`num_hits` 改成照 Cycles 的命中总数。
 - `shaders/hash.wgsl`：加 `hash_uint3` 与线性同余发生器，倒角的 `lcg_state_init` 用。
 - `shaders/sample.wgsl`：`path_branched_rng_2D` 的点的打乱只用维度的种子（蓝噪声图案的取法，理由与读数见 `STRUCTURES.md`「与 Cycles、与上游不一样的地方」第 56 条）。这个函数之前没有调用者，改它不动别的场景。
 - 第 4 级（`../chassis/level4.mjs`）把 l4/d（倒角、遮蔽）、l4/e（镜面地面）改成判，加形状量具（`../../../verify/gauges.mjs`，线在阈值文件 `floor-gate.json` 的 `level4` 一段）与两项负对照（倒角不起作用、遮蔽恒为 1）；倒角、遮蔽、镜面地面与 03B 零件另记降噪前后的差距与地板。硬件求交下局部多命中的不一致率用 `../chassis/localhits.mjs` 量。

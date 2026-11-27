@@ -24,8 +24,8 @@ struct Hit { t: f32, tri: u32, u: f32, v: f32, inst: u32 };
 // 跳过的图元同 trace：模块级的 trace_self（遮蔽节点设它，Cycles 的 ray.self.prim）。
 // num_hits 照 Cycles 是找到的命中总数，可以大于 max_hits；hits 里前 min(num_hits, max_hits) 个有效，不保证按距离排序。
 // 两条求交路上做法不同：软件求交在 BVH 遍历里按物体号过滤、收齐区间里的全部命中；硬件求交下不新增光线查询的源码位置，
-// 在现有的 trace 上逐次步进（每次从上一个命中处出发、跳过刚命中的三角形，最多 LOCAL_STEPS 步）、按物体号过滤来拼，
-// 不用候选循环（上游记录过候选循环在 Metal 上丢命中）。步进的漏命中率两台显卡上的实测见 ../STRUCTURES.md「求交」。
+// 在 trace_hw.wgsl 的 trace_opaque_from 上逐次步进（起点固定，每步的起始距离是上一个命中距离之后的下一个 f32，最多 LOCAL_STEPS
+// 步，不经 alpha 镂空）、按物体号过滤来拼，不用候选循环（上游记录过候选循环在 Metal 上丢命中）。步进的漏命中率两台显卡上的实测见 ../STRUCTURES.md「求交」。
 // 阴影类的问法只许判断挡没挡住，不许读返回的三角号。
 const LOCAL_MAX_HITS: u32 = 4u;
 const LOCAL_STEPS: u32 = 16u;
@@ -120,33 +120,28 @@ fn hit_object(h: Hit) -> u32 {
 @if(hwrt) fn trace_local(ray: Ray, object: u32, lcg_state: u32, max_hits: u32) -> LocalIntersection {
     var r = LocalIntersection();
     r.lcg_state = lcg_state;
-    let self_in = trace_self;
-    var o = ray.P;
-    var base = 0.0;
+    if (state.legacy.rays_off) { return r; }
+    // 起点固定在 ray.P，每步从上一个命中的距离之后的下一个 f32 再查：距离只增不减，同一距离上的第二个三角形（公共边）
+    // 不再收，与 local_record 的「距离相同不算」一致；不会在公共边两侧的两个三角形之间来回打
+    var lo = ray.tmin;
     for (var k = 0u; k < LOCAL_STEPS; k++) {
-        let h = trace(o, ray.D, ray.tmax - base, TRACE_CLOSEST);
-        if (h.tri == 0xffffffffu) { break; }
-        let t = base + h.t;
-        if (t >= ray.tmax) { break; }
-        if (!is_proc(h) && t > ray.tmin && hit_object(h) == object) {
+        let h = trace_opaque_from(ray.P, ray.D, lo, ray.tmax, 0xffu, false);
+        if (h.tri == 0xffffffffu || h.t >= ray.tmax) { break; }
+        if (!is_proc(h) && h.t > ray.tmin && hit_object(h) == object) {
             if (max_hits == 0u) {
                 r.num_hits = 1u;
                 break;
             }
             var lh = LocalHit();
-            lh.t = t;
+            lh.t = h.t;
             lh.tri = h.tri;
             lh.u = h.u;
             lh.v = h.v;
             lh.inst = h.inst;
             local_record(&r, lh, max_hits);
         }
-        // 下一步从这个命中处出发，跳过刚命中的三角形
-        o = o + ray.D * h.t;
-        base = t;
-        trace_self = vec2<u32>(h.tri, h.inst);
+        lo = bitcast<f32>(bitcast<u32>(h.t) + 1u);
     }
-    trace_self = self_in;
     return r;
 }
 const NO_INST: u32 = 0xffffffffu;
