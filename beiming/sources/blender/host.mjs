@@ -19,6 +19,8 @@ import { types } from 'node:util';
 import { hashCardContents, validateCard } from '../../cards/index.mjs';
 import { checkInstanceNames, expandOverlays, implFor, orderPairs, parseCardRef, resolveParams, unfitReason } from '../../cards/runtime.mjs';
 import { caps, DRAFT_MAX_SIZE } from './caps.mjs';
+import { planProbe, planProbes, withProbeCaps } from '../scene-probe-plan.mjs';
+import { measureProbe, probeFrames, withProbeMeta } from '../scene-probe-measure.mjs';
 
 const { structuredClone } = globalThis;
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -514,7 +516,7 @@ export async function startSource({ blenderBin = findBlender(), limitMs, handsha
     const timeline = input.events?.events ?? [];
     const session = {};
     current = session;
-    let entities, prepared, inputs;
+    let entities, prepared, inputs, names, probes, workerOpened = false;
     try {
       const common = { frames, fps: output.fps, size: output.size, seed: locked.seed, tokens: input.tokens ?? {}, tier: env.tier, colorRef: shot.colorRef };
       if (renderingOf(shot).mode === 'cards-data') {
@@ -522,6 +524,7 @@ export async function startSource({ blenderBin = findBlender(), limitMs, handsha
         // 数据式镜头的源是装载时的镜头描述和内容锁；实际文件夹不参与指纹。
         prepared.sourceSha256 = sha256(JSON.stringify([input, env.lock]));
         const opened = await worker.call('open', { ...common, ...prepared.job });
+        workerOpened = true;
         entities = opened.entities;
         // worker 交的是第 −1 帧起的逐帧数组，换成以帧号为键的表：求值核按 bbox[实体名][f] 取，f 可以是 −1
         inputs = prepared.inputsOf(record(opened.bbox)
@@ -529,15 +532,33 @@ export async function startSource({ blenderBin = findBlender(), limitMs, handsha
           : undefined);
       } else {
         ({ entities } = await worker.call('open', { ...common, entry: resolve(env.filmDir, locked.entry) }));
+        workerOpened = true;
       }
+      names = entities.map((e) => e.name);
+      probes = planProbes('blender', shot.params?.sceneProbes, frames, names);
     } catch (e) {
       current = null;
+      if (workerOpened) await worker.call('close');
       throw e;
     }
-    const names = entities.map((e) => e.name);
     const tracksAt = (f) => prepared?.filming ? [f - 1, f, f + 1].map((t) => prepared.segmentAt(inputs, t)) : [];
     let initialTracks;
     let renders = 0;
+
+    const trackInput = (frame) => prepared ? { tracks: tracksAt(frame), initialTracks: initialTracks ??= tracksAt(0) } : {};
+    async function probe(f, plan, size) {
+      if (plan.kind === 'probe.contact') {
+        const contact = await worker.call('query', {
+          frame: f, plan: { ...plan, kind: 'contact', tol: 0, minGap: plan.tol ?? 0 }, ...trackInput(f),
+        });
+        return { ...finishQuery('contact', contact), kind: plan.kind };
+      }
+      const samples = new Map();
+      for (const frame of probeFrames(plan, f)) {
+        samples.set(frame, await worker.call('probe', { frame, plan, size, ...trackInput(frame) }));
+      }
+      return measureProbe(plan, samples, f);
+    }
 
     return Object.assign(session, {
       manifest: () => ({ frames, entities: entities.map((e) => ({ ...e })) }),
@@ -586,15 +607,21 @@ export async function startSource({ blenderBin = findBlender(), limitMs, handsha
           // 固定装载脚本记的账：做了哪几步、各种次序、相机从哪来、每个卡实例是谁调的、并进镜头之后叫什么
           ...(res.load ? { ext: { 'blender.load': res.load } } : {}),
         };
-        return { meta, layers: res.layers };
+        const readingsByProbe = await Promise.all(probes.map((spec) => probe(f, spec, plan.size)));
+        return { meta: withProbeMeta(meta, readingsByProbe), layers: res.layers };
       },
 
       async query(f, q) {
         if (current !== session) throw bad('会话已经关了');
         planFrame(frames, f);
         const plan = planQuery(CAPS, q, names);
-        const tracks = prepared ? { tracks: tracksAt(f), initialTracks: initialTracks ??= tracksAt(0) } : {};
-        return finishQuery(plan.kind, await worker.call('query', { frame: f, plan, ...tracks }));
+        return finishQuery(plan.kind, await worker.call('query', { frame: f, plan, ...trackInput(f) }));
+      },
+
+      async probe(f, q) {
+        if (current !== session) throw bad('会话已经关了');
+        planFrame(frames, f);
+        return probe(f, planProbe('blender', q, frames, names), output.size);
       },
 
       /** 按请求顺序导出镜头局部整帧；省略 frames 时导出全镜头。 */
@@ -621,5 +648,5 @@ export async function startSource({ blenderBin = findBlender(), limitMs, handsha
     });
   }
 
-  return { caps: () => structuredClone(CAPS), open, stop, device };
+  return { caps: () => withProbeCaps(structuredClone(CAPS)), open, stop, device };
 }

@@ -177,7 +177,12 @@ test('S12：Blender 实测穿插、接触、最小间隙、评值网格、坐标
   const src = await startSource({ blenderBin: BLENDER, device: 'cpu', limitMs: 60000 });
   t.after(() => src.stop());
   t.diagnostic(`Blender ${src.caps().version}，后端 ${src.device.backend}`);
-  const shot = { id: 's12', in: 20, out: 22, source: 'blender', host: 'cycles', mode: 'build-script', entry: 's12.py', colorRef: 'scene', seed: 7 };
+  const smallGap = { kind: 'probe.contact', of: ['part.b'], against: ['part.a'], tol: 0.0001 };
+  const suppressSmallGap = { ...smallGap, tol: 0.0008 };
+  const shot = {
+    id: 's12', in: 20, out: 22, source: 'blender', host: 'cycles', mode: 'build-script',
+    entry: 's12.py', colorRef: 'scene', seed: 7, params: { sceneProbes: [smallGap, suppressSmallGap] },
+  };
   const session = await src.open({ film: 's12', output: { size: [64, 36], fps: '24/1' }, shot }, { lock: null, tier: 'final', filmDir: root, workspace: root });
   const query = async (kind, of, more = {}, f = 0) => {
     const res = await session.query(f, { kind, of, ...more });
@@ -215,6 +220,18 @@ test('S12：Blender 实测穿插、接触、最小间隙、评值网格、坐标
   near(gap.value, 0.0005);
   near(gap.at[0], 0.50025);
   assert.deepEqual([gap.a, gap.b], ['part.b', 'part.a']);
+  const atThreshold = { kind: 'probe.contact', items: [gap] };
+  const belowThreshold = { kind: 'probe.contact', items: [] };
+  assert.deepEqual(await session.probe(1, { ...smallGap, tol: gap.value }), atThreshold);
+  assert.deepEqual(await session.probe(1, suppressSmallGap), belowThreshold);
+  assert.deepEqual((await query('contact', ['part.b'], { against: ['part.a'], tol: suppressSmallGap.tol }, 1)).items, [gap]);
+  assert.deepEqual((await session.render(1, {}, ['meta'])).meta.ext['scene.probes'], [atThreshold, belowThreshold]);
+  const manyGaps = { kind: 'probe.contact', of: ['crowd.*'], against: ['part.a'] };
+  const limited = await session.probe(0, manyGaps);
+  assert.equal(limited.truncated, 3);
+  const filtered = await session.probe(0, { ...manyGaps, tol: 27 });
+  assert.ok(filtered.items.length > 0 && filtered.items.length < 50);
+  assert.deepEqual(filtered, { kind: 'probe.contact', items: limited.items.filter(({ value }) => value >= 27) });
   const [touch] = (await query('contact', ['part.a', 'part.c'])).items;
   near(touch.value, 0);
   near(touch.at[0], -0.5);

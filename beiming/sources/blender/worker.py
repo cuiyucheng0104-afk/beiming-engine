@@ -48,6 +48,7 @@ LOADER = _sibling('loader')
 ASSETS = _sibling('assets')
 RUNTIME = _sibling('runtime')
 QUERY = _sibling('query')
+SCENE_PROBES = _sibling('scene_probes')
 EXPORT_PACK = _sibling('export_pack')
 Fail = LOADER.Fail
 
@@ -494,6 +495,17 @@ def op_query(job):
         raise Fail('contract.bad-value', str(e)) from e
 
 
+def op_probe(job):
+    scene = bpy.context.scene
+    try:
+        with frame_pose(scene, job['frame'], job.get('tracks', []), job.get('initialTracks', [])):
+            bpy.context.view_layer.update()
+            return SCENE_PROBES.snapshot(scene, bpy.context.evaluated_depsgraph_get(), job['plan'],
+                                         STATE['query_entities'], AXIS, rigid, job['size'])
+    except (ValueError, TypeError, AttributeError, OverflowError) as e:
+        raise Fail('contract.bad-value', str(e)) from e
+
+
 def op_render(job):
     scene = bpy.context.scene
     plan = job['plan']
@@ -614,7 +626,7 @@ def op_close(_job):
     return {}
 
 
-OPS = {'hello': op_hello, 'open': op_open, 'render': op_render, 'query': op_query,
+OPS = {'hello': op_hello, 'open': op_open, 'render': op_render, 'query': op_query, 'probe': op_probe,
        'export_pack': op_export_pack, 'close': op_close}
 
 

@@ -38,3 +38,4 @@ export {
   loadMatHardsurfPriorsStore,
   loadRenderPipePriorsStore,
 } from './priors-batch3.mjs';
+export { getRoleVegCardPriors, getRoleVegMigrationManifest } from './priors-role-veg.mjs';
