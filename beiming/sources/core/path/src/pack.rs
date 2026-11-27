@@ -1351,6 +1351,8 @@ fn kernel_geometry(p: &Pack, k: usize) -> Vec<world::Geometry> {
 
 pub fn world_at(p: &Pack, k: usize, size: (u32, u32)) -> Result<world::World> {
     let mut w = world::World::default();
+    // 镜像件的镜像位由 `build` 写进物体扩展表，镜像件与原件共用网格（STRUCTURES 第 56 条）
+    w.mirror_flag_by_caller = true;
     for (i, g) in kernel_geometry(p, k).into_iter().enumerate() {
         w.set_geometry(1 + i as u32, g)?;
     }

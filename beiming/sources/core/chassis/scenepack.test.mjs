@@ -26,6 +26,9 @@ process.on('exit', () => fs.rmSync(TMP, { recursive: true, force: true }));
 const NO_FLIP = [{ file: 'path/src/pack.rs', from: 'let flips = r[3] == 1;', to: 'let flips = false;' }];
 // 显卡负对照：去掉内核按镜像位把几何法线取反（shader_setup_from_hit 里那一处），镜像的一半要变暗
 const NO_KERNEL_FLIP = [{ file: 'path/shaders/shader.wgsl', from: '(object_ext_at((*sd).object).object_flag & SD_OBJECT_NEGATIVE_SCALE) != 0u', to: 'false' }];
+// 软件求交的负对照：去掉把实例平铺进世界坐标时按镜像位换绕序（path/src/lib.rs 的 flatten_instances），软件求交下镜像的一半要变暗
+const NO_SOFT_FLIP = [{ file: 'path/src/lib.rs', from: 'let flip = sc.object_ext.get(inst.object as usize).is_some_and(|e| e.object_flag & scene::SD_OBJECT_NEGATIVE_SCALE != 0);', to: 'let flip = false;' }];
+const SOFT = { THREERT_HWRT: '0' };
 
 let dirs = 0;
 const fresh = (spec, tweak) => {
@@ -196,11 +199,11 @@ test('坏包：下标越界、形状不符、字节数不符、NaN 与无穷、�
 });
 
 /** 左右对称的包渲 8 个种子：每个种子左半与右半的平均亮度差；返回差的均值与标准误 */
-function halves(bin, dir) {
+function halves(bin, dir, env = {}) {
   const W = 128, H = 64, d = [];
   for (let seed = 1; seed <= 8; seed++) {
-    const hdr = path.join(dir, '..', `${path.basename(dir)}-${path.basename(bin)}-s${seed}.raw`);
-    const r = spawnSync(bin, ['render-pack', dir, '-o', `${hdr}.png`, '--hdr', hdr, '--spp', '64', '--width', String(W), '--height', String(H), '--no-denoise', '--presets', PRESETS], { encoding: 'utf8', env: { ...process.env, THREERT_SEED: String(seed) } });
+    const hdr = path.join(dir, '..', `${path.basename(dir)}-${path.basename(bin)}${env.THREERT_HWRT ? '-soft' : ''}-s${seed}.raw`);
+    const r = spawnSync(bin, ['render-pack', dir, '-o', `${hdr}.png`, '--hdr', hdr, '--spp', '64', '--width', String(W), '--height', String(H), '--no-denoise', '--presets', PRESETS], { encoding: 'utf8', env: { ...process.env, ...env, THREERT_SEED: String(seed) } });
     if (r.status !== 0) return { error: r.stderr };
     const b = fs.readFileSync(hdr);
     const px = new Float32Array(b.buffer, b.byteOffset, b.byteLength / 4);
@@ -219,8 +222,10 @@ function halves(bin, dir) {
 
 // 镜像件与原件共用一个网格，实例矩阵的行列式为负，内核按物体扩展表的镜像位把几何法线取反（path/shaders/shader.wgsl 的
 // shader_setup_from_hit）。去掉这一处，命中镜像件时几何法线朝里、被当成背面，画面上量得出来：显卡负对照就是它。
-// 核对记录一侧由 SP7 与它的负对照（读入器不照内核对调顶点，SP7 必须不过）守着。
-test('显卡：左右对称的包（右边是镜像件）左右两半平均亮度差在 3 个标准误以内，去掉内核的取反后超出；读入器不照内核对调顶点时核对记录的 SP7 不过', (t) => {
+// 软件求交（THREERT_HWRT=0）把实例平铺进世界坐标、按镜像位换绕序，同样两半对得上；去掉换绕序就分得开。
+// 核对记录一侧的 SP7 对镜像行只核读入器自己的写法：核对记录里的内核三角形是读入器照同一个镜像位对调顶点得来的，
+// 它的负对照（读入器不对调，SP7 必须不过）只证明这个镜像位被读到了；内核真的取反由上面两条显卡对照守着。
+test('显卡：左右对称的包（右边是镜像件）左右两半平均亮度差在 3 个标准误以内，硬件与软件求交各一遍，去掉内核的取反或软件求交的换绕序后超出；读入器不照内核对调顶点时核对记录的 SP7 不过', (t) => {
   const bin = renderer(t);
   if (!bin) return;
   const dir = fresh(symmetricPack()).dir;
@@ -238,6 +243,16 @@ test('显卡：左右对称的包（右边是镜像件）左右两半平均亮�
   if (bad.error) assert.fail(bad.error);
   t.diagnostic(`去掉内核取反：左右差 ${bad.mean.toExponential(3)}，标准误 ${bad.se.toExponential(3)}，z = ${bad.z.toFixed(2)}`);
   assert.ok(Math.abs(bad.z) > 3, `去掉内核取反之后左右两半应当分得开，z = ${bad.z}`);
+  const soft = halves(bin, dir, SOFT);
+  if (soft.error) assert.fail(soft.error);
+  t.diagnostic(`软件求交：左右差 ${soft.mean.toExponential(3)}，标准误 ${soft.se.toExponential(3)}，z = ${soft.z.toFixed(2)}`);
+  assert.ok(Math.abs(soft.z) <= 3, `软件求交 z = ${soft.z}`);
+  const unswapped = renderer(t, NO_SOFT_FLIP);
+  if (!unswapped) return;
+  const softBad = halves(unswapped, dir, SOFT);
+  if (softBad.error) assert.fail(softBad.error);
+  t.diagnostic(`软件求交去掉换绕序：左右差 ${softBad.mean.toExponential(3)}，标准误 ${softBad.se.toExponential(3)}，z = ${softBad.z.toFixed(2)}`);
+  assert.ok(Math.abs(softBad.z) > 3, `软件求交去掉换绕序之后左右两半应当分得开，z = ${softBad.z}`);
   const broken = renderer(t, NO_FLIP);
   if (!broken) return;
   assert.equal(checks.SP7(record(broken, dir)).length, 1, '去掉翻转之后镜像件那一行 SP7 必须不过');

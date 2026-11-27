@@ -336,6 +336,9 @@ pub struct World {
     pub environment: desc::Environment,
     pub settings: Settings,
     pub changes: Changes,
+    /// 北冥：建场景的人自己给镜像的副本写物体扩展表的镜像位（场景包读入器），`Kind::Instanced` 镜像的副本就共用网格，不平铺。
+    /// 场景脚本那一路不写镜像位（扩展表全 0），照旧平铺、换绕序。
+    pub mirror_flag_by_caller: bool,
 }
 
 impl Default for World {
@@ -356,6 +359,7 @@ impl Default for World {
             environment: desc::Environment { sky: desc::Sky::Color { color: [0.0; 3], intensity: 0.0, sky_light_intensity: 1.0 }, fog: None, background: None, wetness: 0.0, rain: 0.0, cloud_cover: 0.0 },
             settings: Settings::default(),
             changes: Changes { structural: true, ..Default::default() },
+            mirror_flag_by_caller: false,
         }
     }
 }

@@ -2094,8 +2094,9 @@ impl Gpu {
             self.queue.submit([enc.finish()]);
             self.device.poll(wgpu::PollType::wait_indefinitely())?;
             drop(entries);
-            // 北冥：分段计时要分开 BLAS 与 TLAS 时（`time_tlas`），建完之后单独把 TLAS 再建一遍、量它，BLAS 那段取「一次建完」
-            // （从展开之后算起）减去这一遍 TLAS。不在建的时候拆成两次提交：拆开之后苹果显卡上 BLAS 那一次就慢了约 60 毫秒，量的就不是平时的数了
+            // 北冥：分段计时要分开 TLAS 时（`time_tlas`），建完之后单独把 TLAS 再建一遍、量它；另一段取「从展开之后到建完」减去这一遍
+            // TLAS，里面有顶点缓冲、键、BLAS 描述、提交与等待，不只是建 BLAS（一个也不建时也有十几毫秒），所以叫 accel_minus_tlas_ms。
+            // 不在建的时候拆成两次提交：拆开之后苹果显卡上 BLAS 那一次就慢了约 60 毫秒，量的就不是平时的数了
             if self.time_tlas {
                 let all = tblas.elapsed().as_secs_f64() * 1000.0;
                 let ttlas = Instant::now();
@@ -2104,7 +2105,7 @@ impl Gpu {
                 self.queue.submit([enc.finish()]);
                 self.device.poll(wgpu::PollType::wait_indefinitely())?;
                 let tlas = ttlas.elapsed().as_secs_f64() * 1000.0;
-                timings.push(("blas_build_ms".into(), all - tlas));
+                timings.push(("accel_minus_tlas_ms".into(), all - tlas));
                 timings.push(("tlas_build_ms".into(), tlas));
             }
             accel = Some(Accel { tlas: t, verts: vbuf, inst_base: base, proc_base, blas_per_tri });

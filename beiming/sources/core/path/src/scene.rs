@@ -1288,7 +1288,7 @@ pub fn build(w: &World, assets: &Path, presets_dir: &Path, overrides: Option<&se
     let mut grids: Vec<GridBuild> = vec![];
     let mut objects: Vec<[f32; 4]> = vec![];
     // Static glTF models drawn more than once share their triangles (model space, one BLAS): opaque, shadow-casting
-    // per node, non-emissive materials without functions. THREERT_INSTANCING=0 flattens everything.
+    // per node, non-emissive materials without functions, not mirrored. THREERT_INSTANCING=0 flattens everything.
     let instancing = std::env::var("THREERT_INSTANCING").map_or(true, |v| v != "0");
     let mut pool_tris: Vec<[Vec3A; 3]> = vec![];
     let (mut vcolors, mut pool_vcolors): (Vec<[u32; 3]>, Vec<[u32; 3]>) = (vec![], vec![]);
@@ -1390,9 +1390,9 @@ pub fn build(w: &World, assets: &Path, presets_dir: &Path, overrides: Option<&se
             Kind::Instanced { geometry, procedural, materials: mats, capacity } if shown => {
                 // Copies of one geometry: one shared mesh (one BLAS), an instance and an object entry per copy, the
                 // copies' records and entries contiguous (live/edits.rs `update_instanced` rewrites them in place).
-                // Glass, emissive and function materials are flattened instead, each copy its own triangles, as
-                // `own_blas` meshes are; changing their instances rebuilds. 北冥：镜像的副本（行列式为负）也共用这一个网格，
-                // 实例矩阵原样进 TLAS；几何法线的方向由物体扩展表的镜像位在内核里取反（shader.wgsl `shader_setup_from_hit`）
+                // Glass, emissive and function materials and mirrored copies are flattened instead, each copy its
+                // own triangles, as `own_blas` meshes are; changing their instances rebuilds. 北冥：建场景的人自己写镜像位时
+                // （`World::mirror_flag_by_caller`，场景包读入器），镜像的副本也共用网格，内核按镜像位取反几何法线（STRUCTURES 第 56 条）
                 let empty = world::InstanceTable::default();
                 let t = w.instanced.get(id).unwrap_or(&empty);
                 let placed: Vec<(Mat4, bool)> = (0..*capacity as usize).map(|i| instance_world(m, t, i)).collect();
@@ -1414,7 +1414,8 @@ pub fn build(w: &World, assets: &Path, presets_dir: &Path, overrides: Option<&se
                 let mat = *retained.materials.get(material).ok_or_else(|| anyhow!("object {}: unknown material {material}", n.name))?;
                 let class = material_class(&materials[mat as usize]);
                 let vc = colored(g, &mut std::iter::once(material));
-                if instancing && class < 2 {
+                let mirrored = !w.mirror_flag_by_caller && placed.iter().any(|(wm, hidden)| !hidden && wm.determinant() < 0.0);
+                if instancing && class < 2 && !mirrored {
                     let mesh = match inst_mesh_of.get(&(*geometry, mat)) {
                         Some(&k) => Some(k),
                         None => {
@@ -2419,7 +2420,7 @@ mod instance_tests {
     /// A node's triangles may come in two ranges (an instance's glass part flattened at build, its mesh appended by
     /// software traversal): selection outlines need both.
     /// An instanced object: one shared mesh, an instance and an object entry per copy (capacity, not count), hidden
-    /// past the count and where a matrix scales to 0; mirrored copies share the mesh too (北冥).
+    /// past the count and where a matrix scales to 0; mirrored copies flatten every drawn copy.
     #[test]
     fn instanced_objects_share_one_mesh() {
         let mut w = World::default();
@@ -2441,7 +2442,11 @@ mod instance_tests {
         m[0] = -1.0;
         w.set_instances(2, 3, Some(m), None, None).unwrap();
         let sc = build(&w, Path::new("."), &crate::default_presets_dir(), None).unwrap();
-        assert_eq!((sc.meshes.len(), sc.instances.len(), sc.tris.len()), (1, 4, 0), "mirrored: still one shared mesh");
+        assert_eq!((sc.instances.len(), sc.tris.len(), sc.tri_instances.iter().map(|r| r.2).collect::<Vec<_>>()), (0, 2, vec![0, 1]), "mirrored: the drawn copies flattened");
+        // 北冥：建场景的人自己写镜像位时（场景包读入器）镜像的副本共用网格
+        w.mirror_flag_by_caller = true;
+        let sc = build(&w, Path::new("."), &crate::default_presets_dir(), None).unwrap();
+        assert_eq!((sc.meshes.len(), sc.instances.len(), sc.tris.len()), (1, 4, 0), "mirror flag by caller: one shared mesh");
         assert!(sc.instances[0].world.determinant() < 0.0);
     }
 
