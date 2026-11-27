@@ -338,6 +338,8 @@ export function auditPlan(plan, { root = ROOT, reg = defaultRegistry(), strict =
       for (const s of t.writeScope) {
         const top = s.split('/')[0];
         if (top === '**' || exists(root, top) || newRoots.has(top)) continue;
+        // T20、H18 归档时的路线入口已迁至 routes/README.md；这里只核对档案，不改写任务的写入范围。
+        if (plan.schemaVersion === 2 && s === 'ROUTES.md' && ['T20', 'H18'].includes(t.id) && isFile(root, 'routes/README.md')) continue;
         (strict ? E : W)(t.id, 'task.scope-root', `${t.id}：写入范围 ${s} 的首段 ${top} 在仓库里不存在，也没登记在计划的 newRoots 里`, '路径写错了就改正；确实要新建根目录或根文件，先在 work-plan.json 的 newRoots 里登记');
       }
     }

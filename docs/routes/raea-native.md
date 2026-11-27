@@ -13,7 +13,7 @@
 > | §5「只改 Composition 不能复用包装」的写死常量 | 已去掉：帧数、尺寸、帧率、交付档位、素材清单都从 `film.json` 读；`tests/native/contract.test.mjs` 与 `layout.test.mjs` 核对 |
 > | §7 手册步骤 R01（起步工程）、R02（项目运行包装） | 由 `engine/native/` 与 `engine/render/native.mjs` 取代；其余步骤（分层夹具、角色等）仍是待办，编号只在本页有效，与代码审查问题单的 R01–R14 无关 |
 
-本路线直接用 RAEA 的 TSX、原生页面与三维组件组织作品，适合独立画风的二维、三维、程序化画面和角色实验。先读 [路线入口](../../ROUTES.md) 与 [仓库规范](../../AGENTS.md)。原生工程可以立即编写 TSX；[契约页](contracts.md)中的 `ProjectSpec / FrameState / BackendAdapter` 是接口设计，尚未接入运行时，不是本路线的前置 SDK。
+本路线直接用 RAEA 的 TSX、原生页面与三维组件组织作品，适合独立画风的二维、三维、程序化画面和角色实验。先读 [路线入口](../../routes/README.md) 与 [仓库规范](../../AGENTS.md)。原生工程可以立即编写 TSX；[契约页](contracts.md)中的 `ProjectSpec / FrameState / BackendAdapter` 是接口设计，尚未接入运行时，不是本路线的前置 SDK。
 
 本文以北冥仓库 `21ed1b10164a94a4fc0d7cf3973934d0f21f301f` 中的示例为基线，核对 RAEA 源码提交 `fb3f70844e03cc40185e3a06c394060d26c5cd38`，运行包固定 `0.1.0-canary.2`。源码快照与发行包版本分别记录，不能因接口在快照中存在，就断言发行包的每项功能均已验证。本文不包含 RAEA 内核或 SDK 副本。
 

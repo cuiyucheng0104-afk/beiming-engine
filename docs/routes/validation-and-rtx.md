@@ -4,7 +4,7 @@
 >
 > **2026-11-10 起统一口径**：交付规格以 [D07 交付档位](../decisions/2026-11-10-industrial-baseline.md)为准（默认 `web-1080p24`，《北冥》样片 `beiming-1040p24`；数值见 `node tools/qa/cli.mjs profiles`）；技术验收（S5）由机器 QA 门判定：`node tools/qa/cli.mjs report <成片>`，硬门不通过 exit 4，说明见 [docs/quality/QA-GATE.md](../quality/QA-GATE.md)；评分口径见 [docs/quality/RUBRIC.md](../quality/RUBRIC.md)；已知问题见 [docs/quality/known-issues.json](../quality/known-issues.json)。本页其余部分保留为 5090 工作站的执行与取证手册；与 D07、QA 门冲突时以它们为准。A、B、C 三条路线（D01）共用这套验收：C 与 A 共用页面渲染器，按 A 的页面检查执行。
 
-本页把[路线选择](../../ROUTES.md)落实到输入、执行证据、失败定位和交付门槛。适用组合是 `beiming + three`、`raea + raea`，以及尚需风格适配的 `beiming + raea`。路线决定视觉目标，实际后端、设备和编码器另行记录。
+本页把[路线选择](../../routes/README.md)落实到输入、执行证据、失败定位和交付门槛。适用组合是 `beiming + three`、`raea + raea`，以及尚需风格适配的 `beiming + raea`。路线决定视觉目标，实际后端、设备和编码器另行记录。
 
 核对基线：北冥提交 `21ed1b10164a94a4fc0d7cf3973934d0f21f301f`；RAEA 源码提交 `fb3f70844e03cc40185e3a06c394060d26c5cd38`；运行包 `0.1.0-canary.2`。本页编写只做源码和已有产物的只读检查，没有启动 GPU、重跑 5090 或产生新的性能结果。执行命令供后续任务使用，未运行的命令不能登记为已通过。
 
