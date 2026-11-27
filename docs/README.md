@@ -94,12 +94,12 @@ npm run test:cases       # 案例库工具与相关规则的测试
 
 ## 对外名称与上游项目名
 
-对外（作品站、README、发布说明）只用左列名称，产品名不带 RTX。上游项目名在技术说明、署名区块与许可说明里如实写；工程目录、npm 命令和环境变量沿用上游项目名（内部目录沿用），不是我方的产品名。完整词条见 [GLOSSARY.md](GLOSSARY.md)。
+对外（作品站、README、发布说明）只用左列名称，产品名不带 RTX。上游项目名在技术说明、署名区块与许可说明里如实写；部分内部目录和环境变量沿用上游项目名。完整词条见 [GLOSSARY.md](GLOSSARY.md)。
 
 | 对外名称 | 是什么 | 工程里的目录与命令 |
 |---|---|---|
 | 北冥风格路线 · WebGL 三渲二 | 浏览器里的 WebGL 与 Canvas 2D（或 Node + Dawn 离屏 WebGPU）逐帧出片 | `routes/a-webgl/`、`engine/`、`src/`、`lab/`；后端字段 `three` 或 `webgpu` |
-| 北冥原生 · BNE | 通用原生渲染，基于上游 RAEA 原生运行时（FSL-1.1-ALv2） | `routes/b-native/`、`engine/native/`；沿用上游项目名的 `examples/raea/`、`docs/raea/`、`npm run raea:*`、`RAEA_BIN` |
+| 北冥原生 · BNE | 通用原生渲染，基于上游 RAEA 原生运行时（FSL-1.1-ALv2） | `routes/b-native/`、`engine/native/`、`npm run b:render`；沿用上游项目名的 `examples/raea/`、`docs/raea/`、`RAEA_BIN` |
 | 北冥代码动画风格 · 86 式 | 页面型代码动画的方法库与 C 模版 | `routes/c-style/`；风格库快照在 `cases/vendor/`，来源见 [THIRD-PARTY.md](../THIRD-PARTY.md) |
 | 北冥光追 · 物理路径追踪 | 确定性硬件光追与 Compute BVH 物理三维出片，调用上游开源运行时 ThreeRT（MIT） | `routes/d-pathtrace/`、`engine/pathtrace/`；环境变量 `BEIMING_PT_BIN`，后端字段 `pathtrace` |
 

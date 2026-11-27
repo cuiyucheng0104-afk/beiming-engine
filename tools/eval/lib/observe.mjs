@@ -20,7 +20,7 @@ import { filmRenderRuns, loadSnapshots } from './rundir.mjs';
 
 const IMAGE_EXT = /\.(png|jpe?g|webp)$/i;
 const BYPASS = [/--no-verify\b/, /--skip-(qa|checks?|gates?)\b/, /--no-qa\b/, /--force\b/, /--gpu[= ]software-ok\b/, /\bBNE_ALLOW_VERSION=/, /--allow-network\b/];
-const RENDER_CMD = /(\bfilm(\/cli\.mjs)?\b[^\n]*\b(build|render)\b|engine\/render\/(video|build|native|still)\.mjs|\bnpm run (film|build|video|stills|c:build|native:render|b:render)\b)/;
+const RENDER_CMD = /(\bfilm(\/cli\.mjs)?\b[^\n]*\b(build|render)\b|engine\/render\/(video|build|native|still)\.mjs|\bnpm run (film|build|beiming:build|video|stills|c:build|native:render|b:render)\b)/;
 const NOT_A_RENDER = /(--help|-h\b|--dry-run|--check-only|--plan\b)/;
 
 const lineCount = file => { try { return fs.readFileSync(file, 'utf8').split('\n').length; } catch { return null; } };

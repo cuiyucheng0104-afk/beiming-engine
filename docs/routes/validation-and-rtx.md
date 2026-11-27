@@ -21,7 +21,7 @@
 | 已实测：入库后 macOS | [路径迁移记录](../raea/publication-validation.json)：完整解码 240 帧、音轨、响度与资产哈希复核 | 新的 5090 结果；全部艺术验收已通过。已有云片截断边问题见[实验说明](../raea/experiment.md) |
 | 建议、待实现 | 统一验收报告、跨后端色彩基准、状态回放用例、分项性能报告、任务占用记录 | 自动排队、互斥锁、断点续跑、检查点恢复或统一 `BackendAdapter` 已上线 |
 
-`raea:check` 的 `--check-only` 分支在队列查询前返回，**不检查共享机是否空闲**。渲染包装的队列请求失败、非成功响应或 `nvidia-smi` 不可用，当前都可能继续执行；其 GPU 门槛仅为一次采样中任一显卡利用率 `>10%` 时退出。这是现有实现，不能当作可靠的共享资源预约机制。
+`native.mjs` 的 `--check-only` 分支在队列查询前返回，**不检查共享机是否空闲**。渲染包装的队列请求失败、非成功响应或 `nvidia-smi` 不可用，当前都可能继续执行；其 GPU 门槛仅为一次采样中任一显卡利用率 `>10%` 时退出。这是现有实现，不能当作可靠的共享资源预约机制。
 
 已实现的[只读任务计划工具](../../tools/work-plan.mjs)检查依赖、列出可做任务和写入范围冲突，但不获取 shared5090、执行命令、重试或改变任务状态。本文补的是人工可执行步骤与证据要求，不扩展为自动化平台。
 
@@ -50,15 +50,15 @@
 | 阶段 | 必要输入 | 检查/执行入口 | 本地输出记录 | 通过条件 |
 |---|---|---|---|---|
 | S0 范围与版本 | T00…任务、路线、项目模板、镜头表、工作区状态 | `git rev-parse HEAD`、`git status --short`；第 4 节包版本与哈希检查 | `source.txt`、项目配置副本、运行包哈希、已改文件清单 | 写入范围明确；源码提交与未提交改动均记录；模板与实际入口参数一致 |
-| S1 输入与资产 | 资产版本、原生例片输入或 Three 自有场景 | 原生例片 `npm run raea:prepare`；已有 GLB 用独立结构检查命令；第 4 节重算哈希 | `prepared.json`、`kun-report.json`、母带、准备日志 | 所有必需输入齐全且哈希一致；GLB 结构与回读断言通过；新人物另有姿态/接触证据 |
-| S2 目标机就绪 | 包版本、SDK、ffmpeg/ffprobe、共享机当前占用 | `npm run raea:check`；第 4 节 ComfyUI、进程、显存/利用率连续采样 | `preflight.log`、`queue-before.json`、GPU/进程快照、占用说明 | 版本正确；设备可确认；无排队/运行冲突；未知占用先定位，不按空闲处理 |
+| S1 输入与资产 | 资产版本、原生例片输入或 Three 自有场景 | 原生例片 `npm run b:prepare -- examples/raea`；已有 GLB 用独立结构检查命令；第 4 节重算哈希 | `prepared.json`、`kun-report.json`、母带、准备日志 | 所有必需输入齐全且哈希一致；GLB 结构与回读断言通过；新人物另有姿态/接触证据 |
+| S2 目标机就绪 | 包版本、SDK、ffmpeg/ffprobe、共享机当前占用 | `npm run b:preflight -- examples/raea`；第 4 节 ComfyUI、进程、显存/利用率连续采样 | `preflight.log`、`queue-before.json`、GPU/进程快照、占用说明 | 版本正确；设备可确认；无排队/运行冲突；未知占用先定位，不按空闲处理 |
 | S3 小样与重渲 | 完整种子、切点、关键动作帧、`evaluation` 类型 | 第 5 节单帧/乱序/顺序测试；相同内容无损帧比较 | PNG、请求序列→全局帧映射、差分、状态摘要 | 先满足状态与帧重现，再开放分段；画面包含所需动作、材质与字体 |
-| S4 完整输出 | S0–S3 证据、已确认独占时段 | Three 指定单 worker 起跑；原生 `npm run raea:render`，关闭导出缓存 | 原生视频、最终音画文件、stdout/stderr、`render.json`、`technical.json` | 进程成功退出且无未处置渲染错误；输出清单与当前输入对应 |
+| S4 完整输出 | S0–S3 证据、已确认独占时段 | Three 指定单 worker 起跑；原生 `npm run b:render -- examples/raea`，关闭导出缓存 | 原生视频、最终音画文件、stdout/stderr、`render.json`、`technical.json` | 进程成功退出且无未处置渲染错误；输出清单与当前输入对应 |
 | S5 技术验收 | 最终交付文件、作品描述 film.json、原始日志 | `node tools/qa/cli.mjs report <成片> --film films/<名>`（第 7 节；工作站上另可跑手工命令交叉核对） | `qa/report.json`、`report.md`、`contact.jpg`（报告含文件 SHA256、每项实测与期望） | exit 0（硬门全过）；「注意」项逐条复核并在 review 里写结论；豁免只能由用户批准（D08） |
 | S6 视觉与声音验收 | 整片、原始关键帧、参考图、事件表 | 第 8 节人工全片观看、带声播放、切点逐帧及风格对照 | `review.md`、失败帧/事件、复核人和日期 | 技术和创作分别签认；原生路线按自身目标，北冥路线必须保留风格对照 |
 | S7 性能与复现归档 | 已通过质量检查的同内容输入；空闲窗口 | 第 6 节分项运行；检查实际 adapter 和编码统计 | `performance.json`、负载记录、第 9 节复现记录 | 只对同质量、无竞争且无缓存命中的样本比较；缺失项留空，不能填 0 |
 
-S1 的 `raea:prepare` 虽默认用 SwiftShader 做浏览器资产烘焙，仍会启动浏览器并生成文件；**本次文档任务未执行它**。已有资产可先只读检查：
+S1 的 `npm run b:prepare -- examples/raea` 虽默认用 SwiftShader 做浏览器资产烘焙，仍会启动浏览器并生成文件；**本次文档任务未执行它**。已有资产可先只读检查：
 
 ```sh
 node examples/raea/tools/export-kun-validate.mjs examples/raea/media/kun.glb
@@ -98,7 +98,7 @@ node --version
 if ($LASTEXITCODE -ne 0) { throw 'FFmpeg 不可用' }
 & $ffprobe -version
 if ($LASTEXITCODE -ne 0) { throw 'ffprobe 不可用' }
-npm run raea:check
+npm run b:preflight -- examples/raea
 if ($LASTEXITCODE -ne 0) { throw '原生例片预检失败' }
 ```
 
@@ -148,7 +148,7 @@ Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,Name |
 $env:WGPU_BACKEND = 'vulkan'
 $env:RAEA_EXPORT_CACHE = '0'
 $watch = [System.Diagnostics.Stopwatch]::StartNew()
-npm run raea:render
+npm run b:render -- examples/raea
 $renderExit = $LASTEXITCODE
 $watch.Stop()
 @{ exitCode=$renderExit; wallSeconds=$watch.Elapsed.TotalSeconds } |

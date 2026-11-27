@@ -82,4 +82,4 @@ npm run check                                 # 全部检查：仓库规范、�
 
 ## 命名
 
-对外只用四条路线的品牌名：北冥风格路线 · WebGL 三渲二、北冥原生 · BNE（Beiming Native Edition，不表示自研运行时）、北冥代码动画风格 · 86 式、北冥光追 · 物理路径追踪；产品名不带 RTX。上游项目名（RAEA、ThreeRT、两套风格库名）只在技术说明、署名与许可说明里如实写。内部目录 `examples/raea/`、`docs/raea/`、npm 命令 `raea:*` 与变量 `RAEA_BIN` 沿用上游项目名（内部目录沿用），不是对外名称。哪些词能对外用，见 [docs/GLOSSARY.md 的命名表](docs/GLOSSARY.md#命名表)。
+对外只用四条路线的品牌名：北冥风格路线 · WebGL 三渲二、北冥原生 · BNE（Beiming Native Edition，不表示自研运行时）、北冥代码动画风格 · 86 式、北冥光追 · 物理路径追踪；产品名不带 RTX。上游项目名（RAEA、ThreeRT、两套风格库名）只在技术说明、署名与许可说明里如实写。内部目录 `examples/raea/`、`docs/raea/`和环境变量 `RAEA_BIN` 沿用上游项目名（内部目录沿用），不是对外名称。哪些词能对外用，见 [docs/GLOSSARY.md 的命名表](docs/GLOSSARY.md#命名表)。

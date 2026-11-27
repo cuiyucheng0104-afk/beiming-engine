@@ -26,7 +26,7 @@ const CLI = path.join(ROOT, 'tools/film/cli.mjs');
 export const command = defineCommand({
   name: 'beiming:build',
   summary: '重建《北冥》10 秒样片：转调统一出片命令，再按旧文件名放进 out/',
-  usage: ['npm run beiming:build -- [--4k] [--no-audio] [--workers N] [--json]', 'node tools/film/beiming.mjs [选项]', 'sh build.sh [选项]（POSIX 兼容壳，参数相同）'],
+  usage: ['npm run beiming:build -- [--4k] [--no-audio] [--workers N] [--json]', 'node tools/film/beiming.mjs [选项]', 'sh build.sh [--4k] [--no-audio] [--quiet]（POSIX 兼容壳。更多选项用 npm 入口）'],
   description: [
     `等价于 node tools/film/cli.mjs build ${FILM} --page films/beiming-10s --out-root out/beiming --profile beiming-1040p24 --audio audio/build.sh；`,
     '产物在 out/beiming/<run-id>/（run.json、qa/report.json、联系表、播放页），再按旧文件名放到 out/：',
@@ -44,7 +44,6 @@ export const command = defineCommand({
   examples: ['npm run beiming:build', 'npm run beiming:build -- --4k', 'sh build.sh --no-audio', 'node tools/film/beiming.mjs --json'],
   exitCodes: { 0: '成功（--4k 时：工作版出完且规格核对通过）', 1: '运行失败', 2: '用法错误', 3: '缺环境（或作品描述 films/beiming-10s 还没就位）', 4: '契约 / 机器 QA 不通过（旧文件名照样放好）；--4k 时是规格核对不符', 5: '样片正被另一次运行占用', 124: '超时', 130: '收到 SIGINT，已清理', 143: '收到 SIGTERM，已清理' },
   async run(ctx) {
-    if (ctx.env.npm_lifecycle_event === 'build') ctx.warn('renamed', 'npm run build 已改名为 npm run beiming:build（旧名保留一个版本）');
     const fourK = ctx.opts.uhd, noAudio = ctx.opts['no-audio'];
     const envWorkers = ctx.env.WORKERS ?? (fourK ? ctx.env.WORKERS_4K ?? '8' : '4');
     const workers = ctx.opts.workers ?? envWorkers;

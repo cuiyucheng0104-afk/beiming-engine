@@ -307,7 +307,7 @@ function gateH3(ctx) {
     if ((run.task.rules.forbiddenWritePrefixes ?? []).some(pre => startsWithPrefix(e.path, pre))) {
       f.push(finding('fail', 'ignored-write-forbidden', `在禁区里新增了被 git 忽略的路径：${e.path}`, { hint: 'cases/vendor 的 .gitignore 会把 films/ 等目录藏起来，git status 看不到，但仍然是越界写入' }));
     } else {
-      f.push(finding('warn', 'ignored-write-outside-scope', `范围外新增了被 git 忽略的路径：${e.path}`, { hint: '例如在仓库根跑了 npm run build 写出 out/；不在 H3 的 git 口径内，记入资源纪律' }));
+      f.push(finding('warn', 'ignored-write-outside-scope', `范围外新增了被 git 忽略的路径：${e.path}`, { hint: '例如在仓库根跑了 npm run beiming:build 写出 out/；不在 H3 的 git 口径内，记入资源纪律' }));
     }
   }
   // 会话记录：写到被测检出之外

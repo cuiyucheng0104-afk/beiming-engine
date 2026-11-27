@@ -1,6 +1,6 @@
 # 北冥 → 原生 GLB 资产（鲲与渡船）
 
-入口：`node examples/raea/tools/export-kun.mjs [--preview] [--lod 0.5]`（等同 `node engine/native/bridge/export.mjs examples/raea`；`npm run raea:prepare` 会顺带执行）。
+入口：`node examples/raea/tools/export-kun.mjs [--preview] [--lod 0.5]`（等同 `node engine/native/bridge/export.mjs examples/raea`；`npm run b:prepare -- examples/raea` 会顺带执行）。
 
 通用资产桥在 `engine/native/bridge/`：`export.mjs` 起只读的随机回环端口服务（根目录 = 仓库根）和无头 Chromium（SwiftShader 软件 GL），加载 `browser.mjs`；`bake.mjs`（engine/shade 反照率烘焙）、`geometry.mjs`（放样 UV、站点权重、实例合并与 morph）、`rig.mjs`（engine/form/bend 弯曲波 → 骨骼）、`validate.mjs`（GLB 结构检查）都与具体生物无关。本目录只留鲲的配方 `tools/export-kun-browser.mjs`；渡船走通用的「模块 + 导出名」路径（`film.json` 里 `module: ../../src/ferry.js, export: createFerry, length: 2`）。复用仓库根 `node_modules` 的 three r170 与 playwright-core，不占独显，不渲视频，退出时关闭 Chromium 和服务。`--lod` 允许 0.4–0.6，输出受十进制 20 MB 上限检查。
 

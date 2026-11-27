@@ -19,7 +19,7 @@
 | Lemo / lemo-opuscar | 第三方风格库（LemoLab，MIT），快照在 `cases/vendor/lemo-opuscar`，固定提交 `bebbbe1`；66 种风格 | 限定 | [THIRD-PARTY.md](../THIRD-PARTY.md) |
 | SY / sy-style-100 | 第三方风格库（肖雄 XIAOXIONG，MIT），快照在 `cases/vendor/sy-style-100`，固定提交 `e41dee3`；20 种风格 | 限定 | [THIRD-PARTY.md](../THIRD-PARTY.md) |
 | RAEA | 上游原生 GPU 运行时（shinyobjectz/raea，FSL-1.1-ALv2，版权人 Shane Murphy）；不随仓库分发，B 路线只把它当内部制作层 | 限定 | [fsl-boundary.md](rights/fsl-boundary.md) |
-| 上游项目名（内部目录沿用） | `examples/raea/`、`docs/raea/`、`npm run raea:*`、`RAEA_BIN` 这类沿用上游名的内部目录、命令与变量（旧文档里的旧称已停用） | 内部 | [AGENTS.md「命名」](../AGENTS.md#命名) |
+| 上游项目名（内部目录沿用） | `examples/raea/`、`docs/raea/`、`RAEA_BIN` 这类沿用上游名的内部目录和变量（旧文档里的旧称已停用） | 内部 | [AGENTS.md「命名」](../AGENTS.md#命名) |
 | v0.1.4（旧称 canary.2） | RAEA 现用发行版 `v0.1.4`：2026-11-15 发布，2028-11-15 转为 Apache-2.0（历史实验记录里的 `canary.2` 指旧版 `v0.1.0-canary.2`，2026-10-31 → 2028-10-31）；版本锁在 `engine/native/runtime.lock.json`，升级要先重跑 B 路线验收，不能随手换 | 限定 | [THIRD-PARTY.md 第 7 节](../THIRD-PARTY.md#7-fsl-使用边界b-路线--北冥原生--bne) |
 | FSL-1.1-ALv2 | Functional Source License 1.1：每个版本发布满两年后转为 Apache-2.0，在此之前排除「竞争性使用」 | 限定 | [fsl-boundary.md](rights/fsl-boundary.md) |
 | RTX 工作站、shared5090 | 执行环境，不是路线名或产品名；shared5090 是共享 RTX 5090 工作站的执行目标名称，不是仓库自带的调度服务 | 内部 | [RTX工作站.md](RTX工作站.md)、[validation-and-rtx.md](routes/validation-and-rtx.md) |

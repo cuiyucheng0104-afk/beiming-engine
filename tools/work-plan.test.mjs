@@ -1,6 +1,6 @@
 // tools/work-plan.mjs（引擎工程待办，D06）的测试：结构与依赖、路线 id 与旧名、认领与过期、写入范围冲突的等级与 --strict、
 // 取代关系、证据与指引路径的存在性、输入里的路径（R87）、verify-diff、按 JSON 生成的任务卡与 work-breakdown.md 逐字一致（R82），
-// 以及命令行约定（--help、未知参数、--json 信封、旧名迁移提示）。
+// 以及命令行约定（--help、未知参数、--json 信封、npm 入口）。
 //   node --test tools/work-plan.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -24,7 +24,7 @@ const plan2 = tasks => ({ schemaVersion: 2, claimTtlDays: 14, tasks: tasks.map(t
 // Git for Windows 默认按 CRLF 检出：发布的文档按同一方式解析
 const readDoc = rel => readFileSync(join(ROOT, rel), 'utf8').replace(/\r\n?/g, '\n');
 const canonicalPlan = () => JSON.parse(readFileSync(join(ROOT, 'docs/routes/work-plan.json'), 'utf8'));
-const run = (args, env = {}) => spawnSync(process.execPath, [CLI, ...args], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, npm_lifecycle_event: '', ...env } });
+const run = args => spawnSync(process.execPath, [CLI, ...args], { cwd: ROOT, encoding: 'utf8' });
 const tmp = prefix => mkdtempSync(join(tmpdir(), prefix));
 
 // ───── 结构与依赖（v1 计划照样能读） ─────
@@ -316,12 +316,19 @@ test('命令行：--help 退出 0 不读计划；未知参数退出 2；--json �
   assert.equal(run(['--verify-diff', 'Z99']).status, 2, '未知任务');
   assert.equal(run(['--base', 'HEAD']).status, 2, '--base 只和 --verify-diff 一起用');
 });
-test('旧名 npm run routes:check / routes:next 照样能用，但提示改名为 plan:*', () => {
-  const r = run(['--ready', '--json'], { npm_lifecycle_event: 'routes:next' });
-  assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stderr, /routes:next 已改名为 npm run plan:next/);
-  assert.ok(JSON.parse(r.stdout).warnings.some(w => w.code === 'plan.renamed'));
-  assert.doesNotMatch(run(['--check'], { npm_lifecycle_event: 'plan:check' }).stderr, /已改名/);
+test('npm 入口 plan:check 和 plan:next 可检查并筛选计划', t => {
+  const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+  const options = { cwd: ROOT, encoding: 'utf8', shell: process.platform === 'win32' };
+  if (spawnSync(npm, ['--version'], options).status !== 0) return t.skip('没有 npm');
+  const runPlan = (script, args = []) => spawnSync(npm, [
+    'run', '--silent', script, '--', '--now', '2026-11-10', '--json', ...args,
+  ], options);
+  const check = runPlan('plan:check');
+  assert.equal(check.status, 0, check.stderr);
+  assert.equal(JSON.parse(check.stdout).data.total, canonicalPlan().tasks.length);
+  const ready = runPlan('plan:next', ['--route', 'c']);
+  assert.equal(ready.status, 0, ready.stderr);
+  assert.equal(JSON.parse(ready.stdout).data.route, 'c');
 });
 test('经符号链接、目录联接或 /tmp 别名启动照样校验：坏计划退出 4', t => {
   const dir = tmp('work-plan-');

@@ -304,7 +304,7 @@ npm run setup
 
 | 入口 | 属主 | 谁在调用 | 替代方案 |
 |---|---|---|---|
-| `build.sh` | P06 | `npm run build`；`tests/production/render-pipeline.test.mjs` | `node tools/film/cli.mjs build . --profile beiming-1040p24`；`build.sh` 留一个版本作兼容壳 |
+| `build.sh` | P06 | `sh build.sh`；`tests/production/render-pipeline.test.mjs` | `node tools/film/cli.mjs build . --profile beiming-1040p24`；`build.sh` 留一个版本作兼容壳 |
 | `audio/build.sh` | P11 | `build.sh` | Python 入口 `audio/build.py`，经 `node tools/env/py.mjs audio/build.py` 调用，由 tools/film 的混音步骤接上 |
 | `engine/render/mux.sh` | P04 | `build.sh`、`engine/render/build.mjs`、`engine/render/native.mjs`、`audio/check.py`、`tests/production/render-pipeline.test.mjs` | `engine/render/lib/mux.mjs`：参数与退出码不变；ffmpeg 经 `FFMPEG` / `FFPROBE` 解析；两遍响度用 ebur128 的结果在 Node 里算；`mux.sh` 改成调用它的薄壳 |
 
