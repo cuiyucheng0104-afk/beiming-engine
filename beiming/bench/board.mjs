@@ -740,6 +740,20 @@ function parseCoreVsCyclesSpeed(raw, at, allowComputed = false) {
   return { coreMs, cyclesMs, speedRatio, coreOverCyclesRatio, gpu, samples, resolution: [width, height] };
 }
 
+/** 每帧打包（建场景、整理三角形、传上显卡含加速结构）的毫秒数，按显卡一行：[{ gpu, msPerFrame, frames, resolution }]（原样次序）。 */
+function parseCoreVsCyclesPack(raw, at) {
+  if (!Array.isArray(raw) || raw.length === 0) bad(`${at} 必须是非空数组`);
+  const rows = raw.map((r, i) => {
+    const pAt = `${at}/${i}`;
+    const p = only(obj(r, pAt), ['gpu', 'msPerFrame', 'frames', 'resolution'], pAt);
+    if (!Array.isArray(p.resolution) || p.resolution.length !== 2) bad(`${pAt}/resolution 必须是 [正整数宽, 正整数高]`, RangeError);
+    return { gpu: nonBlank(p.gpu, `${pAt}/gpu`), msPerFrame: posNumber(p.msPerFrame, `${pAt}/msPerFrame`), frames: posInt(p.frames, `${pAt}/frames`), resolution: [posInt(p.resolution[0], `${pAt}/resolution/0`), posInt(p.resolution[1], `${pAt}/resolution/1`)] };
+  });
+  return rows;
+}
+
+const samePack = (a, b) => a.msPerFrame === b.msPerFrame && a.frames === b.frames && a.resolution[0] === b.resolution[0] && a.resolution[1] === b.resolution[1];
+
 function sameSpeed(a, b) {
   return a.coreMs === b.coreMs
     && a.cyclesMs === b.cyclesMs
@@ -844,11 +858,18 @@ function readCoreVsCycles(input) {
     if (!Array.isArray(item.gates)) bad(`${at}/gates 必须是数组`);
     const parsedGates = item.gates.map((rawGate, j) => parseCoreVsCyclesGate(rawGate, `${at}/gates/${j}`, false));
     const speed = item.speed === undefined ? null : parseCoreVsCyclesSpeed(item.speed, `${at}/speed`, false);
+    const pack = item.pack === undefined ? [] : parseCoreVsCyclesPack(item.pack, `${at}/pack`);
+    if (new Set(pack.map(p => p.gpu)).size !== pack.length) bad(`${at}/pack 里同一显卡出现了两次`);
     const key = tupleKey(filmType, scene);
     let bucket = grouped.get(key);
     if (!bucket) {
-      bucket = { filmType, scene, gates: [], gateIds: new Set(), speed: null };
+      bucket = { filmType, scene, gates: [], gateIds: new Set(), speed: null, pack: new Map() };
       grouped.set(key, bucket);
+    }
+    for (const row of pack) {
+      const had = bucket.pack.get(row.gpu);
+      if (had && !samePack(had, row)) bad(`${at}/pack 里 ${row.gpu} 与同场景已有的每帧打包读数不一致`, RangeError);
+      bucket.pack.set(row.gpu, row);
     }
     for (const gate of parsedGates) {
       if (Object.hasOwn(gate, 'gateId')) {
@@ -878,6 +899,7 @@ function readCoreVsCycles(input) {
       blockedReason: ladder.blockedReason,
       gates,
       speed: bucket.speed,
+      ...(bucket.pack.size ? { pack: [...bucket.pack.values()].sort((a, b) => cmp(a.gpu, b.gpu)) } : {}),
     };
   });
   return aggregateCoreVsCyclesScenes(scenes);
@@ -892,7 +914,7 @@ function readCoreVsCyclesSnapshot(input, at = '看板的 coreVsCycles') {
   let prev = null;
   const scenes = c.scenes.map((raw, i) => {
     const sAt = `${at}/scenes/${i}`;
-    const s = only(obj(raw, sAt), ['filmType', 'filmTypeLabel', 'scene', 'passedLevel', 'blockedAtLevel', 'blockedReason', 'gates', 'speed'], sAt);
+    const s = only(obj(raw, sAt), ['filmType', 'filmTypeLabel', 'scene', 'passedLevel', 'blockedAtLevel', 'blockedReason', 'gates', 'speed', 'pack'], sAt);
     const filmType = oneOf(s.filmType, FILM_TYPE_IDS, `${sAt}/filmType`);
     const expectedLabel = FILM_TYPE_LABEL[filmType];
     if (nonBlank(s.filmTypeLabel, `${sAt}/filmTypeLabel`) !== expectedLabel) {
@@ -929,6 +951,8 @@ function readCoreVsCyclesSnapshot(input, at = '看板的 coreVsCycles') {
       bad(`${sAt}/blockedReason 与 gates 阶梯计算结果不一致`, RangeError);
     }
     const speed = s.speed === null ? null : parseCoreVsCyclesSpeed(s.speed, `${sAt}/speed`, true);
+    const pack = s.pack === undefined ? null : parseCoreVsCyclesPack(s.pack, `${sAt}/pack`);
+    if (pack && pack.some((p, j) => j > 0 && cmp(pack[j - 1].gpu, p.gpu) >= 0)) bad(`${sAt}/pack 未按 gpu 排序或有重复`, RangeError);
     return {
       filmType,
       filmTypeLabel: expectedLabel,
@@ -938,6 +962,7 @@ function readCoreVsCyclesSnapshot(input, at = '看板的 coreVsCycles') {
       blockedReason: expected.blockedReason,
       gates,
       speed,
+      ...(pack ? { pack } : {}),
     };
   });
   const rebuilt = aggregateCoreVsCyclesScenes(scenes);
@@ -1222,9 +1247,10 @@ ${facts([
       const gpuCell = scene.speed ? scene.speed.gpu : '—';
       const samplesCell = scene.speed ? `${fmt(scene.speed.samples, 0)} spp` : '—';
       const resolutionCell = scene.speed ? `${fmt(scene.speed.resolution[0], 0)}×${fmt(scene.speed.resolution[1], 0)}` : '—';
-      return h`<tr><td>${scene.filmTypeLabel}</td><th scope="row">${scene.scene}</th><td class="${levelClass}">L${fmt(scene.passedLevel, 0)} / L${fmt(coreVsCycles.maxLevel, 0)}</td><td>${badge}</td><td>${speedRatioCell}</td><td>${timingCell}</td><td>${gpuCell}</td><td>${samplesCell}</td><td>${resolutionCell}</td></tr>`;
+      const packCell = scene.pack ? scene.pack.map(p => `${p.gpu}：${fmt(p.msPerFrame / 1000, 3)} 秒（${fmt(p.frames, 0)} 帧，${fmt(p.resolution[0], 0)}×${fmt(p.resolution[1], 0)}）`).join('；') : '—';
+      return h`<tr><td>${scene.filmTypeLabel}</td><th scope="row">${scene.scene}</th><td class="${levelClass}">L${fmt(scene.passedLevel, 0)} / L${fmt(coreVsCycles.maxLevel, 0)}</td><td>${badge}</td><td>${speedRatioCell}</td><td>${timingCell}</td><td>${gpuCell}</td><td>${samplesCell}</td><td>${resolutionCell}</td><td>${packCell}</td></tr>`;
     })
-    : [h`<tr><td colspan="9" class="unrun">暂无核心对 Cycles 门控读数（接管过门前显示零态）</td></tr>`];
+    : [h`<tr><td colspan="10" class="unrun">暂无核心对 Cycles 门控读数（接管过门前显示零态）</td></tr>`];
   const coreVsCyclesHtml = h`<div class="scroll"><table data-core-vs-cycles-summary>
 <caption>按四类片型汇总：最高连续过级（0–8 级）、已测场景数与阻塞/退级场景数。</caption>
 <thead><tr><th scope="col">片型</th><th scope="col">最高连续过级</th><th scope="col">已测场景数</th><th scope="col">阻塞/退级场景数</th></tr></thead>
@@ -1233,7 +1259,7 @@ ${facts([
 </table></div>
 <div class="scroll"><table data-core-vs-cycles-scenes>
 <caption>逐场景阶梯过级与同场景同采样速度比（速度比旁并排展示显卡、采样数与分辨率）。</caption>
-<thead><tr><th scope="col">片型</th><th scope="col">场景</th><th scope="col">当前阶梯级数</th><th scope="col">门控/退级标记</th><th scope="col">速度比（Cycles / 核心）</th><th scope="col">核心耗时 / Cycles 耗时</th><th scope="col">显卡</th><th scope="col">采样数</th><th scope="col">分辨率</th></tr></thead>
+<thead><tr><th scope="col">片型</th><th scope="col">场景</th><th scope="col">当前阶梯级数</th><th scope="col">门控/退级标记</th><th scope="col">速度比（Cycles / 核心）</th><th scope="col">核心耗时 / Cycles 耗时</th><th scope="col">显卡</th><th scope="col">采样数</th><th scope="col">分辨率</th><th scope="col">每帧打包（按显卡）</th></tr></thead>
 <tbody>${cvcSceneRows}</tbody>
 </table></div>
 <p class="note">阶梯过级仅按 1–8 级逐级门控计算，不采信自报级别；任一级判红（fail）、未定线（unset）或缺级时即在该级截断并退回上一级；速度比必须并排注明显卡、采样数与分辨率。</p>`;
