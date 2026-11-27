@@ -148,20 +148,21 @@ export async function main(argv = process.argv.slice(2)) {
     finish(code, { steps }, e);
   });
 
+  const actionOutput = !opts.json && inActions();
   let stop = false;
   for (const st of steps) {
     if (stop) break;
     const def = STEPS[st.id];
     const t0 = Date.now();
     process.stderr.write(`\n▶ ${st.id} · ${st.title}\n`);
-    if (inActions()) process.stdout.write(`::group::${st.id} · ${st.title}\n`);
+    if (actionOutput) process.stdout.write(`::group::${st.id} · ${st.title}\n`);
     try {
       await runStep(st, def, ctx);
     } catch (e) {
       st.status = 'error'; st.exitCode = e.exitCode ?? EXIT.FAIL; st.reason = e.message;
     }
     st.durationMs = Date.now() - t0;
-    if (inActions()) process.stdout.write('::endgroup::\n');
+    if (actionOutput) process.stdout.write('::endgroup::\n');
     if (interrupted) return EXIT.SIGINT;
     if (!st.blocking && st.status !== 'pass' && st.status !== 'skip') warnings.push(`${st.id}（不阻塞）：${st.reason || STATUS[st.status]}`);
     if (st.blocking && ['fail', 'error', 'timeout'].includes(st.status) && opts['fail-fast']) stop = true;
@@ -174,7 +175,7 @@ export async function main(argv = process.argv.slice(2)) {
   const error = bad.length ? new CliError(exitCode, 'CHECKS_FAILED', `${bad.map(s => `${s.id}（${s.title}）`).join('、')} 未通过`,
     `单独重跑某一步：node tools/check-all.mjs --only ${bad[0].id}`) : null;
   printHuman(steps, opts);
-  reportActions(steps);
+  if (actionOutput) reportActions(steps);
   return finish(exitCode, { steps }, error);
 }
 
@@ -490,7 +491,6 @@ function printHuman(steps, opts) {
 }
 
 function reportActions(steps) {
-  if (!inActions()) return;
   for (const s of steps) {
     if (s.blocking && ['fail', 'error', 'timeout'].includes(s.status)) annotate('error', s.reason || STATUS[s.status], { title: `检查未通过：${s.id} · ${s.title}` });
     else if (!s.blocking && s.status === 'warn') annotate('warning', s.reason, { title: `${s.title}` });
