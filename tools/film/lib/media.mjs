@@ -11,6 +11,7 @@
 //   encoderInfo(file)            从 H.264 码流里 x264 自报的参数串读出实际编码器与 crf / 预设（写进 run.json 的 actualEncoder；读不到返回 null）
 // FFMPEG / FFPROBE 环境变量可指定可执行文件（与 tools/env/lib/ffmpeg.mjs 的 ffmpegBins 同一口径）。
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { EXIT, FilmError } from './exit.mjs';
 import { ffmpegBins } from './repo.mjs';
@@ -79,8 +80,14 @@ export async function probe(exec, file, { count = true } = {}) {
 }
 
 export async function framemd5(exec, file) {
-  const r = await exec(FFMPEG(), ['-hide_banner', '-loglevel', 'error', '-i', file, '-map', '0:v:0', '-f', 'framemd5', '-'], { label: 'framemd5', quiet: true, timeoutSec: 1800, sweep: false });
-  return r.stdout.split('\n').filter(l => l && !l.startsWith('#')).map(l => l.split(',').at(-1).trim()).filter(h => /^[0-9a-f]{32}$/.test(h));
+  // 写临时文件而非走 stdout：proc.exec 为防日志撑爆会把 stdout 截断到尾部 400 KB（约 5000 帧），长片会丢帧。
+  const tmp = path.join(os.tmpdir(), `beiming-framemd5-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.txt`);
+  try {
+    await exec(FFMPEG(), ['-hide_banner', '-loglevel', 'error', '-y', '-i', file, '-map', '0:v:0', '-f', 'framemd5', tmp], { label: 'framemd5', quiet: true, timeoutSec: 1800, sweep: false });
+    return fs.readFileSync(tmp, 'utf8').split(/\r?\n/).filter(l => l && !l.startsWith('#')).map(l => l.split(',').at(-1).trim()).filter(h => /^[0-9a-f]{32}$/.test(h));
+  } finally {
+    fs.rmSync(tmp, { force: true });
+  }
 }
 
 // 取帧时的 YUV → RGB：按码流标记精确换算。FFmpeg 默认的快速换算会把有限范围画面整体读暗约 2 级

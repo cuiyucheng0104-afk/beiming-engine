@@ -1,0 +1,208 @@
+{
+  "schemaVersion": 1,
+  "$comment": "WonderX Phase 2 v4 D10 音频资产锁文件：19 个获审查 Opus 音频与权利声明不进 git（D10 / .githooks films-out），经 node films/wonderx/audio/fetch.mjs 下载并逐字节校验。",
+  "status": "published",
+  "releaseTag": "wonderx-v4-assets",
+  "filename": "wonderx-phase2-v4-audio-opus.tar.gz",
+  "url": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/wonderx-v4-assets/wonderx-phase2-v4-audio-opus.tar.gz",
+  "bytes": 1618327,
+  "sha256": "0d22d6b7d5609dbdd35700644d92a3f07638988fb2517fdd07f402777c539b4f",
+  "audioCount": 19,
+  "totalFiles": 25,
+  "contents": [
+    {
+      "path": "licenses/Apache-2.0-VoxCPM2-LICENSE.txt",
+      "kind": "license",
+      "bytes": 11298,
+      "sha256": "4f10acc209addacfad28293315c74c4cd648f771ee1263a748f1781d1e0265e4",
+      "license": "Apache-2.0"
+    },
+    {
+      "path": "licenses/Beiming-Engine-MIT-LICENSE.txt",
+      "kind": "license",
+      "bytes": 1084,
+      "sha256": "3b89bc409dc6c5e869fded2b9100ef7d34c65533bd70fc284e473d38b21859ad",
+      "license": "MIT"
+    },
+    {
+      "path": "licenses/CC0-vcsl-LICENSE.txt",
+      "kind": "license",
+      "bytes": 7048,
+      "sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499",
+      "license": "CC0-1.0"
+    },
+    {
+      "path": "licenses/CC0-vsco2ce-LICENSE.txt",
+      "kind": "license",
+      "bytes": 6555,
+      "sha256": "36ffd9dc085d529a7e60e1276d73ae5a030b020313e6c5408593a6ae2af39673",
+      "license": "CC0-1.0"
+    },
+    {
+      "path": "NOTICE.txt",
+      "kind": "notice",
+      "bytes": 1735,
+      "sha256": "6a3c69a6beb7f0e7c5cb9e8d393fbe3922a5006137ba2f5f816dd853623ad61a",
+      "license": "MIT"
+    },
+    {
+      "path": "opus/sfx_laser_cut.ogg",
+      "kind": "audio_sfx",
+      "key": "audio/sfx_laser_cut.ogg",
+      "bytes": 8653,
+      "sha256": "da28dca9ef0dd72bd1b22158e1cf76027f5f7b8a2aaade916d72cbbfce82581a",
+      "license": "MIT"
+    },
+    {
+      "path": "opus/sfx_mech_explode.ogg",
+      "kind": "audio_sfx",
+      "key": "audio/sfx_mech_explode.ogg",
+      "bytes": 6990,
+      "sha256": "9f7b9402d837f97f3c00090671d8c6de9ec0088a6aef88a7abbd8e59fa0a15f4",
+      "license": "MIT"
+    },
+    {
+      "path": "opus/sfx_portal_whoosh.ogg",
+      "kind": "audio_sfx",
+      "key": "audio/sfx_portal_whoosh.ogg",
+      "bytes": 5126,
+      "sha256": "d9b56485c0691736e999542be096a1bc5ee0aaa3cf92eac835c8c0ca886caa3b",
+      "license": "MIT"
+    },
+    {
+      "path": "opus/sfx_prism_chime.ogg",
+      "kind": "audio_sfx",
+      "key": "audio/sfx_prism_chime.ogg",
+      "bytes": 15454,
+      "sha256": "e5513bebea116d899148569c8a4413e3222ab01d66d009a14dcd861949bc8afa",
+      "license": "MIT"
+    },
+    {
+      "path": "opus/sfx_quantum_surge.ogg",
+      "kind": "audio_sfx",
+      "key": "audio/sfx_quantum_surge.ogg",
+      "bytes": 8361,
+      "sha256": "6903283d3f5fefa2c5fe86fa990d23261099fdf054385a2f8f1c97eb8b28cec4",
+      "license": "MIT"
+    },
+    {
+      "path": "opus/sfx_shader_snap.ogg",
+      "kind": "audio_sfx",
+      "key": "audio/sfx_shader_snap.ogg",
+      "bytes": 3279,
+      "sha256": "dbbe5f259df99df91520acdf515013858f705c7071dc5fd9c6e92f65f98155dd",
+      "license": "MIT"
+    },
+    {
+      "path": "opus/stem_lead.ogg",
+      "kind": "audio_stem",
+      "key": "audio/stem_lead.ogg",
+      "bytes": 467977,
+      "sha256": "bc6795e0f1b3905bf4841d51954d4e8fbaa225075c20565796cbea8eb28ce54a",
+      "license": "MIT AND CC0-1.0"
+    },
+    {
+      "path": "opus/stem_pad.ogg",
+      "kind": "audio_stem",
+      "key": "audio/stem_pad.ogg",
+      "bytes": 477342,
+      "sha256": "610101b85c46b663ccae3cbbca0fce5f52bb17ae8eac7b6f0c4af62322e2995e",
+      "license": "MIT AND CC0-1.0"
+    },
+    {
+      "path": "opus/stem_pulse.ogg",
+      "kind": "audio_stem",
+      "key": "audio/stem_pulse.ogg",
+      "bytes": 505673,
+      "sha256": "7708df810b705a11a8f8280c6ef320c8984d11c07d2f4b198516d0cec1b4df88",
+      "license": "MIT AND CC0-1.0"
+    },
+    {
+      "path": "opus/vo_V01.ogg",
+      "kind": "audio_vo_ai",
+      "key": "audio/vo_V01.ogg",
+      "bytes": 12091,
+      "sha256": "64f633d065903f0f45baa514ccd44280be9a05e1736fd6b2aee76cb9ad5639e6",
+      "license": "Apache-2.0 (AIGC)"
+    },
+    {
+      "path": "opus/vo_V02.ogg",
+      "kind": "audio_vo_ai",
+      "key": "audio/vo_V02.ogg",
+      "bytes": 12558,
+      "sha256": "02fb8e98cdbe467dd8992bf350ff6c80dd7dfb0d8907b52e2daffa4844996778",
+      "license": "Apache-2.0 (AIGC)"
+    },
+    {
+      "path": "opus/vo_V03.ogg",
+      "kind": "audio_vo_ai",
+      "key": "audio/vo_V03.ogg",
+      "bytes": 14197,
+      "sha256": "2ad56f4eabf1d24b2c9031d3d8b20864cc1cd45f1a7c67516dd612ebfcacf2ea",
+      "license": "Apache-2.0 (AIGC)"
+    },
+    {
+      "path": "opus/vo_V04.ogg",
+      "kind": "audio_vo_ai",
+      "key": "audio/vo_V04.ogg",
+      "bytes": 11175,
+      "sha256": "32a5dd81a5b82aed967c2d36e6e1542102c54ecbbefb59bbc1e496fa11182504",
+      "license": "Apache-2.0 (AIGC)"
+    },
+    {
+      "path": "opus/vo_V05.ogg",
+      "kind": "audio_vo_ai",
+      "key": "audio/vo_V05.ogg",
+      "bytes": 14825,
+      "sha256": "a61519bdf44d810d6f1400681ba74032349ab275ab0138dd4fb22981d06b538f",
+      "license": "Apache-2.0 (AIGC)"
+    },
+    {
+      "path": "opus/vo_V06.ogg",
+      "kind": "audio_vo_ai",
+      "key": "audio/vo_V06.ogg",
+      "bytes": 13416,
+      "sha256": "8ba4e0012d24f0108b20f7a9a5fdfe519fa61a8e71085cd3f61d0a9875c17389",
+      "license": "Apache-2.0 (AIGC)"
+    },
+    {
+      "path": "opus/vo_V07.ogg",
+      "kind": "audio_vo_ai",
+      "key": "audio/vo_V07.ogg",
+      "bytes": 12794,
+      "sha256": "6539395b05b6bd7ab103abe387306d8472e7e998724158efd82c4f95d2b63e96",
+      "license": "Apache-2.0 (AIGC)"
+    },
+    {
+      "path": "opus/vo_V08.ogg",
+      "kind": "audio_vo_ai",
+      "key": "audio/vo_V08.ogg",
+      "bytes": 13756,
+      "sha256": "b6d37555223a1e934c764a03a99d3b763723644f9c61ce8e73c84fe87f79bfdf",
+      "license": "Apache-2.0 (AIGC)"
+    },
+    {
+      "path": "opus/vo_V09.ogg",
+      "kind": "audio_vo_ai",
+      "key": "audio/vo_V09.ogg",
+      "bytes": 12780,
+      "sha256": "05358b4733372c14a0ce5c599eb6226be07e3214b1e39490d52c4c28393cc66d",
+      "license": "Apache-2.0 (AIGC)"
+    },
+    {
+      "path": "opus/vo_V10.ogg",
+      "kind": "audio_vo_ai",
+      "key": "audio/vo_V10.ogg",
+      "bytes": 15390,
+      "sha256": "bceb38afa6220fed2d5bf143a64f3c031118bc6955a6c38f81b42e53a883eb08",
+      "license": "Apache-2.0 (AIGC)"
+    },
+    {
+      "path": "SHA256SUMS.txt",
+      "kind": "checksums",
+      "bytes": 2108,
+      "sha256": "638d2d93d57dc05f541cc4a8f0c0c69eb4f59de3dbf43e7e53d70a00cb08f272",
+      "license": "MIT"
+    }
+  ]
+}

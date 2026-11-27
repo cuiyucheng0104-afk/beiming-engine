@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "project": "WonderX Phase 2 v4 · 最后一页 PPT：当北冥引擎接管舞台",
+  "date": "2026-11-28",
+  "projectCopyright": "Copyright (c) 2026 北冥引擎 Beiming Engine (MIT License, LICENSE SHA-256: 3b89bc409dc6c5e869fded2b9100ef7d34c65533bd70fc284e473d38b21859ad)",
+  "summary": "本作品为 100% 商用合规单文件离线三维交互演示（10 幕、29 拍）。工程自身源码采用 MIT 许可（Copyright (c) 2026 北冥引擎 Beiming Engine）并随包附带完整 LICENSE 原文；全部 3D 几何、GLSL 着色器、材质贴图、原声分轨配乐与程序化拟音均为原创代码与逐件 SHA-256 核验的 CC0-1.0 采样生成；严禁且完全排除 R01、R02、YuE2、A05、B03 等外部/非商用/客户受限资产；零纸雕、零旧纸纹、零外部网络请求。",
+  "beatCountNote": "v4 分镜文档顶部概览曾标注「28 拍」，逐幕核对 10 幕明细之和为 3+3+3+3+3+3+3+3+2+3 = 29 拍。本实现严格按逐幕 29 拍统一 film.json 时间源、导航节拍与导演目录。",
+  "aigcDisclosure": "本单文件内嵌一套可选中文精华导览配音（10 句，净语音时长 36.744 s，默认关闭，按 V 键或点击「AI 导览」开启）。该配音由 openbmb/VoxCPM2（Apache-2.0）在 CPU 上仅通过纯文本 --control 音色描述合成，未使用任何真人参考音频，界面与元数据均明确标注 AI 合成。正式视频导出（films/wonderx/sound.py）默认不含该导览轨；其余所有 3D 视觉、原声配乐与程序化拟音均为非 AI 原创制作。",
+  "portableBuild": {
+    "audioInputs": "films/wonderx/audio/{bundle.lock.json,fetch.mjs,manifest.json,used-samples-audit.json,vo_batch.json,licenses/*.txt} + D10 Release wonderx-v4-assets/wonderx-phase2-v4-audio-opus.tar.gz (1618327 B, SHA-256 0d22d6b7d5609dbdd35700644d92a3f07638988fb2517fdd07f402777c539b4f)",
+    "fontInputs": "fonts/fonts.lock.json (via npm run fonts:fetch && npm run fonts:subset -- films/wonderx)",
+    "standaloneCommand": "npm ci && node films/wonderx/audio/fetch.mjs && npm run fonts:fetch && npm run fonts:subset -- films/wonderx && npm run standalone:build -- films/wonderx",
+    "officialExportCommand": "node films/wonderx/audio/fetch.mjs && npm run film -- build films/wonderx --final --profile web-1080p24",
+    "uhdClipCommand": "node films/wonderx/audio/fetch.mjs && node engine/render/video.mjs films/wonderx --profile uhd-2160p24 --frames 708:780 --out <clip.mp4>"
+  },
+  "exclusionsVerified": [
+    "R01 (客户/非商用受限资产 — 零引用、零打包)",
+    "R02 (客户/非商用受限资产 — 零引用、零打包)",
+    "YuE2 (NC 非商用权重 — 零引用、零打包)",
+    "A05 (受限旧素材 — 零引用、零打包)",
+    "B03 (受限旧素材 — 零引用、零打包)",
+    "旧纸纹底板与纸雕风格（显式关闭 paper:false，零纸纹贴图打包）",
+    "Lookdev v3 参考定妆 PNG/WebP（仅保存在本地 gitignored out/refs/ 作视觉对照，绝不作为运行时替代图打入单文件）"
+  ],
+  "items": [
+    {
+      "name": "北冥引擎与 WonderX Phase 2 v4 原创源码（十幕程序化 3D 几何、GLSL 着色器、导演 HUD、演示壳与音频脚本）",
+      "category": "visual-code",
+      "license": "MIT",
+      "copyright": "Copyright (c) 2026 北冥引擎 Beiming Engine",
+      "licenseFile": "Beiming-Engine-MIT-LICENSE.txt",
+      "licenseSha256": "3b89bc409dc6c5e869fded2b9100ef7d34c65533bd70fc284e473d38b21859ad",
+      "commercialUse": "允许商用（仓库原创源码，随包附带 MIT LICENSE 全文与版权声明）",
+      "source": "LICENSE + films/wonderx/{index.html,main.js,hud.js,sound.py,scenes/*.js} + engine/stage/*",
+      "notes": "100% 确定性实时 WebGL2 渲染（零 Math.random/Date.now 渲染依赖），含 30,000 实例 GPU 形变与单一几何体四着色器 0.0 px 配准。"
+    },
+    {
+      "name": "Three.js 0.170.0 渲染运行时",
+      "category": "runtime",
+      "license": "MIT",
+      "copyright": "Copyright © 2010-2024 three.js authors",
+      "licenseFile": "three-0.170.0-LICENSE",
+      "licenseSha256": "4c40a1ef62450b857c3b2aaf294936304cd552d965fbcd9d32d4c5bcf4ba4454",
+      "commercialUse": "允许商用（随包内嵌完整 MIT LICENSE）",
+      "source": "node_modules/three (v0.170.0)",
+      "notes": "经 Vite/esbuild 本地离线打包进单文件 HTML，零 CDN 外链；作品目录开发入口通过 import map 映射 three 与 three/addons/。"
+    },
+    {
+      "name": "WX Display · Barlow Condensed Black（子集化 WOFF2）",
+      "category": "fonts",
+      "license": "OFL-1.1",
+      "copyright": "Copyright 2017 The Barlow Project Authors (https://github.com/jpt/barlow)",
+      "licenseFile": "OFL-barlow.txt",
+      "licenseSha256": "186d750eb496a4c17a76385f82be6aea2ac1cf2de074a811d63786cf374ea73f",
+      "commercialUse": "允许商用与嵌入（随包内嵌 OFL-1.1 全文；无保留字族名冲突）",
+      "source": "fonts/fonts.lock.json（原字体 SHA-256 核验后确定性子集化）",
+      "notes": "OFL-barlow.txt 版权行与 fonts.lock.json 一致（2017 The Barlow Project Authors）。"
+    },
+    {
+      "name": "WX Sans · Manrope Variable（子集化 WOFF2）",
+      "category": "fonts",
+      "license": "OFL-1.1",
+      "copyright": "Copyright 2018 The Manrope Project Authors (OFL-manrope.txt 原文；fonts.lock.json 元数据记为 2019)",
+      "licenseFile": "OFL-manrope.txt",
+      "licenseSha256": "58172e0c0fac2cda8a37b348164bb55e44b0e69051e557e92b1d3f6910141f7b",
+      "commercialUse": "允许商用与嵌入（随包内嵌 OFL-1.1 全文）",
+      "source": "fonts/fonts.lock.json（原字体 SHA-256 核验后确定性子集化）",
+      "notes": "逐件核验注记：上游 OFL-manrope.txt 文件头写 2018，fonts.lock.json 写 2019，两处年份差异在此如实记录，许可条款均为 SIL OFL-1.1。"
+    },
+    {
+      "name": "WX Serif & WX Text · Noto Serif CJK SC Bold & Noto Sans CJK SC Regular（子集化 WOFF2）",
+      "category": "fonts",
+      "license": "OFL-1.1",
+      "copyright": "© 2017-2024 Adobe (Noto Serif CJK SC Bold) / © 2014-2021 Adobe (Noto Sans CJK SC Regular)",
+      "licenseFile": "OFL-noto-cjk.txt",
+      "licenseSha256": "6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2",
+      "commercialUse": "允许商用与嵌入（随包内嵌 SIL OFL-1.1 全文；Adobe 版权声明随附）",
+      "source": "fonts/fonts.lock.json（原字体 SHA-256 核验后按实际字符确定性子集化）",
+      "notes": "OFL-noto-cjk.txt 为标准 SIL OFL-1.1 正文，Adobe 版权归属信息同步载于 film.json credits 与本清单。"
+    },
+    {
+      "name": "原创三轨高科配乐（56s 无缝循环：和声声场 / 脉冲节律 / 主奏光束）",
+      "category": "audio-score",
+      "license": "MIT + CC0-1.0",
+      "copyright": "Copyright (c) 2026 北冥引擎 Beiming Engine (MIT) + Versilian Studios (CC0-1.0)",
+      "licenseFile": "CC0-vsco2ce-LICENSE.txt & CC0-vcsl-LICENSE.txt",
+      "licenseSha256": "36ffd9dc085d529a7e60e1276d73ae5a030b020313e6c5408593a6ae2af39673 / a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499",
+      "commercialUse": "允许商用（MIT 作曲管线 + CC0-1.0 公共领域实录采样）",
+      "source": "films/wonderx/audio/{bundle.lock.json,manifest.json,used-samples-audit.json} + D10 Release wonderx-v4-assets (opus/stem_*.ogg) + Versilian VSCO-2-CE (44030090) & VCSL (c1ea7bcc)",
+      "notes": "实际加载 30 个 WAV（cellos、vibraphone_bowed、glockenspiel、harp、sus_cymbal）及 2 份 CC0 LICENSE 均已对照 engine/audio/samples.json 完成字节数、git blob SHA-1 与 SHA-256 三重核验；成品 Opus 按 D10 经 bundle.lock.json + fetch.mjs 固定哈希拉取并由打包器强校验。"
+    },
+    {
+      "name": "六条原创程序化高科技拟音（激光剖屏、机械拆解、棱镜共振、算力脉冲、画风热切、穿镜穿梭）",
+      "category": "audio-foley",
+      "license": "MIT",
+      "copyright": "Copyright (c) 2026 北冥引擎 Beiming Engine",
+      "licenseFile": "Beiming-Engine-MIT-LICENSE.txt",
+      "licenseSha256": "3b89bc409dc6c5e869fded2b9100ef7d34c65533bd70fc284e473d38b21859ad",
+      "commercialUse": "允许商用（纯数学合成，零外部音频采样）",
+      "source": "films/wonderx/audio/{build_audio.py,bundle.lock.json} + D10 Release wonderx-v4-assets (opus/sfx_*.ogg) + engine/audio/procedural.py",
+      "notes": "全链路 48 kHz 合成、限幅 <= -1.5 dBTP，按 D10 经 bundle.lock.json + fetch.mjs 固定哈希拉取并由打包器强校验。"
+    },
+    {
+      "name": "可选中文精华导览配音 · 模型/声码器/推理包（openbmb/VoxCPM2 + AudioVAE V2 + voxcpm==2.0.3）",
+      "category": "audio-vo-ai",
+      "license": "Apache-2.0",
+      "copyright": "Copyright OpenBMB",
+      "licenseFile": "Apache-2.0-VoxCPM2-LICENSE.txt",
+      "licenseSha256": "4f10acc209addacfad28293315c74c4cd648f771ee1263a748f1781d1e0265e4",
+      "commercialUse": "允许商用（Apache-2.0；需履行 AIGC 标识义务，已落实）",
+      "source": "https://huggingface.co/openbmb/VoxCPM2 @ 7936080b41163874f38610f46f438e2c0757f9fd + films/wonderx/audio/{vo_batch.json,bundle.lock.json} + D10 Release wonderx-v4-assets (opus/vo_*.ogg)",
+      "notes": "model.safetensors SHA-256: f7f964cfa9da23653baec6e6f7750719977ad944ed9f95fe52fe3a620506891d；audiovae.pth SHA-256: 94b5d51e107e0507d4acc976cfdadb64edd6fd06d1f751dadbf2fd1594274bf1；仅用纯文本 --control 音色设计（零真人参考音频），10 句净语音 36.744 s，默认关闭，正式视频导出不含该轨。"
+    }
+  ]
+}

@@ -1,0 +1,599 @@
+{
+  "schemaVersion": 1,
+  "sampleRate": 48000,
+  "score": {
+    "key": "D",
+    "scale": "dorian",
+    "bpm": 120.0,
+    "style": "hitech_minimal",
+    "motif": {
+      "archetype": "telemetry_lock",
+      "degrees": [
+        2,
+        0,
+        4,
+        3
+      ],
+      "intervals": [
+        -3,
+        7,
+        -2
+      ],
+      "beats": [
+        0.75,
+        0.75,
+        1.25,
+        1.25
+      ],
+      "statements": [
+        {
+          "t0": 0.12,
+          "t1": 2.12,
+          "transform": "establishing_statement",
+          "degree_shift": 0,
+          "midis": [
+            65,
+            62,
+            69,
+            67
+          ],
+          "intervals": [
+            -3,
+            7,
+            -2
+          ],
+          "section_id": "P1_establish"
+        },
+        {
+          "t0": 8.04,
+          "t1": 9.48,
+          "transform": "development_diminution",
+          "degree_shift": 0,
+          "midis": [
+            65,
+            62,
+            69,
+            67
+          ],
+          "intervals": [
+            -3,
+            7,
+            -2
+          ],
+          "section_id": "P2_breakout"
+        },
+        {
+          "t0": 9.605,
+          "t1": 11.045,
+          "transform": "development_answer",
+          "degree_shift": 2,
+          "midis": [
+            69,
+            65,
+            72,
+            71
+          ],
+          "intervals": [
+            -4,
+            7,
+            -1
+          ],
+          "section_id": "P2_breakout"
+        },
+        {
+          "t0": 16.04,
+          "t1": 17.48,
+          "transform": "development_diminution",
+          "degree_shift": 0,
+          "midis": [
+            65,
+            62,
+            69,
+            67
+          ],
+          "intervals": [
+            -3,
+            7,
+            -2
+          ],
+          "section_id": "P3_dissect"
+        },
+        {
+          "t0": 17.605,
+          "t1": 19.045,
+          "transform": "development_answer",
+          "degree_shift": 2,
+          "midis": [
+            69,
+            65,
+            72,
+            71
+          ],
+          "intervals": [
+            -4,
+            7,
+            -1
+          ],
+          "section_id": "P3_dissect"
+        },
+        {
+          "t0": 24.02,
+          "t1": 25.62,
+          "transform": "rising_sequence_+1",
+          "degree_shift": 1,
+          "midis": [
+            67,
+            64,
+            74,
+            69
+          ],
+          "intervals": [
+            -3,
+            10,
+            -5
+          ],
+          "section_id": "P4_prism"
+        },
+        {
+          "t0": 25.695,
+          "t1": 27.295,
+          "transform": "rising_sequence_+2",
+          "degree_shift": 2,
+          "midis": [
+            69,
+            65,
+            72,
+            71
+          ],
+          "intervals": [
+            -4,
+            7,
+            -1
+          ],
+          "section_id": "P4_prism"
+        },
+        {
+          "t0": 27.37,
+          "t1": 28.97,
+          "transform": "rising_sequence_+4",
+          "degree_shift": 4,
+          "midis": [
+            72,
+            69,
+            76,
+            74
+          ],
+          "intervals": [
+            -3,
+            7,
+            -2
+          ],
+          "section_id": "P4_prism"
+        },
+        {
+          "t0": 32.02,
+          "t1": 33.62,
+          "transform": "rising_sequence_+1",
+          "degree_shift": 1,
+          "midis": [
+            67,
+            64,
+            74,
+            69
+          ],
+          "intervals": [
+            -3,
+            10,
+            -5
+          ],
+          "section_id": "P5_tsunami"
+        },
+        {
+          "t0": 33.695,
+          "t1": 35.295,
+          "transform": "rising_sequence_+2",
+          "degree_shift": 2,
+          "midis": [
+            69,
+            65,
+            72,
+            71
+          ],
+          "intervals": [
+            -4,
+            7,
+            -1
+          ],
+          "section_id": "P5_tsunami"
+        },
+        {
+          "t0": 35.37,
+          "t1": 36.97,
+          "transform": "rising_sequence_+4",
+          "degree_shift": 4,
+          "midis": [
+            72,
+            69,
+            76,
+            74
+          ],
+          "intervals": [
+            -3,
+            7,
+            -2
+          ],
+          "section_id": "P5_tsunami"
+        },
+        {
+          "t0": 44.0,
+          "t1": 46.0,
+          "transform": "climax_octave_statement",
+          "degree_shift": 0,
+          "midis": [
+            77,
+            74,
+            81,
+            79
+          ],
+          "intervals": [
+            -3,
+            7,
+            -2
+          ],
+          "section_id": "P7_climax_end"
+        }
+      ]
+    },
+    "voice_leading": {
+      "chord_transitions": 53,
+      "mean_upper_motion_st": 0.6855,
+      "max_upper_motion_st": 2.0,
+      "voice_crossings": 0,
+      "parallel_fifths_octaves": 0,
+      "common_tone_ratio": 0.9143
+    },
+    "used_instruments": [
+      "cellos",
+      "glockenspiel",
+      "harp",
+      "sus_cymbal",
+      "vibraphone_bowed"
+    ],
+    "loop_dur_s": 56.0
+  },
+  "assets": [
+    {
+      "key": "audio/stem_pad.ogg",
+      "id": "pad",
+      "name": "和声声场",
+      "kind": "audio_stem",
+      "file": "opus/stem_pad.ogg",
+      "mime": "audio/ogg",
+      "dur_s": 56.0,
+      "bytes": 477342,
+      "sha256": "610101b85c46b663ccae3cbbca0fce5f52bb17ae8eac7b6f0c4af62322e2995e"
+    },
+    {
+      "key": "audio/stem_pulse.ogg",
+      "id": "pulse",
+      "name": "脉冲节律",
+      "kind": "audio_stem",
+      "file": "opus/stem_pulse.ogg",
+      "mime": "audio/ogg",
+      "dur_s": 56.0,
+      "bytes": 505673,
+      "sha256": "7708df810b705a11a8f8280c6ef320c8984d11c07d2f4b198516d0cec1b4df88"
+    },
+    {
+      "key": "audio/stem_lead.ogg",
+      "id": "lead",
+      "name": "主奏光束",
+      "kind": "audio_stem",
+      "file": "opus/stem_lead.ogg",
+      "mime": "audio/ogg",
+      "dur_s": 56.0,
+      "bytes": 467977,
+      "sha256": "bc6795e0f1b3905bf4841d51954d4e8fbaa225075c20565796cbea8eb28ce54a"
+    },
+    {
+      "key": "audio/sfx_laser_cut.ogg",
+      "id": "sfx_laser_cut",
+      "kind": "audio_sfx",
+      "file": "opus/sfx_laser_cut.ogg",
+      "mime": "audio/ogg",
+      "dur_s": 0.85,
+      "bytes": 8653,
+      "sha256": "da28dca9ef0dd72bd1b22158e1cf76027f5f7b8a2aaade916d72cbbfce82581a"
+    },
+    {
+      "key": "audio/sfx_mech_explode.ogg",
+      "id": "sfx_mech_explode",
+      "kind": "audio_sfx",
+      "file": "opus/sfx_mech_explode.ogg",
+      "mime": "audio/ogg",
+      "dur_s": 0.95,
+      "bytes": 6990,
+      "sha256": "9f7b9402d837f97f3c00090671d8c6de9ec0088a6aef88a7abbd8e59fa0a15f4"
+    },
+    {
+      "key": "audio/sfx_prism_chime.ogg",
+      "id": "sfx_prism_chime",
+      "kind": "audio_sfx",
+      "file": "opus/sfx_prism_chime.ogg",
+      "mime": "audio/ogg",
+      "dur_s": 1.35,
+      "bytes": 15454,
+      "sha256": "e5513bebea116d899148569c8a4413e3222ab01d66d009a14dcd861949bc8afa"
+    },
+    {
+      "key": "audio/sfx_quantum_surge.ogg",
+      "id": "sfx_quantum_surge",
+      "kind": "audio_sfx",
+      "file": "opus/sfx_quantum_surge.ogg",
+      "mime": "audio/ogg",
+      "dur_s": 1.2,
+      "bytes": 8361,
+      "sha256": "6903283d3f5fefa2c5fe86fa990d23261099fdf054385a2f8f1c97eb8b28cec4"
+    },
+    {
+      "key": "audio/sfx_shader_snap.ogg",
+      "id": "sfx_shader_snap",
+      "kind": "audio_sfx",
+      "file": "opus/sfx_shader_snap.ogg",
+      "mime": "audio/ogg",
+      "dur_s": 0.24,
+      "bytes": 3279,
+      "sha256": "dbbe5f259df99df91520acdf515013858f705c7071dc5fd9c6e92f65f98155dd"
+    },
+    {
+      "key": "audio/sfx_portal_whoosh.ogg",
+      "id": "sfx_portal_whoosh",
+      "kind": "audio_sfx",
+      "file": "opus/sfx_portal_whoosh.ogg",
+      "mime": "audio/ogg",
+      "dur_s": 1.05,
+      "bytes": 5126,
+      "sha256": "d9b56485c0691736e999542be096a1bc5ee0aaa3cf92eac835c8c0ca886caa3b"
+    },
+    {
+      "key": "audio/vo_V01.ogg",
+      "id": "V01",
+      "act": "A01",
+      "at": 10.5,
+      "text": "别再用平面幻灯片，装下你的三维产品。",
+      "kind": "audio_vo_ai",
+      "file": "opus/vo_V01.ogg",
+      "mime": "audio/ogg",
+      "dur_s": 3.264,
+      "bytes": 12091,
+      "inline_bytes": 16146,
+      "sha256": "64f633d065903f0f45baa514ccd44280be9a05e1736fd6b2aee76cb9ad5639e6"
+    },
+    {
+      "key": "audio/vo_V02.ogg",
+      "id": "V02",
+      "act": "A02",
+      "at": 32.0,
+      "text": "冲破白框边界，让二维图表长出体积。",
+      "kind": "audio_vo_ai",
+      "file": "opus/vo_V02.ogg",
+      "mime": "audio/ogg",
+      "dur_s": 3.455,
+      "bytes": 12558,
+      "inline_bytes": 16766,
+      "sha256": "02fb8e98cdbe467dd8992bf350ff6c80dd7dfb0d8907b52e2daffa4844996778"
+    },
+    {
+      "key": "audio/vo_V03.ogg",
+      "id": "V03",
+      "act": "A03",
+      "at": 72.5,
+      "text": "六层同轴精密拆解，一秒看穿黑盒架构。",
+      "kind": "audio_vo_ai",
+      "file": "opus/vo_V03.ogg",
+      "mime": "audio/ogg",
+      "dur_s": 3.972,
+      "bytes": 14197,
+      "inline_bytes": 18954,
+      "sha256": "2ad56f4eabf1d24b2c9031d3d8b20864cc1cd45f1a7c67516dd612ebfcacf2ea"
+    },
+    {
+      "key": "audio/vo_V04.ogg",
+      "id": "V04",
+      "act": "A04",
+      "at": 106.5,
+      "text": "物理光谱与焦散，把抽象卖点拍成大片。",
+      "kind": "audio_vo_ai",
+      "file": "opus/vo_V04.ogg",
+      "mime": "audio/ogg",
+      "dur_s": 3.024,
+      "bytes": 11175,
+      "inline_bytes": 14922,
+      "sha256": "32a5dd81a5b82aed967c2d36e6e1542102c54ecbbefb59bbc1e496fa11182504"
+    },
+    {
+      "key": "audio/vo_V05.ogg",
+      "id": "V05",
+      "act": "A05",
+      "at": 127.5,
+      "text": "三万动态节点同帧共振，掀起算力海啸。",
+      "kind": "audio_vo_ai",
+      "file": "opus/vo_V05.ogg",
+      "mime": "audio/ogg",
+      "dur_s": 4.083,
+      "bytes": 14825,
+      "inline_bytes": 19790,
+      "sha256": "a61519bdf44d810d6f1400681ba74032349ab275ab0138dd4fb22981d06b538f"
+    },
+    {
+      "key": "audio/vo_V06.ogg",
+      "id": "V06",
+      "act": "A06",
+      "at": 163.5,
+      "text": "一镜到底，穿越宏观地形与微观芯片。",
+      "kind": "audio_vo_ai",
+      "file": "opus/vo_V06.ogg",
+      "mime": "audio/ogg",
+      "dur_s": 3.704,
+      "bytes": 13416,
+      "inline_bytes": 17910,
+      "sha256": "8ba4e0012d24f0108b20f7a9a5fdfe519fa61a8e71085cd3f61d0a9875c17389"
+    },
+    {
+      "key": "audio/vo_V07.ogg",
+      "id": "V07",
+      "act": "A07",
+      "at": 194.0,
+      "text": "同一套代码与模型，秒换多种视觉宇宙。",
+      "kind": "audio_vo_ai",
+      "file": "opus/vo_V07.ogg",
+      "mime": "audio/ogg",
+      "dur_s": 3.6,
+      "bytes": 12794,
+      "inline_bytes": 17082,
+      "sha256": "6539395b05b6bd7ab103abe387306d8472e7e998724158efd82c4f95d2b63e96"
+    },
+    {
+      "key": "audio/vo_V08.ogg",
+      "id": "V08",
+      "act": "A08",
+      "at": 230.0,
+      "text": "台上实时交互，台下同源直出四K成片。",
+      "kind": "audio_vo_ai",
+      "file": "opus/vo_V08.ogg",
+      "mime": "audio/ogg",
+      "dur_s": 3.795,
+      "bytes": 13756,
+      "inline_bytes": 18366,
+      "sha256": "b6d37555223a1e934c764a03a99d3b763723644f9c61ce8e73c84fe87f79bfdf"
+    },
+    {
+      "key": "audio/vo_V09.ogg",
+      "id": "V09",
+      "act": "A09",
+      "at": 259.5,
+      "text": "同一组数据，拉动红线，一刀见高下。",
+      "kind": "audio_vo_ai",
+      "file": "opus/vo_V09.ogg",
+      "mime": "audio/ogg",
+      "dur_s": 3.574,
+      "bytes": 12780,
+      "inline_bytes": 17062,
+      "sha256": "05358b4733372c14a0ce5c599eb6226be07e3214b1e39490d52c4c28393cc66d"
+    },
+    {
+      "key": "audio/vo_V10.ogg",
+      "id": "V10",
+      "act": "A10",
+      "at": 301.0,
+      "text": "告别静态幻灯片，下一场演示交给北冥。",
+      "kind": "audio_vo_ai",
+      "file": "opus/vo_V10.ogg",
+      "mime": "audio/ogg",
+      "dur_s": 4.272,
+      "bytes": 15390,
+      "inline_bytes": 20542,
+      "sha256": "bceb38afa6220fed2d5bf143a64f3c031118bc6955a6c38f81b42e53a883eb08"
+    }
+  ],
+  "vo": [
+    {
+      "id": "V01",
+      "act": "A01",
+      "at": 10.5,
+      "dur_s": 3.264,
+      "key": "audio/vo_V01.ogg",
+      "text": "别再用平面幻灯片，装下你的三维产品。"
+    },
+    {
+      "id": "V02",
+      "act": "A02",
+      "at": 32.0,
+      "dur_s": 3.455,
+      "key": "audio/vo_V02.ogg",
+      "text": "冲破白框边界，让二维图表长出体积。"
+    },
+    {
+      "id": "V03",
+      "act": "A03",
+      "at": 72.5,
+      "dur_s": 3.972,
+      "key": "audio/vo_V03.ogg",
+      "text": "六层同轴精密拆解，一秒看穿黑盒架构。"
+    },
+    {
+      "id": "V04",
+      "act": "A04",
+      "at": 106.5,
+      "dur_s": 3.024,
+      "key": "audio/vo_V04.ogg",
+      "text": "物理光谱与焦散，把抽象卖点拍成大片。"
+    },
+    {
+      "id": "V05",
+      "act": "A05",
+      "at": 127.5,
+      "dur_s": 4.083,
+      "key": "audio/vo_V05.ogg",
+      "text": "三万动态节点同帧共振，掀起算力海啸。"
+    },
+    {
+      "id": "V06",
+      "act": "A06",
+      "at": 163.5,
+      "dur_s": 3.704,
+      "key": "audio/vo_V06.ogg",
+      "text": "一镜到底，穿越宏观地形与微观芯片。"
+    },
+    {
+      "id": "V07",
+      "act": "A07",
+      "at": 194.0,
+      "dur_s": 3.6,
+      "key": "audio/vo_V07.ogg",
+      "text": "同一套代码与模型，秒换多种视觉宇宙。"
+    },
+    {
+      "id": "V08",
+      "act": "A08",
+      "at": 230.0,
+      "dur_s": 3.795,
+      "key": "audio/vo_V08.ogg",
+      "text": "台上实时交互，台下同源直出四K成片。"
+    },
+    {
+      "id": "V09",
+      "act": "A09",
+      "at": 259.5,
+      "dur_s": 3.574,
+      "key": "audio/vo_V09.ogg",
+      "text": "同一组数据，拉动红线，一刀见高下。"
+    },
+    {
+      "id": "V10",
+      "act": "A10",
+      "at": 301.0,
+      "dur_s": 4.272,
+      "key": "audio/vo_V10.ogg",
+      "text": "告别静态幻灯片，下一场演示交给北冥。"
+    }
+  ],
+  "voMeta": {
+    "enabledByDefault": false,
+    "aigc": true,
+    "label": "导览配音（AI 合成 · 默认关闭）",
+    "model": "openbmb/VoxCPM2",
+    "modelRevision": "7936080b41163874f38610f46f438e2c0757f9fd",
+    "modelWeightsSha256": "f7f964cfa9da23653baec6e6f7750719977ad944ed9f95fe52fe3a620506891d",
+    "vocoder": "AudioVAE V2 (audiovae.pth, 48kHz)",
+    "vocoderWeightsSha256": "94b5d51e107e0507d4acc976cfdadb64edd6fd06d1f751dadbf2fd1594274bf1",
+    "codePackage": "voxcpm==2.0.3",
+    "codeLicense": "Apache-2.0",
+    "modelAndVocoderLicense": "Apache-2.0 (free for commercial use; AI-generated content disclosure required)",
+    "voiceSource": "Pure text --control voice design only; zero real human reference audio",
+    "device": "cpu",
+    "totalSpeechDurS": 36.744,
+    "totalRawOpusBytes": 132982,
+    "totalInlineBase64Bytes": 177540
+  }
+}

@@ -1,0 +1,553 @@
+{
+  "schemaVersion": 2,
+  "id": "wonderx",
+  "title": "最后一页 PPT：当北冥引擎接管舞台",
+  "route": "a",
+  "backend": "three",
+  "output": {
+    "profile": "web-1080p24",
+    "width": 1920,
+    "height": 1080,
+    "fps": 24,
+    "frameCount": 7776
+  },
+  "shots": [
+    {
+      "id": "A01",
+      "name": "又一场平庸的发布会",
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "（平静停顿 2 秒，让台下以为这真是一页 48 页的普通白底 PPT。）第 2 拍按下空格，朱红选框锁死标题并改写为「这页 PPT，配不上你的产品。」；第 3 拍 8 种 GLSL 滤镜扫屏，一道朱红激光斜向剖开白页。",
+      "in": 0,
+      "out": 720
+    },
+    {
+      "id": "A02",
+      "name": "破框：二维图表长出体积",
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "穿入激光裂缝进入黑曜暗场：刚才的扁平灰柱图拔地升华为 64 座拉丝钛金属 3D 数据摩天柱，朱红增长光轨直接顶穿悬空的 16:9 幻灯片线框，移动鼠标微控仰视大摇臂。",
+      "in": 720,
+      "out": 1440
+    },
+    {
+      "id": "A03",
+      "name": "解剖：一秒看穿黑盒架构",
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "原创阳极氧化暗钛光学算力核按力传递路径 6 层悬浮爆炸拆解，6 条 3D→2D 实时追踪 CAD 引线始终锁死组件位置。现场可拖动底部「爆炸拆解」滑杆在 0%–100% 之间任意停顿并环绕观察。",
+      "in": 1440,
+      "out": 2304
+    },
+    {
+      "id": "A04",
+      "name": "棱光：把抽象卖点拍成大片",
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "大厂纯黑发布舞台：准直白光射入高精度水晶切面棱镜，实时色散为冰青、暖金与朱红光谱束，并在黑曜镜面地面铺开解析流体焦散。左右移动鼠标，入射角与地面焦散同步实时偏转。",
+      "in": 2304,
+      "out": 3024
+    },
+    {
+      "id": "A05",
+      "name": "算力海啸：三万节点同帧共振",
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "单枚算力核爆散为 30,000 枚 GPU 驱动动态微体素（full 档实装 30,000 实例，降档平滑过渡至 15k/8k/3k），纯顶点着色器零掉帧形变「数字山海 → 全球网络球 → 精密矩阵地形」。点击舞台或下方按钮实时触发朱红电磁脉冲。",
+      "in": 3024,
+      "out": 3888
+    },
+    {
+      "id": "A06",
+      "name": "穿镜：一镜到底的空间叙事",
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "无剪辑三尺度一镜到底：从 10⁶ m 高空全息 LiDAR 测绘地形俯冲，高速穿越 14 道发光光学门框隧道走廊，最终急停微距锁死 10⁻³ m 级核心光子传感器。",
+      "in": 3888,
+      "out": 4608
+    },
+    {
+      "id": "A07",
+      "name": "秒换画风：同一套代码，66+ 种视觉宇宙",
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "同一座实时旋转的精密科幻机械雕塑，单一 BufferGeometry 热切 4 套 GLSL 着色器（暗色发布 / 深普鲁士蓝 CAD / 冰青 LiDAR / 北冥三渲二墨线），轮廓配准绝对 0.0 px。按 Q/W/E/R 切画风，按 G 切 2×2 四宇宙同屏矩阵。",
+      "in": 4608,
+      "out": 5472
+    },
+    {
+      "id": "A08",
+      "name": "代码即影片：一份工程，双端通吃",
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "实时 3D 视口嵌入暗黑北冥导演工作台：左边证明单文件离线交互控场，右边证明同一份代码锁帧直出 BT.709 广播级 4K MP4 大片。拖动底部时间轴预览关键帧，点击按钮在「自由交互机位 ↔ 锁定电影机位」间秒切。",
+      "in": 5472,
+      "out": 6192
+    },
+    {
+      "id": "A09",
+      "name": "一刀见高下：传统 PPT vs 北冥动态展示",
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "同一份《2027 光学算力平台核心指标》提案，左右 7 项数据一字不差（4.8 PFLOPS / 1.6 TB/s / 3.4× 与 42%/28%/19%/11%）。自由左右拖动中央朱红激光手柄，一刀擦除窒息白底 PPT。",
+      "in": 6192,
+      "out": 6912,
+      "split": true
+    },
+    {
+      "id": "A10",
+      "name": "终章：下一场演示，交给北冥",
+      "module": "main.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "沿发光时间长河回掠 02–09 幕全息地标，收束至极简品牌落版，最终平静回到「有任何问题吗？」。轻移鼠标让超薄光学玻璃板倾斜 12°，透出背后仍在呼吸运转的三维点阵。",
+      "in": 6912,
+      "out": 7776
+    }
+  ],
+  "events": [
+    {
+      "id": "A01-b1",
+      "frame": 0,
+      "shot": "A01",
+      "visual": "平庸白底商务 PPT 开场"
+    },
+    {
+      "id": "A01-b2",
+      "frame": 240,
+      "shot": "A01",
+      "visual": "朱红选框锁死标题并逐条删行"
+    },
+    {
+      "id": "A01-b3",
+      "frame": 480,
+      "shot": "A01",
+      "visual": "8 模态 GLSL 扫屏与朱红激光剖屏"
+    },
+    {
+      "id": "A02-b1",
+      "frame": 720,
+      "shot": "A02",
+      "visual": "扁平灰柱拔地升华为 3D 钛金属尖塔"
+    },
+    {
+      "id": "A02-b2",
+      "frame": 960,
+      "shot": "A02",
+      "visual": "朱红增长光轨顶穿 16:9 悬浮线框"
+    },
+    {
+      "id": "A02-b3",
+      "frame": 1200,
+      "shot": "A02",
+      "visual": "低机位大摇臂俯瞰缩成邮票的原白框"
+    },
+    {
+      "id": "A03-b1",
+      "frame": 1440,
+      "shot": "A03",
+      "visual": "阳极氧化暗钛光学算力核整体入场"
+    },
+    {
+      "id": "A03-b2",
+      "frame": 1728,
+      "shot": "A03",
+      "visual": "六层同轴爆炸展开与实时 CAD 引线"
+    },
+    {
+      "id": "A03-b3",
+      "frame": 2016,
+      "shot": "A03",
+      "visual": "镜头穿入神经芯片核缝隙特写"
+    },
+    {
+      "id": "A04-b1",
+      "frame": 2304,
+      "shot": "A04",
+      "visual": "纯黑发布舞台扫光勾勒水晶棱镜"
+    },
+    {
+      "id": "A04-b2",
+      "frame": 2544,
+      "shot": "A04",
+      "visual": "准直白光入射色散为三波段光谱束"
+    },
+    {
+      "id": "A04-b3",
+      "frame": 2784,
+      "shot": "A04",
+      "visual": "镜面黑曜地面流体焦散实时偏转"
+    },
+    {
+      "id": "A05-b1",
+      "frame": 3024,
+      "shot": "A05",
+      "visual": "三万 GPU 微体素爆散成数字山海"
+    },
+    {
+      "id": "A05-b2",
+      "frame": 3312,
+      "shot": "A05",
+      "visual": "纯着色器零掉帧形变为全球网络球"
+    },
+    {
+      "id": "A05-b3",
+      "frame": 3600,
+      "shot": "A05",
+      "visual": "精密矩阵地形与朱红等高能量波"
+    },
+    {
+      "id": "A06-b1",
+      "frame": 3888,
+      "shot": "A06",
+      "visual": "高空全息 LiDAR 测绘地形俯瞰"
+    },
+    {
+      "id": "A06-b2",
+      "frame": 4128,
+      "shot": "A06",
+      "visual": "高速俯冲穿越发光光学门框走廊"
+    },
+    {
+      "id": "A06-b3",
+      "frame": 4368,
+      "shot": "A06",
+      "visual": "急停微距锁死核心光子传感器"
+    },
+    {
+      "id": "A07-b1",
+      "frame": 4608,
+      "shot": "A07",
+      "visual": "同一雕塑暗色发布热切深蓝 CAD"
+    },
+    {
+      "id": "A07-b2",
+      "frame": 4896,
+      "shot": "A07",
+      "visual": "2×2 四宇宙矩阵同屏同步旋转"
+    },
+    {
+      "id": "A07-b3",
+      "frame": 5184,
+      "shot": "A07",
+      "visual": "朱红激光扫描波 16ms 整帧切画风"
+    },
+    {
+      "id": "A08-b1",
+      "frame": 5472,
+      "shot": "A08",
+      "visual": "3D 场景退入北冥导演工作台视口"
+    },
+    {
+      "id": "A08-b2",
+      "frame": 5712,
+      "shot": "A08",
+      "visual": "左交互单文件与右 4K 成片双端对照"
+    },
+    {
+      "id": "A08-b3",
+      "frame": 5952,
+      "shot": "A08",
+      "visual": "电影时间轴与中文动态排版落版"
+    },
+    {
+      "id": "A09-b1",
+      "frame": 6192,
+      "shot": "A09",
+      "visual": "同源七项数据左右分屏初露高下"
+    },
+    {
+      "id": "A09-b2",
+      "frame": 6552,
+      "shot": "A09",
+      "visual": "全屏自由拖动朱红激光分屏手柄"
+    },
+    {
+      "id": "A10-b1",
+      "frame": 6912,
+      "shot": "A10",
+      "visual": "沿三维时间长河高速回掠八幕地标"
+    },
+    {
+      "id": "A10-b2",
+      "frame": 7200,
+      "shot": "A10",
+      "visual": "极简品牌落版与三大实测引擎支柱"
+    },
+    {
+      "id": "A10-b3",
+      "frame": 7488,
+      "shot": "A10",
+      "visual": "有任何问题吗与 12° 光学玻璃斜透"
+    }
+  ],
+  "texts": [
+    {
+      "id": "A01-title",
+      "text": "又一场平庸的发布会",
+      "font": "WX Serif"
+    },
+    {
+      "id": "A01-quote",
+      "text": "这页 PPT，配不上你的产品。",
+      "font": "WX Text"
+    },
+    {
+      "id": "A02-title",
+      "text": "破框：二维图表长出体积",
+      "font": "WX Serif"
+    },
+    {
+      "id": "A02-quote",
+      "text": "冲破 16:9 平面牢笼，让增长曲线直刺三维穹顶。",
+      "font": "WX Text"
+    },
+    {
+      "id": "A03-title",
+      "text": "解剖：一秒看穿黑盒架构",
+      "font": "WX Serif"
+    },
+    {
+      "id": "A03-quote",
+      "text": "六层同轴精密爆炸拆解，拖动滑杆在 0% 至 100% 间自由环绕。",
+      "font": "WX Text"
+    },
+    {
+      "id": "A04-title",
+      "text": "棱光：把抽象卖点拍成大片",
+      "font": "WX Serif"
+    },
+    {
+      "id": "A04-quote",
+      "text": "物理光谱色散与实时解析焦散，随手势偏转每一束光。",
+      "font": "WX Text"
+    },
+    {
+      "id": "A05-title",
+      "text": "算力海啸：三万节点同帧共振",
+      "font": "WX Serif"
+    },
+    {
+      "id": "A05-quote",
+      "text": "30,000 枚 GPU 微体素纯着色器实时形变，零掉帧掀起算力海啸。",
+      "font": "WX Text"
+    },
+    {
+      "id": "A06-title",
+      "text": "穿镜：一镜到底的空间叙事",
+      "font": "WX Serif"
+    },
+    {
+      "id": "A06-quote",
+      "text": "从宏大全息测绘地形一路俯冲直抵核心传感器，零剪辑贯通尺度。",
+      "font": "WX Text"
+    },
+    {
+      "id": "A07-title",
+      "text": "秒换画风：同一套代码，66+ 种视觉宇宙",
+      "font": "WX Serif"
+    },
+    {
+      "id": "A07-quote",
+      "text": "单一几何体热切四套 GLSL 着色器，轮廓绝对 0.0 px 配准。",
+      "font": "WX Text"
+    },
+    {
+      "id": "A08-title",
+      "text": "一份代码，双端通吃。",
+      "font": "WX Serif"
+    },
+    {
+      "id": "A08-quote",
+      "text": "台上单文件离线交互控场，台下同源锁帧直出 4K 广播级成片。",
+      "font": "WX Text"
+    },
+    {
+      "id": "A09-title",
+      "text": "一刀见高下：传统 PPT vs 北冥动态展示",
+      "font": "WX Serif"
+    },
+    {
+      "id": "A09-quote",
+      "text": "同一组七项实测数据，拉动朱红分屏线，一刀见高下。",
+      "font": "WX Text"
+    },
+    {
+      "id": "A10-title",
+      "text": "终章：下一场演示，交给北冥",
+      "font": "WX Serif"
+    },
+    {
+      "id": "A10-quote",
+      "text": "告别静态幻灯片，万物有戏 × 北冥引擎。",
+      "font": "WX Text"
+    },
+    {
+      "id": "latin-display",
+      "text": "WONDERX BEIMING ENGINE ACT 0123456789 SLIDE 4.8 PFLOPS 1.6 TB/s 3.4× %",
+      "font": "WX Display"
+    },
+    {
+      "id": "latin-ui",
+      "text": "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .:/-×·%+-()<>^[]|",
+      "font": "WX Sans"
+    }
+  ],
+  "fonts": [
+    {
+      "family": "WX Display",
+      "source": "barlow-condensed-black",
+      "weight": 900,
+      "extra": "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789./-×:%+ "
+    },
+    {
+      "family": "WX Sans",
+      "source": "manrope",
+      "weight": 500,
+      "extra": "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .:/-×·%+-()<>^[]|Ø–—→=,&°⁶³"
+    },
+    {
+      "family": "WX Serif",
+      "source": "noto-serif-cjk-sc",
+      "weight": 700,
+      "extra": " %+0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz·×–—▎、。《》「」一万三上下不与业事二互交产代任份会传体何你光共内冥出刀划别到剖力务动北十卖即又双发叙可台吃同吗告品啸图场增声大套季学宇宙容展工布帧幕平幻底度庸开引影心态戏成把报抽拍指振换控擎明有构架标核框棱汇海源溯演灯点片物现生画的盒直看码破示种秒积程空穿章端算终给统维节表见规视觉解许象这通配镜长问间静音页题风高黑！（），：？"
+    },
+    {
+      "family": "WX Text",
+      "source": "noto-sans-cjk-sc",
+      "weight": 400,
+      "extra": " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~°·×Ø–—“”•…→↔▎▶◀、。《》「」一七万三上下不与专且世业丝两严个中为主之乐九也了事二于云互五交产享人仅今仍从代令以们仰件任份企伏众优会传伸似位低住体何作你使例供依侧保信俯倍值倾偏停像先光入全八公六共关兴具典内再写冥冰冲冷净准减凝几凸出击刀刃分切划列则刚创初删利别到制刷刺刻前剖剪力功加务动助势勒勾匀包化北区十千升半华协单卖占卡印即厂压原参又及双反发取受变叙叠口古句只可台右号吃各合同名后向吗否听启吸告周呼和品响哪唤唯商啸器四回因固图圆土在地场均坐块垂城基塑塔塞境增墨壁士声壳处备复外多夜大天太央失头奏套好如始子字季学它宇安完宏宙定宝实审客宣家容宽密察对导射将小少尔尖就尺尽尾局层屏展属山峡峰嵌巡工左巩差己已市布带帧常幕干平年并幻广序应底废度座庸廊廓建开异式引张弱弹强归当录形彩影往径待律得循微徽心志快念态急性总恢息悬想意感慢懂戏成我或战截户所扁扇手才扑打托扣扫批找承技把抓投折护报抵抽拆拉拍拓拔拖招拟拢拦拽持指按振损换据掀掉排掠探接控推掩描提插摄摆摇摩播操擎擦支收改放故效散数整文斜断新方旋无既日旧时明星是显晕普景晶智暖暗暴曜曲更最有朗望期未本术朱机权杆材束条来板极构析枚果枯架柄染查柱标栏校样核根格框案档桥梭梯械棱模横次正此步死殊段母每比毛毫气氧水求汇河油治沿法波注洋活流测浪浮海消涨深混清渡渲游源溯滑满滤漂演潮激火灯灰炸点炽烁热焦焰然照熔燥爆片版牌牢物特状独猛率环现玻珀球理琥璃瓦生用由电画界留略疏痕痛登白百的皮盒盖目直相看真眸眼着睛瞰矩石码砂破砸础硬确碎碰磁磨示神票禁离种科秒积移稀程稳稿穹空穿窒窗立章端第笼等简算管米粒粗精糊糙系素索繁红纤级纪纯纵纸纹线组细终经结绕绘给络绝统绪续维缓缘缝缩网置美群翻翼者耸聚背能脆脉脊脚脱腻腾臂自至致舞航色艺节芯花若落蓝薄藏虹蛋蜕螺行补表衬被裂装要覆见观规视览觉角解触言计认让记讲许论讽设证评识词试话该语误说读调谋谢谱谷象贝负败质贯贴费资赋赖赤走起超越趋足跃跑距跟跨路跳踪轨转轮轰轴轻载辑输辨边达过运近还这进远连迭述迹追退适选透逐递通速造逼道遥避邃邮部都配醒采里重量金针钉钛钟钮铺链销锁锋错锚锥键镜长门闪闭问间阳阵阶陀附际降除随隐隔隙障隧集雕零雷雾震露青静非面音韵页顶项顿预领频颗题颤风飞饼驱验高鲁鲜鳍麻黑默鼠齐！（），：；？"
+    }
+  ],
+  "audio": {
+    "mode": "script",
+    "script": "sound.py",
+    "targetLUFS": -14.0,
+    "truePeakDbTP": -1.5,
+    "note": "正式视频导出由 films/wonderx/sound.py 基于同源校验哈希的 films/wonderx/audio/opus 3 条 56s 无缝循环高科原创分轨与 6 条 MIT 程序化拟音按 film.json 整数帧节拍合成（导览配音默认关闭）；离线单文件另内嵌可选默认关闭的 10 句 VoxCPM2 中文精华导览（Opus）。"
+  },
+  "standalone": {
+    "plates": [],
+    "audioManifest": "audio/manifest.json",
+    "provenance": "provenance.json",
+    "extraLicenses": [
+      {
+        "name": "Beiming-Engine-MIT-LICENSE.txt",
+        "path": "repo:LICENSE",
+        "sha256": "3b89bc409dc6c5e869fded2b9100ef7d34c65533bd70fc284e473d38b21859ad"
+      },
+      {
+        "name": "CC0-vsco2ce-LICENSE.txt",
+        "path": "audio/licenses/CC0-vsco2ce-LICENSE.txt",
+        "sha256": "36ffd9dc085d529a7e60e1276d73ae5a030b020313e6c5408593a6ae2af39673"
+      },
+      {
+        "name": "CC0-vcsl-LICENSE.txt",
+        "path": "audio/licenses/CC0-vcsl-LICENSE.txt",
+        "sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499"
+      },
+      {
+        "name": "Apache-2.0-VoxCPM2-LICENSE.txt",
+        "path": "audio/licenses/Apache-2.0-VoxCPM2-LICENSE.txt",
+        "sha256": "4f10acc209addacfad28293315c74c4cd648f771ee1263a748f1781d1e0265e4"
+      }
+    ]
+  },
+  "deliveries": [
+    "web-1080p24",
+    "uhd-2160p24"
+  ],
+  "style": {
+    "id": "beiming-original",
+    "version": 1,
+    "lock": "../../engine/style/beiming-original.v1.json",
+    "baseline": "../../media/shot_1.6.jpg",
+    "note": "采用黑曜暗场、拉丝深钛、冰青/暖金舞台光与品牌朱红激光（严禁纸雕与旧纸纹，渲染路径显式 paper:false、kuwahara:false）。"
+  },
+  "assets": [
+    "local:sound.py",
+    "local:audio/manifest.json",
+    "local:audio/used-samples-audit.json",
+    "local:audio/vo_batch.json",
+    "local:audio/build_audio.py",
+    "local:audio/pack_vo.py",
+    "local:provenance.json"
+  ],
+  "credits": [
+    {
+      "what": "Beiming Engine & WonderX Phase 2 v4 Source Code (3D Scenes, Shaders, HUD, Deck Runtime, Audio Scripts)",
+      "owner": "Copyright (c) 2026 北冥引擎 Beiming Engine",
+      "license": "MIT",
+      "source": "LICENSE (SHA-256 3b89bc409dc6c5e869fded2b9100ef7d34c65533bd70fc284e473d38b21859ad)"
+    },
+    {
+      "what": "WX Display (Barlow Condensed Black)",
+      "owner": "Copyright 2017 The Barlow Project Authors (https://github.com/jpt/barlow)",
+      "license": "OFL-1.1",
+      "source": "fonts/fonts.lock.json (OFL-barlow.txt SHA-256 186d750eb496a4c17a76385f82be6aea2ac1cf2de074a811d63786cf374ea73f)"
+    },
+    {
+      "what": "WX Sans (Manrope)",
+      "owner": "Copyright 2018 The Manrope Project Authors (OFL-manrope.txt; fonts.lock.json lists 2019, https://github.com/googlefonts/manrope)",
+      "license": "OFL-1.1",
+      "source": "fonts/fonts.lock.json (OFL-manrope.txt SHA-256 58172e0c0fac2cda8a37b348164bb55e44b0e69051e557e92b1d3f6910141f7b)"
+    },
+    {
+      "what": "WX Serif (Noto Serif CJK SC Bold)",
+      "owner": "© 2017-2024 Adobe (http://www.adobe.com/).",
+      "license": "OFL-1.1",
+      "source": "fonts/fonts.lock.json (OFL-noto-cjk.txt SHA-256 6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2)"
+    },
+    {
+      "what": "WX Text (Noto Sans CJK SC Regular)",
+      "owner": "© 2014-2021 Adobe (http://www.adobe.com/).",
+      "license": "OFL-1.1",
+      "source": "fonts/fonts.lock.json (OFL-noto-cjk.txt SHA-256 6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2)"
+    },
+    {
+      "what": "Three.js 0.170.0 WebGL2 Runtime",
+      "owner": "Copyright © 2010-2024 three.js authors",
+      "license": "MIT",
+      "source": "node_modules/three/LICENSE (SHA-256 4c40a1ef62450b857c3b2aaf294936304cd552d965fbcd9d32d4c5bcf4ba4454)"
+    },
+    {
+      "what": "Original Soundtrack Samples (VSCO-2-CE & VCSL: cellos, vibraphone_bowed, glockenspiel, harp, sus_cymbal)",
+      "owner": "Versilian Studios",
+      "license": "CC0-1.0",
+      "source": "engine/audio/samples.json + films/wonderx/audio/used-samples-audit.json (30 WAVs + 2 LICENSEs SHA-256 verified)"
+    },
+    {
+      "what": "Original Soundtrack Composition & Procedural Foley (composer.py, orchestra.py, procedural.py, sound.py)",
+      "owner": "Copyright (c) 2026 北冥引擎 Beiming Engine",
+      "license": "MIT",
+      "source": "films/wonderx/audio/build_audio.py & films/wonderx/sound.py"
+    },
+    {
+      "what": "Optional Chinese Narration (default OFF, 10 cues, ~36.744 s) via openbmb/VoxCPM2 + AudioVAE V2 + voxcpm==2.0.3",
+      "owner": "Copyright OpenBMB (pure text --control voice design; zero human reference audio)",
+      "license": "Apache-2.0",
+      "source": "https://huggingface.co/openbmb/VoxCPM2 @ 7936080b41163874f38610f46f438e2c0757f9fd (Apache-2.0-VoxCPM2-LICENSE.txt SHA-256 4f10acc209addacfad28293315c74c4cd648f771ee1263a748f1781d1e0265e4)"
+    }
+  ],
+  "aigc": {
+    "contains": true,
+    "kinds": [
+      "voice"
+    ],
+    "note": "仅离线单文件内嵌的可选中文精华导览配音（10 句，总语音时长 36.744 s，默认关闭）由 openbmb/VoxCPM2（rev 7936080b41163874f38610f46f438e2c0757f9fd）+ AudioVAE V2（audiovae.pth, 48kHz）+ voxcpm==2.0.3（Apache-2.0）在 CPU 模式通过纯文本 --control 音色描述合成（零真人参考音频），界面显式标注 AI 合成；正式视频导出（films/wonderx/sound.py）默认不含导览轨，全部 3D 参数化几何、GLSL 着色器、原声分轨配乐与程序化拟音均非 AI 生成。"
+  },
+  "gates": {
+    "look": "required",
+    "animatic": "required",
+    "final": "required"
+  }
+}

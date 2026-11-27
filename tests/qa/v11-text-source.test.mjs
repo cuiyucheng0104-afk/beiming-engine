@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { join } from 'node:path';
 import { mergePageQaChunks } from '../../engine/render/lib/page-qa.mjs';
+import { parseVideoStreamSha256 } from '../../engine/render/lib/video-stream-hash.mjs';
 import { qaInputs } from '../../tools/film/lib/deliver.mjs';
 import { qaArgs } from '../../tools/film/lib/qa.mjs';
 import { check, cleanup, clip, ffmpeg, haveBrowser, haveFfmpeg, qa, TEST_PROFILES, tmp, writeJson } from './helpers.mjs';
@@ -84,7 +85,9 @@ test('D 路线的 page-render 表优先于页面，有母版时必须匹配视�
     assert.match(r.env.error.message, /指纹/);
   }
   const { stdout } = ffmpeg(['-i', fx.master, '-map', '0:v:0', '-c', 'copy', '-f', 'streamhash', '-hash', 'sha256', '-']);
-  writeJson(fx.table, { ...texts, videoStreamSha256: stdout.trim().split('=').at(-1) });
+  const hash = parseVideoStreamSha256(stdout);
+  assert.ok(hash, `unexpected streamhash output: ${stdout}`);
+  writeJson(fx.table, { ...texts, videoStreamSha256: hash });
   const bound = fx.texts();
   assert.equal(bound.code, 0, bound.stderr);
   assert.equal(bound.env.result.texts.sampled, spec.frameCount);

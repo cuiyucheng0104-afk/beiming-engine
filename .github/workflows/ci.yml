@@ -94,6 +94,7 @@ jobs:
         run: |
           node tools/fonts/fetch.mjs --only barlow-condensed-black,manrope,noto-serif-cjk-sc,noto-sans-cjk-sc
           node tools/fonts/subset.mjs films/wonderx-m0
+          node tools/fonts/subset.mjs films/wonderx
       - name: 测试（= npm test）
         env:
           BEIMING_PY: ${{ steps.py.outputs.python-path }}
@@ -140,6 +141,7 @@ jobs:
           python -m pip install --require-hashes -r requirements.lock
           node tools/fonts/fetch.mjs --only barlow-condensed-black,manrope,noto-serif-cjk-sc,noto-sans-cjk-sc
           node tools/fonts/subset.mjs films/wonderx-m0
+          node tools/fonts/subset.mjs films/wonderx
       - name: 检查新旧目录依赖
         run: node beiming/kernel/guard.mjs
       - name: 检查（= npm run check -- --skip tests）
@@ -251,6 +253,11 @@ jobs:
           key: apt-chromium-${{ steps.image.outputs.version }}-${{ hashFiles('package-lock.json') }}
       - name: 安装 headless shell（playwright-core 锁定版本自带的那一版）与系统依赖
         run: ./node_modules/.bin/playwright-core install --with-deps chromium-headless-shell
+      - name: 生成 WonderX Phase 2 字体子集
+        if: matrix.part == 'tests-rest'
+        env:
+          BEIMING_PY: ${{ steps.py.outputs.python-path }}
+        run: node tools/fonts/subset.mjs films/wonderx
       # R35 在 SwiftShader 下要 60 秒以上（3840×2080 再 2 倍超采样），超过测试里 page.goto 的 30 秒默认时限；
       # 已向 engine/look 的属主提请求，测试自己按软件渲染缩小尺寸后删掉这里的 --skip-grep（tests/ci/README.md「已知问题」）
       - name: 全部测试（浏览器与 FFmpeg 在场，软件渲染；分片见文件头）
@@ -423,6 +430,7 @@ jobs:
         run: |
           node tools/fonts/fetch.mjs --only barlow-condensed-black,manrope,noto-serif-cjk-sc,noto-sans-cjk-sc
           node tools/fonts/subset.mjs films/wonderx-m0
+          node tools/fonts/subset.mjs films/wonderx
       - name: 去掉 Git Bash（模拟工作站上只有 PowerShell 的环境；git.exe 仍可用）
         run: |
           $keep = $env:PATH -split ';' | Where-Object { $_ -and $_ -notmatch '\\Git\\(usr\\)?bin\\?$' }

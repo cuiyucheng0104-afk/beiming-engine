@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>最后一页 PPT：当北冥引擎接管舞台 · WonderX</title>
+<style>
+  :root {
+    --obs: #07080B;
+    --obs-mid: #101218;
+    --ti-dark: #1C212B;
+    --ti-light: #8A94A6;
+    --porcelain: #F2F4F8;
+    --vermilion: #D2452C;
+    --cyan: #4CE0F5;
+    --amber: #FFB85C;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: var(--obs); color: var(--porcelain);
+    font-family: "WX Sans", "WX Text", -apple-system, BlinkMacSystemFont, sans-serif;
+    user-select: none; -webkit-font-smoothing: antialiased;
+  }
+  .frame {
+    position: fixed; inset: 0; display: grid; place-items: center;
+    background: radial-gradient(circle at 50% 42%, #111520 0%, #07080B 72%);
+  }
+  .viewport {
+    position: relative; width: min(100vw, calc(100vh * 16 / 9));
+    aspect-ratio: 16 / 9; background: var(--obs); overflow: hidden;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.72);
+  }
+  canvas#stage, canvas#label {
+    position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+  }
+  canvas#label { pointer-events: none; }
+
+  #status {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    font-size: 15px; letter-spacing: 0.08em; color: var(--ti-light);
+    z-index: 40; pointer-events: none;
+  }
+
+  #act-bar {
+    position: fixed; left: 50%; bottom: 42px; transform: translateX(-50%);
+    z-index: 120; display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; justify-content: center;
+    padding: 5px 11px; border-radius: 999px;
+    background: rgba(10, 13, 20, 0.86); backdrop-filter: blur(14px);
+    border: 1px solid rgba(138, 148, 166, 0.30);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.58);
+    max-width: calc(100vw - 24px); overflow-x: auto;
+  }
+  .wx-btn {
+    font: 600 11.5px/1.2 "WX Sans", "WX Text", sans-serif;
+    color: var(--porcelain); background: rgba(242, 244, 248, 0.08);
+    border: 1px solid rgba(242, 244, 248, 0.18); border-radius: 999px;
+    padding: 4px 10px; cursor: pointer; transition: all 0.16s ease;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .wx-btn:hover { border-color: var(--cyan); color: #ffffff; }
+  .wx-btn.on { background: rgba(76, 224, 245, 0.22); border-color: var(--cyan); color: #ffffff; }
+  .wx-btn.accent { border-color: rgba(210, 69, 44, 0.72); }
+  .wx-btn.accent.on, .wx-btn.accent:hover { background: rgba(210, 69, 44, 0.86); border-color: #ff6e52; color: #fff; }
+  .wx-ctl {
+    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; flex-shrink: 0;
+    font: 600 11.5px "WX Sans", "WX Text", sans-serif; color: #cbd4e4; padding: 0 3px;
+  }
+  .wx-ctl input[type="range"] { width: 108px; accent-color: var(--vermilion); cursor: pointer; }
+  .wx-ctl span { font-family: ui-monospace, monospace; font-size: 12px; min-width: 36px; color: var(--cyan); }
+  .wx-sep { width: 1px; height: 18px; background: rgba(242, 244, 248, 0.16); margin: 0 2px; }
+
+  #glass-wrap {
+    position: absolute; inset: 0; z-index: 60;
+    display: none; align-items: center; justify-content: center;
+    pointer-events: none;
+  }
+  #glass-card {
+    pointer-events: auto;
+    width: min(740px, 78%); padding: 54px 56px 46px; border-radius: 22px;
+    background: linear-gradient(135deg, rgba(242, 244, 248, 0.86), rgba(214, 224, 238, 0.68));
+    backdrop-filter: blur(12px) saturate(135%);
+    border: 1px solid rgba(255, 255, 255, 0.68);
+    box-shadow: 0 32px 90px rgba(0, 0, 0, 0.58), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    color: #0d1017; text-align: center;
+    transform-style: preserve-3d; transition: transform 0.08s linear;
+  }
+  #glass-card .g-kicker {
+    font: 700 13px ui-monospace, monospace; letter-spacing: 0.18em;
+    color: var(--vermilion); margin-bottom: 14px;
+  }
+  #glass-card h1 {
+    font: 700 58px/1.15 "WX Serif", "WX Text", serif; color: #0c1018; margin-bottom: 16px;
+  }
+  #glass-card p {
+    font: 400 19px/1.6 "WX Text", "WX Sans", sans-serif; color: #3d4758; margin-bottom: 30px;
+  }
+  #glass-card .g-actions { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+  #glass-card .g-btn {
+    font: 600 14px "WX Sans", "WX Text", sans-serif; padding: 10px 20px; border-radius: 999px;
+    cursor: pointer; border: 1px solid #1c212b; background: #0d1017; color: #f2f4f8;
+    transition: transform 0.15s ease, background 0.15s ease;
+  }
+  #glass-card .g-btn:hover { background: var(--vermilion); border-color: var(--vermilion); transform: translateY(-1px); }
+  #glass-card .g-btn.ghost { background: rgba(13, 16, 23, 0.08); color: #161b26; border-color: rgba(13, 16, 23, 0.28); }
+  #glass-card .g-btn.ghost:hover { background: rgba(13, 16, 23, 0.16); color: #0b0e14; }
+
+  #license-modal {
+    position: fixed; inset: 0; z-index: 260; display: none;
+    align-items: center; justify-content: center;
+    background: rgba(4, 6, 10, 0.78); backdrop-filter: blur(10px);
+    padding: 24px;
+  }
+  .lic-box {
+    width: min(860px, 94vw); max-height: 84vh; overflow-y: auto;
+    background: #0d1017; border: 1px solid rgba(138, 148, 166, 0.35);
+    border-radius: 16px; padding: 26px 30px; color: var(--porcelain);
+    box-shadow: 0 28px 90px rgba(0, 0, 0, 0.72);
+    user-select: text;
+  }
+  .lic-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .lic-head h2 { font: 700 22px "WX Display", "WX Sans", sans-serif; }
+  .lic-close {
+    font: 600 13px "WX Sans", sans-serif; padding: 6px 14px; border-radius: 8px;
+    background: rgba(242, 244, 248, 0.1); border: 1px solid rgba(242, 244, 248, 0.25);
+    color: var(--porcelain); cursor: pointer;
+  }
+  .lic-close:hover { background: var(--vermilion); border-color: var(--vermilion); }
+  .lic-lead { font-size: 14px; color: #c4cedf; line-height: 1.6; margin-bottom: 12px; }
+  .lic-aigc {
+    font-size: 13.5px; line-height: 1.6; padding: 12px 14px; border-radius: 10px;
+    background: rgba(210, 69, 44, 0.12); border: 1px solid rgba(210, 69, 44, 0.42);
+    color: #ffd6cc; margin-bottom: 16px;
+  }
+  .lic-row { padding: 10px 0; border-top: 1px solid rgba(138, 148, 166, 0.18); }
+  .lic-tag {
+    display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 999px;
+    font: 600 11.5px ui-monospace, monospace; background: rgba(76, 224, 245, 0.16); color: var(--cyan);
+  }
+  .lic-sub { font-size: 12.5px; color: var(--ti-light); margin-top: 4px; line-height: 1.5; }
+  .lic-box details { margin-top: 16px; border-top: 1px solid rgba(138, 148, 166, 0.22); padding-top: 12px; }
+  .lic-box summary { cursor: pointer; color: var(--cyan); font-size: 13.5px; font-weight: 600; }
+  .lic-box pre {
+    margin-top: 8px; padding: 12px; background: #07080b; border-radius: 8px;
+    font: 11.5px/1.45 ui-monospace, monospace; color: #b8c2d4;
+    white-space: pre-wrap; max-height: 220px; overflow-y: auto;
+  }
+</style>
+<script type="importmap">{"imports":{"three":"../../node_modules/three/build/three.module.js","three/addons/":"../../node_modules/three/examples/jsm/"}}</script>
+</head>
+<body>
+  <div class="frame">
+    <div class="viewport">
+      <canvas id="stage" width="1920" height="1080"></canvas>
+      <canvas id="label" width="1920" height="1080"></canvas>
+      <div id="glass-wrap">
+        <div id="glass-card">
+          <div class="g-kicker">WONDERX × BEIMING ENGINE · SLIDE 10 / 10</div>
+          <h1>有任何问题吗？</h1>
+          <p>移动鼠标轻倾这块 12° 光学玻璃——背后仍在实时呼吸运转的，是同一套北冥三维引擎点阵。</p>
+          <div class="g-actions">
+            <button class="g-btn" data-g="replay">重播全片</button>
+            <button class="g-btn ghost" data-g="overview">自由跳幕 (O)</button>
+            <button class="g-btn ghost" data-g="license">开源许可与溯源 (L)</button>
+          </div>
+        </div>
+      </div>
+      <div id="status">正在初始化北冥三维引擎…</div>
+    </div>
+  </div>
+  <div id="act-bar" aria-label="幕内交互控件"></div>
+  <div id="license-modal" role="dialog" aria-modal="true" aria-label="开源许可与素材溯源">
+    <div class="lic-box">
+      <div class="lic-head">
+        <h2>开源许可、音画溯源与 AI 生成内容声明</h2>
+        <button class="lic-close">关闭 (Esc)</button>
+      </div>
+      <div id="license-body">加载中…</div>
+    </div>
+  </div>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

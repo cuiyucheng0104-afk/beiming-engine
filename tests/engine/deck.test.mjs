@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createDeck, createDeckModel, createGovernor, TIERS, TIER_CONFIGS, FPS_WINDOW_SIZE, LOW_FPS_STREAK } from '../../engine/stage/deck.js';
-import { stemStartArgs, cueStartArgs } from '../../engine/stage/deck-audio.js';
+import { createDeckAudio, stemStartArgs, cueStartArgs } from '../../engine/stage/deck-audio.js';
 
 test('deckModel：章节与节拍按事件帧切分，保持确定性步进', () => {
   const shots = [
@@ -194,4 +194,112 @@ test('画质档位：从高到低逐档减负，满档放得下 30,000 实例的
   }
   assert.equal(TIER_CONFIGS.full.instances, 30000, '满档要能放下 30,000 实例的实测段');
   assert.ok(TIER_CONFIGS.minimal.renderScale > 0 && TIER_CONFIGS.minimal.renderScale < 1);
+});
+
+test('deckModel 与空格：手动模式连续快按按目标拍推进，自动模式空格保持暂停/恢复', t => {
+  const model = createDeckModel({
+    shots: [{ id: 'S1', in: 0, out: 48 }, { id: 'S2', in: 48, out: 96 }],
+    events: [{ id: 'b1', frame: 24 }, { id: 'b2', frame: 72 }],
+    fps: 24, dur: 4,
+  });
+  const win = new EventTarget();
+  win.requestAnimationFrame = () => 1;
+  win.cancelAnimationFrame = () => {};
+  const deck = createDeck({ root: new EventTarget(), win, model });
+  t.after(() => deck.dispose());
+  const pressSpace = () => {
+    const e = new Event('keydown');
+    e.key = ' ';
+    Object.defineProperty(e, 'target', { value: { tagName: 'BODY' }, configurable: true });
+    e.preventDefault = () => {};
+    win.dispatchEvent(e);
+  };
+
+  // 手动模式：连续快按 2 次空格（中间只走 2 帧），目标应直接推进到第 2 个目标拍 (48)
+  pressSpace();
+  model.step(2 / 24);
+  assert.equal(model.getSnapshot().playing, true);
+  pressSpace();
+  model.followTime(10);
+  assert.equal(model.getSnapshot().frame, 48, '两次快按应停在第 2 目标拍而非卡在第 1 拍或被暂停');
+  assert.equal(model.getSnapshot().playing, false);
+
+  // 再连按 2 次：72 → 95（片尾）
+  pressSpace();
+  pressSpace();
+  model.followTime(10);
+  assert.equal(model.getSnapshot().frame, 95, '末拍之后继续平滑播到片尾停住');
+  assert.equal(model.getSnapshot().playing, false);
+
+  // 切到自动播放模式：空格仍负责暂停 / 恢复，不回退
+  model.seekFrame(12);
+  model.toggleAuto();
+  assert.equal(model.getSnapshot().autoMode, true);
+  assert.equal(model.getSnapshot().playing, true);
+  pressSpace();
+  assert.equal(model.getSnapshot().playing, false, '自动模式下按空格暂停');
+  pressSpace();
+  assert.equal(model.getSnapshot().playing, true, '自动模式下再按空格恢复');
+});
+
+test('deckAudio：手势前 setStem 不创建 AudioContext；早开导览与静音在首次手势后严格同步', t => {
+  let ctxCount = 0;
+  const gains = [];
+  class FakeAudioContext {
+    constructor() {
+      ctxCount++;
+      this.state = 'running';
+      this.currentTime = 0;
+      this.destination = { id: 'dest' };
+    }
+    resume() { this.state = 'running'; return Promise.resolve(); }
+    createGain() {
+      const g = {
+        connected: [],
+        gain: {
+          value: 1,
+          cancelScheduledValues() {},
+          setValueAtTime(v) { this.value = v; },
+          setTargetAtTime(v) { this.value = v; },
+        },
+        connect(dest) { this.connected.push(dest); },
+      };
+      gains.push(g);
+      return g;
+    }
+    createBufferSource() {
+      return { buffer: null, loop: false, connect() {}, start() {}, stop() {}, disconnect() {} };
+    }
+  }
+  const prevWin = globalThis.window;
+  globalThis.window = { AudioContext: FakeAudioContext };
+  t.after(() => { if (prevWin === undefined) delete globalThis.window; else globalThis.window = prevWin; });
+
+  const audio = createDeckAudio();
+  audio.setStem('pad', { name: '和声', buffer: { duration: 56 }, volume: 0.86 });
+  audio.setStem('pulse', { name: '脉冲', buffer: { duration: 56 }, volume: 0.92 });
+  audio.setVoCues([{ at: 1, buffer: { duration: 2 } }]);
+  assert.equal(ctxCount, 0, '手势前登记分轨与导览 cue 绝不创建实时 AudioContext');
+  assert.equal(audio.getStemsState().length, 2);
+
+  // 手势前早按 V 开导览、对 pad 静音
+  assert.equal(audio.setVoEnabled(true), true);
+  assert.equal(audio.toggleMuteStem('pad'), true);
+  assert.equal(ctxCount, 0, '未发生用户手势时仍为零 AudioContext');
+
+  // 首次手势触发 ensureContext：masterGain[0], voGain[1], pad[2], pulse[3]
+  const ctx = audio.ensureContext();
+  assert.ok(ctx);
+  assert.equal(ctxCount, 1);
+  assert.equal(gains[0].gain.value, 1, 'masterGain 默认开启');
+  assert.equal(gains[1].gain.value, 1, '早按 V 的导览增益须在创建后保持为 1');
+  assert.equal(gains[2].gain.value, 0, '手势前对 pad 静音须生效');
+  assert.equal(gains[3].gain.value, 0.92, 'pulse 保持设定音量');
+
+  // Solo 切换与总静音
+  audio.toggleSoloStem('pulse');
+  assert.equal(gains[2].gain.value, 0);
+  assert.equal(gains[3].gain.value, 0.92);
+  audio.setMasterMute(true);
+  assert.equal(gains[0].gain.value, 0);
 });

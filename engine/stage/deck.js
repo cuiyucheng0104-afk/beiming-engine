@@ -71,9 +71,14 @@ export function createDeckModel({ shots = [], events = [], fps = 24, dur = 0, no
   }
 
   function nextBeat() {
-    const next = beats.find(b => b.frame > currentFrame + 0.5);
+    // 手动推进中连续快按：从当前目标拍往后找，避免未走到目标前重复命中同一拍
+    const anchor = playing && !autoMode ? Math.max(currentFrame, targetHoldFrame) : currentFrame;
+    const next = beats.find(b => b.frame > anchor + 0.5);
     if (next) {
       targetHoldFrame = next.frame;
+      playing = true;
+    } else if (anchor < totalFrames - 1) {
+      targetHoldFrame = totalFrames - 1;
       playing = true;
     } else {
       seekFrame(totalFrames - 1);
@@ -278,7 +283,7 @@ export function createDeck({ root = document.body, win = window, model, audio = 
 
   function handleKeyDown(e) {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName ?? '')) return;
     switch (e.key) {
       case 'ArrowRight':
       case 'PageDown':
@@ -292,7 +297,8 @@ export function createDeck({ root = document.body, win = window, model, audio = 
         break;
       case ' ':
         e.preventDefault();
-        model.togglePlay();
+        if (model.getSnapshot().autoMode) model.togglePlay();
+        else model.nextBeat();
         break;
       case 'a': case 'A':
         e.preventDefault();

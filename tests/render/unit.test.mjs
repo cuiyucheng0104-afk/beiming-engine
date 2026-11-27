@@ -20,6 +20,7 @@ import { runId, repoPath } from '../../engine/render/lib/record.mjs';
 import { acquireLock, lockPath } from '../../engine/render/lib/lock.mjs';
 import { tryTake, slotCount } from '../../engine/render/lib/slots.mjs';
 import { mix } from '../../engine/render/build.mjs';
+import { parseVideoStreamSha256, videoStreamSha256 } from '../../engine/render/lib/video-stream-hash.mjs';
 import { hashJson } from '../../tools/film/lib/repo.mjs';
 import { spawnSync } from 'node:child_process';
 import { parseImplicitLabel } from '../../tools/compliance/lib/aigc.mjs';
@@ -330,4 +331,25 @@ test('mix.key：响度目标档位（ctx.profile.id）进缓存键，自定义�
   assert.notEqual(web, master, '同帧率、不同档位（响度目标不同）键必须不同');
   assert.equal(web, mix.key(mk({ id: 'web-1080p24' })), '同档位键稳定');
   assert.equal(mix.key(mk({ id: 'custom', custom: true })), mix.key(mk({ id: 'other', custom: true })), '自定义画幅不带档位');
+});
+
+test('videoStreamSha256：兼容 FFmpeg streamhash v1 与 v2 格式，拒绝非视频/非 SHA256/多流输出', async () => {
+  const h = '83951de4ce0bf9471865cd60195f34a8597c01b961a2c6fbf538312484afc63a';
+  const v2 = [
+    '#format: stream checksums',
+    '#version: 2',
+    '#hash: SHA256',
+    '#media_type 0: video',
+    '#stream#, size, hash',
+    `0,   205947462, ${h}`,
+  ].join('\r\n');
+  assert.equal(parseVideoStreamSha256(`0,v,SHA256=${h}\n`), h);
+  assert.equal(parseVideoStreamSha256(v2), h);
+  assert.equal(parseVideoStreamSha256(`${v2}, S=1, 36, ${'a'.repeat(64)}`), h);
+  assert.equal(parseVideoStreamSha256(v2.replace('#media_type 0: video', '#media_type 0: audio')), null);
+  assert.equal(parseVideoStreamSha256(v2.replace('#hash: SHA256', '#hash: MD5')), null);
+  assert.equal(parseVideoStreamSha256(`0,a,SHA256=${h}`), null);
+  assert.equal(parseVideoStreamSha256(`${v2}\n1, 100, ${h}`), null);
+  assert.equal(await videoStreamSha256('in.mp4', async () => ({ code: 0, stdout: v2, stderr: '' })), h);
+  await assert.rejects(() => videoStreamSha256('in.mp4', async () => ({ code: 0, stdout: 'bad', stderr: '' })), /streamhash 输出无效/);
 });
