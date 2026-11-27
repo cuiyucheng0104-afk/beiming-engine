@@ -484,7 +484,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 
 ### 不在这次定的
 
-采样图案只有 Sobol-Burley 一种。表式 Sobol、蓝噪声、每像素序列长度的掩码是降噪与采样那一类工作的事；它们是全局参数和查表，不改这里的形状。
+采样图案只有 Sobol-Burley 一种，有意不照搬 Cycles 的表式 Sobol 与蓝噪声（参考包出题用蓝噪声）。依据是 5090 上的一组读数：同一帧把参考的图案从表式 Sobol 换成蓝噪声，PSNR 36.80 dB、HDR-FLIP 0.01221，只换种子是 36.84 dB、0.01228，两者分不开，图案带来的偏差在一帧里量不出来；第 3 到 5 级按「噪声地板乘 k」比，地板里已经含了这份差。不照搬的代价：低采样下颗粒的结构和 Cycles 不像，只影响观感，收敛后的数值一致。以后要补，表式 Sobol 的查表、蓝噪声的单序列加每像素偏移与序列长度都是全局参数和查表，不改这里的形状。
 
 ## 输出通道
 
@@ -498,7 +498,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 |---|---|---|---|---|
 | 0 | `FILM_COMBINED` | rgb 颜色的累加和；w 样本数 | 每个样本累加 | 已落地 |
 | 1 | `FILM_DENOISE_ALBEDO` | rgb 降噪用的反照率的累加和；w 不透明度的累加和 | 累加 | 反照率已落地：相机首次命中处的 `surface_shader_denoising_albedo`（移植的闭包照 Cycles 取漫反射类闭包的反照率之和，上游顶替取底色）；不透明度已落地 |
-| 2 | `FILM_DENOISE_NORMAL` | xyz 降噪用的法线的累加和；w 覆盖率计数 | 累加 | 法线已落地，但是上游的口径（世界空间；出层时换到 Cycles 降噪特征的相机空间，见下）；覆盖率计数已落地 |
+| 2 | `FILM_DENOISE_NORMAL` | xyz 降噪用的法线的累加和；w 覆盖率计数 | 累加 | 法线已落地：世界空间累加，出层时换到 Cycles 降噪特征的相机空间（见下「降噪特征的规则」）；覆盖率计数已落地 |
 | 3 | `FILM_LEGACY_VARIANCE` | 上游降噪用的两个量：x 亮度的和，y 亮度平方的和 | 累加 | 已落地（上游）。换降噪器时腾出来 |
 | 4 | `FILM_LEGACY_EMIT` | 上游 `--signals` 的一组：相机直接看到的光 | 累加 | 已落地（上游，只在开了 `--signals` 时写） |
 | 5 | `FILM_LEGACY_SPEC` | 上游 `--signals` 的一组：首次命中处的高光部分 | 累加 | 同上 |
@@ -529,6 +529,16 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 - 不透明度（颜色的 A）：每个样本 1；背景对相机不可见（`background_transparent`）而相机射线什么都没打到时这个样本记 0，颜色也记 0（路上加过的雾不算）。累加在 `FILM_DENOISE_ALBEDO.w`，读回时除以样本数。颜色不除以它（预乘）。
 - 辅助样本的实现：`integrator.wgsl` 的入口 `aux_sample`（`@if(aux)`）；`Gpu::render` 要辅助层时从这个入口调度一次，颜色样本仍从 `main` 调度。内核不读 `pass_kind`（Rust 一侧照实填）。相机射线照 `main` 里那一段的式子、像素内取中心、不加镜头偏移；只调 `trace` 与 `shader_setup_from_hit`（几何量），不调材质与图案节点，不取随机数。法线取 `shader_setup_from_hit` 翻过向的着色法线（顶点法线插值；背对来路的面连同几何法线一起翻向相机），变到相机空间：`(N·right, N·up, −N·forward)`。深度是命中距离乘射线方向在相机前方上的分量。
 - **降噪特征的法线换坐标系**（出层时做，不在内核里）：内核累加的是世界空间的法线（上游的口径）。Cycles 的降噪特征把法线经 `worldtocamera` 变到它的相机空间再累加（`kernel/film/denoising_passes.h` 第 151 到 153 行）；那个相机空间看向 +Z（同一个文件第 243 行把介质散射处的法线写成视线方向 `(0, 0, −1)`；`kernel/camera/camera.h` 第 165 行景深按 `1 / normalize(Pcamera).z` 算焦平面，前方的 z 是正的）。X 向右、Y 向上是从 Blender 把相机矩阵的 Z 取反后交给 Cycles 推的，本机 Cycles 源码缓存里没有那一段（`blender/camera.cpp`），没有核对。所以 `denoiseNormal` 层是 `(n·right, n·up, n·forward)`，`n` 是世界空间法线的样本均值（不重新归一化，Cycles 也是累加不归一）。它与辅助层 `normal` 的 Z 符号相反，这是有意的：前者照 Cycles 降噪特征，后者照输出通道契约 5.5。
+- **降噪特征的规则**（`denoiseAlbedo`、`denoiseNormal` 两层，也是 OIDN 的两张引导图，两处用同一份）：
+  - 法线照 Cycles 的坐标系：世界空间法线的样本均值，出层时换到 Cycles 降噪特征的相机空间，不归一（见上一条）。每个样本取的是相机首次命中处闭包用的法线（含法线贴图）。
+  - 反照率照 Cycles 的取法：相机首次命中处漫反射类闭包的 `bsdf_albedo` 之和（`surface_shader_denoising_albedo`），样本均值。
+  - 与 Cycles 的差（表面一侧在 `kernel/film/denoising_passes.h` 第 37 到 196 行的 `film_write_denoising_features_surface`；两个开关的默认在 `scene/film.cpp` 第 126 到 129 行，都开，Blender 5.2 视图层的 `denoising_pass_follow_reflections`、`denoising_pass_use_albedo_roughness_weighting` 默认也都开，参考包用的就是默认）：
+    1. 不跟反射。Cycles 按漫反射类闭包所占份额算一个特征权重（份额 0 到 0.5 之间平滑过渡），这一点只写特征乘这个权重的一份，光泽闭包的那一份连同透明闭包推迟到下一个顶点，沿途乘 `denoising_feature_throughput`；镜面、清漆这类面上 Cycles 的特征是镜中物体的，核心是镜面自己的。
+    2. 不按粗糙度加权。Cycles 开着加权时每个闭包按 `smoothstep(0, 0.15, 粗糙度)` 分进漫反射与光泽两份，不看闭包种类；核心只看种类，粗糙的光泽闭包不进反照率，近乎镜面的漫反射也不出去。
+    3. 法线：Cycles 是全部闭包的法线按反照率的平均，再乘不透明份额与特征权重；核心是闭包用的那一条法线，不乘。
+    4. 上游顶替的闭包取上游的底色，只发光的面取归一化的发光色。
+    5. 背景与自发光：Cycles 在路径还带着降噪特征的标志时，把打到的背景光与自发光乘降噪特征的通量加进反照率（`kernel/film/light_passes.h` 的 `film_write_emission_or_background_pass`，第 410 到 418 行）：相机直接看到常量世界的像素，反照率就是世界的颜色。核心在相机射线没打到表面时记 0。
+  - 这几条差都只改引导图，不改颜色。核心自己的特征层对 Cycles 的 `Denoising Albedo`、`Denoising Normal` 由第 6 级（`chassis/level6.mjs` 的 features）逐个参考包记读数，只记不判；要补哪一条，先看读数。苹果 M5 Pro 上的读数（核心每像素 64 个采样，对参考包 16384 个采样的收敛图）：白炉三包的反照率平均差 0.81 到 0.93，差在相机直接看到的白色世界上（第 5 条）；`l4-point`、`l4-highlight-*` 的法线平均差约 0.46，那几包的地面是黑的（反照率 0），Cycles 那一点的特征权重是 0、法线几乎不写（第 1、3 条），核心写的是 (0, 0.707, −0.707)，符号与 Cycles 写的那一点点相同，坐标系没有对反；`l4-mirror` 的反照率与法线都差得多（第 1 条）。
 - 灯组的贡献和颜色的贡献是同一个值（夹取之后的），在同一处写。
 - Cycles 自己只有深度和编号是首个样本覆盖写，法线和运动是累加再平均；它在背景处写的深度是 0。对拍时那边另渲一遍辅助层并换算，不拿 Cycles 的累加值比。
 
@@ -608,7 +618,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 33. 一个样本的结果是模块级的私有变量；`film_add_light` 往它上面加，不直接写颜色那一格。
 34. 灯组数没有写死的上限：上限由显卡的单个缓冲大小在开渲前算。
 35. 辅助样本是内核的另一个入口（`aux_sample`）的一趟调度，不是颜色样本里的第 0 个；覆盖率只在要辅助层的变体里数。Cycles 自己的深度、编号取首个样本覆盖写，法线累加。
-36. 降噪特征的法线在内核里是世界空间，出层时才换到 Cycles 的相机空间。反照率照 Cycles 取首次命中处漫反射类闭包的反照率之和，但不跟反射（Cycles 开着「跟反射」时，光泽闭包的那一份推迟到下一个顶点写），也不按粗糙度加权（见「还没接的」）。
+36. 降噪特征的法线在内核里是世界空间，出层时才换到 Cycles 的相机空间。反照率照 Cycles 取首次命中处漫反射类闭包的反照率之和，但不跟反射（Cycles 开着「跟反射」时，光泽闭包的那一份推迟到下一个顶点写），也不按粗糙度加权，背景与自发光不进反照率（见「输出通道」的「降噪特征的规则」与「还没接的」）。
 
 **分文件**
 
@@ -897,7 +907,7 @@ node beiming/sources/core/chassis/level2.mjs            # 对 Cycles 的读数�
 | `AuxSample.motion`、`FILM_AUX_DATA` 的 zw（运动矢量） | 已定义，恒 0：快门角为 0 的 motion 层已经由宿主从 `FILM_AUX_HIT` 求（见「输出通道」）；快门角大于 0 要快门窗口里的状态，内核没有运动模糊 | 运动模糊 |
 | 请求灯组的任务描述字段（命令行 `render-pack --passes` 已出全部组） | 没有 | 帧源接口 |
 | 场景包里解析过、校验过、还没生效的：图案节点（`pack::Node`）；`pack-info` 的统计列在 `notApplied`（灯光链接与分灯组 1.2.2 起生效） | 已读未生效 | 图案节点 |
-| `FILM_DENOISE_NORMAL` 换成 Cycles 的口径；降噪反照率的「跟反射」与按粗糙度加权；`FILM_LEGACY_VARIANCE`；`denoising_feature_throughput`；`PATH_RAY_DENOISING_FEATURES` | 只取相机首次命中那一点。反照率已照 Cycles 取漫反射类闭包的 `bsdf_albedo` 之和（上游顶替取底色，只发光的面取归一化的发光色），法线是闭包用的法线（含法线贴图）。Cycles（`kernel/film/denoising_passes.h`）开着「跟反射」时沿光滑的反射、透射一直跟到够粗糙的面才写，乘降噪特征的通量，法线是全部闭包按权重的平均。只有法线的坐标系出层时换成了 Cycles 的（见「输出通道」）；两侧差多少还没量 | 降噪与采样 |
+| `FILM_DENOISE_NORMAL` 换成 Cycles 的口径；降噪反照率的「跟反射」与按粗糙度加权；`FILM_LEGACY_VARIANCE`；`denoising_feature_throughput`；`PATH_RAY_DENOISING_FEATURES` | 只取相机首次命中那一点。反照率已照 Cycles 取漫反射类闭包的 `bsdf_albedo` 之和（上游顶替取底色，只发光的面取归一化的发光色），法线是闭包用的法线（含法线贴图）。Cycles（`kernel/film/denoising_passes.h`）开着「跟反射」时沿光滑的反射、透射一直跟到够粗糙的面才写，乘降噪特征的通量，法线是全部闭包按权重的平均。只有法线的坐标系出层时换成了 Cycles 的（见「输出通道」的「降噪特征的规则」）；两侧的差由第 6 级（`chassis/level6.mjs` 的 features）逐个参考包记读数，只记不判 | 降噪与采样 |
 | `sobol_index_mask` 的算法、`sampling_pattern`、分支版取数的有效样本数 | 上游写死的值 | 降噪与采样 |
 | 着色点与光线的 `time` | 已定义，恒 0 | 运动模糊 |
 | `ObjectExt` 的阴影终止着色偏移 `shadow_terminator_shading_offset` | 已定义（几何偏移场景包读入器写 0.1、阴影射线读） | 移植闭包（`shift_cos_in`） |

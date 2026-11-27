@@ -484,7 +484,7 @@ fn pack_command(cmd: &str, args: &[String], presets: &Path) -> Result<()> {
 /// 每个数 4 字节小端，文件名是「通道名.类型」（帧源接口契约 3.3 的写法，与页面宿主一致）。objectId 的两个分量类型不同：
 /// id（u32）进 objectId.u32，coverage（f32）另进 objectId.coverage.f32，两个文件形状相同。
 /// 通道的数值照输出通道契约：color 是 RGBA（RGB 是样本均值，已经预乘 A）；depth、objectId、normal 取辅助样本；
-/// denoiseAlbedo 是上游口径的反照率均值；denoiseNormal 照 Cycles 的降噪特征换到它的相机空间（看 +Z、Y 向上：
+/// denoiseAlbedo 是首次命中处漫反射类闭包的反照率之和的均值（照 Cycles 的降噪特征，不跟反射、不按粗糙度加权）；denoiseNormal 照 Cycles 的降噪特征换到它的相机空间（看 +Z、Y 向上：
 /// kernel/film/denoising_passes.h 把世界空间的法线经 worldtocamera 变过去），见 STRUCTURES.md「输出通道」。
 /// motion 照输出通道契约 5.6（快门角为 0）：辅助样本的命中点在相邻一帧的屏幕位置之差，宿主一侧用双精度求（`motion::layer`），
 /// `motion` 是 None（只有一帧的包）时全 0。分灯组 `lightgroup:<名>` 每组一个文件 `lightgroup-<名>.f32`（RGB；文件名里冒号换成连字符，

@@ -8,7 +8,8 @@
 // Blender 与 OIDN 库照 build.mjs 的 verifyOidnLibs 找、核对（同一个 Blender 安装：它降噪用的库就是核心链接的那一份）。
 // 行序：EXR 第一行是画面最上面一行；Cycles 的渲染缓冲第一行是最下面一行，OIDN 拿到的是后者，所以喂进去之前上下翻过来（--rows
 // cycles，默认），出来再翻回去；卷积网络对上下翻转不是逐位不变的。--rows exr 不翻，查口径用。
-// 判据：每个分量 |核心 − Combined| ≤ 1e-3 × max(1, |Combined|)（暗处看绝对差，亮处看相对差）。另记最大绝对差与最大相对差
+// 判据：每个分量 |核心 − Combined| ≤ 1e-3 × max(1, |Combined|)（暗处看绝对差，亮处看相对差）；1e-3 读阈值文件
+// beiming/verify/floor-gate.json 的 math.level6.denoise（第 6 级降噪一半的门，level6.mjs 用同一个数）。另记最大绝对差与最大相对差
 // （分母取 max(|Combined|, 1e-6)）。退出码：0 过；4 不过（记录照写）；3 缺 Blender、库对不上、没编进 OIDN 或设备建不起来；2 用法错误。
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -19,11 +20,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+import { THRESHOLDS } from '../../../verify/floorgate.mjs';
 import { buildOidnRenderer, findBlender, verifyOidnLibs } from './build.mjs';
 import { runMain, usage } from './passes-exr.mjs';
 
 export const RECORDS = path.join(path.dirname(fileURLToPath(import.meta.url)), 'oidn-parity');
-export const TOLERANCE = 1e-3;
+export const TOLERANCE = THRESHOLDS.math.level6.denoise;
 const sha256 = data => createHash('sha256').update(data).digest('hex');
 
 /** Blender 一侧：最小场景（地面、漫反射方块、带光泽的球、面光、弱环境光），Cycles 渲一帧存多层 EXR（32 位、不压缩） */
@@ -183,6 +185,23 @@ export function compare(ours, ref, width) {
 /** 命令行；返回退出码 */
 export function main(argv) {
   const { values: o } = parseArgs({ args: argv, options: Object.fromEntries(['device', 'prefilter', 'spp', 'width', 'height', 'exr', 'bin', 'rows'].map(k => [k, { type: 'string' }]).concat([['print', { type: 'boolean' }]])) });
+  const { record, line } = runParity(o);
+  console.log(line);
+  if (o.print) console.log(JSON.stringify(record, null, 1));
+  else {
+    const file = path.join(RECORDS, `${record.platform}-${record.device}-${record.prefilter}.json`);
+    fs.mkdirSync(RECORDS, { recursive: true });
+    fs.writeFileSync(file, `${JSON.stringify(record, null, 1)}\n`);
+    console.log(`写到 ${file}`);
+  }
+  return record.pass ? 0 : 4;
+}
+
+/**
+ * 跑一次对拍，返回 { record, line }，不写文件。o 的键同命令行（值是字符串）：device、prefilter、spp、width、height、exr、bin、rows。
+ * 错误带 exit：3 缺 Blender、库对不上、没编进 OIDN 或设备建不起来；2 用法错误。第 6 级（level6.mjs）的降噪一半直接调它。
+ */
+export function runParity(o = {}) {
   const device = o.device ?? 'cpu', prefilter = o.prefilter ?? 'accurate', rows = o.rows ?? 'cycles';
   if (!['cpu', 'cuda', 'metal'].includes(device) || !['accurate', 'fast', 'none'].includes(prefilter) || !['cycles', 'exr'].includes(rows)) throw usage('--device cpu|cuda|metal，--prefilter accurate|fast|none，--rows cycles|exr');
   const [spp, width, height] = [['spp', 16], ['width', 320], ['height', 240]].map(([k, d]) => {
@@ -233,15 +252,7 @@ export function main(argv) {
       tolerance: TOLERANCE, maxAbs: cmp.maxAbs, maxRel: cmp.maxRel, worst: cmp.worst, pass: cmp.pass, bitwiseEqual: cmp.maxAbs === 0,
       noisyVsCombined: { maxAbs: noisy.maxAbs, maxRel: noisy.maxRel }, denoiseMs: stats.denoise_ms,
     };
-    console.log(`${lib.platform} ${device} ${prefilter}：最大绝对差 ${cmp.maxAbs}，最大相对差 ${cmp.maxRel}，${cmp.pass ? '过' : '不过'}（判据 ${TOLERANCE}；带噪颜色对 Combined 的最大绝对差 ${noisy.maxAbs}）`);
-    if (o.print) console.log(JSON.stringify(record, null, 1));
-    else {
-      const file = path.join(RECORDS, `${lib.platform}-${device}-${prefilter}.json`);
-      fs.mkdirSync(RECORDS, { recursive: true });
-      fs.writeFileSync(file, `${JSON.stringify(record, null, 1)}\n`);
-      console.log(`写到 ${file}`);
-    }
-    return cmp.pass ? 0 : 4;
+    return { record, line: `${lib.platform} ${device} ${prefilter}：最大绝对差 ${cmp.maxAbs}，最大相对差 ${cmp.maxRel}，${cmp.pass ? '过' : '不过'}（判据 ${TOLERANCE}；带噪颜色对 Combined 的最大绝对差 ${noisy.maxAbs}）` };
   } finally {
     fs.rmSync(work, { recursive: true, force: true });
   }

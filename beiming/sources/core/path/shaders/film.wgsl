@@ -96,9 +96,9 @@ const CACHE_SIZE: u32 = 262144u;     // entries, a power of two (gpu.rs CACHE_SI
 
 // 固定部分各通道的位置（Rust 一侧同名：gpu.rs 的 FILM_*，库测试逐个比数值）。
 const FILM_COMBINED: u32 = 0u;        // 颜色 rgb 的累加和，w：样本数。已落地
-const FILM_DENOISE_ALBEDO: u32 = 1u;  // 降噪用的反照率 rgb 的累加和（上游的口径：相机首次命中的底色）。已落地。
+const FILM_DENOISE_ALBEDO: u32 = 1u;  // 降噪用的反照率 rgb 的累加和（相机首次命中处漫反射类闭包的反照率之和，照 Cycles；上游顶替取底色）。已落地。
                                       // w：不透明度的累加和。已落地
-const FILM_DENOISE_NORMAL: u32 = 2u;  // 降噪用的法线 xyz 的累加和（上游的口径：世界空间）。已落地。
+const FILM_DENOISE_NORMAL: u32 = 2u;  // 降噪用的法线 xyz 的累加和（世界空间；出层时换到 Cycles 降噪特征的相机空间）。已落地。
                                       // w：覆盖率计数（首次命中的实体编号等于辅助样本编号的样本数）。已落地
 const FILM_LEGACY_VARIANCE: u32 = 3u; // 上游降噪用的两个量：x 亮度的和，y 亮度平方的和。已落地，换降噪器时腾出来
 const FILM_LEGACY_EMIT: u32 = 4u;     // 上游 `render --signals` 的两组：相机直接看到的光；
@@ -126,7 +126,7 @@ struct SampleLegacy {
 struct SampleResult {
     alpha: f32,                     // 这个样本的不透明度：背景对相机不可见、相机射线又没打到表面时 0，否则 1。已落地
     L: vec3<f32>,                   // 颜色：这条路径上各次贡献之和。只由 film_add_light 加。已落地
-    albedo: vec3<f32>,              // 降噪用的反照率与法线（上游的口径）。已落地
+    albedo: vec3<f32>,              // 降噪用的反照率与法线（反照率照 Cycles，法线世界空间，见 FILM_DENOISE_*）。已落地
     normal: vec3<f32>,
     legacy: SampleLegacy,
 };

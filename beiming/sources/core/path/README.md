@@ -116,7 +116,7 @@ core-render render-pack <包目录> -o out.png [--frame k] [--spp N] [--width W 
 | 过滤器 | `RT` | `RT` | `RT`，经 C 接口建（见下） |
 | 输入的层 | 颜色、反照率、法线：界面属性 `denoising_input_passes` 默认 `RGB_ALBEDO_NORMAL` | 同 | 同 |
 | 法线 | 相机空间（`denoising_passes.h` 用 `worldtocamera` 变过去），样本累积的均值，不归一 | 世界空间，逐像素归一 | 相机空间的均值，不归一：与出层的 `denoiseNormal` 是同一份 |
-| 反照率 | 首次命中处漫反射类闭包的反照率（`denoising_passes.h`） | 内核的反照率均值 | 不变（就是出层的 `denoiseAlbedo`） |
+| 反照率 | 首次命中处漫反射类闭包的反照率（`denoising_passes.h`）；默认还跟反射、按粗糙度加权，背景与自发光也写进去 | 内核的反照率均值 | 不变（就是出层的 `denoiseAlbedo`：首次命中处漫反射类闭包的反照率之和，与 Cycles 的差见 [STRUCTURES.md](STRUCTURES.md)「降噪特征的规则」） |
 | `hdr` / `srgb` | 开 / 关（对拍） | 开 / 关 | 开 / 关 |
 | `inputScale`（旧名 `hdrScale`） | 不设，库从图上估（对拍） | 设成曝光系数 | 不设（OIDN 2.5 的默认是 NaN，即自己估） |
 | 输入乘不乘曝光 | 场景线性的样本均值，曝光在显示变换里 | 颜色不乘，但曝光经 `hdrScale` 进了降噪 | 不乘，也不进降噪 |
@@ -155,6 +155,21 @@ node beiming/sources/core/chassis/oidn-parity.mjs [--device cpu|cuda|metal] [--p
 | RTX 5090（Linux） | 5.2.3 | CUDA | `ACCURATE` | 0（逐位相同） | 0 | 过 |
 
 同一份带噪输入，降噪前后最大绝对差约 8.7（`ACCURATE`），所以这一帧的降噪确实动了画面。5090 上 `render-pack` 同包同帧（`part_03B` 第 12 帧）默认档与 OIDN 档的出层逐位相同，stats 的 `denoise` 分别是 `atrous` 与 `oidn`。CPU 上留下的那点差（两台机器都约是判据的 0.5%）没再追：Metal 与 CUDA 都逐位相同，说明参数与输入的取法一致；CPU 一侧的差可能来自 Cycles 读渲染缓冲时乘 1/采样数与 EXR 里存的均值在末位上的不同，没有验证。
+
+### 对拍阶梯第 6 级
+
+```sh
+node beiming/sources/core/chassis/level6.mjs [--only denoise,features,color,isolation] [--devices cpu,metal] [--root <参考包根目录>] [--feature-spp 64]
+```
+
+第 6 级是成品图的降噪接法与色彩链，两半各自判，门在阈值文件 `beiming/verify/floor-gate.json` 的 `math.level6`（`denoise` 1e-3、`colorFloat` 1e-4、`color8bit` 1；上面的 `oidn-parity.mjs` 也读 `denoise` 这一格）。
+
+- 降噪一半（`denoise`，判）：就是上一节的对拍，预过滤 `ACCURATE`，设备默认 CPU 加本机显卡（macOS Metal，Linux CUDA），两台机器各跑一遍；读数不写进 `oidn-parity/`，写进第 6 级的报告。
+- 特征层（`features`，只记不判）：核心自己渲参考包的每个（场景包, 帧），出层的 `denoiseAlbedo`、`denoiseNormal` 对参考包收敛图里 Cycles 的 `Denoising Albedo`、`Denoising Normal`，记平均、99 分位、最大绝对差与差超过 0.01 的像素占比。差在哪里、为什么，见 [STRUCTURES.md](STRUCTURES.md)「降噪特征的规则」。它说明「核心自己出的引导图和 Cycles 的不一样」，所以降噪一半只证明接法，不证明核心降噪后的画面和 Cycles 降噪后的一样。
+- 色彩一半（`color`，判）：见 [`beiming/comp/lut/README.md`](../../../comp/lut/README.md)，Blender 只在本机后台跑。
+- 负对照（`isolation`，判，色彩一半）：帧源出片链（`../source.mjs`）调 `render-pack --passes --no-denoise`，层直接从内核读回的输出缓冲写，不经降噪、不经 `src/post.rs` 的调色（曝光、泛光、局部曝光、色调映射、sRGB 编码只给 `-o` 的 PNG）。负对照在 `out/` 下的源码副本里把 `post::finish` 的曝光乘 0.25 另编，同一个场景包经帧源出一帧：color 层必须逐字节不变，预览 PNG 必须变。`level6.test.mjs` 另有一条不要显卡的检查：帧源的调用带 `--no-denoise` 与 `--passes`、不带 `--hdr`，层文件都是 `.f32`、`.u32`。
+- 帧源出片链里降噪后的颜色不进出层（输出通道契约第 1 节），要降噪后的线性颜色从 `--hdr` 出，见上面「降噪的口径」。
+- 采样图案不照搬 Cycles 的表式 Sobol 与蓝噪声，理由见 [STRUCTURES.md](STRUCTURES.md)「随机维度」。
 
 ### 链接 Blender 自带的 OIDN：带 OIDN 的构建档
 
