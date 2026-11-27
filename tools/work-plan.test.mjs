@@ -212,6 +212,23 @@ test('verify-diff：基线以来的提交、未提交与未跟踪改动都算，
 
 // ───── 本仓库的计划与任务卡（R82） ─────
 
+test('归档路线入口只兼容 T20、H18 的原路径，并要求新入口文件存在', t => {
+  const root = tmp('work-plan-route-entry-');
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, 'routes'));
+  writeFileSync(join(root, 'routes', 'README.md'), '# 路线入口\n');
+  const scopeErrors = (id, scope) => {
+    const p = plan2([task(id, { writeScope: [scope], playbook: 'routes/README.md' })]);
+    return auditPlan(p, { root, strict: true }).errors.map(e => e.code);
+  };
+  for (const id of ['T20', 'H18']) assert.deepEqual(scopeErrors(id, 'ROUTES.md'), []);
+  assert.deepEqual(scopeErrors('A01', 'ROUTES.md'), ['task.scope-root']);
+  assert.deepEqual(scopeErrors('T20', 'ROUTES.md/nested'), ['task.scope-root']);
+  assert.deepEqual(scopeErrors('H18', 'OTHER.md'), ['task.scope-root']);
+  rmSync(join(root, 'routes', 'README.md'));
+  assert.ok(scopeErrors('T20', 'ROUTES.md').includes('task.scope-root'));
+});
+
 test('本仓库计划：v2、--strict 合格；登记 19 个加固工作包；T09 / T13 被 engine/native 取代；去掉 T18→T04、T20→T17', () => {
   const p = canonicalPlan();
   assert.equal(p.schemaVersion, 2);
