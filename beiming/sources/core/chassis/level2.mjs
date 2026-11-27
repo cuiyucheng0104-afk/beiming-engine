@@ -440,6 +440,8 @@ const PRINCIPLED_NEAR = { dielectric_fresnel: -1.38e-2, layering: 5.41e-2, diffu
 // 奇异的一瓣与电介质高光的 F0 那三项，2026-11-25 在苹果显卡上量的
 const SINGULAR_NEAR = { mis_skip: -0.442, specular_f0: 0.791, specular_exponent: -0.127 };
 export const negativeOk = n => (n.fine ? n.rows.some(r => !analyticOk(r)) : Math.abs(n.worstRel) > n.gate) && Math.abs(n.worstRel / n.near - 1) <= negativeTolerance(n);
+// 继续弹射的射线起点改回改动之前的沿法线挪开（上游的 offset_origin），给上面说的两项负对照垫底
+const ORIGIN_OFFSET = { file: 'path/shaders/integrator.wgsl', from: 'ray.P = surface_ray_P(sd.P, sd.Ng, l, sd.prim, sd.inst);', to: 'ray.P = offset_origin(sd.P, select(sd.Ng, -sd.Ng, dot(l, sd.Ng) < 0.0));' };
 const NEGATIVE = [
   {
     target: 'closure', name: '闭包：求值的遮蔽项漏掉出射方向的 lambda（G2 写成 G1）',
@@ -466,14 +468,17 @@ const NEGATIVE = [
     inject: { file: 'shaders/area_light.wgsl', from: 'ls.eval_fac = M_1_PI_F * invarea;', to: 'ls.eval_fac = M_1_PI_F * invarea * 1.00002;' },
     run: async bin => analytic(bin), fine: true, gate: GATES.analyticFloor, near: 2.0e-5,
   },
+  // 下面两项改错的地方只在射线起点与着色点不同时起作用。继续弹射的射线照 Cycles 从着色点出发之后，三角形上两者只在自交测试
+  // 测不中时才差一个 ray_offset，解析场景量不出；所以两项都先把继续弹射的起点改回沿法线挪开（ORIGIN_OFFSET），再注入改错。
+  // 守的仍是那两行（过程几何照旧挪开，那里两个点照旧不同）
   {
-    target: 'mis_origin', name: '接线：材质采样打到矩形纯光时从沿法线挪开的射线起点算（两侧的权重配不平）',
-    inject: { file: 'path/shaders/integrator.wgsl', from: 'bm_rect_hits(state.mis_origin_P, ray.D,', to: 'bm_rect_hits(ray.P, ray.D,' },
+    target: 'mis_origin', name: '接线：（起点改回沿法线挪开）材质采样打到矩形纯光时从挪开的射线起点算（两侧的权重配不平）',
+    inject: [ORIGIN_OFFSET, { file: 'path/shaders/integrator.wgsl', from: 'bm_rect_hits(state.mis_origin_P, ray.D,', to: 'bm_rect_hits(ray.P, ray.D,' }],
     run: async bin => analytic(bin, { geoms: [NEAR] }), fine: true, gate: GATES.analyticFloor, near: 2.0e-4,
   },
   {
-    target: 'mis_occluder', name: '接线：材质采样打到矩形纯光时遮挡距离直接拿 hit.t 比（灯紧贴背后的面时这一侧整份丢掉）',
-    inject: { file: 'path/shaders/integrator.wgsl', from: 'select(hit.t + dot(ray.P - state.mis_origin_P, ray.D), INF, hit.tri == 0xffffffffu)', to: 'select(hit.t, INF, hit.tri == 0xffffffffu)' },
+    target: 'mis_occluder', name: '接线：（起点改回沿法线挪开）材质采样打到矩形纯光时遮挡距离直接拿 hit.t 比（灯紧贴背后的面时这一侧整份丢掉）',
+    inject: [ORIGIN_OFFSET, { file: 'path/shaders/integrator.wgsl', from: 'select(hit.t + dot(ray.P - state.mis_origin_P, ray.D), INF, hit.tri == 0xffffffffu)', to: 'select(hit.t, INF, hit.tri == 0xffffffffu)' }],
     run: async bin => analytic(bin, { seeds: ANALYTIC.seeds.slice(0, 8), geoms: [PLATE] }), fine: true, gate: GATES.analyticFloor, near: -1.48e-3,
   },
   // 原理化 BSDF 的接线：电介质高光、层间权重、漫反射、多闭包选择、自发光各改错一项
@@ -579,7 +584,7 @@ export async function runLevel2({ allowFetch = true, log = () => {} } = {}) {
   say('负对照');
   const negative = [];
   for (const n of NEGATIVE) {
-    const b = buildRenderer({ inject: [n.inject] });
+    const b = buildRenderer({ inject: [n.inject].flat() });
     const rows = await n.run(b.bin);
     negative.push({ target: n.target, name: n.name, inject: n.inject, gate: n.gate, near: n.near, fine: n.fine === true, rows, worstRel: rows.reduce((w, r) => (Math.abs(r.rel) > Math.abs(w) ? r.rel : w), 0) });
   }
