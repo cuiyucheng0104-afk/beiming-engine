@@ -23,7 +23,7 @@
 ```sh
 npm run new -- <a|b|c|d> <名字> --title <片名> # 从路线模版生成 films/<名字>/（film.json v2），打印这条路线的下一步
 npm run film -- build films/<名字>             # 出片（工作版），产物在 films/<名字>/out/<run-id>/；终渲加 --final，人工审片模式另加 --delivery-mode review
-npm run check                                 # 全部检查：仓库规范、工程计划、测试、风格索引、案例库等；只想快查加 -- --skip tests
+npm run check                                 # 全部检查：仓库规范、测试、风格索引、案例库等；只想快查加 -- --skip tests
 ```
 
 ## 做作品（默认）
@@ -45,11 +45,11 @@ npm run check                                 # 全部检查：仓库规范、�
 
 命令细节：出片编排见 [tools/film/README.md](tools/film/README.md)；页面约定、错误码、镜头缓存与续跑见 [engine/render/README.md](engine/render/README.md)。整片前 `npm run film -- plan films/<名字>` 估算耗时与磁盘（A、C），出片前 `npm run env:gpu` 看 GPU，没有 GPU 的机器（CI）设 `BEIMING_GPU=software-ok`；页面要跟着交付帧率走时写 `window.FPS = window.__RENDER?.fps ?? 24`。声音：混音门禁 `npm run audio:qa -- --film films/<名字>`，声画拍点核对 `npm run audio:cuecheck -- films/<名字>`，旁白、字幕与口型写 `dialogue.json` 后 `npm run audio:voice -- build films/<名字>`（[写法](engine/audio/voice/README.md)）；缺中国器物干声时可用 `npm run audio:foundry -- gen --prompt <描述>` 按需生成补库（要隔离 venv 与 ≥18 GiB 空闲显存，产物含 AI 生成内容，缓存不入库，详见 `npm run audio:foundry -- --help`）。
 
-## 做引擎工程（仅在用户明确要求时，用 plan:*）
+## 做引擎工程（仅在用户明确要求时）
 
 做作品不读这一节，也不领工程任务。用户明确要求改引擎、工具或分派工程任务时：
 
-- **计划**：`npm run plan:check`、`npm run plan:next -- --route <a|b|c|d|shared>`（只读；旧名 `routes:*` 保留一个版本），先读 [引擎工程手册](docs/routes/README.md)。T 编号是工程任务，H 编号是加固工作包；完成要填真实证据，不因文档写完就把代码标完成。
+- **计划**：先读 [引擎工程手册](docs/routes/README.md)，按当轮任务书和集成负责人的分工执行。早期 T/H 工程计划已归档，`npm run plan:check`、`npm run plan:next` 可手动复核历史记录。以真实验收证据更新任务状态。
 - **改引擎**：改了 `engine/` 的 core、form、shade、stage、look、paint、overlay，先跑 `node --test "tests/engine/**/*.test.mjs"`（[说明](tests/engine/README.md)）。改了 `engine/`、`films/beiming-10s/src/`、`lab/`、`assets/`、`fonts/`、`index.html` 或路线模版，合入前跑 `npm run golden -- compare --set beiming-core,lab,templates,fixtures --strict`：exit 0 说明像素没变；画面是有意改的，按 [POLICY](docs/style-baselines/POLICY.md) 第 6 节审批，agent 不得自己当批准人。新作品出片前或改了带累计状态的镜头，跑 `npm run determinism -- films/<名字> --seams --workers 4`，不通过就改用 `--workers 1` 出片。
 - **Python 依赖**：三文件协议。手改 `requirements.in` 的范围后运行 `node tools/env/lock.mjs`（升级范围内最新版加 `--upgrade`），提交 `.in` 与 `requirements.lock`；`requirements.txt` 只保留一行 `-r requirements.in`。根目录 pip 不在 Dependabot 覆盖范围内（它会把 `.txt` 写成无哈希 pin 清单且不重生锁，见 [`.github/dependabot.yml`](.github/dependabot.yml)）；lint 用的 ruff 在 `tests/ci/requirements-lint.txt`，仍由 Dependabot 更新。细则见 [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md)「维护：改依赖」。
 - **改完之后**：`npm test`（只动一块加 `-- --only <域>`，域用 `node tools/run-tests.mjs --list` 查）；`npm run check -- --skip tests`；动了渲染、模版或出片链路再跑 `npm run ci:smoke`（要与 CI 一样走软件渲染，先把 `BEIMING_ANGLE` 设成 `swiftshader`）；合入 main 的改动在 CHANGELOG.md 的 `[Unreleased]` 加一条。退出码 3 是环境缺依赖，不是代码坏了。本机复现与发布见 [tests/ci/README.md](tests/ci/README.md)。
@@ -59,7 +59,7 @@ npm run check                                 # 全部检查：仓库规范、�
 
 ## 多代理与集成负责人
 
-- **单代理会话默认兼任集成负责人**：需要时可以改根文档、注册文件（`package.json`、`.gitignore`）与工程计划的状态，改完跑 `npm run check:repo`。
+- **单代理会话默认兼任集成负责人**：需要时可以改根文档、注册文件（`package.json`、`.gitignore`）与当前工作状态，改完跑 `npm run check:repo`。
 - **改动围栏自检**：开 PR 前跑 `npm run check:fence -- --base origin/main --fence '<允许的路径>/' --forbidden '<禁区>/'`（也可 `--contract <文件>`，只认块状 YAML 列表）。已提交、未提交与未跟踪的改动都查，越界、围栏没填或契约写法不对、零改动、有 `--assume-unchanged` / `--skip-worktree` 隐藏的文件都退出 4（git 执行失败退出 1）；`.gitignore` 忽略的文件 git 看不到，查不了。用法见 `tools/check-fence.mjs` 文件头。
 - 用户要求多代理时，按[工作分解](docs/routes/work-breakdown.md)给每个代理分互不重叠的写入范围（某个 `films/<名字>/`、某条路线的 `routes/<路线>/`、`engine/` 下的某个新模块）；共享契约、根文档与工作状态由集成负责人统一改，代理在汇报里写修改建议。子代理汇报基线提交、实际改动、运行命令与结果、产物、未完成项，集成负责人复核后再更新状态。
 

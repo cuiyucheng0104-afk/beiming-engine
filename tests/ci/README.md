@@ -7,7 +7,7 @@
 | 想做的事 | 命令 | 说明 |
 |---|---|---|
 | 跑全部测试 | `node tools/run-tests.mjs`（`npm test`） | 退出码 0 通过；1 有失败；3 环境缺依赖；124 超时 |
-| 跑全部检查 | `node tools/check-all.mjs`（`npm run check`） | 规范、工程计划、测试、风格索引、案例库、导演规范、语法、更新日志 |
+| 跑全部检查 | `node tools/check-all.mjs`（`npm run check`） | 规范、测试、风格索引、案例库、导演规范、语法、更新日志 |
 | 只看 lint 告警 | `node tools/check-all.mjs --only lint`（`npm run lint`） | 只报告，不影响退出码 |
 | 无显卡冒烟出片 | `node tests/ci/smoke-render.mjs` | 四条路线的模版与《北冥》都真出一遍（无外部运行时或无 GPU 时 b-render / d-render 自动跳过） |
 | 路径与编码检查 | `node tests/ci/windows-paths.mjs` | 目录联接、中文与空格路径、GBK 管道 |
@@ -56,7 +56,7 @@
 
 ## CI 的 job，以及在本机怎么复现
 
-工作流在 `.github/workflows/ci.yml`：unit、check、render（tests-beiming、tests-beiming-api、tests-beiming-bench、tests-rest、smoke 五路并行）、smoke-render（汇总 render 各路）、env-smoke、windows-paths。下面每条命令都与 job 里的一致，在仓库根目录运行。每个 job 都检出完整历史（`fetch-depth: 0`）：工程计划的证据提交、金标准清单的源提交都要在本仓库里找得到，浅克隆会报「找不到」。
+工作流在 `.github/workflows/ci.yml`：unit、check、render（tests-beiming、tests-beiming-api、tests-beiming-bench、tests-rest、smoke 五路并行）、smoke-render（汇总 render 各路）、env-smoke、windows-paths。下面每条命令都与 job 里的一致，在仓库根目录运行。每个 job 都检出完整历史（`fetch-depth: 0`）：金标准清单的源提交都要在本仓库里找得到，浅克隆会报「找不到」。
 
 ### unit（Node 22、Python 3.12）
 

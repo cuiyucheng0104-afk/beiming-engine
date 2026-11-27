@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 北冥仓库 · 检查总入口（npm run check）：规范检查、工程计划、测试、风格索引、案例库、导演规范、语法、更新日志，外加只报告不阻塞的 lint。
+// 北冥仓库 · 检查总入口（npm run check）：规范检查、测试、风格索引、案例库、导演规范、语法、更新日志，外加只报告不阻塞的 lint。
 // 只读：不改仓库里的任何文件（各子检查本身也都是只读的）。
 //   node tools/check-all.mjs                    全部步骤
 //   node tools/check-all.mjs --skip tests       除测试外全部（CI 的 check job；测试由 unit job 跑）
@@ -9,7 +9,6 @@
 //
 // 步骤（id → 做什么；「阻塞」= 失败时整体非零退出）：
 //   repo       仓库规范       node tools/repo-check.mjs                         阻塞
-//   plan       工程计划       node tools/work-plan.mjs --check                  阻塞
 //   tests      测试           node tools/run-tests.mjs --json                   阻塞
 //   styles     风格索引       node tools/c-styles.mjs --check                   阻塞
 //   cases      案例库         <python> tools/casebook.py check                  阻塞
@@ -35,13 +34,12 @@ import {
 } from './run-tests.mjs';
 
 const HERE = ROOT;   // 本仓库（check-all 自己的工具：run-tests、changelog、语法检查）
-const STEP_IDS = ['repo', 'plan', 'tests', 'styles', 'cases', 'directing', 'syntax', 'changelog', 'floorgate', 'eslint', 'ruff'];
+const STEP_IDS = ['repo', 'tests', 'styles', 'cases', 'directing', 'syntax', 'changelog', 'floorgate', 'eslint', 'ruff'];
 const GROUPS = { lint: ['eslint', 'ruff'] };
 
 // 每一步：title、blocking、tool（必须存在的文件，相对 --root）、build(ctx) → { cmd, args, parse? } 或 inline(ctx)
 const STEPS = {
   repo: { title: '仓库规范', blocking: true, tool: 'tools/repo-check.mjs', build: c => ({ cmd: process.execPath, args: [c.at('tools/repo-check.mjs')] }) },
-  plan: { title: '工程计划', blocking: true, tool: 'tools/work-plan.mjs', build: c => ({ cmd: process.execPath, args: [c.at('tools/work-plan.mjs'), '--check'] }) },
   tests: {
     title: '测试', blocking: true, timeoutSec: 900,
     build: c => ({ cmd: process.execPath, args: [path.join(HERE, 'tools/run-tests.mjs'), '--root', c.root, '--json', ...(c.opts.python ? ['--python', c.opts.python] : [])], json: true }),
@@ -150,20 +148,21 @@ export async function main(argv = process.argv.slice(2)) {
     finish(code, { steps }, e);
   });
 
+  const actionOutput = !opts.json && inActions();
   let stop = false;
   for (const st of steps) {
     if (stop) break;
     const def = STEPS[st.id];
     const t0 = Date.now();
     process.stderr.write(`\n▶ ${st.id} · ${st.title}\n`);
-    if (inActions()) process.stdout.write(`::group::${st.id} · ${st.title}\n`);
+    if (actionOutput) process.stdout.write(`::group::${st.id} · ${st.title}\n`);
     try {
       await runStep(st, def, ctx);
     } catch (e) {
       st.status = 'error'; st.exitCode = e.exitCode ?? EXIT.FAIL; st.reason = e.message;
     }
     st.durationMs = Date.now() - t0;
-    if (inActions()) process.stdout.write('::endgroup::\n');
+    if (actionOutput) process.stdout.write('::endgroup::\n');
     if (interrupted) return EXIT.SIGINT;
     if (!st.blocking && st.status !== 'pass' && st.status !== 'skip') warnings.push(`${st.id}（不阻塞）：${st.reason || STATUS[st.status]}`);
     if (st.blocking && ['fail', 'error', 'timeout'].includes(st.status) && opts['fail-fast']) stop = true;
@@ -176,7 +175,7 @@ export async function main(argv = process.argv.slice(2)) {
   const error = bad.length ? new CliError(exitCode, 'CHECKS_FAILED', `${bad.map(s => `${s.id}（${s.title}）`).join('、')} 未通过`,
     `单独重跑某一步：node tools/check-all.mjs --only ${bad[0].id}`) : null;
   printHuman(steps, opts);
-  reportActions(steps);
+  if (actionOutput) reportActions(steps);
   return finish(exitCode, { steps }, error);
 }
 
@@ -492,7 +491,6 @@ function printHuman(steps, opts) {
 }
 
 function reportActions(steps) {
-  if (!inActions()) return;
   for (const s of steps) {
     if (s.blocking && ['fail', 'error', 'timeout'].includes(s.status)) annotate('error', s.reason || STATUS[s.status], { title: `检查未通过：${s.id} · ${s.title}` });
     else if (!s.blocking && s.status === 'warn') annotate('warning', s.reason, { title: `${s.title}` });

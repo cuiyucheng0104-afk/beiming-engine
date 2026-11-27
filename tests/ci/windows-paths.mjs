@@ -11,7 +11,7 @@
 //   new-film-cwd   以别名为当前目录、用相对路径运行 new-film（Windows 上 cwd 保留联接路径，与上一项是两种情况）
 //   repo-check     经别名运行 tools/repo-check.mjs --json，结果要与真实路径下一致
 //   run-tests      经别名运行 tools/run-tests.mjs --list --json，发现的测试组要与真实路径下一致
-//   check-all      经别名运行 tools/check-all.mjs 的几个快速步骤
+//   check-all      经别名运行 tools/check-all.mjs，确认样式和更新日志检查都通过
 //   python-gbk     PYTHONIOENCODING=gbk 时 tools/casebook.py list 输出到管道仍要 exit 0（中文 Windows 控制台的情况）
 // 建的作品与别名在结束、出错或被中断时都会删掉（--keep 保留）。删别名只删链接本身，绝不递归进目标目录。
 // 退出码：0 全部通过（eol 只提示）；1 有检查未通过；2 用法错误；130 / 143 被中断（已清理）。
@@ -140,11 +140,20 @@ export async function main(argv = process.argv.slice(2)) {
       const [ta, tr] = await Promise.all([node([path.join(A, 'tools', 'run-tests.mjs'), '--list', '--json'], { cwd: A }), node([path.join(ROOT, 'tools', 'run-tests.mjs'), '--list', '--json'])]);
       const ids = r => { try { return JSON.parse(r.stdout).suites.map(s => `${s.id}:${s.files.length}`).join(','); } catch { return `退出码 ${r.code}`; } };
       add('run-tests', '测试发现（经别名）', ta.code === 0 && ids(ta) === ids(tr) ? 'pass' : 'fail', `别名：${ids(ta) || '无'}；真实路径：${ids(tr) || '无'}`);
-      // check-all：几个快速步骤
-      const ca = await node([path.join(A, 'tools', 'check-all.mjs'), '--only', 'plan,styles,changelog', '--json'], { cwd: A });
+      // check-all：经别名运行，并核对实际执行的子命令
+      const wantedSteps = ['styles', 'changelog'];
+      const ca = await node([path.join(A, 'tools', 'check-all.mjs'), '--only', wantedSteps.join(','), '--json'], { cwd: A });
       let caDetail = `退出码 ${ca.code}`;
-      try { caDetail += '：' + JSON.parse(ca.stdout).steps.map(s => `${s.id} ${s.status}`).join('，'); } catch { /* 原样 */ }
-      add('check-all', '检查总入口（经别名）', ca.code === 0 ? 'pass' : 'fail', caDetail);
+      let caOk = false;
+      try {
+        const result = JSON.parse(ca.stdout);
+        const steps = result.steps ?? [];
+        caOk = ca.code === 0 && result.ok === true && result.exitCode === 0
+          && steps.length === wantedSteps.length
+          && steps.every((step, i) => step.id === wantedSteps[i] && step.status === 'pass' && step.exitCode === 0);
+        caDetail += `：${steps.length ? steps.map(s => `${s.id} ${s.status} (${s.exitCode})`).join('，') : (result.error?.message ?? '未返回步骤')}`;
+      } catch { caDetail += '：未返回有效的 JSON 检查结果'; }
+      add('check-all', '检查总入口（经别名）', caOk ? 'pass' : 'fail', caDetail);
     }
 
     // python-gbk：中文 Windows 控制台的编码
