@@ -25,15 +25,7 @@ export const caps = (version) => ({
     denoiseAlbedo: { type: 'f32', note: 'Cycles 降噪特征的反照率：相机首次命中处漫反射类闭包的反照率之和，样本均值；不跟反射、不按粗糙度加权（Cycles 默认两样都开），上游顶替的闭包取底色' },
     denoiseNormal: { type: 'f32', note: 'Cycles 降噪特征的相机空间（看 +Z、Y 向上），世界法线样本均值换过去，不归一' },
     'lightgroup:*': false,
-    // 输出通道契约 3.1 的八个光路通道是可选的，内核还没出这几层：照实写交不出
-    diffuseDirect: false,
-    diffuseIndirect: false,
-    glossyDirect: false,
-    glossyIndirect: false,
-    transmissionDirect: false,
-    transmissionIndirect: false,
-    emission: false,
-    environment: false,
+    // 输出通道契约 3.1 的八个光路通道内核还没出；帧源接口契约 3.4 的 outputs 现在不收它们作键，不写就是交不出
   },
   sceneQuery: ['bbox3d', 'belowGround'],
   // 内核没有运动模糊：生效的快门角大于 0 的 render 报 contract.unsupported-option

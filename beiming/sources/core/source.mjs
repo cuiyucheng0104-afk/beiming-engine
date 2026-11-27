@@ -23,7 +23,7 @@ const { structuredClone } = globalThis;
 const ENV_KEYS = ['lock', 'tier', 'workspace', 'filmDir'];
 export const NOT_YET = '核心帧源还没过门：只进看板、不出成片';
 /** 内核出的层文件（render-pack --passes 的文件名与分量，见 path/README.md「读场景包」）。输出通道契约 3.1 的光路通道内核还没出，
- *  能力声明里写 false，这里没有它们的文件 */
+ *  能力声明里不写（不写就是交不出），这里没有它们的文件 */
 const LAYERS = {
   color: ['color.f32', ['R', 'G', 'B', 'A']],
   depth: ['depth.f32', ['Z']],

@@ -54,7 +54,7 @@ test('能力声明：过帧源接口契约的结构定义与判定函数（含 F
   ok(validate(c));
   assert.equal(c.outputs.motion, false, 'motion 照实写交不出');
   for (const n of ['diffuseDirect', 'diffuseIndirect', 'glossyDirect', 'glossyIndirect', 'transmissionDirect', 'transmissionIndirect', 'emission', 'environment']) {
-    assert.equal(c.outputs[n], false, `${n} 是可选的光路通道，内核还没出，照实写交不出`);
+    assert.equal(Object.hasOwn(c.outputs, n), false, `${n} 是可选的光路通道，内核还没出；帧源接口契约 3.4 不收它作键，不写`);
   }
   assert.equal(c.motionBlur.mode, 'native');
 });
