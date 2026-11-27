@@ -361,6 +361,18 @@ pub fn instance_attr(a: &GpuTriAttr, w: Mat4, object: u32) -> GpuTriAttr {
     GpuTriAttr { n0: n(a.n0), n1: n(a.n1), n2: n(a.n2), uv: a.uv, t: [t.x, t.y, t.z, a.t[3]], x: [a.x[0] + lod_offset(w), f32::from_bits(object), a.x[2], a.x[3]] }
 }
 
+/// 北冥：一个三角形的属性换成第 2、3 个角对调之后的样子（绕序翻过来时用）：两角的法线与贴图坐标对调，切线不变
+/// （切线与副切线的符号由几何与贴图坐标定，与角的次序无关）。
+pub fn swap_corners(a: GpuTriAttr) -> GpuTriAttr {
+    let (uv1, uv2) = ([a.n2[3], a.uv[0]], [a.uv[1], a.uv[2]]);
+    GpuTriAttr {
+        n1: [a.n2[0], a.n2[1], a.n2[2], a.n1[3]],
+        n2: [a.n1[0], a.n1[1], a.n1[2], uv2[0]],
+        uv: [uv2[1], uv1[0], uv1[1], a.uv[3]],
+        ..a
+    }
+}
+
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct GpuTriAttr {
@@ -1276,7 +1288,7 @@ pub fn build(w: &World, assets: &Path, presets_dir: &Path, overrides: Option<&se
     let mut grids: Vec<GridBuild> = vec![];
     let mut objects: Vec<[f32; 4]> = vec![];
     // Static glTF models drawn more than once share their triangles (model space, one BLAS): opaque, shadow-casting
-    // per node, non-emissive materials without functions, not mirrored. THREERT_INSTANCING=0 flattens everything.
+    // per node, non-emissive materials without functions. THREERT_INSTANCING=0 flattens everything.
     let instancing = std::env::var("THREERT_INSTANCING").map_or(true, |v| v != "0");
     let mut pool_tris: Vec<[Vec3A; 3]> = vec![];
     let (mut vcolors, mut pool_vcolors): (Vec<[u32; 3]>, Vec<[u32; 3]>) = (vec![], vec![]);
@@ -1378,8 +1390,9 @@ pub fn build(w: &World, assets: &Path, presets_dir: &Path, overrides: Option<&se
             Kind::Instanced { geometry, procedural, materials: mats, capacity } if shown => {
                 // Copies of one geometry: one shared mesh (one BLAS), an instance and an object entry per copy, the
                 // copies' records and entries contiguous (live/edits.rs `update_instanced` rewrites them in place).
-                // Glass, emissive and function materials and mirrored copies are flattened instead, each copy its
-                // own triangles, as `own_blas` meshes are; changing their instances rebuilds.
+                // Glass, emissive and function materials are flattened instead, each copy its own triangles, as
+                // `own_blas` meshes are; changing their instances rebuilds. 北冥：镜像的副本（行列式为负）也共用这一个网格，
+                // 实例矩阵原样进 TLAS；几何法线的方向由物体扩展表的镜像位在内核里取反（shader.wgsl `shader_setup_from_hit`）
                 let empty = world::InstanceTable::default();
                 let t = w.instanced.get(id).unwrap_or(&empty);
                 let placed: Vec<(Mat4, bool)> = (0..*capacity as usize).map(|i| instance_world(m, t, i)).collect();
@@ -1401,8 +1414,7 @@ pub fn build(w: &World, assets: &Path, presets_dir: &Path, overrides: Option<&se
                 let mat = *retained.materials.get(material).ok_or_else(|| anyhow!("object {}: unknown material {material}", n.name))?;
                 let class = material_class(&materials[mat as usize]);
                 let vc = colored(g, &mut std::iter::once(material));
-                let mirrored = placed.iter().any(|(wm, hidden)| !hidden && wm.determinant() < 0.0);
-                if instancing && class < 2 && !mirrored {
+                if instancing && class < 2 {
                     let mesh = match inst_mesh_of.get(&(*geometry, mat)) {
                         Some(&k) => Some(k),
                         None => {
@@ -2282,6 +2294,33 @@ mod instance_tests {
         assert_eq!(tri_colors(&world::Geometry { colors: vec![], ..g }, false, None), vec![WHITE; 2]);
     }
 
+    /// 北冥：软件求交把带镜像位的实例平铺时（lib.rs `flatten_instances`），模型空间的三角形经实例矩阵与 `swap_corners`
+    /// 得到的，和建场景时直接按这个镜像矩阵平铺（`append_arrays` 换绕序）的一样：顶点、每角的法线与贴图坐标都对得上。
+    #[test]
+    fn swapped_corners_match_a_mirrored_flattening() {
+        let g = world::Geometry {
+            positions: vec![0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+            normals: vec![0.0, 0.0, 1.0, 0.6, 0.0, 0.8, 0.0, 0.6, 0.8],
+            uvs: vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6],
+            indices: vec![0, 1, 2],
+            groups: vec![],
+            colors: vec![],
+        };
+        let wm = Mat4::from_scale(Vec3::new(-2.0, 1.0, 1.0)) * Mat4::from_translation(Vec3::Z);
+        let (mut tris, mut flags, mut attrs) = (vec![], vec![], vec![]);
+        append_arrays(&g, wm, 7, 0, None, &mut tris, &mut flags, &mut attrs);
+        let (pool, pool_attrs) = own_mesh_tris(&g, 7);
+        let inst = Instance { mesh: 0, world: wm, object: 0, cast_shadow: true, name: "x".into(), sub: None, hidden: false, first_emitter: 0 };
+        let [a, b, c] = inst.tri(&pool[0]);
+        assert_eq!([a, c, b], tris[0]);
+        let got = swap_corners(instance_attr(&pool_attrs[0], wm, attrs[0].x[1].to_bits()));
+        let near = |x: [f32; 4], y: [f32; 4]| x.iter().zip(&y).all(|(p, q)| (p - q).abs() < 1e-6);
+        for (x, y) in [(got.n0, attrs[0].n0), (got.n1, attrs[0].n1), (got.n2, attrs[0].n2), (got.uv, attrs[0].uv)] {
+            assert!(near(x, y), "{x:?} ≠ {y:?}");
+        }
+        assert_eq!(swap_corners(swap_corners(got)).uv, got.uv);
+    }
+
     #[test]
     fn proc_data_layout() {
         let g = |boxes: Vec<f32>, data: Vec<u32>| Arc::new(crate::procasset::ProcBlob::new(boxes, data).unwrap());
@@ -2380,7 +2419,7 @@ mod instance_tests {
     /// A node's triangles may come in two ranges (an instance's glass part flattened at build, its mesh appended by
     /// software traversal): selection outlines need both.
     /// An instanced object: one shared mesh, an instance and an object entry per copy (capacity, not count), hidden
-    /// past the count and where a matrix scales to 0; mirrored copies flatten every drawn copy.
+    /// past the count and where a matrix scales to 0; mirrored copies share the mesh too (北冥).
     #[test]
     fn instanced_objects_share_one_mesh() {
         let mut w = World::default();
@@ -2402,7 +2441,8 @@ mod instance_tests {
         m[0] = -1.0;
         w.set_instances(2, 3, Some(m), None, None).unwrap();
         let sc = build(&w, Path::new("."), &crate::default_presets_dir(), None).unwrap();
-        assert_eq!((sc.instances.len(), sc.tris.len(), sc.tri_instances.iter().map(|r| r.2).collect::<Vec<_>>()), (0, 2, vec![0, 1]), "mirrored: the drawn copies flattened");
+        assert_eq!((sc.meshes.len(), sc.instances.len(), sc.tris.len()), (1, 4, 0), "mirrored: still one shared mesh");
+        assert!(sc.instances[0].world.determinant() < 0.0);
     }
 
     /// A cutout on exactly an emitter's vertices leaves the mesh with it (`flatten_coincident`), in a model that stays

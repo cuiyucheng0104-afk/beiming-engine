@@ -1460,13 +1460,16 @@ pub fn build(p: &Pack, k: usize, size: (u32, u32), preset: Option<&str>, presets
         let id = row_id(i);
         let name = format!("{}#{i}", p.names[i]);
         let g = &p.geometry[r[0] as usize];
-        // 内核的三角形 t：共享网格的实例（不镜像的）在模型空间的池里按实例矩阵变；镜像的在建场景时就平铺好了
+        // 内核的三角形 t：共享网格的实例（镜像的也是）在模型空间的池里按实例矩阵变；镜像的实例内核按物体扩展表的镜像位把
+        // 几何法线取反（shader.wgsl `shader_setup_from_hit`），这里照样换成第 2、3 个顶点对调的次序。发光、玻璃这类在建场景时
+        // 平铺（镜像的已换绕序）
+        let flips = r[3] == 1;
         let (object, drawn, kernel_tri): (Option<u32>, bool, Box<dyn Fn(usize) -> [Vec3A; 3]>) = match sc.retained.instanced(id) {
             Some(ip) if ip.mesh.is_some() => {
                 let inst = &sc.instances[ip.first as usize];
                 let first = sc.meshes[ip.mesh.unwrap_or(0) as usize].first as usize;
                 let pool = &sc.pool_tris;
-                (Some(ip.object), !inst.hidden, Box::new(move |t| inst.tri(&pool[first + t])))
+                (Some(ip.object), !inst.hidden, Box::new(move |t| { let [a, b, c] = inst.tri(&pool[first + t]); if flips { [a, c, b] } else { [a, b, c] } }))
             }
             _ => match sc.tri_nodes.iter().find(|n| n.0 == name) {
                 Some(&(_, start, _)) => {

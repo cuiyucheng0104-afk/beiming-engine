@@ -22,8 +22,10 @@ const E2E = process.env.BEIMING_CHASSIS_E2E === '1';
 const EXE = process.platform === 'win32' ? '.exe' : '';
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-scenepack-'));
 process.on('exit', () => fs.rmSync(TMP, { recursive: true, force: true }));
-// 负对照：去掉镜像实例平铺时的绕序翻转（内核在这一处按行列式的符号翻转三角形的顶点次序）
-const NO_FLIP = [{ file: 'path/src/scene.rs', from: 'let mirrored = world.determinant() < 0.0;', to: 'let mirrored = false;' }];
+// 负对照：镜像实例共用没换绕序的网格，读入器写核对记录时照内核的做法对调第 2、3 个顶点；去掉这一处，SP7 必须不过
+const NO_FLIP = [{ file: 'path/src/pack.rs', from: 'let flips = r[3] == 1;', to: 'let flips = false;' }];
+// 显卡负对照：去掉内核按镜像位把几何法线取反（shader_setup_from_hit 里那一处），镜像的一半要变暗
+const NO_KERNEL_FLIP = [{ file: 'path/shaders/shader.wgsl', from: '(object_ext_at((*sd).object).object_flag & SD_OBJECT_NEGATIVE_SCALE) != 0u', to: 'false' }];
 
 let dirs = 0;
 const fresh = (spec, tweak) => {
@@ -215,10 +217,10 @@ function halves(bin, dir) {
   return { mean, se, z: mean / se };
 }
 
-// 镜像的绕序翻转在画面上量不出来，所以没有「去掉翻转后左右两半变得不对称」这条显卡负对照：内核着色时把几何法线翻向来路、
-// 再让着色法线与它同侧（path/shaders/shader.wgsl 的 surface 与 surface_proc），不透明表面画出来与三角形的绕序无关。
-// 镜像由核对记录的 SP7 与下面这条的负对照（去掉翻转后 SP7 必须不过）守着。
-test('显卡：左右对称的包（右边是镜像件）左右两半平均亮度差在 3 个标准误以内；去掉镜像的绕序翻转后核对记录的 SP7 不过', (t) => {
+// 镜像件与原件共用一个网格，实例矩阵的行列式为负，内核按物体扩展表的镜像位把几何法线取反（path/shaders/shader.wgsl 的
+// shader_setup_from_hit）。去掉这一处，命中镜像件时几何法线朝里、被当成背面，画面上量得出来：显卡负对照就是它。
+// 核对记录一侧由 SP7 与它的负对照（读入器不照内核对调顶点，SP7 必须不过）守着。
+test('显卡：左右对称的包（右边是镜像件）左右两半平均亮度差在 3 个标准误以内，去掉内核的取反后超出；读入器不照内核对调顶点时核对记录的 SP7 不过', (t) => {
   const bin = renderer(t);
   if (!bin) return;
   const dir = fresh(symmetricPack()).dir;
@@ -230,6 +232,12 @@ test('显卡：左右对称的包（右边是镜像件）左右两半平均亮�
   t.diagnostic(`镜像对：左右差 ${ok.mean.toExponential(3)}，标准误 ${ok.se.toExponential(3)}，z = ${ok.z.toFixed(2)}`);
   assert.ok(Math.abs(ok.z) <= 3, `z = ${ok.z}`);
   assert.deepEqual(allChecks(record(bin, dir)), {});
+  const flat = renderer(t, NO_KERNEL_FLIP);
+  if (!flat) return;
+  const bad = halves(flat, dir);
+  if (bad.error) assert.fail(bad.error);
+  t.diagnostic(`去掉内核取反：左右差 ${bad.mean.toExponential(3)}，标准误 ${bad.se.toExponential(3)}，z = ${bad.z.toFixed(2)}`);
+  assert.ok(Math.abs(bad.z) > 3, `去掉内核取反之后左右两半应当分得开，z = ${bad.z}`);
   const broken = renderer(t, NO_FLIP);
   if (!broken) return;
   assert.equal(checks.SP7(record(broken, dir)).length, 1, '去掉翻转之后镜像件那一行 SP7 必须不过');

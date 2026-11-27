@@ -163,6 +163,11 @@ fn shader_setup_from_hit(sd: ptr<function, ShadingPoint>, o: vec3<f32>, d: vec3<
         // 着色法线不用内建 normalize：它在显卡上偏向一边，经 GGX 的 1 − cos_NH² 放大（util.wgsl 的 normalize_unbiased）
         n = normalize_unbiased(a.n0.xyz * w + a.n1.xyz * h.u + a.n2.xyz * h.v);
         (*sd).object = object_of(a);
+        // 北冥：镜像的实例（物体扩展表的镜像位）共用没换绕序的网格，变换后的两条边叉乘出来朝里，取反。Cycles 对没烘进几何的
+        // 物体是在物体空间求几何法线再乘法线矩阵（kernel/geom/shader_data.h:105 的 object_normal_transform），镜像时方向与这里取反后的一致
+        if (has(F_INST) && h.inst != NO_INST && (object_ext_at((*sd).object).object_flag & SD_OBJECT_NEGATIVE_SCALE) != 0u) {
+            ng = -ng;
+        }
     }
     (*sd).inst = select(NO_INST, h.inst, !is_proc(h) && has(F_INST));
     if (!(dot(ng, d) < 0.0)) {
@@ -565,6 +570,8 @@ fn surface(o: vec3<f32>, d: vec3<f32>, h: Hit, width: f32) -> SurfaceEval {
     }
     let w = 1.0 - h.u - h.v;
     var ng = normalize(cross(e1, e2));
+    // 北冥：镜像的实例取反，同 shader_setup_from_hit
+    if (has(F_INST) && h.inst != NO_INST && (object_ext_at(object_of(a)).object_flag & SD_OBJECT_NEGATIVE_SCALE) != 0u) { ng = -ng; }
     // 着色法线不用内建 normalize：它在显卡上偏向一边，经 GGX 的 1 − cos_NH² 放大（util.wgsl 的 normalize_unbiased）
     var n = normalize_unbiased(a.n0.xyz * w + a.n1.xyz * h.u + a.n2.xyz * h.v);
     let mi = bitcast<u32>(a.uv.w);

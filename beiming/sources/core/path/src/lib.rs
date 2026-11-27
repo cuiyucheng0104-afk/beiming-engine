@@ -710,13 +710,18 @@ fn flatten_instances(sc: &mut scene::Scene) {
         }
         let m = sc.meshes[inst.mesh as usize];
         let first = sc.tris.len() as u32;
+        // 北冥：物体扩展表带镜像位的实例（场景包的镜像件），平铺时照 append_arrays 换绕序（第 2、3 个顶点对调），
+        // 与硬件求交时内核按镜像位把几何法线取反是同一个方向
+        let flip = sc.object_ext.get(inst.object as usize).is_some_and(|e| e.object_flag & scene::SD_OBJECT_NEGATIVE_SCALE != 0);
         for k in m.first..m.first + m.count {
             if let Some(&c) = sc.pool_vcolors.get(k as usize) {
-                scene::put_colors(&mut sc.vcolors, sc.tris.len(), Some(vec![c]));
+                scene::put_colors(&mut sc.vcolors, sc.tris.len(), Some(vec![if flip { [c[0], c[2], c[1]] } else { c }]));
             }
-            sc.tris.push(inst.tri(&sc.pool_tris[k as usize]));
+            let [a, b, c] = inst.tri(&sc.pool_tris[k as usize]);
+            sc.tris.push(if flip { [a, c, b] } else { [a, b, c] });
             sc.tri_flags.push(scene::instance_tri_flags(&inst, &sc.pool_attrs[k as usize], &sc.materials));
-            sc.attrs.push(scene::instance_attr(&sc.pool_attrs[k as usize], inst.world, inst.object));
+            let at = scene::instance_attr(&sc.pool_attrs[k as usize], inst.world, inst.object);
+            sc.attrs.push(if flip { scene::swap_corners(at) } else { at });
         }
         // A second range for the node when its glass / function part was flattened at build: node_tris joins them.
         sc.tri_nodes.push((inst.name, first, sc.tris.len() as u32));
