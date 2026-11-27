@@ -7,5 +7,6 @@
     "level2": { "furnaceRel": 0.005, "analyticRel": 0.002, "analyticSE": 3, "analyticFloor": 2e-6 },
     "level6": { "denoise": 0.001, "colorFloat": 0.0001, "color8bit": 1 }
   },
-  "floorLevels": [3, 4, 5, 7]
+  "floorLevels": [3, 4, 5, 7],
+  "level4": { "energy": [0.97, 1.03], "highlightIoU": 0.95, "highlightFraction": 0.5, "normalAngleRmsDeg": 3, "highlightBandRel": 0.15, "aoLineIoU": 0.9, "recordOnly": ["penumbraWidth"] }
 }

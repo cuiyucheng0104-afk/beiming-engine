@@ -130,13 +130,31 @@ struct Ray {
     tmin: f32,                      // 起始距离。已定义（上游靠把起点沿法线挪开来避开自己，见 offset_origin）
     tmax: f32,                      // 最远距离。已落地
     time: f32,                      // 时刻（运动模糊用）。已定义，恒 0
-    self_object: u32,               // 光线出发处的物体与图元，求交时跳过自己用。已写未读，现在恒为 OBJECT_NONE
-    self_prim: u32,
+    self_object: u32,               // 光线出发处的物体与图元（Cycles 的 ray.self.object、ray.self.prim），求交时跳过自己用：
+    self_prim: u32,                 // 继续弹射的射线设、主循环的 trace 读（经 trace_self）；相机射线、介质散射、过程几何是 OBJECT_NONE。已落地
+    self_inst: u32,                 // 放置 self_prim 的实例记录（硬件求交里模型实例的三角形按它认，别处 NO_INST）。已落地
     cone_w: f32,                    // Ray cone (Akenine-Moller et al. 2019) for texture LOD: footprint width at the origin
     cone_a: f32,                    // + spread angle. 已落地
     P: vec3<f32>,                   // 起点。已落地
     D: vec3<f32>,                   // 方向（单位向量）。已落地
 };
+
+// 继续弹射的射线的起点，照 Cycles 的 integrate_surface_bsdf_bssrdf_bounce（kernel/integrator/shade_surface.h:577-582）：
+// 从着色点出发，经 integrate_surface_ray_offset（shade_surface.h:42-93，../../shaders/area_light.wgsl）对自己的三角形沿 D 做
+// 自交测试，测中不抬、测不中抬 ray_offset；反射与透射同一个式子，ray_offset 都朝 Ng（翻向来路）。求交时跳过自己的图元
+// （Ray.self_*，主循环设 trace_self）。经实例放置的三角形在模型空间测（同阴影射线，light.wgsl 的 shadow_ray）。过程几何
+// 不是三角形：照旧沿几何法线挪开、不跳过自己（同阴影射线；Cycles 对别的图元不挪，但它的图元不是一整个形体）
+fn surface_ray_P(P: vec3<f32>, Ng: vec3<f32>, D: vec3<f32>, prim: u32, inst: u32) -> vec3<f32> {
+    if (has(F_PROC) && (prim & PROC_BIT) != 0u) { return offset_origin(P, select(Ng, -Ng, dot(D, Ng) < 0.0)); }
+    var lp = P;
+    var ld = D;
+    if (has(F_INST) && inst != NO_INST) {
+        let ir = instance_at(inst);
+        lp = proc_point(ir, lp);
+        ld = proc_dir(ir, ld);
+    }
+    return integrate_surface_ray_offset(P, Ng, lp, ld, tri_verts[prim * 3u].xyz, tri_verts[prim * 3u + 1u].xyz, tri_verts[prim * 3u + 2u].xyz);
+}
 
 // 弹射之后更新路径状态。照 Cycles 的 path_state_next：下一段光线的可见类、随机维度的偏移，表面散射的分类计数与各类上限。
 // 总弹射上限照旧是主循环的 `depth == P.counts.z`；其余路径标志位归移植闭包的人照 Cycles 补；PATH_RAY_MIS_SKIP 还按上游的
@@ -276,6 +294,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     ray.tmax = INF;
     ray.self_object = OBJECT_NONE;
     ray.self_prim = OBJECT_NONE;
+    ray.self_inst = NO_INST;
     ray.cone_w = 0.0;
     ray.cone_a = 2.0 * P.cam_pos.w / lod_height();
 
@@ -284,7 +303,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     for (var depth = 0u; depth <= P.counts.z; depth++) {
         state.bounce = depth;
         var hit: Hit;
+        // （跳过出发处自己的图元：Cycles 的 intersect_closest.h:382-385 把上一次命中记进 ray.self；trace 的签名不动，经 trace_self 传）
+        trace_self = vec2<u32>(ray.self_prim, ray.self_inst);
         hit = trace(ray.P, ray.D, ray.tmax, TRACE_CLOSEST);
+        trace_self = TRACE_SELF_NONE;
         // Ray tracing off: the camera ray above was the last one traced for this pixel.
         if (depth == 0u) { state.legacy.rays_off = LIVE && P.raster.w > 0.5; }
         if (has(F_FOG) && P.fog.x > 0.0) {
@@ -373,6 +395,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                 }
                 ray.P = x;
                 ray.D = nd;
+                // （散射点不在面上，不跳过任何图元：Cycles 的介质散射点 sd->prim 是 PRIM_NONE，shade_volume.h:2628-2644）
+                ray.self_object = OBJECT_NONE;
+                ray.self_prim = OBJECT_NONE;
+                ray.self_inst = NO_INST;
                 continue;
             }
         }
@@ -532,8 +558,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             state.throughput /= state.continuation_probability;
         }
         state.mis_origin_P = sd.P;
-        ray.P = offset_origin(sd.P, select(sd.Ng, -sd.Ng, dot(l, sd.Ng) < 0.0));
+        ray.P = surface_ray_P(sd.P, sd.Ng, l, sd.prim, sd.inst);
         ray.D = l;
+        let on_tri = !(has(F_PROC) && (sd.prim & PROC_BIT) != 0u);
+        ray.self_object = select(OBJECT_NONE, sd.object, on_tri);
+        ray.self_prim = select(OBJECT_NONE, sd.prim, on_tri);
+        ray.self_inst = select(NO_INST, sd.inst, on_tri);
     }
 
     if (non_finite(vec3<f32>(first_t))) { first_t = 0.0; }

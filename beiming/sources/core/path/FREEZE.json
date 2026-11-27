@@ -1,8 +1,8 @@
 {
   "schema": "beiming.core.freeze/1",
   "name": "核心帧源路径追踪内核的四样内部结构",
-  "version": "1.2.5",
-  "frozen": "2026-11-25",
+  "version": "1.2.7",
+  "frozen": "2026-11-27",
   "structures": [
     "材质记录",
     "光线负载",
@@ -32,7 +32,9 @@
     "PASS_KIND_",
     "SD_",
     "LABEL_",
-    "F_SPECULAR_TINT"
+    "F_SPECULAR_TINT",
+    "F_PATTERN",
+    "PATTERN_"
   ],
   "pinned": {
     "shaders/pathtrace.wgsl": {
@@ -58,7 +60,14 @@
         "MATERIAL_CLASS_EMISSION": "u32 = 1u",
         "MATERIAL_CLASS_TRANSPARENT": "u32 = 2u",
         "MATERIAL_CLASS_TOON": "u32 = 3u",
-        "SD_OBJECT_NEGATIVE_SCALE": "u32 = 1u << 3u"
+        "SD_OBJECT_NEGATIVE_SCALE": "u32 = 1u << 3u",
+        "F_PATTERN": "u32 = 536870912u",
+        "PATTERN_NODE_VEC4": "u32 = 2u",
+        "PATTERN_BEVEL": "u32 = 1u",
+        "PATTERN_AO": "u32 = 2u",
+        "PATTERN_SMOOTHSTEP": "u32 = 3u",
+        "PATTERN_MIX": "u32 = 4u",
+        "PATTERN_VALUES": "u32 = 8u"
       },
       "functions": {
         "object_ext_at": "(object: u32) -> ObjectExt"
@@ -126,7 +135,7 @@
     "shaders/integrator.wgsl": {
       "structs": {
         "PathState": "556202a566de8d58a9c1555e067f4d49dedecb0bc72b8008f86cfbdedae476b8",
-        "Ray": "69716dc80d18c5ff5c8ef53c2dd8f1cd2210f8a039077fc71a389102c96ee324"
+        "Ray": "0d57c0913119782062dfa250602427676f06765bd1e12f496591aa7f54d3a6fe"
       },
       "constants": {
         "OBJECT_NONE": "u32 = 0xffffffffu",
@@ -163,7 +172,7 @@
     "shaders/intersect.wgsl": {
       "structs": {
         "Hit": "cc55ca9ffb5bb9c812d7a0eccdda6131e536b668f7e48247b710119d04afbe37",
-        "LocalHit": "89832bbfc2f81eb545baef7311c63a297ffb007408ccd2127e81d9ecea08f0ca",
+        "LocalHit": "cc55ca9ffb5bb9c812d7a0eccdda6131e536b668f7e48247b710119d04afbe37",
         "LocalIntersection": "92c68a8da853a6c21c8261efe9b3eee8b4f0d390649de07bd91e449d6b548061"
       },
       "constants": {

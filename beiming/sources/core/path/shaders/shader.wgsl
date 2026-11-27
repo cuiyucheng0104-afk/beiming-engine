@@ -10,6 +10,9 @@
 //   闭包种类 CLOSURE_* 的名字（数值是这里自己的）：kernel/svm/types.h（ClosureType，去掉 _ID 后缀）
 //   shader_setup_closures 里原理化 BSDF 建金属、电介质高光、漫反射三个闭包的次序与权重，金属与电介质高光取 valid_reflection_N：
 //   kernel/svm/closure.h（svm_node_closure_bsdf 的 CLOSURE_BSDF_PRINCIPLED_ID 分支），照原式重写
+//   图案节点的求值：倒角 svm_bevel 与它的三次 BSSRDF 采样 svm_bevel_cubic_*（kernel/svm/bevel.h）、环境光遮蔽 svm_ao
+//   （kernel/svm/ao.h）、平滑阶梯 pattern_smoothstep（util/math_base.h 的 smoothstep 与 kernel/svm/map_range.h 的 SMOOTHSTEP 一支）、
+//   混合 pattern_mix 的两种插值（kernel/svm/mix.h 的 MIX 一支、map_range.h 的 LINEAR 一支），照原式重写
 // 菲涅耳种类 FRESNEL_* 的名字与次序取自 kernel/closure/bsdf_microfacet.h 的 enum MicrofacetFresnel，那个文件是 BSD-3-Clause
 // （版权人 Sony Pictures Imageworks Inc. 等与 Blender Foundation，许可全文见仓库根的 LICENSES/BSD-3-Clause.txt）。
 // ------------------------------------------------------------------------------------------------
@@ -186,7 +189,224 @@ fn shader_setup_from_hit(sd: ptr<function, ShadingPoint>, o: vec3<f32>, d: vec3<
 fn shader_eval_inputs(sd: ptr<function, ShadingPoint>, o: vec3<f32>, d: vec3<f32>, h: Hit, width: f32) -> ShaderInputs {
     let r = surface(o, d, h, width);
     (*sd).legacy.surface = r.surface;
+    // 图案节点（F_PATTERN 的内核）：贴图与材质函数之后、闭包之前，照材质记录的 pattern_first、pattern_count 依次求值
+    if (has(F_PATTERN) && !is_proc(h)) {
+        var a = attrs[h.tri];
+        if (has(F_INST) && h.inst != NO_INST) { a = inst_attr(instance_at(h.inst), a); }
+        let m = material_at(bitcast<u32>(a.uv.w));
+        if (m.pattern_count > 0u) { return shader_eval_pattern(sd, r.inputs, m.pattern_first, m.pattern_count); }
+    }
     return r.inputs;
+}
+
+// ------------------------------------------------------------------------------------------------
+// 图案节点（场景包契约 3.5、5.6 的四种），照 Cycles 的 SVM 节点求值；节点表的格式见 pathtrace.wgsl 的 pattern_node_at。
+// 标准答案机把它们接成 Blender 的节点图（倒角接原理化 BSDF 的法线，遮蔽与平滑阶梯接混合系数，混合换掉底色、金属度、
+// 粗糙度），这里的求值次序与输入照那张图：
+//   倒角  svm_bevel：输出替换闭包用的法线 inputs.N。法线输入没接，Cycles 自动接着色法线 sd->N，
+//         normalize(sd->N + (bevel_N − sd->N)) 与 bevel_N 只差舍入，这里直接取 bevel_N
+//   遮蔽  svm_ao：法线输入同样是着色法线 sd->N（不含倒角：倒角的输出只接到 BSDF），无 inside、无全局半径
+//   平滑阶梯 pattern_smoothstep；混合 pattern_mix
+// 过程几何的命中没有图案节点（Cycles 里没有这种几何）。
+
+// kernel/svm/bevel.h:28-42: svm_bevel_cubic_eval（svm_bevel_cubic_pdf 与它相同）
+fn svm_bevel_cubic_eval(radius: f32, r: f32) -> f32 {
+    let Rm = radius;
+    if (r >= Rm) { return 0.0; }
+    let Rm5 = (Rm * Rm) * (Rm * Rm) * Rm;
+    let f = Rm - r;
+    let num = f * f * f;
+    return (10.0 * num) / (Rm5 * M_PI_F);
+}
+
+// kernel/svm/bevel.h:50-74: svm_bevel_cubic_quintic_root_find，解 10x² − 20x³ + 15x⁴ − 4x⁵ − xi = 0（牛顿迭代）
+fn svm_bevel_cubic_quintic_root_find(xi: f32) -> f32 {
+    let tolerance = 1e-6;
+    var x = 0.25;
+    for (var i = 0; i < 10; i++) {
+        let x2 = x * x;
+        let x3 = x2 * x;
+        let nx = 1.0 - x;
+        let f = 10.0 * x2 - 20.0 * x3 + 15.0 * x2 * x2 - 4.0 * x2 * x3 - xi;
+        let f_ = 20.0 * (x * nx) * (nx * nx);
+        if (abs(f) < tolerance || f_ == 0.0) { break; }
+        x = saturate(x - f / f_);
+    }
+    return x;
+}
+
+// kernel/svm/bevel.h:76-89: svm_bevel_cubic_sample，返回 (r, h)
+fn svm_bevel_cubic_sample(radius: f32, xi: f32) -> vec2<f32> {
+    let Rm = radius;
+    let r = svm_bevel_cubic_quintic_root_find(xi) * Rm;
+    return vec2<f32>(r, safe_sqrtf(Rm * Rm - r * r));
+}
+
+// 局部命中处的位置、几何法线与平滑法线（Cycles 在 svm_bevel 里用 triangle_point_from_uv、isect.Ng 与 triangle_smooth_normal
+// 取的三样），算法同 shader_setup_from_hit
+struct LocalGeom { P: vec3<f32>, Ng: vec3<f32>, N: vec3<f32> };
+fn local_hit_geometry(h: LocalHit) -> LocalGeom {
+    let i = h.tri;
+    let v0 = tri_verts[i * 3u].xyz;
+    var e1 = tri_verts[i * 3u + 1u].xyz - v0;
+    var e2 = tri_verts[i * 3u + 2u].xyz - v0;
+    var a = attrs[i];
+    var p = v0 + h.u * e1 + h.v * e2;
+    if (has(F_INST) && h.inst != NO_INST) {
+        let r = instance_at(h.inst);
+        p = inst_vec(r, p) + vec3<f32>(r.m0.w, r.m1.w, r.m2.w);
+        e1 = inst_vec(r, e1);
+        e2 = inst_vec(r, e2);
+        a = inst_attr(r, a);
+    }
+    var g = LocalGeom();
+    g.P = p;
+    g.Ng = normalize(cross(e1, e2));
+    let w = 1.0 - h.u - h.v;
+    let n = normalize_unbiased(a.n0.xyz * w + a.n1.xyz * h.u + a.n2.xyz * h.v);
+    // triangle_smooth_normal：插值法线是零向量时取几何法线
+    g.N = select(n, g.Ng, all(n == vec3<f32>(0.0)));
+    return g;
+}
+
+// kernel/svm/bevel.h:97-288: svm_bevel。在着色点周围的同一个物体表面上取点，平均那里的法线。Cycles 的镜像物体把 hit_Ng 取反，
+// 它只进 |dot|，这里不翻。返回闭包用的法线
+fn svm_bevel(sd: ptr<function, ShadingPoint>, radius: f32, num_samples: u32) -> vec3<f32> {
+    if (radius <= 0.0 || num_samples < 1u) { return (*sd).N; }
+    // 模糊的间接光线上不做倒角
+    if (state.min_ray_pdf < 8.0) { return (*sd).N; }
+    var lcg_state = lcg_state_init(state.rng_pixel, state.rng_offset, state.sample, 0x64c6a40eu);
+    var sum_N = vec3<f32>(0.0);
+    for (var sample = 0u; sample < num_samples; sample++) {
+        var rand_disk = path_branched_rng_2D(sample, num_samples, PRNG_SURFACE_BEVEL);
+        // 在局部坐标系里随机取一根轴，再在圆盘上取点
+        var disk_N = (*sd).Ng;
+        let onb = make_orthonormals(disk_N);
+        var disk_T = onb.a;
+        var disk_B = onb.b;
+        var pick_pdf_N: f32;
+        var pick_pdf_T: f32;
+        var pick_pdf_B: f32;
+        let axisu = rand_disk.x;
+        if (axisu < 0.5) {
+            pick_pdf_N = 0.5;
+            pick_pdf_T = 0.25;
+            pick_pdf_B = 0.25;
+            rand_disk.x *= 2.0;
+        } else if (axisu < 0.75) {
+            let tmp = disk_N;
+            disk_N = disk_T;
+            disk_T = tmp;
+            pick_pdf_N = 0.25;
+            pick_pdf_T = 0.5;
+            pick_pdf_B = 0.25;
+            rand_disk.x = (rand_disk.x - 0.5) * 4.0;
+        } else {
+            let tmp = disk_N;
+            disk_N = disk_B;
+            disk_B = tmp;
+            pick_pdf_N = 0.25;
+            pick_pdf_T = 0.25;
+            pick_pdf_B = 0.5;
+            rand_disk.x = (rand_disk.x - 0.75) * 4.0;
+        }
+        let phi = 2.0 * M_PI_F * rand_disk.x;
+        let rh = svm_bevel_cubic_sample(radius, rand_disk.y);
+        let disk_r = rh.x;
+        let disk_height = rh.y;
+        let pc = polar_to_cartesian(disk_r, phi);
+        let disk_P = pc.x * disk_T + pc.y * disk_B;
+        var ray = Ray();
+        ray.P = (*sd).P + disk_N * disk_height + disk_P;
+        ray.D = -disk_N;
+        ray.tmin = 0.0;
+        ray.tmax = 2.0 * disk_height;
+        // 只查同一个物体；命中多于 LOCAL_MAX_HITS 个时随机留一个子集
+        let isect = trace_local(ray, (*sd).object, lcg_state, LOCAL_MAX_HITS);
+        lcg_state = isect.lcg_state;
+        let num_eval_hits = min(isect.num_hits, LOCAL_MAX_HITS);
+        for (var hit = 0u; hit < num_eval_hits; hit++) {
+            let g = local_hit_geometry(isect.hits[hit]);
+            // 三根轴的概率密度；三轴之间按幂启发式做多重重要性采样（分子与分母里的 pdf_N 约掉了一个）
+            let pdf_N = pick_pdf_N * abs(dot(disk_N, g.Ng));
+            let pdf_T = pick_pdf_T * abs(dot(disk_T, g.Ng));
+            let pdf_B = pick_pdf_B * abs(dot(disk_B, g.Ng));
+            var w = pdf_N / (sqr(pdf_N) + sqr(pdf_T) + sqr(pdf_B));
+            if (isect.num_hits > LOCAL_MAX_HITS) { w *= f32(isect.num_hits) / f32(LOCAL_MAX_HITS); }
+            let r = len_ccl(g.P - (*sd).P);
+            let pdf = svm_bevel_cubic_eval(radius, r);
+            let disk_pdf = svm_bevel_cubic_eval(radius, disk_r);
+            w *= pdf / disk_pdf;
+            sum_N += w * g.N;
+        }
+    }
+    let N = safe_normalize_fallback(sum_N, vec3<f32>(0.0));
+    if (all(N == vec3<f32>(0.0))) { return (*sd).N; }
+    return select(N, -N, ((*sd).flag & SD_BACKFACING) != 0u);
+}
+
+// kernel/svm/ao.h:25-96: svm_ao（无 NODE_AO_INSIDE、无 NODE_AO_GLOBAL_RADIUS）。返回没被挡的样本所占的份额。
+// onlyLocal 为假走阴影的问法（scene_intersect_shadow，SHADOW_OPAQUE：不投影的物体不挡），为真只查同一个物体
+fn svm_ao(sd: ptr<function, ShadingPoint>, N: vec3<f32>, max_dist: f32, num_samples: u32, only_local: bool) -> f32 {
+    if (max_dist <= 0.0 || num_samples < 1u) { return 1.0; }
+    let onb = make_orthonormals(N);
+    var unoccluded = 0u;
+    // 跳过自己的图元（Cycles 的 ray.self.prim = sd->prim）
+    trace_self = vec2<u32>((*sd).prim, (*sd).inst);
+    for (var sample = 0u; sample < num_samples; sample++) {
+        let rand_disk = path_branched_rng_2D(sample, num_samples, PRNG_SURFACE_AO);
+        let d = sample_uniform_disk(rand_disk);
+        let D = vec3<f32>(d.x, d.y, safe_sqrtf(1.0 - dot(d, d)));
+        let dir = to_global(D, onb.a, onb.b, N);
+        if (only_local) {
+            var ray = Ray();
+            ray.P = (*sd).P;
+            ray.D = dir;
+            ray.tmin = 0.0;
+            ray.tmax = max_dist;
+            if (trace_local(ray, (*sd).object, 0u, 0u).num_hits == 0u) { unoccluded++; }
+        } else if (trace((*sd).P, dir, max_dist, TRACE_SHADOW).tri == 0xffffffffu) {
+            unoccluded++;
+        }
+    }
+    trace_self = TRACE_SELF_NONE;
+    return f32(unoccluded) / f32(num_samples);
+}
+
+// util/math_base.h 的 smoothstep，经 kernel/svm/map_range.h 的 NODE_MAP_RANGE_SMOOTHSTEP（from_min < from_max，to 是 0 到 1）
+fn pattern_smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
+    if (x < edge0) { return 0.0; }
+    if (x >= edge1) { return 1.0; }
+    let t = (x - edge0) / (edge1 - edge0);
+    return (3.0 - 2.0 * t) * (t * t);
+}
+
+// 混合：底色照 MixRGB 的 MIX（kernel/svm/mix.h，interp(a, b, t) = (1 − t)·a + t·b），金属度与粗糙度照 MapRange 的 LINEAR
+// （from 0 到 1、to 从材质的值到 set 的值：a + t·(b − a)，再夹到两端之间）
+fn pattern_map_linear(a: f32, b: f32, t: f32) -> f32 {
+    return clamp(a + t * (b - a), min(a, b), max(a, b));
+}
+
+// 依次求值一个材质的图案节点，改出材质输入值
+fn shader_eval_pattern(sd: ptr<function, ShadingPoint>, inputs_in: ShaderInputs, first: u32, count: u32) -> ShaderInputs {
+    var inputs = inputs_in;
+    var values: array<f32, PATTERN_VALUES>;
+    for (var k = 0u; k < count; k++) {
+        let n = pattern_node_at(first + k);
+        switch (n.a.x) {
+            case PATTERN_BEVEL: { inputs.N = svm_bevel(sd, n.b.x, n.a.y); }
+            case PATTERN_AO: { values[n.a.z] = svm_ao(sd, (*sd).N, n.b.x, n.a.y, n.a.w != 0u); }
+            case PATTERN_SMOOTHSTEP: { values[n.a.z] = pattern_smoothstep(n.b.x, n.b.y, values[n.a.y]); }
+            case PATTERN_MIX: {
+                let t = values[n.a.y];
+                if ((n.a.z & 1u) != 0u) { inputs.base_color = (1.0 - t) * inputs.base_color + t * n.b.xyz; }
+                if ((n.a.z & 2u) != 0u) { inputs.metallic = pattern_map_linear(inputs.metallic, n.b.w, t); }
+                if ((n.a.z & 4u) != 0u) { inputs.roughness = pattern_map_linear(inputs.roughness, bitcast<f32>(n.a.w), t); }
+            }
+            default: {}
+        }
+    }
+    return inputs;
 }
 
 // 第三步：按材质输入值填闭包与自发光。只读 ShaderInputs，不读材质记录。归移植闭包的人。

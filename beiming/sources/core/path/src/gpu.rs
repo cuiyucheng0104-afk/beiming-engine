@@ -1366,6 +1366,9 @@ pub const F_LISTS: u32 = 1 << 27;
 /// 北冥：有材质的边缘色（`GpuMaterial::specular_tint`）不是白：材质求值从材质记录读它。别的场景里内核编译期取白，
 /// F82 的 B 项跟着是编译期的 0（一律从记录读时，没有金属的场景稳态也慢 4%）。
 pub const F_SPECULAR_TINT: u32 = 1 << 28;
+/// 北冥：有材质带图案节点（`GpuMaterial::pattern_count` 不为 0）：材质求值走图案节点的解释器（shader.wgsl
+/// `shader_eval_pattern`）。别的场景里那一段编译期去掉，内核与加这一位之前逐字相同。
+pub const F_PATTERN: u32 = 1 << 29;
 /// Whether a scene with more such lights has the light tiles (`F_LISTS`): `THREERT_LIGHT_TILES=1|0`, else everywhere
 /// but Android. On Adreno 740 they took OpenStrikeRT's Foundry from 31 to 48 ms a frame (249 x 140, one bounce):
 /// there the lights are resampled as in a scene of fewer, unguided (docs/RUNTIME.md "Android").
@@ -1468,6 +1471,9 @@ pub fn features_of(ms: &[crate::scene::GpuMaterial], environment: u32, textures:
     }
     if ms.iter().any(|m| m.specular_tint != [1.0; 3]) {
         f |= F_SPECULAR_TINT;
+    }
+    if ms.iter().any(|m| m.pattern_count > 0) {
+        f |= F_PATTERN;
     }
     if huge(groups, instanced) {
         f |= F_HUGE;
@@ -1855,6 +1861,7 @@ impl Gpu {
             (Table::ObjectExt, bytemuck::cast_slice(&object_ext), room.objects * std::mem::size_of::<crate::scene::GpuObjectExt>()),
             (Table::GgxGenSchlickIorS, bytemuck::cast_slice(&crate::ggx_gen_schlick_tables()[..crate::GGX_GEN_SCHLICK_LEN]), 0),
             (Table::GgxGenSchlickS, bytemuck::cast_slice(&crate::ggx_gen_schlick_tables()[crate::GGX_GEN_SCHLICK_LEN..]), 0),
+            (Table::Patterns, bytemuck::cast_slice(&scene.patterns), 0),
         ];
         assert!(parts.iter().enumerate().all(|(k, p)| p.0.index() == k), "the tables in `Table`'s order");
         let heap = Heap::filled(d, &parts.map(|p| (p.1.len() + p.2) as u64), |put| parts.iter().for_each(|p| put(p.0, 0, p.1)));
@@ -2574,7 +2581,7 @@ mod tests {
             ("F_GLASS", F_GLASS), ("F_COAT", F_COAT), ("F_HUGE", F_HUGE), ("F_INST", F_INST), ("F_MEDIA", F_MEDIA), ("F_PEMIT", F_PEMIT),
             ("F_HMEDIA", F_HMEDIA), ("F_PROC", F_PROC), ("F_TINT", F_TINT), ("F_UNLIT", F_UNLIT), ("F_BACKGROUND", F_BACKGROUND),
             ("F_VCOLOR", F_VCOLOR), ("F_AERIAL", F_AERIAL), ("F_GRID", F_GRID), ("F_LISTS", F_LISTS),
-            ("F_SPECULAR_TINT", F_SPECULAR_TINT),
+            ("F_SPECULAR_TINT", F_SPECULAR_TINT), ("F_PATTERN", F_PATTERN),
         ];
         let mut seen = 0u32;
         for (name, bit) in all {
@@ -2927,7 +2934,7 @@ mod tests {
         );
         let mut ray = members("Ray");
         ray.sort();
-        assert_eq!(ray, ["D", "P", "cone_a", "cone_w", "self_object", "self_prim", "time", "tmax", "tmin"]);
+        assert_eq!(ray, ["D", "P", "cone_a", "cone_w", "self_inst", "self_object", "self_prim", "time", "tmax", "tmin"]);
         for (write, count) in [
             ("state.rng_offset = PRNG_BOUNCE_NUM;", 1),
             ("state.min_ray_pdf = 3.4028235e38;", 1),
@@ -3012,8 +3019,13 @@ mod tests {
             ("c.sample_weight = 1.0;", 1),
             ("c.fresnel_type = FRESNEL_F82_TINT;", 1),
             // 光线（main）
-            ("ray.self_object = OBJECT_NONE;", 1),
-            ("ray.self_prim = OBJECT_NONE;", 1),
+            ("ray.self_object = OBJECT_NONE;", 2),
+            ("ray.self_prim = OBJECT_NONE;", 2),
+            ("ray.self_inst = NO_INST;", 2),
+            ("ray.self_object = select(OBJECT_NONE, sd.object, on_tri);", 1),
+            ("ray.self_prim = select(OBJECT_NONE, sd.prim, on_tri);", 1),
+            ("ray.self_inst = select(NO_INST, sd.inst, on_tri);", 1),
+            ("trace_self = vec2<u32>(ray.self_prim, ray.self_inst);", 1),
         ] {
             assert_eq!(template.matches(write).count(), count, "这处写入该有 {count} 处：{write}");
         }

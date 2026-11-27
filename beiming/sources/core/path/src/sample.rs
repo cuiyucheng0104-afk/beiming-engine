@@ -95,6 +95,14 @@ pub fn rng2(pixel_seed: u32, index: u32, d: u32) -> [f32; 2] {
     [sobol_owen(i, 0, s ^ 0xe0aaaf76), sobol_owen(i, 1, s ^ 0x94964d4e)]
 }
 
+/// 北冥：`path_branched_rng_2D` of sample.wgsl（`index` 已是样本号乘分支数加分支号，`d` 是偏移加维度）：下标照 `rng2`
+/// 按像素打乱，点的 Owen 打乱只用维度的种子（蓝噪声图案的取法，见 STRUCTURES.md 第 57 条）。
+pub fn branched2(pixel_seed: u32, index: u32, d: u32) -> [f32; 2] {
+    let i = rng_index_at(index, pixel_seed ^ hash_hp(d) ^ 0xf8ade99a);
+    let v = hash_hp(d);
+    [sobol_owen(i, 0, v ^ 0xe0aaaf76), sobol_owen(i, 1, v ^ 0x94964d4e)]
+}
+
 /// `rng3` of sample.wgsl.
 pub fn rng3(pixel_seed: u32, index: u32, d: u32) -> [f32; 3] {
     let s = pixel_seed ^ hash_hp(d);
@@ -244,11 +252,12 @@ var<private> P: Params;
             let legacy = rng_legacy(offset, 1 + i % 14);
             let sub = rng_sub(rng_legacy(offset, 6) ^ 0x4000_0000, i);
             assert_eq!((w[12], w[13], w[14]), (pixel, legacy, sub), "index {i}: the pixel seed, rng_legacy, rng_sub");
-            // (path_rng_*: the offset plus Cycles' enumeration; the branched one: index * branches + branch.)
+            // (path_rng_*: the offset plus Cycles' enumeration; the branched one: index * branches + branch, the points'
+            // scramble seeded by the dimension alone.)
             let mut want = rng4(pixel, i, legacy).to_vec();
             want.extend(rng3(pixel, i, offset + 3));
             want.push(rng1(pixel, i, offset));
-            want.extend(rng2(pixel, i * 4 + i % 4, offset + 4));
+            want.extend(branched2(pixel, i * 4 + i % 4, offset + 4));
             want.extend(rng2(pixel, i, sub));
             for (k, want) in want.into_iter().enumerate() {
                 let got = f32::from_bits(w[k]);

@@ -60,8 +60,13 @@
 // the ray at one distance only; another surface at exactly that distance is skipped with it (Cycles keeps it). The
 // distances just past and before are the next float32 up and down (bit steps; distances are not negative).
 @if(hwrt) fn trace_opaque(o: vec3<f32>, d: vec3<f32>, tmax_in: f32, mask: u32, any: bool) -> Hit {
-    if (trace_self.x == TRACE_SELF_NONE.x) { return trace_query(o, d, 0.0, tmax_in, mask, any); }
-    var lo = 0.0;
+    return trace_opaque_from(o, d, 0.0, tmax_in, mask, any);
+}
+// 北冥：同 trace_opaque，从起始距离 `tmin_in` 查起（`intersect.wgsl` 硬件求交的 `trace_local` 从固定起点按距离步进时传上一个
+// 命中之后的下一个 f32）。查询语句仍只有 trace_query 里那一处。
+@if(hwrt) fn trace_opaque_from(o: vec3<f32>, d: vec3<f32>, tmin_in: f32, tmax_in: f32, mask: u32, any: bool) -> Hit {
+    if (trace_self.x == TRACE_SELF_NONE.x) { return trace_query(o, d, tmin_in, tmax_in, mask, any); }
+    var lo = tmin_in;
     var hi = tmax_in;
     var ts = 0.0;
     var before = false;

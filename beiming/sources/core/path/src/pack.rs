@@ -6,8 +6,8 @@
 //! 清单 `pack.json`、几何文件（GLB）、实例表（u32）、每帧状态表（f32），全部校验；选一帧建成内核的 `World`，
 //! 再走现有的 `scene::build`。读入方是信任边界：一切错都报成带错误码的 `PackError`，不 panic、不越界读。
 //!
-//! 只做到「读对、读全、读不对就报清楚」。图案节点照契约逐字段解析、校验，留在 `Pack` 里，**不生效**
-//! （统计里列在 `notApplied`）。灯光链接与分灯组生效：见 `Pack::light_links`、`Pack::lightgroups`。没登记参数的三种闭包、正交相机、动态网格、材质逐帧表都报 `contract.unsupported-input`。
+//! 只做到「读对、读全、读不对就报清楚」。图案节点照契约逐字段解析、校验，编成图案节点表（`pattern_table`），内核在材质求值时
+//! 照 Cycles 的 svm_bevel、svm_ao 与两个算式求值（shader.wgsl `shader_eval_pattern`）。灯光链接与分灯组生效：见 `Pack::light_links`、`Pack::lightgroups`。没登记参数的三种闭包、正交相机、动态网格、材质逐帧表都报 `contract.unsupported-input`。
 
 use crate::{desc, scene, world};
 use anyhow::Result;
@@ -228,13 +228,61 @@ pub struct Params {
     pub roughness: Option<f64>,
 }
 
-/// 一个图案节点（节点登记表的四种）。只读、只校验，这一版不求值。
+/// 一个图案节点（节点登记表的四种）。读入时校验，`pattern_table` 编成内核的图案节点表。
 #[derive(Clone, Debug, PartialEq)]
 pub enum Node {
     Bevel { radius: f64, samples: u64 },
     Ao { distance: f64, samples: u64, only_local: bool, out: String },
     Smoothstep { input: String, edges: [f64; 2], out: String },
     Mix { by: String, set: Params },
+}
+
+/// 图案节点表（内核 pathtrace.wgsl `pattern_node_at`、shader.wgsl `shader_eval_pattern`）：每个节点两个 vec4。
+/// 第一个按 u32 读：x 节点种类，其余见下面各种类；第二个按 f32 读。值名编成材质内的下标（0 到 `PATTERN_VALUES` − 1）。
+///   倒角      [PATTERN_BEVEL, 采样数, 0, 0]          [半径, 0, 0, 0]
+///   遮蔽      [PATTERN_AO, 采样数, 输出, onlyLocal]   [探测距离, 0, 0, 0]
+///   平滑阶梯  [PATTERN_SMOOTHSTEP, 输入, 输出, 0]     [e0, e1, 0, 0]
+///   混合      [PATTERN_MIX, 系数, 设了哪几个, 粗糙度的位]  [底色 r, g, b, 金属度]（「设了哪几个」：第 0 位底色、第 1 位金属度、第 2 位粗糙度）
+pub const PATTERN_NODE_VEC4: u32 = 2;
+pub const PATTERN_BEVEL: u32 = 1;
+pub const PATTERN_AO: u32 = 2;
+pub const PATTERN_SMOOTHSTEP: u32 = 3;
+pub const PATTERN_MIX: u32 = 4;
+/// 一个材质里最多几个值名（内核里存它们的数组长度）。
+pub const PATTERN_VALUES: usize = 8;
+
+/// 一个材质的图案节点编成图案节点表的若干项（每个节点 `PATTERN_NODE_VEC4` 个 vec4）。值名超过 `PATTERN_VALUES` 个时报
+/// `contract.unsupported-input`。`in`、`by` 都已由读入时的 SP13 保证指向前面节点的 `out`。
+pub fn pattern_table(m: &Material, at: &str) -> R<Vec<[u32; 4]>> {
+    let mut names: Vec<&str> = vec![];
+    let slot = |names: &Vec<&str>, n: &str| names.iter().position(|x| *x == n).expect("SP13 已校验") as u32;
+    let mut t = vec![];
+    for node in &m.pattern {
+        let f = |x: f64| (x as f32).to_bits();
+        let (a, b) = match node {
+            Node::Bevel { radius, samples } => ([PATTERN_BEVEL, *samples as u32, 0, 0], [f(*radius), 0, 0, 0]),
+            Node::Ao { distance, samples, only_local, out } => {
+                names.push(out);
+                ([PATTERN_AO, *samples as u32, slot(&names, out), *only_local as u32], [f(*distance), 0, 0, 0])
+            }
+            Node::Smoothstep { input, edges, out } => {
+                let i = slot(&names, input);
+                names.push(out);
+                ([PATTERN_SMOOTHSTEP, i, slot(&names, out), 0], [f(edges[0]), f(edges[1]), 0, 0])
+            }
+            Node::Mix { by, set } => {
+                let c = set.base_color.unwrap_or([0.0; 3]);
+                let mask = set.base_color.is_some() as u32 | (set.metallic.is_some() as u32) << 1 | (set.roughness.is_some() as u32) << 2;
+                ([PATTERN_MIX, slot(&names, by), mask, f(set.roughness.unwrap_or(0.0))], [f(c[0]), f(c[1]), f(c[2]), f(set.metallic.unwrap_or(0.0))])
+            }
+        };
+        if names.len() > PATTERN_VALUES {
+            return Err(fail(UNSUPPORTED, at, format!("材质 {} 的图案节点有 {} 个值名，内核最多 {PATTERN_VALUES} 个", m.name, names.len())));
+        }
+        t.push(a);
+        t.push(b);
+    }
+    Ok(t)
 }
 
 #[derive(Clone, Debug)]
@@ -1437,6 +1485,16 @@ pub fn build(p: &Pack, k: usize, size: (u32, u32), preset: Option<&str>, presets
         w.settings.preset = name.to_string();
     }
     let mut sc = scene::build(&w, Path::new("."), presets, overrides)?;
+    // 图案节点表：每个带图案节点的材质一段，材质记录的 pattern_first、pattern_count 指过去（以节点计）
+    for (i, m) in p.materials.iter().enumerate().filter(|(_, m)| !m.pattern.is_empty()) {
+        let t = pattern_table(m, &format!("materials[{i}].pattern"))?;
+        if let Some(&slot) = sc.retained.materials.get(&(1 + i as u32)) {
+            let g = &mut sc.materials[slot as usize];
+            g.pattern_first = sc.patterns.len() as u32 / PATTERN_NODE_VEC4;
+            g.pattern_count = m.pattern.len() as u32;
+            sc.patterns.extend(t);
+        }
+    }
     let aspect = size.0 as f64 / size.1.max(1) as f64;
     sc.camera = scene::camera_data(p.camera_matrix(k), &p.camera_desc(k, aspect));
     let links = p.light_links()?;
@@ -1568,7 +1626,8 @@ pub fn info(p: &Pack, k: usize, b: &Built) -> Value {
         "patternNodes": p.materials.iter().map(|m| m.pattern.len()).sum::<usize>(),
         "lightLinks": linked.len(),
         "zeroCornerNormals": p.zero_normals,
-        "notApplied": { "pattern": patterned },
+        "patternMaterials": patterned,
+        "notApplied": { "pattern": [] },
         "lightGroups": p.lightgroups(),
         "kernel": { "objects": b.scene.objects.len() / b.scene.object_stride(), "flatTriangles": b.scene.tris.len(), "instances": b.scene.instances.len(), "lights": b.scene.lights.len() },
     })
@@ -1619,6 +1678,38 @@ mod tests {
         assert_eq!((p.meshes.len(), p.names.len(), p.lights.len(), p.materials[0].pattern.len()), (1, 2, 3, 2));
         assert_eq!(p.lights[0].link.as_deref(), Some(&["kit.*".to_string()][..]));
         assert_eq!(p.lights[1].group, "bulb");
+    }
+
+    /// 图案节点表：值名编成下标、数照原样（f32 的位）进表，四个种类号与每个节点的 vec4 数两侧相同；值名太多报不支持。
+    #[test]
+    fn pattern_nodes_compile_to_the_kernels_table() {
+        let mut v = manifest();
+        v["materials"][0]["pattern"] = json!([
+            { "node": "bevel", "radius": 0.0035, "samples": 4, "out": "normal" },
+            { "node": "ao", "distance": 0.006, "samples": 8, "onlyLocal": true, "out": "ao" },
+            { "node": "smoothstep", "in": "ao", "edges": [0.52, 0.88], "out": "line" },
+            { "node": "mix", "by": "line", "set": { "baseColor": [0.76, 0.76, 0.74], "roughness": 0.36 } }]);
+        let p = parse_manifest(&v).unwrap();
+        let t = pattern_table(&p.materials[0], "materials[0].pattern").unwrap();
+        let f = |x: f32| x.to_bits();
+        assert_eq!(t, vec![
+            [PATTERN_BEVEL, 4, 0, 0], [f(0.0035), 0, 0, 0],
+            [PATTERN_AO, 8, 0, 1], [f(0.006), 0, 0, 0],
+            [PATTERN_SMOOTHSTEP, 0, 1, 0], [f(0.52), f(0.88), 0, 0],
+            [PATTERN_MIX, 1, 0b101, f(0.36)], [f(0.76), f(0.76), f(0.74), 0],
+        ]);
+        let wgsl = include_str!("../shaders/pathtrace.wgsl");
+        for (name, n) in [("PATTERN_NODE_VEC4", PATTERN_NODE_VEC4), ("PATTERN_BEVEL", PATTERN_BEVEL), ("PATTERN_AO", PATTERN_AO), ("PATTERN_SMOOTHSTEP", PATTERN_SMOOTHSTEP), ("PATTERN_MIX", PATTERN_MIX), ("PATTERN_VALUES", PATTERN_VALUES as u32)] {
+            assert!(wgsl.contains(&format!("const {name}: u32 = {n}u;")), "{name}: pathtrace.wgsl 与 pack.rs 不同");
+        }
+        // 9 个值名：超过内核的数组长度
+        let mut many = vec![json!({ "node": "ao", "distance": 0.1, "samples": 1, "onlyLocal": false, "out": "a0" })];
+        for k in 1..9 {
+            many.push(json!({ "node": "smoothstep", "in": format!("a{}", k - 1), "edges": [0, 1], "out": format!("a{k}") }));
+        }
+        v["materials"][0]["pattern"] = json!(many);
+        let p = parse_manifest(&v).unwrap();
+        assert_eq!(pattern_table(&p.materials[0], "materials[0].pattern").unwrap_err().code, UNSUPPORTED);
     }
 
     #[test]

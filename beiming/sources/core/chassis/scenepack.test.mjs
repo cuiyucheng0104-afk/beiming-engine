@@ -96,7 +96,8 @@ test('pack-info：统计照实（三角形数是几何文件读到的每个网�
   assert.deepEqual({ triangles: s.triangles, meshTriangles: s.meshTriangles, instances: s.instances, drawn: s.drawn, entities: s.entities, mirrored: s.mirrored, materials: s.materials, lights: s.lights, frames: s.frames, patternNodes: s.patternNodes, lightLinks: s.lightLinks, zeroCornerNormals: s.zeroCornerNormals },
     { triangles: 10, meshTriangles: 4, instances: 5, drawn: 5, entities: 4, mirrored: 1, materials: 2, lights: 3, frames: 2, patternNodes: 4, lightLinks: 1, zeroCornerNormals: 0 });
   assert.deepEqual(s.lightTypes, { 'area-rect': 1, point: 1, sun: 1 });
-  assert.deepEqual(s.notApplied.pattern, [{ material: 'lined', nodes: 4 }]);
+  assert.deepEqual(s.patternMaterials, [{ material: 'lined', nodes: 4 }]);
+  assert.deepEqual(s.notApplied.pattern, [], '图案节点已生效');
   for (const frame of [0, 1]) {
     const rec = record(bin, dir, frame);
     assert.equal(rec.normalProbes.length, 5);
