@@ -258,6 +258,7 @@
 
 ### Removed
 
+- 默认验收去掉早期 T/H 工程计划步骤。历史计划和任务卡仍可用 `plan:check`、`plan:next` 手动查阅。
 - 不兼容：`engine/core/noise.js` 的 `createNoise2D` / `createNoise3D` 不再接受无种子调用（以前默认用 `Math.random`，分段并行渲染时各段画面会对不上）。调用时传入种子随机源，例如 `createNoise3D(mulberry(7))`。
 - 旧作品站的生成物 `showcase/`（由 `site/` 与 `tools/build-showcase.py` 取代）。
 
