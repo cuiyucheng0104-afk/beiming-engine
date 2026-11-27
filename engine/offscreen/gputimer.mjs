@@ -35,11 +35,19 @@ export function createGpuTimer(device, { capacity = 128 } = {}) {
   if (!device?.features?.has('timestamp-query')) return null;
   let pipeline = timestampPipelines.get(device);
   if (!pipeline) {
-    // Metal 可以省略空通道，留下一组未写入的时间戳。
-    const module = device.createShaderModule({ code: '@compute @workgroup_size(1) fn main() {}' });
+    // Metal 会偶尔把无存储写入的打点通道记到前一个标记之前。
+    const module = device.createShaderModule({ code: `
+      @group(0) @binding(0) var<storage, read_write> marker: u32;
+      @compute @workgroup_size(1) fn main() { marker += 1u; }
+    ` });
     pipeline = device.createComputePipeline({ layout: 'auto', compute: { module, entryPoint: 'main' } });
     timestampPipelines.set(device, pipeline);
   }
+  const marker = device.createBuffer({ size: 4, usage: GPUBufferUsage.STORAGE });
+  const binding = device.createBindGroup({
+    layout: pipeline.getBindGroupLayout(0),
+    entries: [{ binding: 0, resource: { buffer: marker } }],
+  });
   const querySet = device.createQuerySet({ type: 'timestamp', count: capacity });
   const resolveBuf = device.createBuffer({ size: capacity * 8, usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC });
   const readBuf = device.createBuffer({ size: capacity * 8, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
@@ -49,6 +57,7 @@ export function createGpuTimer(device, { capacity = 128 } = {}) {
     const enc = device.createCommandEncoder();
     const pass = enc.beginComputePass({ timestampWrites: { querySet, beginningOfPassWriteIndex: labels.length } });
     pass.setPipeline(pipeline);
+    pass.setBindGroup(0, binding);
     pass.dispatchWorkgroups(1);
     pass.end();
     device.queue.submit([enc.finish()]);
@@ -76,6 +85,6 @@ export function createGpuTimer(device, { capacity = 128 } = {}) {
       const done = labels; labels = [];
       return withZeros(spansFrom(done, ticks));
     },
-    dispose() { querySet.destroy(); resolveBuf.destroy(); readBuf.destroy(); },
+    dispose() { marker.destroy(); querySet.destroy(); resolveBuf.destroy(); readBuf.destroy(); },
   };
 }
