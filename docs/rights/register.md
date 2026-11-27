@@ -31,7 +31,7 @@
 | R14 | 上游光追渲染器 vork（B 路线光追外部后端 rt 调用，不随仓库分发，实验阶段） | Nullframe, Inc.（上游仓库 voyager-so/vork 的版权人） | 同权利方（按其公开的预览许可） | vork Preview License（自定义许可，不是开源许可）：允许任何用途的使用、自用修改、原样分发未改动的副本；未经书面许可不得出售、出租、再许可、分发改动过的版本，不得做成他人提交场景或任务来渲染的托管服务；对用它做出的场景、代码与媒体不主张权利 | 许可只覆盖 0.5.1 这一版；以后的版本可以改用别的条款（含收费），已取得版本的权利不因此收回 | 公开许可，以发行包里的 LICENSE 为准；条款没有单列的情形（例如复制代码片段进 MIT 仓库）是否允许：待补（需向上游书面确认或取得法律意见） | 公开许可，按许可义务使用 | — |
 | R15 | 上游路径追踪运行时 ThreeRT（D 路线 · 北冥光追 · 物理路径追踪调用，运行时二进制不入 git 仓库） | Meshy LLC（上游仓库 meshy-dev/ThreeRT 的版权人，2026） | 同权利方（按 MIT 公开开源许可） | MIT 许可：允许商业与非商业使用、复制、修改、合并、发布与分发，须在软件副本或重要部分保留版权与许可声明；若外部运行包启用 --features oidn，动态链接的 Intel Open Image Denoise 按 Apache-2.0 履行许可与 NOTICE 义务 | 公开开源许可，无期限 | 公开许可，以上游固定提交（记录于 engine/pathtrace/runtime.lock.json）的 MIT LICENSE 与仓库 LICENSES/MIT.txt 为准 | 公开许可，按许可义务使用 | — |
 | R16 | 商用音效库（rog-5090 · BOOM Library / SoundMorph / Pro Sound Effects，音频本体不入仓） | BOOM Library GbR；SoundMorph Sound Libraries Inc.；Pro Sound Effects, Inc.（各自 EULA 的版权人） | 同权利方（商用许可，主人 2026-11-24 告知为已购可用） | BOOM 与 SoundMorph 的 MEDIA / MEDIA PRODUCER LICENSE：允许在成片（影视、广播、游戏等多媒体成品）中商用，含同步权与机械权，无署名义务；禁止再分发、并入素材库或采样回放系统转售；派生转换产物（拟合参数文件等）只作内部制作中间体，不入仓、不分发。Pro Sound Effects 两子库库内无 EULA，范围待核 | BOOM：worldwide、无期限；SoundMorph：至按条款终止；Pro Sound Effects：待补 | 库内 EULA 原文（路径见 holderBasis，许可证正文不进仓库）；Pro Sound Effects 的官方 EULA 或购买凭证：待补 | 用户声明已获授权，书面证据待补 | — |
-| R17 | 核心帧源 OIDN 档的运行时库：Intel Open Image Denoise 2.5.0、oneTBB 与 oidn crate（库取本机 Blender 自带的那一份，不入仓、不分发） | Intel Corporation（Open Image Denoise 与 oneTBB 的版权人）；Will Usher（oidn crate 的版权人） | 同权利方（OIDN 与 oneTBB 按 Apache-2.0，oidn crate 按 MIT 公开开源许可） | Apache-2.0（OIDN、oneTBB）：允许商业与非商业使用、复制、修改与分发，分发时须随附许可全文与 NOTICE、标明改动；MIT（oidn crate）：允许商业与非商业使用、复制、修改与分发，须保留版权与许可声明 | 公开开源许可，无期限 | 公开许可，以 Blender 安装里的第三方许可说明、oidn crate 包内 LICENSE.md 与仓库 LICENSES/Apache-2.0.txt、LICENSES/MIT.txt 为准 | 公开许可，按许可义务使用 | — |
+| R17 | 核心帧源 OIDN 档的运行时库：Intel Open Image Denoise 2.5.0 与 2.3.3、oneTBB 与 oidn crate（库取本机 Blender 自带的那一份，不入仓、不分发） | Intel Corporation（Open Image Denoise 与 oneTBB 的版权人）；Will Usher（oidn crate 的版权人） | 同权利方（OIDN 与 oneTBB 按 Apache-2.0，oidn crate 按 MIT 公开开源许可） | Apache-2.0（OIDN、oneTBB）：允许商业与非商业使用、复制、修改与分发，分发时须随附许可全文与 NOTICE、标明改动；MIT（oidn crate）：允许商业与非商业使用、复制、修改与分发，须保留版权与许可声明 | 公开开源许可，无期限 | 公开许可，以 Blender 安装里的第三方许可说明、oidn crate 包内 LICENSE.md 与仓库 LICENSES/Apache-2.0.txt、LICENSES/MIT.txt 为准 | 公开许可，按许可义务使用 | — |
 
 ## R01 上海美术电影制片厂（上美影）相关 IP：IP 图、剧照与据此制作的发布会动画
 
@@ -484,19 +484,20 @@
 - **对外分发点**：不随 git 仓库分发（rog-5090 挂载或 sshfs，只读）
 - **仓库主体里的相关文件**：`engine/audio/sfx_library.py`、`engine/audio/sfx_library_index.jsonl`、`tools/sfx_library.py`、`tests/audio/test_sfx_library.py`
 
-## R17 核心帧源 OIDN 档的运行时库：Intel Open Image Denoise 2.5.0、oneTBB 与 oidn crate（库取本机 Blender 自带的那一份，不入仓、不分发）
+## R17 核心帧源 OIDN 档的运行时库：Intel Open Image Denoise 2.5.0 与 2.3.3、oneTBB 与 oidn crate（库取本机 Blender 自带的那一份，不入仓、不分发）
 
-- **权利方**：Intel Corporation（Open Image Denoise 与 oneTBB 的版权人）；Will Usher（oidn crate 的版权人）（依据：Blender 安装里的第三方许可说明 text/license/license.md（OpenImageDenoise 2.5.0：Copyright 2018-2026 Intel Corporation，Apache-2.0；oneTBB v2022.3.0：Copyright (c) 2005-2020 Intel Corporation，Apache-2.0）；oidn crate 2.5.1 的 LICENSE.md（MIT，Copyright (c) 2019 Will Usher）；THIRD-PARTY.md 第 14 节）
+- **权利方**：Intel Corporation（Open Image Denoise 与 oneTBB 的版权人）；Will Usher（oidn crate 的版权人）（依据：Blender 安装里的第三方许可说明 text/license/license.md（OpenImageDenoise 2.5.0：Copyright 2018-2026 Intel Corporation，Apache-2.0；oneTBB v2022.3.0：Copyright (c) 2005-2020 Intel Corporation，Apache-2.0）；Blender 4.5.16 安装里的 license/license.md（OpenImageDenoise 2.3.3：Copyright 2009-2025 Intel Corporation，Apache-2.0；oneTBB v2021.13.0：Copyright (c) 2005-2020 Intel Corporation，Apache-2.0）；oidn crate 2.5.1 与 2.3.3 的 LICENSE.md（都是 MIT，Copyright (c) 2019 Will Usher）；THIRD-PARTY.md 第 14 节）
 - **授权方**：同权利方（OIDN 与 oneTBB 按 Apache-2.0，oidn crate 按 MIT 公开开源许可）
 - **授权范围**：Apache-2.0（OIDN、oneTBB）：允许商业与非商业使用、复制、修改与分发，分发时须随附许可全文与 NOTICE、标明改动；MIT（oidn crate）：允许商业与非商业使用、复制、修改与分发，须保留版权与许可声明
 - **期限**：公开开源许可，无期限
 - **书面证据存放位置**：公开许可，以 Blender 安装里的第三方许可说明、oidn crate 包内 LICENSE.md 与仓库 LICENSES/Apache-2.0.txt、LICENSES/MIT.txt 为准
-- **状态**：公开许可，按许可义务使用；只在核心帧源的 OIDN 构建档（Cargo 特性 oidn，默认档不带）里用：运行时动态链接本机 Blender 安装自带的 OIDN 2.5.0，由它装载 oneTBB；库文件逐个按 sha256 钉在 beiming/sources/core/chassis/oidn-lock.json，构建前与运行前核对。库与编出的程序不入 git、不随仓库分发；现在只在本机与 5090 上做降噪对拍
+- **状态**：公开许可，按许可义务使用；只在核心帧源的 OIDN 构建档（Cargo 特性 oidn 对 Blender 5.2 自带的 OIDN 2.5.0，oidn23 对 Blender 4.5.16 自带的 OIDN 2.3.3、只在 5090 上；默认档不带）里用：运行时动态链接本机 Blender 安装自带的 OIDN，由它装载 oneTBB；库文件逐个按 sha256 钉在 beiming/sources/core/chassis/oidn-lock.json，构建前与运行前核对。库与编出的程序不入 git、不随仓库分发；现在只在本机与 5090 上做降噪对拍
 - **证据位置**：
   - THIRD-PARTY.md 第 14 节
-  - beiming/sources/core/chassis/oidn-lock.json（两种平台的 Blender 版本、OIDN 版本与逐文件 sha256）
+  - beiming/sources/core/chassis/oidn-lock.json（两种平台的 Blender 版本、OIDN 版本与逐文件 sha256；oidn23 一项是 Blender 4.5.16 / OIDN 2.3.3）
   - beiming/sources/core/path/README.md「降噪的口径」与「链接 Blender 自带的 OIDN」
   - beiming/sources/core/path/Cargo.lock（oidn crate 2.5.1）
+  - beiming/sources/core/path/Cargo-oidn23.lock（oidn crate 2.3.3）
 - **义务与做法**：不把 OIDN、oneTBB 的库文件复制进仓库或随仓库分发；以后要对外分发带 OIDN 的程序或库，随附两份 Apache-2.0 许可（OIDN、oneTBB 各一份）与各自的 NOTICE，并保留 oidn crate 的 MIT 版权与许可声明；把 OIDN 档接进出片链时，起渲染程序之前先核库的 sha256（build.mjs 的 verifyOidnLibs）
 - **agent 规则**：只链接 oidn-lock.json 钉住的那一份库，sha256 对不上就停，不换库、不改锁；不把库文件拷进仓库，也不把编出的 OIDN 档程序提交进 git；要对外分发先问用户
 - **对外分发点**：不随 git 仓库分发：库取本机 Blender 安装自带的那一份，编出的程序放在被忽略的 out/chassis/ 下

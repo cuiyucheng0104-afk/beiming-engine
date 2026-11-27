@@ -3,9 +3,12 @@
 // Denoising Albedo、Denoising Normal 与它自己降噪后的 Combined）；把带噪颜色与两个特征层喂给带 OIDN 的 core-render 的
 // `denoise` 子命令（render-pack 用的同一个 denoise::oidn()，同设备、质量 HIGH、同预过滤），和 Combined 逐像素比。
 //   node beiming/sources/core/chassis/oidn-parity.mjs [--device cpu|cuda|metal] [--prefilter accurate|fast|none] [--spp 16]
-//       [--width 320 --height 240] [--exr 现成的.exr] [--bin core-render] [--rows cycles|exr] [--print]
-// 场景由下面的 SCENE 在 Blender 里现搭（不读任何文件），EXR 与场景不进仓库；记录写 oidn-parity/<平台>-<设备>-<预过滤>.json，随提交入库。
-// Blender 与 OIDN 库照 build.mjs 的 verifyOidnLibs 找、核对（同一个 Blender 安装：它降噪用的库就是核心链接的那一份）。
+//       [--width 320 --height 240] [--exr 现成的.exr] [--bin core-render] [--rows cycles|exr] [--build oidn|oidn23] [--print]
+// 场景由下面的 SCENE 在 Blender 里现搭（不读任何文件），EXR 与场景不进仓库；记录写 oidn-parity/<平台>-<设备>-<预过滤>.json（--build oidn23
+// 写 <平台>-oidn23-<设备>-<预过滤>.json），随提交入库。
+// Blender 与 OIDN 库照 build.mjs 的 verifyOidnLibs 找、核对（同一个 Blender 安装：它降噪用的库就是核心链接的那一份）。--build 选构建档：
+// oidn（默认）对 Blender 5.2 与 OIDN 2.5，oidn23 对 Blender 4.5 与 OIDN 2.3（BEIMING_BLENDER 指向 Blender 4.5，或 BEIMING_OIDN_LIB 指向它的 lib）；
+// 渲参考的 Blender 报的版本与锁文件这一项的不同就不比（退出码 3）。
 // 行序：EXR 第一行是画面最上面一行；Cycles 的渲染缓冲第一行是最下面一行，OIDN 拿到的是后者，所以喂进去之前上下翻过来（--rows
 // cycles，默认），出来再翻回去；卷积网络对上下翻转不是逐位不变的。--rows exr 不翻，查口径用。
 // 判据：每个分量 |核心 − Combined| ≤ 1e-3 × max(1, |Combined|)（暗处看绝对差，亮处看相对差）。另记最大绝对差与最大相对差
@@ -17,6 +20,7 @@ import console from 'node:console';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { buildOidnRenderer, findBlender, verifyOidnLibs } from './build.mjs';
@@ -86,7 +90,8 @@ t = cam.constraints.new('TRACK_TO')
 t.target = bpy.data.objects['Sphere']
 sc.camera = cam
 f = sc.render.image_settings
-f.media_type = 'MULTI_LAYER_IMAGE'
+if hasattr(f, 'media_type'):  # Blender 5 才有；4.5 直接设 file_format
+    f.media_type = 'MULTI_LAYER_IMAGE'
 f.file_format, f.color_depth, f.exr_codec = 'OPEN_EXR_MULTILAYER', '32', 'NONE'
 sc.render.filepath = out
 bpy.ops.render.render(write_still=True)
@@ -94,7 +99,7 @@ print('BEIMING_BLENDER_VERSION', bpy.app.version_string)
 `;
 
 /**
- * 读 Blender 5 存的多层 EXR：多部件（版本标志 0x1000，每个通道一个部件）、扫描线、不压缩、32 位浮点。verify/exr 的 readExr
+ * 读 Blender 存的多层 EXR：Blender 5 是多部件（版本标志 0x1000，每个通道一个部件），4.5 是单部件；扫描线、不压缩、32 位浮点。verify/exr 的 readExr
  * 只认单部件，这里只为对拍读一份 Blender 自己写的文件，别的写法一律拒绝。返回 { width, height, channels: { 名: Float32Array } }。
  */
 export function readBlenderExr(bytes) {
@@ -182,9 +187,9 @@ export function compare(ours, ref, width) {
 
 /** 命令行；返回退出码 */
 export function main(argv) {
-  const { values: o } = parseArgs({ args: argv, options: Object.fromEntries(['device', 'prefilter', 'spp', 'width', 'height', 'exr', 'bin', 'rows'].map(k => [k, { type: 'string' }]).concat([['print', { type: 'boolean' }]])) });
-  const device = o.device ?? 'cpu', prefilter = o.prefilter ?? 'accurate', rows = o.rows ?? 'cycles';
-  if (!['cpu', 'cuda', 'metal'].includes(device) || !['accurate', 'fast', 'none'].includes(prefilter) || !['cycles', 'exr'].includes(rows)) throw usage('--device cpu|cuda|metal，--prefilter accurate|fast|none，--rows cycles|exr');
+  const { values: o } = parseArgs({ args: argv, options: Object.fromEntries(['device', 'prefilter', 'spp', 'width', 'height', 'exr', 'bin', 'rows', 'build'].map(k => [k, { type: 'string' }]).concat([['print', { type: 'boolean' }]])) });
+  const device = o.device ?? 'cpu', prefilter = o.prefilter ?? 'accurate', rows = o.rows ?? 'cycles', build = o.build ?? 'oidn';
+  if (!['cpu', 'cuda', 'metal'].includes(device) || !['accurate', 'fast', 'none'].includes(prefilter) || !['cycles', 'exr'].includes(rows) || !['oidn', 'oidn23'].includes(build)) throw usage('--device cpu|cuda|metal，--prefilter accurate|fast|none，--rows cycles|exr，--build oidn|oidn23');
   const [spp, width, height] = [['spp', 16], ['width', 320], ['height', 240]].map(([k, d]) => {
     const n = Number(o[k] ?? d);
     if (!Number.isInteger(n) || n <= 0) throw usage(`--${k} 要正整数`);
@@ -192,8 +197,8 @@ export function main(argv) {
   });
   let lib, built;
   try {
-    lib = verifyOidnLibs();
-    built = o.bin ? { bin: o.bin, key: null } : buildOidnRenderer();
+    lib = verifyOidnLibs(process.env, build);
+    built = o.bin ? { bin: o.bin, key: null } : buildOidnRenderer(process.env, build);
   } catch (e) {
     throw Object.assign(e, { exit: e.missing ? 3 : 1 });
   }
@@ -209,6 +214,7 @@ export function main(argv) {
       const r = spawnSync(bin, ['-b', '--factory-startup', '-noaudio', '--python-exit-code', '1', '--python', script, '--', exrFile, device, prefilter, String(spp), String(width), String(height)], { encoding: 'utf8', maxBuffer: 1 << 26 });
       if (r.status !== 0 || !fs.existsSync(exrFile)) throw Object.assign(new Error(`Blender 没渲出来：${(r.stdout + r.stderr).trim().split('\n').slice(-5).join(' ')}`), { exit: 3 });
       blender = r.stdout.match(/BEIMING_BLENDER_VERSION (\S+)/)?.[1] ?? null;
+      if (blender !== lib.entry.blender) throw Object.assign(new Error(`渲参考的 Blender 是 ${blender}，锁文件这一项（${build}）的库是 Blender ${lib.entry.blender} 自带的：设 BEIMING_BLENDER 指向 Blender ${lib.entry.blender}`), { exit: 3 });
     }
     const bytes = fs.readFileSync(exrFile);
     const exr = readBlenderExr(bytes);
@@ -227,16 +233,16 @@ export function main(argv) {
     // 不降噪的差：同一个判据下带噪颜色离 Combined 多远，说明这一帧的降噪确实动了画面
     const noisy = compare(inputs.color, ref, w);
     const record = {
-      format: 'core-oidn-parity/0.1', platform: lib.platform, blender: blender ?? lib.entry.blender, oidn: lib.entry.oidn,
+      format: 'core-oidn-parity/0.1', platform: lib.platform, build, blender: blender ?? lib.entry.blender, oidn: lib.entry.oidn,
       oidnLibs: Object.fromEntries(Object.entries(lib.entry.files).filter(([f]) => f.startsWith('libOpenImageDenoise'))),
       kernel: built.key, device, prefilter, quality: 'high', rows, spp, width: w, height: h, exrSha256: sha256(bytes), sceneSha256: o.exr ? null : sha256(SCENE),
       tolerance: TOLERANCE, maxAbs: cmp.maxAbs, maxRel: cmp.maxRel, worst: cmp.worst, pass: cmp.pass, bitwiseEqual: cmp.maxAbs === 0,
       noisyVsCombined: { maxAbs: noisy.maxAbs, maxRel: noisy.maxRel }, denoiseMs: stats.denoise_ms,
     };
-    console.log(`${lib.platform} ${device} ${prefilter}：最大绝对差 ${cmp.maxAbs}，最大相对差 ${cmp.maxRel}，${cmp.pass ? '过' : '不过'}（判据 ${TOLERANCE}；带噪颜色对 Combined 的最大绝对差 ${noisy.maxAbs}）`);
+    console.log(`${lib.platform} ${build} ${device} ${prefilter}：最大绝对差 ${cmp.maxAbs}，最大相对差 ${cmp.maxRel}，${cmp.pass ? '过' : '不过'}（判据 ${TOLERANCE}；带噪颜色对 Combined 的最大绝对差 ${noisy.maxAbs}）`);
     if (o.print) console.log(JSON.stringify(record, null, 1));
     else {
-      const file = path.join(RECORDS, `${lib.platform}-${device}-${prefilter}.json`);
+      const file = path.join(RECORDS, `${lib.platform}${build === 'oidn' ? '' : `-${build}`}-${device}-${prefilter}.json`);
       fs.mkdirSync(RECORDS, { recursive: true });
       fs.writeFileSync(file, `${JSON.stringify(record, null, 1)}\n`);
       console.log(`写到 ${file}`);

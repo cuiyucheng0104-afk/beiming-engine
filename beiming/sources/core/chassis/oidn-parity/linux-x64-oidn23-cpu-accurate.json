@@ -1,0 +1,45 @@
+{
+ "format": "core-oidn-parity/0.1",
+ "platform": "linux-x64",
+ "build": "oidn23",
+ "blender": "4.5.16",
+ "oidn": "2.3.3",
+ "oidnLibs": {
+  "libOpenImageDenoise.so": "9a220453d6a7ea32a036559e6579768a312653c9da12b819282f91bf8b2acc11",
+  "libOpenImageDenoise.so.2": "9a220453d6a7ea32a036559e6579768a312653c9da12b819282f91bf8b2acc11",
+  "libOpenImageDenoise.so.2.3.3": "9a220453d6a7ea32a036559e6579768a312653c9da12b819282f91bf8b2acc11",
+  "libOpenImageDenoise_core.so.2.3.3": "5ee271c174239386fa68fcad392a0f3e054aefeb9bc36741d409553b06fc09a3",
+  "libOpenImageDenoise_device_cpu.so.2.3.3": "5aeb212937a174a5990242556716db737462a15846cf99f4e77c825e7e48d3fb",
+  "libOpenImageDenoise_device_cuda.so.2.3.3": "82521b91a0efb74b5bddbd0976e4cfb42438cb593635120a8727adbfd79edfe8",
+  "libOpenImageDenoise_device_hip.so.2.3.3": "0739c3c606009b47a40bd4c541338ce6d457334153fccc0240911f4891cbb17a",
+  "libOpenImageDenoise_device_sycl.so.2.3.3": "5b9219bb7a5a36774a2174cbfcb4ec52a20f25f856c13b5a624ea7a66838ff0f"
+ },
+ "kernel": "a450ac0f8f410835",
+ "device": "cpu",
+ "prefilter": "accurate",
+ "quality": "high",
+ "rows": "cycles",
+ "spp": 16,
+ "width": 320,
+ "height": 240,
+ "exrSha256": "805035e15f54c3a6d6c3a2c4ecd3f146ee9786da7b95517351365dab3dc3c0aa",
+ "sceneSha256": "376797a30ea985c51d602d933dda2020ad8cbc9de16a75b6d27d39f8a8637be6",
+ "tolerance": 0.001,
+ "maxAbs": 0.0001678466796875,
+ "maxRel": 0.000005060780318250983,
+ "worst": {
+  "ratio": 0.005060780318250983,
+  "x": 88,
+  "y": 197,
+  "component": "B",
+  "ours": 1.7195439338684082,
+  "ref": 1.7195526361465454
+ },
+ "pass": true,
+ "bitwiseEqual": false,
+ "noisyVsCombined": {
+  "maxAbs": 8.562614440917969,
+  "maxRel": 2.600892897777739
+ },
+ "denoiseMs": 137.8
+}

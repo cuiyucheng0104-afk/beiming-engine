@@ -23,7 +23,7 @@ export const PRESETS = path.join(KERNEL, 'presets');
 export const SHADERS = ['microfacet.wgsl', 'util.wgsl', 'area_light.wgsl', 'ggx_tables.wgsl', 'imaging.wgsl'];
 /** 进构建的东西（相对 beiming/sources/core/）：内核的清单、锁、工具链、源码、着色器、预设，加上五个移植的着色器与
  *  内核 include_str! 读的广义 Schlick 两张表的数据（path/src/lib.rs 的 ggx_gen_schlick_tables） */
-const INPUTS = ['path/Cargo.toml', 'path/Cargo.lock', 'path/rust-toolchain.toml', 'path/src', 'path/shaders', 'path/presets', ...SHADERS.map(f => `shaders/${f}`), 'shaders/ggx_gen_schlick.tables'];
+const INPUTS = ['path/Cargo.toml', 'path/Cargo.lock', 'path/Cargo-oidn23.lock', 'path/rust-toolchain.toml', 'path/src', 'path/shaders', 'path/presets', ...SHADERS.map(f => `shaders/${f}`), 'shaders/ggx_gen_schlick.tables'];
 const EXE = process.platform === 'win32' ? '.exe' : '';
 
 export const COMMIT = 'c946cc96bdb08979224e851a7fc67a066b1b456b';
@@ -150,6 +150,27 @@ export function freshTarget(target, key, cwd = KERNEL) {
 /** 带 OIDN 的构建档用的库：lib 目录（环境变量 BEIMING_OIDN_LIB；没设时从 Blender 找：BEIMING_BLENDER、macOS 的应用目录、PATH 里的
  *  blender，取它真实路径旁的库目录：macOS 是 Contents/Resources/lib，Linux 是可执行文件同级的 lib/）与 oidn-lock.json 里这个平台的一项 */
 export const OIDN_LOCK = path.join(HERE, 'oidn-lock.json');
+/**
+ * 带 OIDN 的两档，按 cargo 特性名：oidn 链 Blender 5.2 自带的 OIDN 2.5（锁文件的顶层），oidn23 链 Blender 4.5 自带的 OIDN 2.3（锁文件的
+ * oidn23 一项）。oidn23 不能和 oidn 写在同一份清单里（同名 crate 两个兼容版本、同一个 links），构建时把内核拷到 out/ 下，照
+ * manifest 改清单、换上 lock 编（见 path/Cargo.toml 的说明）。
+ */
+export const OIDN_BUILDS = {
+  oidn: { target: 'target-oidn' },
+  oidn23: {
+    target: 'target-oidn23',
+    lock: 'path/Cargo-oidn23.lock',
+    manifest: [
+      { file: 'path/Cargo.toml', from: 'oidn = { version = "2.5", optional = true }', to: 'oidn = { version = "=2.3.3", optional = true }' },
+      { file: 'path/Cargo.toml', from: 'oidn = ["dep:oidn"]', to: 'oidn23 = ["dep:oidn"]' },
+    ],
+  },
+};
+
+function oidnBuild(build) {
+  if (!(build in OIDN_BUILDS)) throw new Error(`没有 ${build} 这个 OIDN 构建档（有：${Object.keys(OIDN_BUILDS).join('、')}）`);
+  return OIDN_BUILDS[build];
+}
 const MAC_BLENDER = '/Applications/Blender.app/Contents/MacOS/Blender';
 
 /** Blender 的可执行文件：BEIMING_BLENDER 写了只认它，否则 macOS 的应用目录、PATH 里的 blender；找不到是 null */
@@ -171,10 +192,12 @@ function blenderLibDir(env = process.env) {
  * 对不上都抛 env 类的错（.missing，退出码 3）：缺库报 env.missing-tool；库都在、但有 sha256 对不上或多出锁文件里没有的库报
  * env.lib-mismatch（帧源接口契约 5.15：不得换一份库照常出帧）。返回 { dir, platform, entry }。构建前与运行带 OIDN 的程序前都要过这一道。
  */
-export function verifyOidnLibs(env = process.env) {
+export function verifyOidnLibs(env = process.env, build = 'oidn') {
+  oidnBuild(build);
   const platform = `${process.platform}-${process.arch}`;
-  const entry = JSON.parse(fs.readFileSync(OIDN_LOCK, 'utf8')).platforms[platform];
-  if (!entry) throw Object.assign(missing(`oidn-lock.json 里没有 ${platform} 这个平台的库`), { code: 'env.missing-tool' });
+  const lock = JSON.parse(fs.readFileSync(OIDN_LOCK, 'utf8'));
+  const entry = (build === 'oidn' ? lock : lock[build])?.platforms?.[platform];
+  if (!entry) throw Object.assign(missing(`oidn-lock.json 里没有 ${platform} 这个平台的库（构建档 ${build}）`), { code: 'env.missing-tool' });
   const dir = blenderLibDir(env);
   if (!dir || !fs.existsSync(dir)) throw Object.assign(missing(`找不到 OIDN 的库目录（${dir ?? '没找到 Blender'}）：设 BEIMING_OIDN_LIB 指向 Blender 的 lib 目录，或 BEIMING_BLENDER 指向 Blender ${entry.blender}`), { code: 'env.missing-tool' });
   const have = fs.readdirSync(dir).filter(f => /^lib(OpenImageDenoise|tbb)/.test(f)).sort();
@@ -185,34 +208,56 @@ export function verifyOidnLibs(env = process.env) {
     ...have.filter(f => f in entry.files && sha256(fs.readFileSync(path.join(dir, f))) !== entry.files[f]).map(f => `${f} 的 sha256 对不上`),
   ];
   if (problems.length) throw Object.assign(missing(`OIDN 库与 oidn-lock.json（${platform}，Blender ${entry.blender} 自带的 OIDN ${entry.oidn}）对不上：${problems.join('；')}（目录 ${dir}）`), { code: absent.length ? 'env.missing-tool' : 'env.lib-mismatch' });
-  return { dir, platform, entry };
+  return { dir, platform, entry, build };
 }
 
 /**
- * 带 OIDN 的构建档（默认档不变）：核对库之后 `cargo rustc --features oidn`，OIDN_DIR 设成库目录的上一级（oidn crate 的构建脚本
- * 认它，把 $OIDN_DIR/lib 加进链接路径、链接 OpenImageDenoise；不走 pkg-config，不开 bundled），只给 core-render 这一个程序加
- * rpath 指向库目录，运行时不靠 DYLD_LIBRARY_PATH / LD_LIBRARY_PATH。构建目录另用 out/chassis/target-oidn；程序名的摘要把锁文件的
- * 这一项算进去，与默认档分开存。返回 { bin, key, shaders, built, oidn: { dir, platform } }。
+ * 带 OIDN 的构建档（默认档不变）：核对库之后 `cargo rustc --features <build>`，OIDN_DIR 设成库目录的上一级（oidn crate 2.5.1 与
+ * 2.3.3 的构建脚本都认它，把 $OIDN_DIR/lib 加进链接路径、链接 OpenImageDenoise；不走 pkg-config，不开 bundled），只给 core-render
+ * 这一个程序加 rpath 指向库目录，运行时不靠 DYLD_LIBRARY_PATH / LD_LIBRARY_PATH。构建目录另用 out/chassis/target-oidn（oidn23 是
+ * target-oidn23，源码拷在 out/chassis/oidn23/）；程序名的摘要把构建档与锁文件的这一项算进去，与默认档分开存。
+ * 返回 { bin, key, shaders, built, oidn: { dir, platform, build } }。
  */
-export function buildOidnRenderer(env = process.env) {
-  const lib = verifyOidnLibs(env);
+export function buildOidnRenderer(env = process.env, build = 'oidn') {
+  const spec = oidnBuild(build);
+  const lib = verifyOidnLibs(env, build);
   if (path.basename(lib.dir) !== 'lib') throw Object.assign(missing(`OIDN 的库目录要叫 lib（oidn crate 链接 $OIDN_DIR/lib）：${lib.dir}`), { code: 'env.missing-tool' });
   const problems = singleCopyProblems();
   if (problems.length) throw new Error(`拒绝编译：${problems.join('；')}`);
   const shaders = SHADERS.map(f => ({ file: `shaders/${f}`, sha256: sha256(fs.readFileSync(path.join(CORE, 'shaders', f))) }));
-  const key = sourceKey([{ oidn: lib.platform, files: lib.entry.files }]);
+  const key = sourceKey([{ build, oidn: lib.platform, files: lib.entry.files }]);
   const bin = path.join(OUT, 'bin', `core-render-${key}${EXE}`);
-  const oidn = { dir: lib.dir, platform: lib.platform };
+  const oidn = { dir: lib.dir, platform: lib.platform, build };
   if (fs.existsSync(bin)) return { bin, key, shaders, built: false, oidn };
-  const target = path.join(OUT, 'target-oidn');
-  freshTarget(target, key);
-  const r = sh(cargoPath(), cargoNet(['rustc', '--locked', '--release', '--features', 'oidn', '--bin', 'core-render', '--', '-C', `link-arg=-Wl,-rpath,${lib.dir}`]),
-    { cwd: KERNEL, stdio: ['ignore', 'ignore', 'pipe'], env: { ...process.env, CARGO_TARGET_DIR: target, OIDN_DIR: path.dirname(lib.dir) } });
+  const target = path.join(OUT, spec.target);
+  const root = spec.manifest ? stage(path.join(OUT, build), spec.manifest, spec.lock) : CORE;
+  freshTarget(target, key, path.join(root, 'path'));
+  const r = sh(cargoPath(), cargoNet(['rustc', '--locked', '--release', '--features', build, '--bin', 'core-render', '--', '-C', `link-arg=-Wl,-rpath,${lib.dir}`]),
+    { cwd: path.join(root, 'path'), stdio: ['ignore', 'ignore', 'pipe'], env: { ...process.env, CARGO_TARGET_DIR: target, OIDN_DIR: path.dirname(lib.dir) } });
   if (r.status !== 0) throw new Error(`带 OIDN 的内核编不过：\n${r.stderr.split('\n').slice(-40).join('\n')}`);
   fs.mkdirSync(path.dirname(bin), { recursive: true });
   fs.copyFileSync(path.join(target, 'release', `core-render${EXE}`), `${bin}.tmp`);
   fs.renameSync(`${bin}.tmp`, bin);
   return { bin, key, shaders, built: true, oidn };
+}
+
+/**
+ * 把进构建的文件拷到 root 下（相对路径不变），照 inject（[{ file, from, to }]，from 必须恰好出现一次）改；给了 lock（相对
+ * beiming/sources/core/ 的文件）就拿它换掉拷过去的 path/Cargo.lock。返回 root。工作树不动。
+ */
+export function stage(root, inject, lock) {
+  fs.rmSync(root, { recursive: true, force: true });
+  for (const f of inputFiles()) {
+    fs.mkdirSync(path.dirname(path.join(root, f)), { recursive: true });
+    fs.copyFileSync(path.join(CORE, f), path.join(root, f));
+  }
+  for (const { file, from, to } of inject) {
+    const p = path.join(root, file), text = fs.readFileSync(p, 'utf8');
+    if (text.split(from).length !== 2) throw new Error(`注入：${file} 里「${from}」不是恰好出现一次`);
+    fs.writeFileSync(p, text.replace(from, to));
+  }
+  if (lock) fs.copyFileSync(path.join(CORE, lock), path.join(root, 'path', 'Cargo.lock'));
+  return root;
 }
 
 /**
@@ -222,7 +267,6 @@ export function buildOidnRenderer(env = process.env) {
 export function buildRenderer({ inject = [] } = {}) {
   const problems = singleCopyProblems();
   if (problems.length) throw new Error(`拒绝编译：${problems.join('；')}`);
-  const files = inputFiles();
   const shaders = SHADERS.map(f => ({ file: `shaders/${f}`, sha256: sha256(fs.readFileSync(path.join(CORE, 'shaders', f))) }));
   const key = sourceKey(inject);
   const bin = path.join(OUT, 'bin', `core-render-${key}${EXE}`);
@@ -231,18 +275,8 @@ export function buildRenderer({ inject = [] } = {}) {
   // 负对照另用一个构建目录：同一个包从两处源码编，共用一个目录时留下的程序是哪一处的说不清
   let root = CORE, target = path.join(OUT, 'target');
   if (inject.length) {
-    root = path.join(OUT, 'inject', 'src');
+    root = stage(path.join(OUT, 'inject', 'src'), inject);
     target = path.join(OUT, 'inject', 'target');
-    fs.rmSync(root, { recursive: true, force: true });
-    for (const f of files) {
-      fs.mkdirSync(path.dirname(path.join(root, f)), { recursive: true });
-      fs.copyFileSync(path.join(CORE, f), path.join(root, f));
-    }
-    for (const { file, from, to } of inject) {
-      const p = path.join(root, file), text = fs.readFileSync(p, 'utf8');
-      if (text.split(from).length !== 2) throw new Error(`注入：${file} 里「${from}」不是恰好出现一次`);
-      fs.writeFileSync(p, text.replace(from, to));
-    }
   }
   freshTarget(target, key, path.join(root, 'path'));
   const r = sh(cargoPath(), cargoNet(['build', '--locked', '--release', '--bin', 'core-render']), { cwd: path.join(root, 'path'), stdio: ['ignore', 'ignore', 'pipe'], env: { ...process.env, CARGO_TARGET_DIR: target } });

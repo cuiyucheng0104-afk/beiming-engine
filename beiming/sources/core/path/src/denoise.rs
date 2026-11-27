@@ -128,21 +128,18 @@ impl Prefilter {
 /// 不归一；质量 `HIGH`，预过滤的两个过滤器也是。颜色原地输出。`cleanAux` 直接经 C 接口按 OIDN 的参数名设：`oidn` crate 2.5.1
 /// 的 `RayTracing::clean_aux` 设的名字是 `clean_aux`，OIDN 2.5 不认（只认 `cleanAux`），设了等于没设；单独降噪辅助层
 /// 这个 crate 也没有接口。所以整段都走 crate 的 C 绑定（`oidn::sys`），设备与缓冲用 crate 的安全接口。
-#[cfg(feature = "oidn")]
+/// 两档（特性 `oidn` 链 crate 2.5.1 与 OIDN 2.5；特性 `oidn23` 链 crate 2.3.3 与 OIDN 2.3，清单由 ../chassis/build.mjs 生成）
+/// 用同一段：两版 C 绑定里用到的函数、参数名、`OIDN_FORMAT_FLOAT3` 与 `OIDN_QUALITY_HIGH`（6）都一样，2.3.3 的 `RayTracing`
+/// 同样把 `cleanAux` 写成 `clean_aux`；差别只在安全接口的返回值，见下面的 `api`。
+#[cfg(any(feature = "oidn", feature = "oidn23"))]
 pub fn oidn(w: usize, h: usize, color: &[Vec3], albedo: &[Vec3], normal: &[Vec3], device: OidnDevice, prefilter: Prefilter) -> Result<Vec<Vec3>, String> {
     use oidn::sys::*;
-    let dev = match device {
-        OidnDevice::Cpu => oidn::Device::cpu(),
-        OidnDevice::Cuda => oidn::Device::cuda(),
-        OidnDevice::Metal => oidn::Device::metal(),
-        OidnDevice::Default => oidn::Device::new(),
-    }
-    .map_err(|e| format!("建不了 OIDN 设备（{device:?}）：{e}"))?;
-    let buf = |v: &[Vec3]| dev.create_buffer(&v.iter().flat_map(|c| [c.x, c.y, c.z]).collect::<Vec<f32>>()).map_err(|e| format!("OIDN 缓冲：{e}"));
+    let dev = api::device(device).map_err(|e| format!("建不了 OIDN 设备（{device:?}）：{e}"))?;
+    let buf = |v: &[Vec3]| api::buffer(&dev, &v.iter().flat_map(|c| [c.x, c.y, c.z]).collect::<Vec<f32>>()).map_err(|e| format!("OIDN 缓冲：{e}"));
     let (c, a, n) = (buf(color)?, buf(albedo)?, buf(normal)?);
     // 一个 RT 过滤器：inputs 是 (图名, 缓冲)，输出写进 out；color 为真时是颜色那一遍（hdr、srgb、cleanAux）
     let run = |inputs: &[(&std::ffi::CStr, &oidn::Buffer)], out: &oidn::Buffer, color: bool, clean_aux: bool| -> Result<(), String> {
-        dev.get_error().map_err(|e| format!("OIDN 之前的错：{e}"))?;
+        api::check(&dev).map_err(|e| format!("OIDN 之前的错：{e}"))?;
         unsafe {
             let f = oidnNewFilter(dev.raw(), c"RT".as_ptr());
             if f.is_null() {
@@ -161,18 +158,72 @@ pub fn oidn(w: usize, h: usize, color: &[Vec3], albedo: &[Vec3], normal: &[Vec3]
             oidnExecuteFilter(f);
             oidnReleaseFilter(f);
         }
-        dev.get_error().map_err(|e| format!("OIDN：{e}"))
+        api::check(&dev).map_err(|e| format!("OIDN：{e}"))
     };
     if prefilter == Prefilter::Accurate {
         run(&[(c"albedo", &a)], &a, false, false)?;
         run(&[(c"normal", &n)], &n, false, false)?;
     }
     run(&[(c"color", &c), (c"albedo", &a), (c"normal", &n)], &c, true, prefilter != Prefilter::Fast)?;
-    let out = c.read().map_err(|e| format!("读回 OIDN 的输出：{e}"))?;
+    let out = api::read(&c).map_err(|e| format!("读回 OIDN 的输出：{e}"))?;
     Ok(out.chunks(3).map(|p| Vec3::new(p[0], p[1], p[2])).collect())
 }
 
-#[cfg(not(feature = "oidn"))]
+#[cfg(all(feature = "oidn", feature = "oidn23"))]
+compile_error!("特性 oidn（OIDN 2.5）与 oidn23（OIDN 2.3）只能开一个：两档链接不同版本的库，crate 也是同名的两个版本");
+
+/// crate 2.5.1 的安全接口：设备、缓冲、读回都返回 `Result<_, oidn::Error>`
+#[cfg(feature = "oidn")]
+mod api {
+    use super::OidnDevice;
+    pub fn device(d: OidnDevice) -> Result<oidn::Device, String> {
+        match d {
+            OidnDevice::Cpu => oidn::Device::cpu(),
+            OidnDevice::Cuda => oidn::Device::cuda(),
+            OidnDevice::Metal => oidn::Device::metal(),
+            OidnDevice::Default => oidn::Device::new(),
+        }
+        .map_err(|e| e.to_string())
+    }
+    pub fn buffer(dev: &oidn::Device, v: &[f32]) -> Result<oidn::Buffer, String> {
+        dev.create_buffer(v).map_err(|e| e.to_string())
+    }
+    pub fn check(dev: &oidn::Device) -> Result<(), String> {
+        dev.get_error().map_err(|e| e.to_string())
+    }
+    pub fn read(b: &oidn::Buffer) -> Result<Vec<f32>, String> {
+        b.read().map_err(|e| e.to_string())
+    }
+}
+
+/// crate 2.3.3 的安全接口：`Device::cpu()`、`new()` 直接返回设备（不查空句柄，所以建完先查一次错），`cuda()`、`metal()` 返回
+/// `Option`；`create_buffer` 返回 `Option`，`read` 直接返回数据；`get_error` 的错是（错误码，库给的说明）
+#[cfg(feature = "oidn23")]
+mod api {
+    use super::OidnDevice;
+    pub fn device(d: OidnDevice) -> Result<oidn::Device, String> {
+        let dev = match d {
+            OidnDevice::Cpu => Some(oidn::Device::cpu()),
+            OidnDevice::Cuda => oidn::Device::cuda(),
+            OidnDevice::Metal => oidn::Device::metal(),
+            OidnDevice::Default => Some(oidn::Device::new()),
+        }
+        .ok_or("库没建出这类设备")?;
+        check(&dev)?;
+        Ok(dev)
+    }
+    pub fn buffer(dev: &oidn::Device, v: &[f32]) -> Result<oidn::Buffer, String> {
+        dev.create_buffer(v).ok_or_else(|| check(dev).err().unwrap_or_else(|| "建不了缓冲".into()))
+    }
+    pub fn check(dev: &oidn::Device) -> Result<(), String> {
+        dev.get_error().map_err(|(e, msg)| format!("{e:?}：{msg}"))
+    }
+    pub fn read(b: &oidn::Buffer) -> Result<Vec<f32>, String> {
+        Ok(b.read())
+    }
+}
+
+#[cfg(not(any(feature = "oidn", feature = "oidn23")))]
 pub fn oidn(_w: usize, _h: usize, _c: &[Vec3], _a: &[Vec3], _n: &[Vec3], _d: OidnDevice, _p: Prefilter) -> Result<Vec<Vec3>, String> {
-    Err("这个程序没编进 OIDN（cargo 特性 oidn）".into())
+    Err("这个程序没编进 OIDN（cargo 特性 oidn 或 oidn23）".into())
 }

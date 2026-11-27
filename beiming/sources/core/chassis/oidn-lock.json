@@ -39,5 +39,34 @@
     "libtbbmalloc_proxy.so.2.17": "162ebd71b3859d52cf22596d05b4c2718e3de936360896e256b11be6f35f3965"
    }
   }
+ },
+ "oidn23": {
+  "about": "OIDN 2.3 那一档（cargo 特性 oidn23，build.mjs 的 buildOidnRenderer(env, 'oidn23')）：Blender 4.5 自带的 OIDN 2.3.3 与 oneTBB，核对办法同上。Mac 上没有 Blender 4.5，只有 linux-x64 一项。",
+  "crate": "oidn 2.3.3",
+  "platforms": {
+   "linux-x64": {
+    "blender": "4.5.16",
+    "oidn": "2.3.3",
+    "files": {
+     "libOpenImageDenoise.so": "9a220453d6a7ea32a036559e6579768a312653c9da12b819282f91bf8b2acc11",
+     "libOpenImageDenoise.so.2": "9a220453d6a7ea32a036559e6579768a312653c9da12b819282f91bf8b2acc11",
+     "libOpenImageDenoise.so.2.3.3": "9a220453d6a7ea32a036559e6579768a312653c9da12b819282f91bf8b2acc11",
+     "libOpenImageDenoise_core.so.2.3.3": "5ee271c174239386fa68fcad392a0f3e054aefeb9bc36741d409553b06fc09a3",
+     "libOpenImageDenoise_device_cpu.so.2.3.3": "5aeb212937a174a5990242556716db737462a15846cf99f4e77c825e7e48d3fb",
+     "libOpenImageDenoise_device_cuda.so.2.3.3": "82521b91a0efb74b5bddbd0976e4cfb42438cb593635120a8727adbfd79edfe8",
+     "libOpenImageDenoise_device_hip.so.2.3.3": "0739c3c606009b47a40bd4c541338ce6d457334153fccc0240911f4891cbb17a",
+     "libOpenImageDenoise_device_sycl.so.2.3.3": "5b9219bb7a5a36774a2174cbfcb4ec52a20f25f856c13b5a624ea7a66838ff0f",
+     "libtbb.so": "961d3a027b7cd4b74aea59380bb83c601f0cda27b525c741ba2f50defd0c9c6f",
+     "libtbb.so.12": "961d3a027b7cd4b74aea59380bb83c601f0cda27b525c741ba2f50defd0c9c6f",
+     "libtbb.so.12.13": "961d3a027b7cd4b74aea59380bb83c601f0cda27b525c741ba2f50defd0c9c6f",
+     "libtbbmalloc.so": "a3c315b0121624af8e5bcb26b361ec794e91e4fff5b1580b1a5e4ad04ab321f6",
+     "libtbbmalloc.so.2": "a3c315b0121624af8e5bcb26b361ec794e91e4fff5b1580b1a5e4ad04ab321f6",
+     "libtbbmalloc.so.2.13": "a3c315b0121624af8e5bcb26b361ec794e91e4fff5b1580b1a5e4ad04ab321f6",
+     "libtbbmalloc_proxy.so": "816c390d88b6b40977fbf069ceed5289faddaf614de41f01d419f9be1613c85c",
+     "libtbbmalloc_proxy.so.2": "816c390d88b6b40977fbf069ceed5289faddaf614de41f01d419f9be1613c85c",
+     "libtbbmalloc_proxy.so.2.13": "816c390d88b6b40977fbf069ceed5289faddaf614de41f01d419f9be1613c85c"
+    }
+   }
+  }
  }
 }
