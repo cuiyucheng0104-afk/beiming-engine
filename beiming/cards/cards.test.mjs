@@ -1,8 +1,6 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import fs, { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -132,11 +130,6 @@ test('拦截原包路径特征和合成的三类本机绝对路径', () => {
   for (const path of paths) assert.deepEqual(scanCardLeaks({ title: path }), [{ code: 'local-path', path: '/title' }]);
 });
 
-test('普通相对路径写进私有出处字段时也会被拦截', () => {
-  assert.deepEqual(scanCardLeaks({ provenance: { studied: ['synthetic/sample.txt:3'] } }, { checkOverlayFields: true }),
-    [{ code: 'private-overlay-field', path: '/provenance/studied' }]);
-});
-
 test('裸 SHA-256 被拦，只有合法状态报告字段豁免', () => {
   assert.deepEqual(scanCardLeaks({ title: `来源 ${syntheticHash.toUpperCase()}` }), [{ code: 'bare-sha256', path: '/title' }]);
   assert.deepEqual(scanCardLeaks({ status: [{ parityReport }] }), []);
@@ -251,30 +244,6 @@ test('YAML 重复键、别名、私有标签与多文档报错时隐藏文档内
     fs.writeFileSync(join(dir, fullCard.id + '.yaml'), content);
     assert.throws(() => mergeOverlay(fullCard, dir), { message: '私有覆盖层必须是有效的 YAML' });
   }
-});
-
-test('暂存区门禁拦截三类合成泄漏，公开报告哈希和相邻实现文件仍可提交', (t) => {
-  const dir = temporaryDir(t);
-  const cardDir = join(dir, 'beiming', 'cards', 'synthetic', 'probe');
-  fs.mkdirSync(cardDir, { recursive: true });
-  const target = join(cardDir, 'card.json');
-  const git = (...args) => assert.equal(spawnSync('git', args, { cwd: dir }).status, 0);
-  git('init', '-q');
-  const script = fileURLToPath(new URL('../../tools/compliance/scan.mjs', import.meta.url));
-  const scan = () => spawnSync(process.execPath, [script, '--root', dir, '--staged', '--only', 'card-private', '--json'], { encoding: 'utf8' });
-  for (const value of ['实验室' + '/synthetic/sample.txt', syntheticHash, labUrl]) {
-    fs.writeFileSync(target, JSON.stringify({ title: value }));
-    git('add', '--', 'beiming/cards/synthetic/probe/card.json');
-    fs.writeFileSync(target, '{}'); // 工作区已清理，门禁仍须读取索引。
-    const result = scan();
-    assert.equal(result.status, 4);
-    assert.equal(result.stdout.includes(value), false);
-    assert.equal(JSON.parse(result.stdout).result.findings[0].rule, 'comp.card-private');
-  }
-  fs.writeFileSync(target, JSON.stringify({ status: [{ parityReport }] }));
-  fs.writeFileSync(join(cardDir, 'selftest.test.mjs'), JSON.stringify(labUrl));
-  git('add', '--', 'beiming/cards/synthetic/probe');
-  assert.equal(scan().status, 0);
 });
 
 test('20 张合成卡均为合法卡文件', () => {

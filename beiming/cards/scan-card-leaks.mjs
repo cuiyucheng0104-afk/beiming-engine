@@ -1,7 +1,6 @@
 import schema from '../kernel/contracts/card-file/schema/card.schema.json' with { type: 'json' };
 
 const parityReport = new RegExp(schema.properties.status.items.properties.parityReport.pattern);
-const privateField = /^\/(?:provenance\/(?:studied|lab)|verify\/parity\/truth|ablation(?:\/\d+)?\/lab|priors\/\d+\/source)$/;
 const leakPatterns = [
   ['lab-url', /lab:\/\//i],
   ['private-source-path', /原包源码|cards-overlay|exams-hidden|(?:复刻|调研资料|北冥引擎规划|实验室)[\\/]/i],
@@ -10,7 +9,7 @@ const leakPatterns = [
 ];
 
 /** 返回泄露类型和位置，避免把命中的内容回显到日志。 */
-export function scanCardLeaks(cardObjOrText, { checkOverlayFields = false } = {}) {
+export function scanCardLeaks(cardObjOrText) {
   const leaks = [];
   const active = new WeakSet();
 
@@ -27,9 +26,7 @@ export function scanCardLeaks(cardObjOrText, { checkOverlayFields = false } = {}
 
   function childPath(path, key, raw = key) {
     const redact = scanString(key, path, { raw, isKey: true });
-    const next = `${path}/${redact ? '[redacted]' : key.replaceAll('~', '~0').replaceAll('/', '~1')}`;
-    if (checkOverlayFields && privateField.test(next)) leaks.push({ code: 'private-overlay-field', path: next });
-    return next;
+    return `${path}/${redact ? '[redacted]' : key.replaceAll('~', '~0').replaceAll('/', '~1')}`;
   }
 
   function visit(value, path, statusItem = false, isReport = false) {

@@ -20,7 +20,7 @@ import { reuseReport } from './reuse.mjs';
 import { loadAllowlist, applyAllowlist } from './allowlist.mjs';
 import { rightsReport } from './rights.mjs';
 import { docClaims, platesProvenance } from './aigc.mjs';
-import { scanCardLeaks } from '../../../beiming/cards/scan-card-leaks.mjs';
+import { publicCardLeakCodes } from './card-private.mjs';
 import { UsageError } from './cli.mjs';
 
 export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
@@ -90,8 +90,8 @@ export function scanRepository({ root = REPO_ROOT, staged = false, only = null, 
     if (want(CARD_PRIVATE.id) && /^beiming\/cards\/(?:[^/]+\/)+card\.json$/.test(rel)) {
       const entry = read(rel);
       if (entry.text == null) add(CARD_PRIVATE, { file: rel, level: 'error', message: '公开技术卡无法作为文本检查' });
-      else for (const leak of scanCardLeaks(entry.text, { checkOverlayFields: true })) {
-        add(CARD_PRIVATE, { file: rel, level: 'error', message: `公开技术卡含私有内容（${leak.code}）` });
+      else for (const code of publicCardLeakCodes(entry.text)) {
+        add(CARD_PRIVATE, { file: rel, level: 'error', message: `公开技术卡含私有内容（${code}）` });
       }
     }
     if (!contentRules.length) continue;
