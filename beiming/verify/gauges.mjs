@@ -160,15 +160,17 @@ export const relDiff = (a, b) => (b === 0 ? (a === 0 ? 0 : null) : Math.abs(a - 
 
 export { count as maskCount };
 
-/** mask 里两张法线图夹角超过 deg 度的像素数（两边都有法线的才算）：{ count, total } */
+/** mask 里两张法线图夹角超过 deg 度的像素数（两边都有法线的才算）与最大夹角（度）：{ count, total, maxDeg } */
 export function normalMismatch(a, b, mask, deg) {
-  let count = 0, total = 0;
+  let count = 0, total = 0, maxDeg = 0;
   for (let i = 0; i < mask.length; i++) {
     if (!mask[i]) continue;
     const p = unit(a, i), q = unit(b, i);
     if (!p || !q) continue;
     total++;
-    if (angleDeg(p, q) > deg) count++;
+    const d = angleDeg(p, q);
+    if (d > deg) count++;
+    maxDeg = Math.max(maxDeg, d);
   }
-  return { count, total };
+  return { count, total, maxDeg };
 }

@@ -62,8 +62,10 @@ test('圆角法线剖面：同一个圆角过门，没有圆角的硬棱（负�
 
 test('两张法线图不一致的像素：只数掩膜里两边都有法线的', () => {
   const a = field(() => [0, 0, 1]), b = field((x) => (x === 3 ? [0, 0.1, 1] : x === 4 ? [0, 0, 0] : [0, 0, 1]));
-  assert.deepEqual(normalMismatch(a, b, all, 0.05), { count: H, total: W * H - H });
-  assert.deepEqual(normalMismatch(a, a, all, 0.05), { count: 0, total: W * H });
+  const m = normalMismatch(a, b, all, 0.05);
+  assert.deepEqual([m.count, m.total], [H, W * H - H]);
+  assert.ok(Math.abs(m.maxDeg - Math.atan(0.1) * 180 / Math.PI) < 1e-5, `最大夹角 ${m.maxDeg}`);
+  assert.deepEqual(normalMismatch(a, a, all, 0.05), { count: 0, total: W * H, maxDeg: 0 });
 });
 
 test('外扩一个像素', () => {
