@@ -90,7 +90,8 @@ t = cam.constraints.new('TRACK_TO')
 t.target = bpy.data.objects['Sphere']
 sc.camera = cam
 f = sc.render.image_settings
-f.media_type = 'MULTI_LAYER_IMAGE'
+if hasattr(f, 'media_type'):  # Blender 5 才有；4.5 直接设 file_format
+    f.media_type = 'MULTI_LAYER_IMAGE'
 f.file_format, f.color_depth, f.exr_codec = 'OPEN_EXR_MULTILAYER', '32', 'NONE'
 sc.render.filepath = out
 bpy.ops.render.render(write_still=True)
@@ -98,7 +99,7 @@ print('BEIMING_BLENDER_VERSION', bpy.app.version_string)
 `;
 
 /**
- * 读 Blender 5 存的多层 EXR：多部件（版本标志 0x1000，每个通道一个部件）、扫描线、不压缩、32 位浮点。verify/exr 的 readExr
+ * 读 Blender 存的多层 EXR：Blender 5 是多部件（版本标志 0x1000，每个通道一个部件），4.5 是单部件；扫描线、不压缩、32 位浮点。verify/exr 的 readExr
  * 只认单部件，这里只为对拍读一份 Blender 自己写的文件，别的写法一律拒绝。返回 { width, height, channels: { 名: Float32Array } }。
  */
 export function readBlenderExr(bytes) {
