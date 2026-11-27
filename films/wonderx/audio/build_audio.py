@@ -512,11 +512,15 @@ def encode_opus(wav_path: Path, ogg_path: Path, bitrate: str = '56k', mono: bool
     cmd = [
         'ffmpeg', '-y', '-v', 'error',
         '-i', str(wav_path),
+        '-map_metadata', '-1',
+        '-fflags', '+bitexact',
+        '-flags:a', '+bitexact',
         '-c:a', 'libopus',
         '-b:a', bitrate,
         '-vbr', 'on',
         '-compression_level', '10',
         '-application', 'voip' if mono else 'audio',
+        '-serial_offset', '1',
     ]
     if mono:
         cmd += ['-ac', '1']

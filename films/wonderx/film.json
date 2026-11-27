@@ -429,21 +429,42 @@
     }
   ],
   "audio": {
-    "mode": "none",
-    "note": "离线单文件内嵌 3 条 56s 无缝循环高科原创分轨（Opus，基于 composer.py + orchestra.py + 逐文件核验 CC0-1.0 Versilian 采样）、6 条 MIT 程序化拟音，以及默认关闭的 10 句 VoxCPM2 中文精华导览（Opus）。"
+    "mode": "script",
+    "script": "sound.py",
+    "targetLUFS": -14.0,
+    "truePeakDbTP": -1.5,
+    "note": "正式视频导出由 films/wonderx/sound.py 基于同源校验哈希的 films/wonderx/audio/opus 3 条 56s 无缝循环高科原创分轨与 6 条 MIT 程序化拟音按 film.json 整数帧节拍合成（导览配音默认关闭）；离线单文件另内嵌可选默认关闭的 10 句 VoxCPM2 中文精华导览（Opus）。"
   },
   "standalone": {
     "plates": [],
-    "audioManifest": "out/audio/manifest.json",
+    "audioManifest": "audio/manifest.json",
     "provenance": "provenance.json",
     "extraLicenses": [
-      "out/audio/licenses/CC0-vsco2ce-LICENSE.txt",
-      "out/audio/licenses/CC0-vcsl-LICENSE.txt",
-      "out/audio/licenses/Apache-2.0-VoxCPM2-LICENSE.txt"
+      {
+        "name": "Beiming-Engine-MIT-LICENSE.txt",
+        "path": "repo:LICENSE",
+        "sha256": "3b89bc409dc6c5e869fded2b9100ef7d34c65533bd70fc284e473d38b21859ad"
+      },
+      {
+        "name": "CC0-vsco2ce-LICENSE.txt",
+        "path": "audio/licenses/CC0-vsco2ce-LICENSE.txt",
+        "sha256": "36ffd9dc085d529a7e60e1276d73ae5a030b020313e6c5408593a6ae2af39673"
+      },
+      {
+        "name": "CC0-vcsl-LICENSE.txt",
+        "path": "audio/licenses/CC0-vcsl-LICENSE.txt",
+        "sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499"
+      },
+      {
+        "name": "Apache-2.0-VoxCPM2-LICENSE.txt",
+        "path": "audio/licenses/Apache-2.0-VoxCPM2-LICENSE.txt",
+        "sha256": "4f10acc209addacfad28293315c74c4cd648f771ee1263a748f1781d1e0265e4"
+      }
     ]
   },
   "deliveries": [
-    "web-1080p24"
+    "web-1080p24",
+    "uhd-2160p24"
   ],
   "style": {
     "id": "beiming-original",
@@ -453,69 +474,76 @@
     "note": "采用黑曜暗场、拉丝深钛、冰青/暖金舞台光与品牌朱红激光（严禁纸雕与旧纸纹，渲染路径显式 paper:false、kuwahara:false）。"
   },
   "assets": [
+    "local:sound.py",
+    "local:audio/manifest.json",
+    "local:audio/used-samples-audit.json",
+    "local:audio/vo_batch.json",
     "local:audio/build_audio.py",
     "local:audio/pack_vo.py",
     "local:provenance.json"
   ],
   "credits": [
     {
+      "what": "Beiming Engine & WonderX Phase 2 v4 Source Code (3D Scenes, Shaders, HUD, Deck Runtime, Audio Scripts)",
+      "owner": "Copyright (c) 2026 北冥引擎 Beiming Engine",
+      "license": "MIT",
+      "source": "LICENSE (SHA-256 3b89bc409dc6c5e869fded2b9100ef7d34c65533bd70fc284e473d38b21859ad)"
+    },
+    {
       "what": "WX Display (Barlow Condensed Black)",
       "owner": "Copyright 2017 The Barlow Project Authors (https://github.com/jpt/barlow)",
       "license": "OFL-1.1",
-      "source": "fonts/fonts.lock.json"
+      "source": "fonts/fonts.lock.json (OFL-barlow.txt SHA-256 186d750eb496a4c17a76385f82be6aea2ac1cf2de074a811d63786cf374ea73f)"
     },
     {
       "what": "WX Sans (Manrope)",
-      "owner": "Copyright 2019 The Manrope Project Authors (https://github.com/googlefonts/manrope)",
+      "owner": "Copyright 2018 The Manrope Project Authors (OFL-manrope.txt; fonts.lock.json lists 2019, https://github.com/googlefonts/manrope)",
       "license": "OFL-1.1",
-      "source": "fonts/fonts.lock.json"
+      "source": "fonts/fonts.lock.json (OFL-manrope.txt SHA-256 58172e0c0fac2cda8a37b348164bb55e44b0e69051e557e92b1d3f6910141f7b)"
     },
     {
       "what": "WX Serif (Noto Serif CJK SC Bold)",
       "owner": "© 2017-2024 Adobe (http://www.adobe.com/).",
       "license": "OFL-1.1",
-      "source": "fonts/fonts.lock.json"
+      "source": "fonts/fonts.lock.json (OFL-noto-cjk.txt SHA-256 6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2)"
     },
     {
       "what": "WX Text (Noto Sans CJK SC Regular)",
       "owner": "© 2014-2021 Adobe (http://www.adobe.com/).",
       "license": "OFL-1.1",
-      "source": "fonts/fonts.lock.json"
+      "source": "fonts/fonts.lock.json (OFL-noto-cjk.txt SHA-256 6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2)"
     },
     {
       "what": "Three.js 0.170.0 WebGL2 Runtime",
-      "owner": "Three.js Authors",
+      "owner": "Copyright © 2010-2024 three.js authors",
       "license": "MIT",
-      "source": "node_modules/three/LICENSE"
+      "source": "node_modules/three/LICENSE (SHA-256 4c40a1ef62450b857c3b2aaf294936304cd552d965fbcd9d32d4c5bcf4ba4454)"
     },
     {
       "what": "Original Soundtrack Samples (VSCO-2-CE & VCSL: cellos, vibraphone_bowed, glockenspiel, harp, sus_cymbal)",
       "owner": "Versilian Studios",
       "license": "CC0-1.0",
-      "source": "engine/audio/samples.json (30 WAVs + 2 LICENSEs SHA-256 verified)"
+      "source": "engine/audio/samples.json + films/wonderx/audio/used-samples-audit.json (30 WAVs + 2 LICENSEs SHA-256 verified)"
     },
     {
-      "what": "Original Soundtrack Composition & Procedural Foley (composer.py, orchestra.py, procedural.py)",
-      "owner": "Beiming Engine Authors",
+      "what": "Original Soundtrack Composition & Procedural Foley (composer.py, orchestra.py, procedural.py, sound.py)",
+      "owner": "Copyright (c) 2026 北冥引擎 Beiming Engine",
       "license": "MIT",
-      "source": "films/wonderx/audio/build_audio.py"
+      "source": "films/wonderx/audio/build_audio.py & films/wonderx/sound.py"
     },
     {
-      "what": "Optional Chinese Narration (default OFF, 10 cues, ~36.7 s) via openbmb/VoxCPM2 + AudioVAE V2 + voxcpm==2.0.3",
-      "owner": "OpenBMB (pure text --control voice design; zero human reference audio)",
+      "what": "Optional Chinese Narration (default OFF, 10 cues, ~36.744 s) via openbmb/VoxCPM2 + AudioVAE V2 + voxcpm==2.0.3",
+      "owner": "Copyright OpenBMB (pure text --control voice design; zero human reference audio)",
       "license": "Apache-2.0",
-      "source": "https://huggingface.co/openbmb/VoxCPM2 @ 7936080b41163874f38610f46f438e2c0757f9fd"
+      "source": "https://huggingface.co/openbmb/VoxCPM2 @ 7936080b41163874f38610f46f438e2c0757f9fd (Apache-2.0-VoxCPM2-LICENSE.txt SHA-256 4f10acc209addacfad28293315c74c4cd648f771ee1263a748f1781d1e0265e4)"
     }
   ],
   "aigc": {
     "contains": true,
-    "scope": "optional-chinese-vo-disabled-by-default",
-    "model": "openbmb/VoxCPM2 (rev 7936080b41163874f38610f46f438e2c0757f9fd)",
-    "vocoder": "AudioVAE V2 (audiovae.pth, 48kHz)",
-    "code": "voxcpm==2.0.3",
-    "license": "Apache-2.0",
-    "voiceSource": "Pure text --control voice design only; zero real human reference audio",
-    "note": "仅可选中文精华导览配音（10 句，总语音时长 36.744 s，默认关闭）由 openbmb/VoxCPM2 在 CPU 模式通过纯文本音色描述合成，界面显式标注 AI 合成。全部 3D 参数化几何、GLSL 着色器、原声分轨配乐与程序化拟音均非 AI 生成。"
+    "kinds": [
+      "voice"
+    ],
+    "note": "仅离线单文件内嵌的可选中文精华导览配音（10 句，总语音时长 36.744 s，默认关闭）由 openbmb/VoxCPM2（rev 7936080b41163874f38610f46f438e2c0757f9fd）+ AudioVAE V2（audiovae.pth, 48kHz）+ voxcpm==2.0.3（Apache-2.0）在 CPU 模式通过纯文本 --control 音色描述合成（零真人参考音频），界面显式标注 AI 合成；正式视频导出（films/wonderx/sound.py）默认不含导览轨，全部 3D 参数化几何、GLSL 着色器、原声分轨配乐与程序化拟音均非 AI 生成。"
   },
   "gates": {
     "look": "required",

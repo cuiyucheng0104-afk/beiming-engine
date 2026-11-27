@@ -58,11 +58,15 @@ def encode_opus_mono(wav_path: Path, ogg_path: Path, bitrate: str = '28k') -> No
     subprocess.run([
         'ffmpeg', '-y', '-v', 'error',
         '-i', str(wav_path),
+        '-map_metadata', '-1',
+        '-fflags', '+bitexact',
+        '-flags:a', '+bitexact',
         '-c:a', 'libopus',
         '-b:a', bitrate,
         '-vbr', 'on',
         '-compression_level', '10',
         '-application', 'voip',
+        '-serial_offset', '1',
         '-ac', '1',
         str(ogg_path),
     ], check=True)
@@ -179,8 +183,8 @@ def main() -> None:
         'totalSpeechDurS': round(total_dur, 3),
         'totalRawOpusBytes': total_raw_ogg,
         'totalInlineBase64Bytes': total_inline,
-        'auditionWav': {'path': str(aud_wav), 'bytes': aud_wav.stat().st_size, 'sha256': sha256_file(aud_wav)},
-        'auditionOpus': {'path': str(aud_ogg), 'bytes': aud_ogg.stat().st_size, 'sha256': sha256_file(aud_ogg)},
+        'auditionWav': {'path': aud_wav.name, 'bytes': aud_wav.stat().st_size, 'sha256': sha256_file(aud_wav)},
+        'auditionOpus': {'path': aud_ogg.name, 'bytes': aud_ogg.stat().st_size, 'sha256': sha256_file(aud_ogg)},
         'voxcpm2Manifest': vox_manifest,
         'meta': manifest['voMeta'],
     }

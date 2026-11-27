@@ -38,12 +38,34 @@
 | 进入 A05 / 切换形态或电磁脉冲 | 量子阵列脉冲冲击 | `sfx_quantum_surge.ogg` |
 | 进入 A06 / 光学门框穿梭 | 空间穿隧气流音 | `sfx_portal_whoosh.ogg` |
 | A07 按 `Q/W/E/R/G` 实时切画风 | 着色器瞬切清脆确认音 | `sfx_shader_snap.ogg` |
-| 各幕入点（仅手动按 `V` 开启 AI 导览后） | 对应幕精华中文导览语音（10 句，共 36.744 s） | `vo_01.ogg`–`vo_10.ogg` |
+| 各幕入点（仅手动按 `V` 开启 AI 导览后） | 对应幕精华中文导览语音（10 句，共 36.744 s） | `vo_V01.ogg`–`vo_V10.ogg` |
 
 ## 声音设计
 
-- **冷静音安全**：页面加载后零 `AudioContext` 唤醒、零自动发声，仅在首次真实指针/键盘手势后解锁播放；`M` 总静音、`S` 打开三轨独立 Mute/Solo 调音台、`V` 独立切换默认关闭的 AI 导览轨。
-- **原创高科配乐**：由 `films/wonderx/audio/build_audio.py` 调用仓库 MIT 管线 `composer.py`（D Dorian / 120 BPM / `hitech_minimal` / `telemetry_lock` 动机）与 `orchestra.py`，结合 30 个逐文件 SHA-256 核验的 Versilian CC0-1.0 采样，生成 56 秒无缝循环三轨（和声声场 / 脉冲节律 / 主奏光束）并通过 Web Audio 主时钟相位锁定。
-- **原创程序化拟音**：6 条纯数学合成 MIT 拟音（`procedural.py`），真峰值全部 ≤ -1.5 dBTP，无任何外部受限音频。
-- **可选 AI 中文导览（默认关闭）**：由 `openbmb/VoxCPM2`（Apache-2.0）+ `AudioVAE V2`（Apache-2.0）+ `voxcpm==2.0.3`（Apache-2.0）在 CPU 上仅以纯文本 `--control` 音色描述合成 10 句精华导览（36.744 s），零真人参考音频，界面与 `film.json`（`aigc.contains = true`）均明确披露 AI 合成。
-- **绝对排除清单**：零引用、零打包 `R01`、`R02`、`YuE2`、`A05`、`B03`。完整明细与许可全文随单文件内嵌，可在演示页按 `L` 键随时查验。
+- **冷静音安全**：页面加载后零实时 `AudioContext` 唤醒、零自动发声，仅在首次真实指针/键盘手势后解锁播放；`M` 总静音、`S` 打开三轨独立 Mute/Solo 调音台、`V` 独立切换默认关闭的 AI 导览轨（异步音频准备完成前早按 `V`/`M` 的状态由状态机保真同步）。
+- **可移植、固定哈希音频输入（D10）**：3 条 56 秒无缝循环原创高科配乐分轨、6 条程序化拟音、10 句可选 AI 中文导览（19 个 `.ogg` 音频及 6 份许可/声明/校验文件）按决定 D10 发布至公开 Release 标签 `wonderx-v4-assets`（`wonderx-phase2-v4-audio-opus.tar.gz`，`1,618,327 B`，SHA-256 `0d22d6b7d5609dbdd35700644d92a3f07638988fb2517fdd07f402777c539b4f`，不设为项目 latest）；元数据与校验链（`bundle.lock.json`、`fetch.mjs`、`manifest.json`、`used-samples-audit.json`、`vo_batch.json` 及 3 份上游许可全文）入库于 `films/wonderx/audio/`，`/audio/opus/` 写入 `.gitignore`。由 `node films/wonderx/audio/fetch.mjs` 下载并逐字节校验外层与全部 25 个文件，打包器 `tools/standalone/build.mjs` 与正式混音脚本 `films/wonderx/sound.py` 亦强制校验字节数与 SHA-256，不依赖私有 `out/` 或本机绝对路径。
+- **同源正式视频混音（`films/wonderx/sound.py`）**：由 `npm run film -- build films/wonderx` 自动调用，读取同一份 `films/wonderx/film.json` 整数帧拍点与校验后的 `films/wonderx/audio/opus/*.ogg`（3 轨原创配乐 + 6 条程序化拟音，**导览配音严格关闭不混入**），母带至 `-14.0 LUFS` / `<= -1.5 dBTP` 并通过 `engine.audio.qa` 声音门禁。
+- **可选 AI 中文导览（默认关闭）**：由 `openbmb/VoxCPM2`（Apache-2.0）+ `AudioVAE V2`（Apache-2.0）+ `voxcpm==2.0.3`（Apache-2.0）在 CPU 上仅以纯文本 `--control` 音色描述合成 10 句精华导览（36.744 s），零真人参考音频，界面与 `film.json`（`aigc.contains = true`、`kinds = ["voice"]`）均明确披露 AI 合成。
+- **许可与绝对排除清单**：工程自身 MIT 版权声明（`Copyright (c) 2026 北冥引擎 Beiming Engine`）及根目录 `LICENSE` 全文、Three.js MIT、四款字体 OFL-1.1、Versilian CC0-1.0 与 VoxCPM2 Apache-2.0 全文均随单文件内嵌，可在演示页按 `L` 键随时查验；零引用、零打包 `R01`、`R02`、`YuE2`、`A05`、`B03`。
+
+## 可复现构建与正式导出命令
+
+在任意独立空目录的干净仓库检出中执行：
+
+```sh
+npm ci
+node films/wonderx/audio/fetch.mjs
+npm run fonts:fetch
+npm run fonts:subset -- films/wonderx
+npm run standalone:build -- films/wonderx
+```
+
+正式同源带声视频导出（从 `films/wonderx` 作品目录直出，不经单文件绕行）：
+
+```sh
+node films/wonderx/audio/fetch.mjs
+npm run film -- build films/wonderx --final --profile web-1080p24
+# 4K 档位入口示例（整片或片段）：
+node engine/render/video.mjs films/wonderx --profile uhd-2160p24 --frames 708:780 --out <clip.mp4>
+```
+

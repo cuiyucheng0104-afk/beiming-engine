@@ -139,9 +139,10 @@ async function boot() {
     const rw = Math.max(2, Math.round(w * cfg.renderScale));
     const rh = Math.max(2, Math.round(h * cfg.renderScale));
     renderer.setSize(rw, rh, false);
-    if (!look || TIER_CONFIGS[lastTier]?.ss !== cfg.ss || TIER_CONFIGS[lastTier]?.msaa !== cfg.msaa) {
+    if (!look || TIER_CONFIGS[lastTier]?.msaa !== cfg.msaa) {
       look?.dispose();
-      look = createLook(renderer, rw, rh, { ss: cfg.ss, msaa: cfg.msaa, defaults: preset.defaults, fps: timing.fps });
+      // WonderX 全程 outline:false，不需要 2x 墨线超采样缓冲（4K 下可省 600MB+ 显存）
+      look = createLook(renderer, rw, rh, { ss: 1, msaa: cfg.msaa, defaults: preset.defaults, fps: timing.fps });
     } else {
       look.setSize(rw, rh);
     }
@@ -310,7 +311,7 @@ async function boot() {
       if (embedded?.audioManifest) {
         audioManifest = embedded.audioManifest;
       } else {
-        const res = await fetch(asset('out/audio/manifest.json'));
+        const res = await fetch(asset('audio/manifest.json'));
         if (res.ok) audioManifest = await res.json();
       }
       if (!audioManifest?.assets?.length) return { stems: 0, sfx: 0 };
@@ -321,7 +322,7 @@ async function boot() {
         if (embedded && embedded[item.key]) {
           ab = decodeBase64ToArrayBuffer(embedded[item.key]);
         } else {
-          const url = asset(`out/audio/${item.file}`);
+          const url = asset(`audio/${item.file}`);
           const resp = await fetch(url);
           if (resp.ok) ab = await resp.arrayBuffer();
         }
@@ -337,7 +338,10 @@ async function boot() {
         }
       }
       if (voList.length) audio.setVoCues(voList);
-      audio.setVoEnabled(false); // 强制默认关闭 AI 导览配音
+      // 以状态机为唯一真相源：默认 voEnabled=false，但若用户在异步解码完成前已按 V/M，绝不覆写
+      const snapNow = model.getSnapshot();
+      audio.setVoEnabled(snapNow.voEnabled);
+      audio.setMasterMute(snapNow.muted);
       return { stems: audio.getStemsState().length, sfx: sfxBuffers.size, vo: voList.length };
     } catch (err) {
       console.warn('[WonderX] 音频解码跳过：', err?.message ?? err);
@@ -378,6 +382,7 @@ async function boot() {
 
   // ── 各幕专属交互控件栏 + Act 10 12° 光学玻璃倾斜卡 + 开源许可与溯源弹窗 ──
   let barActId = '';
+  let barVoOn = false;
   let shockDecayRaf = 0;
 
   function fireAct05Shock() {
@@ -399,6 +404,7 @@ async function boot() {
     if (!interactive) return;
     barActId = id;
     const voOn = model.getSnapshot().voEnabled;
+    barVoOn = voOn;
     let extra = '';
     if (id === 'A03') {
       const pct = Math.round(((uiState.explode ?? st?.explodeValue ?? 0.65) * 100));
@@ -450,7 +456,7 @@ async function boot() {
       else if (id === 'A05') triggerSfx('sfx_quantum_surge', 0.6);
       else if (id === 'A06') triggerSfx('sfx_portal_whoosh', 0.65);
       buildActBar(id, st);
-    } else if (barActId !== id) {
+    } else if (barActId !== id || barVoOn !== model.getSnapshot().voEnabled) {
       buildActBar(id, st);
     }
 
@@ -467,6 +473,7 @@ async function boot() {
     const btn = e.target.closest('button');
     if (!btn) return;
     e.stopPropagation();
+    unlockAudioOnGesture();
     if (btn.dataset.form != null) {
       uiState.formation = Number(btn.dataset.form);
       fireAct05Shock();
@@ -506,6 +513,7 @@ async function boot() {
     } else if (btn.dataset.act === 'open-license') {
       openLicenseModal();
     }
+    btn.blur?.();
   });
 
   actBar.addEventListener('input', e => {
@@ -528,21 +536,29 @@ async function boot() {
   });
 
   let draggingSplit = false;
+  let stageClick = null;
+  const isDeckModalOpen = () => !!ui?.el?.shadowRoot?.querySelector('.modal.on');
+
   stage.parentElement.addEventListener('pointerdown', e => {
     if (!interactive) return;
-    if (e.target.closest('#act-bar, #license-modal, #glass-card')) return;
+    if (e.target.closest('#act-bar, #license-modal, #glass-card, .bne-deck-ui, button, input, a, label')) return;
+    if (licModal.style.display === 'flex' || isDeckModalOpen()) return;
     unlockAudioOnGesture();
     const snap = model.getSnapshot();
     const curId = film.shots[snap.chapterIndex]?.id;
     if (curId === 'A09') {
+      stageClick = null;
       const rect = stage.getBoundingClientRect();
       const u = clamp((e.clientX - rect.left) / Math.max(1, rect.width), 0, 1);
       draggingSplit = true;
       uiState.split = u;
       model.setSplit(u);
       buildActBar('A09', lastSceneState);
-    } else if (curId === 'A05') {
-      fireAct05Shock();
+    } else {
+      if (curId === 'A05') fireAct05Shock();
+      stageClick = (e.button === 0 && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey)
+        ? { id: e.pointerId, x: e.clientX, y: e.clientY }
+        : null;
     }
   });
   window.addEventListener('pointermove', e => {
@@ -555,7 +571,17 @@ async function boot() {
     if (sl) sl.value = String(Math.round(uiState.split * 100));
     if (sv) sv.textContent = `${Math.round(uiState.split * 100)}%`;
   });
-  window.addEventListener('pointerup', () => { draggingSplit = false; });
+  window.addEventListener('pointerup', e => {
+    draggingSplit = false;
+    if (!stageClick || e.pointerId !== stageClick.id) return;
+    const dist = Math.hypot(e.clientX - stageClick.x, e.clientY - stageClick.y);
+    stageClick = null;
+    if (!interactive || dist > 6) return;
+    if (licModal.style.display === 'flex' || isDeckModalOpen()) return;
+    if (e.target?.closest?.('#act-bar, #license-modal, #glass-card, .bne-deck-ui, button, input, a, label')) return;
+    if (!model.getSnapshot().autoMode) model.nextBeat();
+  });
+  window.addEventListener('pointercancel', () => { draggingSplit = false; stageClick = null; });
 
   glassCard?.addEventListener('click', e => {
     const btn = e.target.closest('button');
@@ -568,6 +594,7 @@ async function boot() {
     } else if (btn.dataset.g === 'license') {
       openLicenseModal();
     }
+    btn.blur?.();
   });
 
   let licenseLoaded = false;
@@ -582,7 +609,7 @@ async function boot() {
         `<div class="lic-row"><b>${it.name}</b> <span class="lic-tag">${it.license}</span><div class="lic-sub">${it.source} · ${it.notes}</div></div>`
       ).join('');
       const rawLicHtml = licList.length
-        ? `<details><summary>展开随包附带的 ${licList.length} 份完整开源 / CC0 / Apache-2.0 许可全文</summary>${
+        ? `<details><summary>展开随包附带的 ${licList.length} 份完整 MIT / OFL-1.1 / CC0-1.0 / Apache-2.0 许可全文</summary>${
             licList.map(item => `<h4>${item.name}</h4><pre>${String(item.text).replace(/</g, '&lt;')}</pre>`).join('')
           }</details>`
         : '<p class="lic-sub">开发模式查看；单文件离线打包后将随包内嵌完整 LICENSE 原文。</p>';
@@ -600,6 +627,11 @@ async function boot() {
   licModal?.addEventListener('click', e => { if (e.target === licModal) licModal.style.display = 'none'; });
 
   if (interactive) {
+    window.addEventListener('keydown', e => {
+      if ((licModal.style.display === 'flex' || isDeckModalOpen()) && e.key === ' ') {
+        e.stopImmediatePropagation();
+      }
+    }, true);
     window.addEventListener('keydown', e => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       unlockAudioOnGesture();
@@ -622,7 +654,7 @@ async function boot() {
         return;
       }
       if (k === 'v') {
-        setTimeout(() => buildActBar(uiState.lastActId || 'A01', lastSceneState), 20);
+        buildActBar(uiState.lastActId || 'A01', lastSceneState);
         return;
       }
       const curId = film.shots[model.getSnapshot().chapterIndex]?.id;

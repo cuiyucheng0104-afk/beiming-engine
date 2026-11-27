@@ -11,6 +11,7 @@ import { haveFfmpeg, tmp, cleanup, clip, ffmpeg, qa, check, writeJson, ROOT, FIX
 import { browserOk } from '../ci/browser.mjs';
 import { RENDERER_DIRS, framemd5 } from '../render/helpers.mjs';
 import { CHECKS } from '../../tools/qa/lib/checks.mjs';
+import { parseVideoStreamSha256 } from '../../engine/render/lib/video-stream-hash.mjs';
 
 const skip = !haveFfmpeg && '需要 FFmpeg ≥7';
 const skipBrowser = skip || (!browserOk && '没有配置 Chromium');
@@ -66,8 +67,9 @@ function code(r, want) { assert.equal(r.code, want, `${r.stderr}\n${JSON.stringi
 
 function streamHash(mp4) {
   const { stdout } = ffmpeg(['-i', mp4, '-map', '0:v:0', '-c', 'copy', '-f', 'streamhash', '-hash', 'sha256', '-']);
-  assert.match(stdout, /SHA256=([0-9a-f]{64})\s*$/);
-  return stdout.trim().split('=').at(-1);
+  const hash = parseVideoStreamSha256(stdout);
+  assert.ok(hash, `unexpected streamhash output: ${stdout}`);
+  return hash;
 }
 
 async function visualRecord(mp4, n = frameCount, visual) {

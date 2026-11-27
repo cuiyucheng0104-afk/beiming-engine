@@ -1,0 +1,334 @@
+{
+  "checkedCount": 30,
+  "allVerified": true,
+  "libraries": [
+    {
+      "library": "vcsl",
+      "name": "Versilian Community Sample Library",
+      "author": "Versilian Studios",
+      "license": "CC0-1.0",
+      "upstream": "https://github.com/sgossner/VCSL",
+      "commit": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+      "file": "vcsl/LICENSE",
+      "bytes": 7048,
+      "gitBlobSha1": "0e259d42c996742e9e3cba14c677129b2c1b6311",
+      "sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499",
+      "verified": true
+    },
+    {
+      "library": "vsco2ce",
+      "name": "VS Chamber Orchestra: Community Edition",
+      "author": "Versilian Studios",
+      "license": "CC0-1.0",
+      "upstream": "https://github.com/sgossner/VSCO-2-CE",
+      "commit": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+      "file": "vsco2ce/LICENSE",
+      "bytes": 6555,
+      "gitBlobSha1": "670154e3538863b2d9891fd5483160fbdfc89164",
+      "sha256": "36ffd9dc085d529a7e60e1276d73ae5a030b020313e6c5408593a6ae2af39673",
+      "verified": true
+    }
+  ],
+  "files": [
+    {
+      "rel": "vcsl/Chordophones/Composite Chordophones/Concert Harp/KSHarp_A4_mf1.wav",
+      "instrument": "harp",
+      "library": "vcsl",
+      "license": "CC0-1.0",
+      "bytes": 2143618,
+      "gitBlobSha1": "acbece38a84e886cb5516e0f29d6ff5d38900fe1",
+      "sha256": "3665f3975cad4a33f46784aa4f896f4b4319ba2b7831e892d975bc38c9f09f23",
+      "verified": true
+    },
+    {
+      "rel": "vcsl/Chordophones/Composite Chordophones/Concert Harp/KSHarp_B3_mf1.wav",
+      "instrument": "harp",
+      "library": "vcsl",
+      "license": "CC0-1.0",
+      "bytes": 1981130,
+      "gitBlobSha1": "8d06cd55bc871d19f25a2bb1b56c7a567aabbc6b",
+      "sha256": "f6f71be8c640822ef48a448b245585659acdfcc7ed5774e10f37be2fc02fcab4",
+      "verified": true
+    },
+    {
+      "rel": "vcsl/Chordophones/Composite Chordophones/Concert Harp/KSHarp_B5_mf1.wav",
+      "instrument": "harp",
+      "library": "vcsl",
+      "license": "CC0-1.0",
+      "bytes": 779058,
+      "gitBlobSha1": "2d2689e8ca023cd685ed5a29161f3d641f109da9",
+      "sha256": "f2757b674c6b7301bed52e17a1ae3e3d34d628b3f7edc5773ebb25798d2541f7",
+      "verified": true
+    },
+    {
+      "rel": "vcsl/Chordophones/Composite Chordophones/Concert Harp/KSHarp_C3_mf3.wav",
+      "instrument": "harp",
+      "library": "vcsl",
+      "license": "CC0-1.0",
+      "bytes": 1886028,
+      "gitBlobSha1": "2e2b9b2eeab0619e912418ecf9cfbd34623157d4",
+      "sha256": "18e6222e8fc11a8106e8d7a875d208835eb5b45598f010b21c786b1482e09869",
+      "verified": true
+    },
+    {
+      "rel": "vcsl/Chordophones/Composite Chordophones/Concert Harp/KSHarp_C5_mf1.wav",
+      "instrument": "harp",
+      "library": "vcsl",
+      "license": "CC0-1.0",
+      "bytes": 1237142,
+      "gitBlobSha1": "748b4b1366616972c2a22e81fc48a86178801c45",
+      "sha256": "7c8b862f6fd3f1442ed87537af976d84bda8c05a5b4900e8907d570b5202a517",
+      "verified": true
+    },
+    {
+      "rel": "vcsl/Chordophones/Composite Chordophones/Concert Harp/KSHarp_D4_mf1.wav",
+      "instrument": "harp",
+      "library": "vcsl",
+      "license": "CC0-1.0",
+      "bytes": 1921690,
+      "gitBlobSha1": "342eec5072e2c0a7fb7cb03b6f5b46d84ed6ac69",
+      "sha256": "ebfde8aab4411019e37e3426f4dd88d6a52a38c2d0261d7f10ec63d8ff584dc7",
+      "verified": true
+    },
+    {
+      "rel": "vcsl/Chordophones/Composite Chordophones/Concert Harp/KSHarp_E3_mf1.wav",
+      "instrument": "harp",
+      "library": "vcsl",
+      "license": "CC0-1.0",
+      "bytes": 2461138,
+      "gitBlobSha1": "5c6c7410ae0ff7800214931f9db9a7f52db5987e",
+      "sha256": "aafa9d41ec0f77da8f2891055af8b3f9557e0ba1f1df93d53ae6e1fda07afae5",
+      "verified": true
+    },
+    {
+      "rel": "vcsl/Chordophones/Composite Chordophones/Concert Harp/KSHarp_F4_mf1.wav",
+      "instrument": "harp",
+      "library": "vcsl",
+      "license": "CC0-1.0",
+      "bytes": 1913498,
+      "gitBlobSha1": "a1966639b165b623ac533270d616814cbc5389ef",
+      "sha256": "db27ebbb37334c10e06f2ae63f4d9ff555e4d11704fcc6f0bcf503863867e577",
+      "verified": true
+    },
+    {
+      "rel": "vcsl/Chordophones/Composite Chordophones/Concert Harp/KSHarp_G3_mf1.wav",
+      "instrument": "harp",
+      "library": "vcsl",
+      "license": "CC0-1.0",
+      "bytes": 1806874,
+      "gitBlobSha1": "a2f7fcc2bce81d039d9c0c529a94159f589f36e1",
+      "sha256": "62600eb1b37bc2829ca65351f7ca7e506c9ae472abd5bea0765a8b8fa7df2772",
+      "verified": true
+    },
+    {
+      "rel": "vcsl/Chordophones/Composite Chordophones/Concert Harp/KSHarp_G5_mf1.wav",
+      "instrument": "harp",
+      "library": "vcsl",
+      "license": "CC0-1.0",
+      "bytes": 1049778,
+      "gitBlobSha1": "8e3593345c95368ae9d74591c1046d21de6a8e60",
+      "sha256": "f2004dfc617997fbabc6f849add2af06f4f859361c44a8fca0f993dc7f999540",
+      "verified": true
+    },
+    {
+      "rel": "vcsl/Idiophones/Struck Idiophones/Glockenspiel/glock_loud_G5_01.wav",
+      "instrument": "glockenspiel",
+      "library": "vcsl",
+      "license": "CC0-1.0",
+      "bytes": 1323482,
+      "gitBlobSha1": "5a74c7a1c297fc67ddd6f1ba3e829f59478ce05a",
+      "sha256": "8aaf97481ef2582c14ef0382ec54c17c1b0a2f901a42976c332bac20fadd74a2",
+      "verified": true
+    },
+    {
+      "rel": "vcsl/Idiophones/Struck Idiophones/Glockenspiel/glock_medium_C5_01.wav",
+      "instrument": "glockenspiel",
+      "library": "vcsl",
+      "license": "CC0-1.0",
+      "bytes": 1271310,
+      "gitBlobSha1": "db079c70946137f543820b6a6ac023d0afaac47c",
+      "sha256": "635f898e0bcb6975b96b18efd9c896f6f1b97ff12174a339ada4814e49675660",
+      "verified": true
+    },
+    {
+      "rel": "vcsl/Idiophones/Struck Idiophones/Glockenspiel/glock_medium_C6_01.wav",
+      "instrument": "glockenspiel",
+      "library": "vcsl",
+      "license": "CC0-1.0",
+      "bytes": 1271310,
+      "gitBlobSha1": "c02ff721d10eb3551372806653368f45ea5dc367",
+      "sha256": "e942cbf502cf6731df2925945fe3234c876cb63f047d91007b6929887f9e4904",
+      "verified": true
+    },
+    {
+      "rel": "vcsl/Idiophones/Struck Idiophones/Glockenspiel/glock_medium_G4_01.wav",
+      "instrument": "glockenspiel",
+      "library": "vcsl",
+      "license": "CC0-1.0",
+      "bytes": 1271310,
+      "gitBlobSha1": "a7d9ca6c68e4c56327d83f0653ee3e16e4810265",
+      "sha256": "6c4649b13e24fa01e4634edad8fe8edf18aef33facc5d49fe53097b376bac4da",
+      "verified": true
+    },
+    {
+      "rel": "vcsl/Idiophones/Struck Idiophones/Glockenspiel/glock_medium_G5_01.wav",
+      "instrument": "glockenspiel",
+      "library": "vcsl",
+      "license": "CC0-1.0",
+      "bytes": 1226714,
+      "gitBlobSha1": "dbaf80bc3975016095de3a611a202b581931311c",
+      "sha256": "7045c0ef7260e2f1ad11a64406cf7575ed898d1207a91104d33d78caefac63e4",
+      "verified": true
+    },
+    {
+      "rel": "vcsl/Idiophones/Struck Idiophones/Suspended Cymbal 1/susCymb1_cresc_2s.wav",
+      "instrument": "sus_cymbal",
+      "library": "vcsl",
+      "license": "CC0-1.0",
+      "bytes": 1837622,
+      "gitBlobSha1": "5375b5cb5abde0aecdeceb07411468fedaa06238",
+      "sha256": "a5507bf116b33ee220f4eff54506be56fd455e908c8d53903f217590341e5008",
+      "verified": true
+    },
+    {
+      "rel": "vcsl/Idiophones/Struck Idiophones/Suspended Cymbal 1/susCymb1_hit_pp1.wav",
+      "instrument": "sus_cymbal",
+      "library": "vcsl",
+      "license": "CC0-1.0",
+      "bytes": 1844706,
+      "gitBlobSha1": "c5cf725246c8d8c6550a7f5948d7eeafbcf9c2ea",
+      "sha256": "d3221ae2c34233b1fa8ceb011ac91d9d3064a57bacff158e41fdef780ad575f8",
+      "verified": true
+    },
+    {
+      "rel": "vcsl/Idiophones/Struck Idiophones/Vibraphone/Bowed/Vibes_bowed_A4_rr1_Main.wav",
+      "instrument": "vibraphone_bowed",
+      "library": "vcsl",
+      "license": "CC0-1.0",
+      "bytes": 2707792,
+      "gitBlobSha1": "e3b748d6b3ecf09fb931b342b0e3a37117c7c45c",
+      "sha256": "78be0c9d01f464cb76a46a398b3ae7ed412e9ae3d573f76c99a6821a1a04279f",
+      "verified": true
+    },
+    {
+      "rel": "vcsl/Idiophones/Struck Idiophones/Vibraphone/Bowed/Vibes_bowed_D4_rr1_Main.wav",
+      "instrument": "vibraphone_bowed",
+      "library": "vcsl",
+      "license": "CC0-1.0",
+      "bytes": 2879664,
+      "gitBlobSha1": "5237b09697b059baf3fea14d0caaaf7a691c4cb9",
+      "sha256": "b5a6ab0a6c51b446832bc3686e27a62489f3169182ad4c872698912536d1ece6",
+      "verified": true
+    },
+    {
+      "rel": "vcsl/Idiophones/Struck Idiophones/Vibraphone/Bowed/Vibes_bowed_E3_rr1_Main.wav",
+      "instrument": "vibraphone_bowed",
+      "library": "vcsl",
+      "license": "CC0-1.0",
+      "bytes": 3002168,
+      "gitBlobSha1": "7cbe4af932abad58c5d25f72efff3bf4675de77c",
+      "sha256": "bd41a203f16bf090677d8cc3ec0778c0f8865ae965cb0e5fe37c0a08ece8e09f",
+      "verified": true
+    },
+    {
+      "rel": "vcsl/Idiophones/Struck Idiophones/Vibraphone/Bowed/Vibes_bowed_E5_rr1_Main.wav",
+      "instrument": "vibraphone_bowed",
+      "library": "vcsl",
+      "license": "CC0-1.0",
+      "bytes": 1743188,
+      "gitBlobSha1": "5ff2fa0879e25b763dfb8cf293d0a30d3b242d6e",
+      "sha256": "da6ea2e49db457b30e7a72e0361f7da67863ed3077977e73ff45ec09b2a91c65",
+      "verified": true
+    },
+    {
+      "rel": "vcsl/Idiophones/Struck Idiophones/Vibraphone/Bowed/Vibes_bowed_G3_rr1_Main.wav",
+      "instrument": "vibraphone_bowed",
+      "library": "vcsl",
+      "license": "CC0-1.0",
+      "bytes": 2911628,
+      "gitBlobSha1": "ee6d0232dd671c44a46f9a9f91dd7c9fb8da7969",
+      "sha256": "4b566300ee58c75de89e97278607f710ba0a807622582118d9f2e451d8bf573c",
+      "verified": true
+    },
+    {
+      "rel": "vsco2ce/Strings/Cello Section/susvib/susvib_A2_v1_1.wav",
+      "instrument": "cellos",
+      "library": "vsco2ce",
+      "license": "CC0-1.0",
+      "bytes": 2336738,
+      "gitBlobSha1": "76df6b474aff133b2ac9d96bf2466cb6fd865c72",
+      "sha256": "c97a003184fdcb153d6b6c0bae8d82a90592a1b04b06bd7caaeda8b9776d5284",
+      "verified": true
+    },
+    {
+      "rel": "vsco2ce/Strings/Cello Section/susvib/susvib_A2_v3_1.wav",
+      "instrument": "cellos",
+      "library": "vsco2ce",
+      "license": "CC0-1.0",
+      "bytes": 3082676,
+      "gitBlobSha1": "ad696c6ad3cbacb37b6d9cf4f26da4a54521e7ce",
+      "sha256": "b7f226f19b9616abe5fa4a27ef50116667e19eb0127f30eacfa6d1a83e9149f0",
+      "verified": true
+    },
+    {
+      "rel": "vsco2ce/Strings/Cello Section/susvib/susvib_B1_v1_1.wav",
+      "instrument": "cellos",
+      "library": "vsco2ce",
+      "license": "CC0-1.0",
+      "bytes": 2372492,
+      "gitBlobSha1": "d6a4a2d1a688c6ccb4e1e1a56b878c9c93df468b",
+      "sha256": "4f95c087c4b8d87ee591e9d39c3c9caf085c6f1b9125eac3ca9e4e637da628ee",
+      "verified": true
+    },
+    {
+      "rel": "vsco2ce/Strings/Cello Section/susvib/susvib_B1_v3_1.wav",
+      "instrument": "cellos",
+      "library": "vsco2ce",
+      "license": "CC0-1.0",
+      "bytes": 3372962,
+      "gitBlobSha1": "56c81412c60a2b04b8556dfa26a7e0127357c5cb",
+      "sha256": "8331a0e13f41243efab111f9b5e9185524c27ee48631269acecafc954ab7eaa8",
+      "verified": true
+    },
+    {
+      "rel": "vsco2ce/Strings/Cello Section/susvib/susvib_D2_v1_1.wav",
+      "instrument": "cellos",
+      "library": "vsco2ce",
+      "license": "CC0-1.0",
+      "bytes": 2550956,
+      "gitBlobSha1": "8076f809d4f6a8057f3835e12d22751a25e39252",
+      "sha256": "e8640dec9febc6e39fcf06b19d2c95a85d5ff8c38f13c9879e69f551eaf38ab8",
+      "verified": true
+    },
+    {
+      "rel": "vsco2ce/Strings/Cello Section/susvib/susvib_D2_v3_1.wav",
+      "instrument": "cellos",
+      "library": "vsco2ce",
+      "license": "CC0-1.0",
+      "bytes": 3291368,
+      "gitBlobSha1": "fdb46242bb68876ad275b9b8ed10c4b8508b9292",
+      "sha256": "fc946615cd6550570c8f05d61c0d59b9079bf9daba8bf25be7943487fea5a7ae",
+      "verified": true
+    },
+    {
+      "rel": "vsco2ce/Strings/Cello Section/susvib/susvib_F2_v1_1.wav",
+      "instrument": "cellos",
+      "library": "vsco2ce",
+      "license": "CC0-1.0",
+      "bytes": 2186012,
+      "gitBlobSha1": "78f52c49ddc8a357657d92b05cd89f15beb6c717",
+      "sha256": "162054eab4ba118924f8f8986cf1b17ccfd65211d1945743ffbae30b4953f901",
+      "verified": true
+    },
+    {
+      "rel": "vsco2ce/Strings/Cello Section/susvib/susvib_F2_v3_1.wav",
+      "instrument": "cellos",
+      "library": "vsco2ce",
+      "license": "CC0-1.0",
+      "bytes": 3062696,
+      "gitBlobSha1": "a384e84a342ab9be12ca55b92c845a3c351b75bf",
+      "sha256": "d965197faf2e6ab8675f1d65505e5ba934a5ab769412d314bad94133e18f24d0",
+      "verified": true
+    }
+  ]
+}

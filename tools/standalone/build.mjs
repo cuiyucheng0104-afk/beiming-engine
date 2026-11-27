@@ -16,6 +16,17 @@ export function checkEmbedded(html, embedded) {
   }
 }
 
+export function verifyAssetIntegrity(data, expected, label) {
+  const sha256 = createHash('sha256').update(data).digest('hex');
+  if (expected?.bytes != null && data.length !== expected.bytes) {
+    throw new CliError('contract.assets', `${label} 字节数不符：期望 ${expected.bytes}，实测 ${data.length}`);
+  }
+  if (expected?.sha256 && sha256 !== expected.sha256) {
+    throw new CliError('contract.assets', `${label} SHA-256 不符：期望 ${expected.sha256}，实测 ${sha256}`);
+  }
+  return sha256;
+}
+
 async function pack(root) {
   const outDir=path.join(root,'out/standalone');
   const json=async file=>JSON.parse(await fs.readFile(file,'utf8'));
@@ -29,12 +40,12 @@ async function pack(root) {
   const entry=registry.styles.find(s=>s.id===embedded.film.style.id && s.version===embedded.film.style.version);
   embedded.styles[entry.file]=await json(path.join(styles,entry.file));
   const bill=[];
-  async function add(file,mime,kind='asset',key=file) {
+  async function add(file,mime,kind='asset',key=file,expected=null) {
     const abs=path.isAbsolute(file)?file:path.join(root,file);
     const data=await fs.readFile(abs);
     if (!data.length || (mime === 'font/woff2' && data.toString('ascii',0,4) !== 'wOF2')) throw new CliError('contract.assets', `无效的 ${file}`);
+    const sha256=verifyAssetIntegrity(data,expected,key);
     embedded[key]=`data:${mime};base64,${data.toString('base64')}`;
-    const sha256=createHash('sha256').update(data).digest('hex');
     bill.push({file:key,kind,raw:data.length,inline:Buffer.byteLength(embedded[key]),sha256});
   }
   for (const spec of embedded.film.fonts) {
@@ -50,7 +61,7 @@ async function pack(root) {
     embedded.audioManifest=audioManifest;
     const baseDir=path.dirname(path.join(root,cfg.audioManifest));
     for(const item of audioManifest.assets??[]) {
-      await add(path.join(baseDir,item.file),item.mime||'audio/ogg',item.kind||'audio',item.key);
+      await add(path.join(baseDir,item.file),item.mime||'audio/ogg',item.kind||'audio',item.key,{bytes:item.bytes,sha256:item.sha256});
     }
   }
   if (cfg.provenance) {
@@ -59,8 +70,12 @@ async function pack(root) {
   for(const name of (await fs.readdir(path.join(root,'fonts'))).filter(n=>n.endsWith('.txt'))) embedded.licenses.push({name,text:await fs.readFile(path.join(root,'fonts',name),'utf8')});
   embedded.licenses.push({name:'three-0.170.0-LICENSE',text:await fs.readFile('node_modules/three/LICENSE','utf8')});
   for(const lic of cfg.extraLicenses??[]) {
-    const abs=lic.startsWith('repo:')?path.resolve(lic.slice(5)):path.join(root,lic);
-    embedded.licenses.push({name:path.basename(abs),text:await fs.readFile(abs,'utf8')});
+    const spec=typeof lic==='string'?{path:lic}:lic;
+    const abs=spec.path.startsWith('repo:')?path.resolve(spec.path.slice(5)):path.join(root,spec.path);
+    const data=await fs.readFile(abs);
+    const name=spec.name||path.basename(abs);
+    verifyAssetIntegrity(data,spec.sha256?{sha256:spec.sha256}:null,name);
+    embedded.licenses.push({name,text:data.toString('utf8')});
   }
   const three=await json('node_modules/three/package.json');
   if(three.version!=='0.170.0') throw Error(`需要 three 0.170.0，当前为 ${three.version}`);

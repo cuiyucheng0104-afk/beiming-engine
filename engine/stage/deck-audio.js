@@ -65,8 +65,17 @@ export function createDeckAudio() {
       }
 
       voGainNode = audioCtx.createGain();
-      voGainNode.gain.value = 0; // 默认关
+      voGainNode.gain.value = voEnabled ? 1 : 0;
       voGainNode.connect(masterGain);
+
+      // 补建手势前已登记的分轨增益节点，保持懒初始化下状态完全一致
+      for (const [, st] of stems) {
+        if (!st.gainNode) {
+          st.gainNode = audioCtx.createGain();
+          st.gainNode.connect(masterGain);
+        }
+      }
+      applyGains(true);
     } catch (e) {
       console.warn('[DeckAudio] AudioContext 初始化失败：', e);
       audioCtx = null;
@@ -77,20 +86,21 @@ export function createDeckAudio() {
   function applyGains(immediate = false) {
     if (!audioCtx) return;
     const now = audioCtx.currentTime;
+    const snapNow = immediate || audioCtx.state !== 'running';
     const anySolo = [...stems.values()].some(s => s.soloed);
     for (const [, st] of stems) {
       if (!st.gainNode) continue;
       const audible = anySolo ? (st.soloed && !st.muted) : !st.muted;
       const target = audible ? (st.volume ?? 1) : 0;
       st.gainNode.gain.cancelScheduledValues(now);
-      if (immediate) st.gainNode.gain.setValueAtTime(target, now);
+      if (snapNow) st.gainNode.gain.setValueAtTime(target, now);
       else st.gainNode.gain.setTargetAtTime(target, now, 0.008);
     }
     // 导览配音增益
     if (voGainNode) {
       const voTarget = voEnabled ? 1 : 0;
       voGainNode.gain.cancelScheduledValues(now);
-      if (immediate) voGainNode.gain.setValueAtTime(voTarget, now);
+      if (snapNow) voGainNode.gain.setValueAtTime(voTarget, now);
       else voGainNode.gain.setTargetAtTime(voTarget, now, 0.008);
     }
   }
@@ -161,22 +171,28 @@ export function createDeckAudio() {
     return Math.max(playbackStartOffset, playbackStartOffset + (audioCtx.currentTime - playbackStartAudioTime));
   }
 
-  // 登记或更新单个分轨
+  // 登记或更新单个分轨（懒初始化：不在手势前主动创建实时 AudioContext）
   function setStem(key, { name, buffer, volume = 1 } = {}) {
-    const ctx = ensureContext();
-    if (!ctx) return;
     let st = stems.get(key);
     if (!st) {
-      const g = ctx.createGain();
-      g.connect(masterGain);
+      let g = null;
+      if (audioCtx && masterGain) {
+        g = audioCtx.createGain();
+        g.connect(masterGain);
+      }
       st = { name: name || key, buffer: null, gainNode: g, muted: false, soloed: false, volume };
       stems.set(key, st);
+    } else if (!st.gainNode && audioCtx && masterGain) {
+      st.gainNode = audioCtx.createGain();
+      st.gainNode.connect(masterGain);
     }
     st.buffer = buffer ?? st.buffer;
     st.volume = volume;
     st.name = name || st.name;
-    applyGains(true);
-    if (isPlaying) play(currentTime());   // 播放中换轨：原位重启，保持相位
+    if (audioCtx) {
+      applyGains(true);
+      if (isPlaying) play(currentTime());   // 播放中换轨：原位重启，保持相位
+    }
   }
 
   function toggleMuteStem(key) {
@@ -203,8 +219,10 @@ export function createDeckAudio() {
     masterMuted = !!muted;
     if (!masterGain || !audioCtx) return;
     const now = audioCtx.currentTime;
+    const target = masterMuted ? 0 : 1;
     masterGain.gain.cancelScheduledValues(now);
-    masterGain.gain.setTargetAtTime(masterMuted ? 0 : 1, now, 0.008);
+    if (audioCtx.state !== 'running') masterGain.gain.setValueAtTime(target, now);
+    else masterGain.gain.setTargetAtTime(target, now, 0.008);
   }
 
   function setVoEnabled(enabled) {

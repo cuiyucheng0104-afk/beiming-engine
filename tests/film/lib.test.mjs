@@ -14,7 +14,7 @@ import * as cache from '../../tools/film/lib/cache.mjs';
 import { resolveProfile, framesAt, BUILTIN } from '../../tools/film/lib/profiles.mjs';
 import { parseFilm, shotsAt, cutsOf, normalizeRoute } from '../../tools/film/lib/spec.mjs';
 import { gateStatus as rawGateStatus, assertFinalAllowed as rawAssertFinalAllowed, passes, reviewProblems, buildRecord, writeRecord, recordWaivers, sourceOf, timingSnapshot, filmView, useBuiltinReviewLib } from '../../tools/film/lib/gates.mjs';
-import { imageSize, encoderInfo, clickTrack, timecode } from '../../tools/film/lib/media.mjs';
+import { imageSize, encoderInfo, clickTrack, timecode, framemd5 } from '../../tools/film/lib/media.mjs';
 import { rerunCommand } from '../../tools/film/lib/session.mjs';
 import { ROOT, cleanupTestRoot } from './helpers.mjs';
 
@@ -274,6 +274,22 @@ test('媒体小工具：PNG / JPEG 尺寸、时间码、提示音 WAV、复现�
     }
     assert.equal(rerunCommand(['build', 'films/x', '--reason', "用户说'不看'"]), `node tools/film/cli.mjs build films/x --reason '用户说'\\''不看'\\'''`);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('framemd5：超过 5000 帧（>400 KB）不被 exec stdout 尾部截断，且清理临时文件', async () => {
+  let outFile = null;
+  const fakeExec = async (_bin, args) => {
+    outFile = args.at(-1);
+    const lines = ['#tb 0: 1/24'];
+    for (let i = 0; i < 6000; i++) lines.push(`0, ${i}, ${i}, 1, 3110400, ${String(i).padStart(32, 'a')}`);
+    fs.writeFileSync(outFile, `${lines.join('\n')}\n`);
+    return { code: 0, stdout: '', stderr: '', seconds: 0 };
+  };
+  const hashes = await framemd5(fakeExec, 'dummy.mp4');
+  assert.equal(hashes.length, 6000);
+  assert.equal(hashes[0], 'a'.repeat(31) + '0');
+  assert.equal(hashes[5999], 'a'.repeat(28) + '5999');
+  assert.equal(fs.existsSync(outFile), false, '临时 framemd5 文件必须清理');
 });
 
 test('取帧按色彩标记精确换算：BT.709 有限范围的中性灰 128 读回 128（默认换算会读成 126）', async () => {
