@@ -18,7 +18,7 @@
 //!                         --passes：照输出通道出层，每个通道一个文件，加通道声明 passes.json，见 write_passes。
 //!                         像素滤波、夹取、滤光泽照 Cycles 的口径，见 CyclesFilm；上游的亮度夹取在这一路关掉)
 //!   core-render denoise --width W --height H --color c.f32 --albedo a.f32 --normal n.f32 -o out.f32 [--device cpu|cuda|metal|default]
-//!                         [--prefilter accurate|fast|none]   # 北冥：现成的三张图走同一个 OIDN 降噪（编进了 oidn 特性时），给对拍用
+//!                         [--prefilter accurate|fast|none]   # 北冥：现成的三张图走同一个 OIDN 降噪（编进了 oidn 或 oidn23 特性时），给对拍用
 //!   core-render fncheck-host <函数标识>   # 北冥：宿主一侧照 Cycles 移植的函数，给函数级比对外壳逐组算（stdin 进 f32，stdout 出 f32）
 //!   core-render serve [--presets DIR]      # JSON-lines jobs on stdin, keeps the GPU device and game runtimes warm
 //!   core-render setup <bundle.js>          # setup cost in the embedded runtime
@@ -676,7 +676,7 @@ fn finish(g: &gpu::Gpu, mut sc: scene::Scene, job: &Job, init_ms: f64, mut timin
         // 北冥：OIDN 的法线是相机空间的均值（照 Cycles），只在编进了 OIDN 时算；小波降噪照旧用世界空间、逐像素归一的。
         // 设备与预过滤取 Cycles 最终渲染的默认：CPU、ACCURATE（质量 HIGH 在 oidn() 里）。Cycles 的渲染缓冲第一行是画面最下面
         // 一行，这里的帧第一行是最上面一行；卷积网络对上下翻转不逐位不变，所以照 Cycles 的行序喂进去、出来再翻回
-        let oidn = if cfg!(feature = "oidn") {
+        let oidn = if cfg!(any(feature = "oidn", feature = "oidn23")) {
             let flip = |v: &[Vec3]| -> Vec<Vec3> { v.chunks(w).rev().flatten().copied().collect() };
             denoise::oidn(w, h, &flip(&color), &flip(&albedo), &flip(&camera_normals(&frame, &params)), denoise::OidnDevice::Cpu, denoise::Prefilter::Accurate)
                 .map(|c| flip(&c))

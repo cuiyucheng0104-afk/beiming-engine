@@ -48,6 +48,12 @@ naga = { version = "30", features = ["wgsl-in", "spv-out", "msl-out"] }
 [features]
 # Intel Open Image Denoise (needs OIDN_DIR at build time and the shared libs at runtime).
 oidn = ["dep:oidn"]
+# 北冥：OIDN 2.3 那一档（特性 oidn23，链 oidn crate 2.3.3）不在这份清单里：同名 crate 的 2.3 与 2.5 在 Cargo 看来是兼容的两个
+# 版本，又都声明 links = "OpenImageDenoise"，一份清单里两个都写解析不过。../chassis/build.mjs 把这份清单拷到 out/ 下，把上面的
+# oidn 依赖改成 =2.3.3、特性 oidn 改名 oidn23，配上 Cargo-oidn23.lock 编；源码用 cfg(feature = "oidn23") 分支，下面让编译器认这个名字。
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("oidn", "oidn23"))'] }
 
 [profile.release]
 opt-level = 3
