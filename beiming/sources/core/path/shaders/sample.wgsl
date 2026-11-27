@@ -211,10 +211,18 @@ fn path_rng_3D(dimension: u32) -> vec3<f32> { return rng3(state.rng_offset + dim
 // 分支版：同一个决定在一个样本里取 `num_branches` 个点（遮蔽与倒角节点一次发多条射线），第 `branch` 个。样本号换成
 // state.sample * num_branches + branch。索引只留 16 位，所以有效样本数是 65536 除以分支数，超过之后重复同一批点（不偏，
 // 但噪声不再降）；换掩码算法的人一并处理。
+// 下标照旧按像素打乱（种子含像素种子），**点的 Owen 打乱只用维度的种子、不含像素种子**：照 Cycles 蓝噪声图案
+// （kernel/sample/pattern.h 的 blue_noise_indexing，SAMPLING_PATTERN_BLUE_NOISE_PURE：所有像素共用一条序列，
+// sobol_burley_sample_2D 的种子只是 hash_hp_uint(维度)）里点的打乱。标准答案机用的是蓝噪声图案。这一点要紧：倒角把一次
+// 求值的几个分支点的结果归一化之后求和，它的期望取决于这几个点的联合分布；点按像素打乱（Sobol-Burley 图案）时每个像素的
+// 联合分布各不相同，像素之间、种子之间的差 1024 个采样也平均不掉。CPU 上照这里的发生器模拟立方体棱边旁 1 mm 处的倒角法线
+// （32 个像素、各 1024 个采样）：按像素打乱点时种子间方差 8.8e-4、平均偏角 16.5°；只用维度的种子时 2.6e-7、17.2°，与
+// Cycles 蓝噪声的取法（同一条序列错开）相同。不分支的取数（rng1 到 rng4）照旧按像素打乱，见 STRUCTURES.md「与 Cycles、与上游不一样的地方」第 56 条。
 fn path_branched_rng_2D(branch: u32, num_branches: u32, dimension: u32) -> vec2<f32> {
     let s = rng_seed(state.rng_offset + dimension);
     let i = rng_index_at(state.sample * num_branches + branch, s ^ 0xf8ade99au);
-    return vec2<f32>(sobol_owen(i, 0u, s ^ 0xe0aaaf76u), sobol_owen(i, 1u, s ^ 0x94964d4eu));
+    let v = hash_hp(state.rng_offset + dimension);
+    return vec2<f32>(sobol_owen(i, 0u, v ^ 0xe0aaaf76u), sobol_owen(i, 1u, v ^ 0x94964d4eu));
 }
 
 // Starts sample `index` of a pixel (the sample offline, the frame live) on path `path`; `seed`: the render's

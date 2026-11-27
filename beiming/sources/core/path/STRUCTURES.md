@@ -91,7 +91,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | 18 | `specular_ior_level` | f32 | 高光等级，默认 0.5。从场景描述压出来时取 three.js `specularIntensity`（默认 1）的一半 | 已落地（电介质高光读） |
 | 19 | `diffuse_roughness` | f32 | 漫反射粗糙度，0 是朗伯 | 已落地（只用来判「漫反射粗糙度 0」；不为 0 的材质走上游顶替） |
 | 19 | `flags` | u32 | 按位的标志，见登记表 | 第 0 位已落地，其余已定义 |
-| 19 | `pattern_first`、`pattern_count` | u32 | 这个材质的图案节点在节点表里的起点与个数 | 已定义，恒 0 |
+| 19 | `pattern_first`、`pattern_count` | u32 | 这个材质的图案节点在节点表里的起点与个数（以节点计） | 已落地（1.2.5：场景包读入器填，`F_PATTERN` 的内核读） |
 | 20 到 25 | `reserved` | 6 个 vec4 f32 | 预留，全 0。给各向异性、清漆、绒面、透射、薄膜、次表面的参数；用到的人在这里起名 | 预留 |
 
 几条说明：
@@ -100,6 +100,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 - 高光等级单独存，不与上游的 `params.z` 合用：两者只在折射率 1.5 时等价。
 - 第 19 格在着色器里声明成四个标量，不用向量再做位转换。
 - 图案节点（倒角、环境光遮蔽等）的参数不放进材质记录。材质记录只带 `pattern_first`、`pattern_count` 指向一张单独的节点表（首地址的格子见登记表）；节点表的格式归做图案节点的人。上游的 `mp`、`mt` 继续只归上游的材质函数。
+- **图案节点表**（1.2.5 落地）：每个节点 2 个 vec4（`PATTERN_NODE_VEC4`），首地址在 `table_first_ext[0].y`，读法 `pathtrace.wgsl` 的 `pattern_node_at`；只有场景包读入器（`src/pack.rs` 的 `pattern_table`）写，别的入口是空表。第一个 vec4 按 u32 读，`x` 是种类：`PATTERN_BEVEL`（1）`[1, 采样数, 0, 0]`、`PATTERN_AO`（2）`[2, 采样数, 输出, onlyLocal]`、`PATTERN_SMOOTHSTEP`（3）`[3, 输入, 输出, 0]`、`PATTERN_MIX`（4）`[4, 系数, 设了哪几个, 粗糙度的位]`；第二个按 f32 读：倒角 `[半径]`、遮蔽 `[探测距离]`、平滑阶梯 `[e0, e1]`、混合 `[底色 r, g, b, 金属度]`。「设了哪几个」第 0 位底色、第 1 位金属度、第 2 位粗糙度。值名编成材质内的下标，一个材质最多 `PATTERN_VALUES`（8）个，超过时读入器报 `contract.unsupported-input`。两侧的常数由库测试 `pattern_nodes_compile_to_the_kernels_table` 对。
 - **默认值**在 Rust 一侧手写（`GpuMaterial::default`）：边缘色白、高光等级 0.5，其余全 0；每个构造处都以它收尾。`scene::build_material` 另按场景描述的 `specularIntensity` 填高光等级（等级 = 强度的一半：three.js 的强度乘在 F0 上，Blender 的等级乘 2 之后乘在 F0 上），所以 `specularIntensity: 0` 的材质没有电介质高光。
 - **能量补偿那一位**（`MATERIAL_FLAG_MULTISCATTER`）不在各构造处填：上传前由 `scene::with_energy_compensation` 一处按全局开关 `energyCompensation` 统一写。移植的闭包（金属、电介质高光）读这一位；上游顶替仍读全局的 `P.misc.z`。
 - **边缘色由一个场景特性位决定读不读材质记录**。特性位 `F_SPECULAR_TINT`（`src/gpu.rs` 的 `features_of` 按材质表定）：场景里有材质的边缘色不是白时，材质求值才从记录读 `specular_tint`；别的场景里内核编译期取白，不读这一格。这是量出来的：一律从记录读时，F82 的 B 项不再是编译期的 0，没有金属的场景稳态也慢 4%（苹果显卡）。现在没有任何场景入口能把边缘色设成非白，所以这一位平时恒关；强开它（环境变量 `THREERT_FEATURES_ON`）跑过全部回归，结果逐位不变。
@@ -126,7 +127,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | `flags` | u32 | 材质记录的 `flags` 原样带过来 | 能量补偿位已落地（金属与电介质高光都读）；闭包大类已定义 |
 | `coat_weight` | f32 | 清漆的份额，0 到 1 | 已落地（只用来判「无清漆」） |
 | `transmission_weight` | f32 | 透射的份额，0 到 1 | 已落地（只用来判「无透射」） |
-| `N` | vec3 | 闭包用的法线：含法线贴图、材质函数，以后还有倒角 | 已落地 |
+| `N` | vec3 | 闭包用的法线：含法线贴图、材质函数、倒角节点 | 已落地 |
 
 ### 着色点 `ShadingPoint`
 
@@ -145,7 +146,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | `flag` | u32 | 着色点标志，位照 Cycles。`SD_BACKFACING`（第 0 位）：打在背面 | 同上 | 已落地 |
 | `object_flag` | u32 | 物体标志，位照 Cycles。第 3 位 `SD_OBJECT_NEGATIVE_SCALE`：物体是镜像的 | 没人写 | 已定义 |
 | `time` | f32 | 这条光线的时刻 | 没人写 | 已定义，恒 0 |
-| `lcg_state` | u32 | 局部求交随机取子集用的小随机数状态 | 没人写 | 已定义 |
+| `lcg_state` | u32 | 局部求交随机取子集用的小随机数状态 | 没人写 | 已定义（倒角节点的小随机数状态放在 `svm_bevel` 的局部变量里，不经这里） |
 | `inst` | u32 | 放置这个三角形的实例记录（`NO_INST`：没经实例，三角形本身在世界空间；过程几何也记 `NO_INST`）。Cycles 没有这个字段（它从物体取变换） | `shader_setup_from_hit` | 已落地（1.2.3 加；阴影射线的起点偏移 `light.wgsl` 的 `shadow_tri` 读） |
 | `emission` | vec3 | 这个点的自发光，单独一个量，不占闭包 | `shader_setup_closures` | 已落地 |
 | `num_closure` | u32 | 闭包个数。0：只发光、不散射，路径到这里结束 | 同上 | 已落地 |
@@ -199,7 +200,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | 函数 | 做什么 | 状态 |
 |---|---|---|
 | `shader_setup_from_hit(sd, o, d, h)` | 填着色点的几何量，不读材质。往整变量的指针里填，不按值返回（按值返回时苹果显卡上像素末位会变） | 已落地 |
-| `shader_eval_inputs(sd, o, d, h, width) → ShaderInputs` | 解出材质输入值。现在装上游的贴图与材质函数逻辑，顺带把上游的 `Surface` 留在 `sd.legacy` 里。图案节点接在这里；以后的节点图编译器整段替换它 | 已落地 |
+| `shader_eval_inputs(sd, o, d, h, width) → ShaderInputs` | 解出材质输入值。图案节点（1.2.5，`F_PATTERN` 的内核）在这里照材质记录的 `pattern_first`、`pattern_count` 调 `shader_eval_pattern` 求值：贴图与材质函数之后、闭包之前；倒角换 `N`，混合换底色、金属度、粗糙度，遮蔽用着色点的 `N`（不含倒角）。现在装上游的贴图与材质函数逻辑，顺带把上游的 `Surface` 留在 `sd.legacy` 里。图案节点接在这里；以后的节点图编译器整段替换它 | 已落地 |
 | `closure_store(sd, n, c)` | 把闭包放进第 n 格，下标写成常数（按变量下标往闭包数组里写，苹果显卡上整个着色点会被挪到内存里，实测稳态慢几倍） | 已落地（1.2.0 加） |
 | `shader_setup_closures(sd, inputs)` | 只读 `ShaderInputs`，填闭包与自发光（见上「现在的实际情况」）。归移植闭包的人 | 已落地 |
 | `shader_eval_shadow(h, d, t) → vec3` | 只算透明度的一档：命中点放过多少光。不许发任何光线，不许调图案节点。求交函数与阴影透射里只许调这一档，不许调上面的全量求值（这门语言不许调用图里有环，而全量求值以后会回头发光线）。现在转给上游的镂空测试与阴影穿玻璃 | 已定义、无调用者（上游的求交与阴影射线仍直接调那两处） |
@@ -310,9 +311,9 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 
 以后要的新问法各加一个新函数，不改已有的。现在定了签名的一个：
 
-`trace_local(ray, object, lcg_state, max_hits) → LocalIntersection { num_hits, hits, lcg_state }`：只查同一个物体、返回至多 `LOCAL_MAX_HITS`（4）个命中，每个是 `LocalHit { t, tri, u, v }`。倒角与遮蔽这类图案节点用。用过之后的小随机数状态在返回值里带回（这门语言没法把成员的指针传进函数）。**已定义、无调用者，函数体是空壳**（恒返回 0 个命中）。
+`trace_local(ray, object, lcg_state, max_hits) → LocalIntersection { num_hits, hits, lcg_state }`：只查同一个物体（`tmin < t < tmax`），至多留 `LOCAL_MAX_HITS`（4）个命中，照 Cycles 的 `scene_intersect_local` 与它在处理器上的收命中规则（`kernel/device/cpu/bvh.h` 的 `kernel_embree_filter_occluded_local_func_impl`）：与已留下的命中距离相同的不算；`num_hits` 是找到的命中总数（照 Cycles，可以大于 `max_hits`），`hits` 里前 `min(num_hits, max_hits)` 个有效（`LocalHit { t, tri, u, v, inst }`，1.2.5 加 `inst`），满了之后按蓄水池抽样随机替换；`max_hits` 为 0 只问有没有命中（找到第一个就返回，`num_hits` 记 1）。用过之后的小随机数状态在返回值里带回（这门语言没法把成员的指针传进函数）。要跳过的图元同 `trace`，读 `trace_self`（遮蔽节点设它）。**已落地（1.2.5）**：倒角节点（`max_hits` 4）与 `onlyLocal` 的遮蔽节点（`max_hits` 0）调。
 
-实现它时的限制：硬件求交下不许新增光线查询的源码位置，只能在现有的 `trace` 之上逐次步进、按物体号过滤来拼，不用候选循环（上游记录过候选循环在苹果显卡上丢命中）。这样拼出来的多命中在硬件求交下是否可靠、代价多大**还没有量过**；不可靠的话只在软件求交上保证图案节点。阴影类的问法只许判断挡没挡住，不许读返回的三角号。硬件求交下按物体过滤可见类同样是已知限制，之前只在软件求交上保证。
+两条求交路做法不同。软件求交：一遍 BVH 遍历，叶子里按物体号过滤，收齐区间里的全部命中。硬件求交：不新增光线查询的源码位置，在现有的 `trace`（`TRACE_CLOSEST`）上逐次步进，每次从上一个命中处出发、`trace_self` 设成刚命中的三角形，按物体号过滤，最多 `LOCAL_STEPS`（16）步；不用候选循环（上游记录过候选循环在苹果显卡上丢命中）。步进拼出来的多命中可靠到什么程度，用 `../chassis/localhits.mjs` 量（同一个场景包、同一个种子、每像素 1 个样本，硬件与软件求交各渲一遍，降噪法线在倒角带状区里夹角超过 0.05° 的像素份额；两遍的随机数完全相同，这个份额是步进漏命中或多出命中的上界，蓄水池的次序不同也算在里面）：【实测】苹果显卡（M5 Pro）8 个种子，`l4-bevel` 带状区 0/10787、带状区外 0/202820；`part_03B`（1.2 万三角的零件）带状区 18/1927（0.93%）、带状区外 0/948453。英伟达显卡的读数见 `../chassis/localhits.mjs` 的汇报（第 4 级的轮次表一并记）。阴影类的问法只许判断挡没挡住，不许读返回的三角号。硬件求交下按物体过滤可见类同样是已知限制，之前只在软件求交上保证。
 
 ### 全局参数 `Params` 末尾追加的四块（进缓冲）
 
@@ -393,14 +394,14 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | 函数 | 取法 |
 |---|---|
 | `path_rng_1D(dimension)`、`path_rng_2D(dimension)`、`path_rng_3D(dimension)` | 编号是 `state.rng_offset + dimension`，像素种子与样本号读路径状态 |
-| `path_branched_rng_2D(branch, num_branches, dimension)` | 样本号换成 `state.sample × num_branches + branch`，其余同上 |
+| `path_branched_rng_2D(branch, num_branches, dimension)` | 样本号换成 `state.sample × num_branches + branch`；下标照旧按像素打乱，点的 Owen 打乱只用维度的种子、不含像素种子（1.2.5，见「与 Cycles、与上游不一样的地方」第 56 条） |
 
 - 它们不带状态参数：路径状态是模块级的私有变量，直接读。
 - `rng_offset` 初值 `PRNG_BOUNCE_NUM`（16），每弹射一次加 16；介质里散射一次也加。常数在 `shaders/integrator.wgsl`，Rust 一侧 `sample::PRNG_BOUNCE_NUM` 同值。
 - 相机的两个决定不加偏移，直接用 `PRNG_FILTER`（0）与 `PRNG_LENS_TIME`（1）。
 - 分支版的有效样本数是 65536 除以分支数，超过之后重复同一批点（不偏，但噪声不再降）；换掩码算法的人一并处理。
 
-`path_rng_2D` 与 `path_branched_rng_2D` 现在**已定义、无调用者**（分支版在显卡上对过数）。
+`path_rng_2D` 现在**已定义、无调用者**。`path_branched_rng_2D` 已落地（1.2.5：倒角与遮蔽节点调）。
 
 ### 维度的枚举
 
@@ -414,8 +415,8 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | | `PRNG_LIGHT` | 1 | 3 | 已定义 |
 | | `PRNG_LIGHT_TERMINATE` | 2 | 1 | 已定义 |
 | | `PRNG_SURFACE_BSDF` | 3 | 3：前两个定方向，第三个选闭包并复用 | 已落地（移植的闭包用前两个定方向、第三个选闭包；上游顶替不用它） |
-| | `PRNG_SURFACE_AO` | 4 | 2，分支版 | 已定义 |
-| | `PRNG_SURFACE_BEVEL` | 5 | 2，分支版 | 已定义 |
+| | `PRNG_SURFACE_AO` | 4 | 2，分支版 | 已落地（遮蔽节点） |
+| | `PRNG_SURFACE_BEVEL` | 5 | 2，分支版 | 已落地（倒角节点；局部求交取子集的小随机数状态照 Cycles 由 `lcg_state_init` 从像素种子、偏移、样本号与常数 0x64c6a40e 起） |
 
 每次弹射 16 个位置里其余的去向见登记表。
 
@@ -484,7 +485,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 
 ### 不在这次定的
 
-采样图案只有 Sobol-Burley 一种，有意不照搬 Cycles 的表式 Sobol 与蓝噪声（参考包出题用蓝噪声）。依据是 5090 上的一组读数：同一帧把参考的图案从表式 Sobol 换成蓝噪声，PSNR 36.80 dB、HDR-FLIP 0.01221，只换种子是 36.84 dB、0.01228，两者分不开，图案带来的偏差在一帧里量不出来；第 3 到 5 级按「噪声地板乘 k」比，地板里已经含了这份差。不照搬的代价：低采样下颗粒的结构和 Cycles 不像，只影响观感，收敛后的数值一致。以后要补，表式 Sobol 的查表、蓝噪声的单序列加每像素偏移与序列长度都是全局参数和查表，不改这里的形状。
+采样图案只有 Sobol-Burley 一种（分支版取数的点的打乱是一处例外，照蓝噪声图案的取法，见第 56 条），有意不照搬 Cycles 的表式 Sobol 与蓝噪声（参考包出题用蓝噪声）。依据是 5090 上的一组读数：同一帧把参考的图案从表式 Sobol 换成蓝噪声，PSNR 36.80 dB、HDR-FLIP 0.01221，只换种子是 36.84 dB、0.01228，两者分不开，图案带来的偏差在一帧里量不出来；第 3 到 5 级按「噪声地板乘 k」比，地板里已经含了这份差。不照搬的代价：低采样下颗粒的结构和 Cycles 不像，只影响观感，收敛后的数值一致。以后要补，表式 Sobol 的查表、蓝噪声的单序列加每像素偏移与序列长度都是全局参数和查表，不改这里的形状。
 
 ## 输出通道
 
@@ -598,7 +599,7 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 19. `PATH_RAY_MIS_SKIP` 的设与清留在主循环里，不在 `path_state_next` 里。
 20. 路径标志位与可见类是两个枚举，照 Cycles 分开。
 21. `Ray` 的两个向量排在最后；相机光线没有单独的函数与文件。
-22. `trace_local` 的返回值带一个 `lcg_state`（用过之后的小随机数状态）。
+22. `trace_local` 的返回值带一个 `lcg_state`（用过之后的小随机数状态）；`LocalHit` 带实例记录 `inst`（Cycles 从物体取变换，这里要它去找硬件求交下模型空间的池三角形）。
 23. 弹射上限、轮盘起始深度、夹取没有接到 `integrator` 块：仍读上游的字段。
 24. 射线的起点沿法线挪开（上游的做法；Cycles 不挪，靠「不打中自己」的图元号）。所以凡是要和光源采样一侧配多重重要性采样权重的地方，要用没挪动的着色点，不能用 `ray.P`：它是路径状态的 `mis_origin_P`（1.2.2 起，替掉上游的 `bm_x`、`mis_x`）。阴影射线到灯上那一点为止（不缩短）；材质一侧拿「遮挡物离着色点本身的距离」（`hit.t` 加两个起点之差在方向上的分量）与灯距比，两侧是同一条判法。阴影射线不再沿法线挪开（1.2.3 之后）：照 Cycles 先 `shadow_ray_offset`，再照 `integrate_surface_ray_offset` 决定抬不抬（自交测中不抬，测不中抬 `ray_offset` 的 256 个末位），求交时跳过自己的图元（`light.wgsl` 的 `shadow_ray`，见第 51 条）；过程几何照旧挪开。
 
@@ -662,6 +663,13 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 
 56. 镜像的实例（行列式为负，物体扩展表 `object_flag` 带 `SD_OBJECT_NEGATIVE_SCALE`）与原件共用一个模型空间的网格与一个 BLAS，实例矩阵原样进 TLAS（场景包读入器 `src/pack.rs` 置 `World::mirror_flag_by_caller`，`src/scene.rs` 的 `Kind::Instanced` 见到它才让镜像的副本共用网格；1.2.5 之前镜像件在建场景时平铺成世界坐标的三角形、换绕序）。内核的几何法线是把模型空间的两条边乘实例矩阵再叉乘，镜像时朝里，所以命中实例且带镜像位时取反（`shader_setup_from_hit`、`surface`）。Cycles 对没烘进几何的物体在物体空间求几何法线、再乘法线矩阵（`kernel/geom/shader_data.h:105` 的 `object_normal_transform`），镜像时自然朝外；烘进几何的（`SD_OBJECT_TRANSFORM_APPLIED`）才按镜像位换叉乘次序（`kernel/geom/triangle.h:40`）。两边求出来的方向一样，数值的舍入不同。软件求交把实例平铺进世界坐标时按镜像位换绕序（`src/lib.rs` 的 `flatten_instances` 与 `src/scene.rs` 的 `swap_corners`）。只看镜像位、不看行列式：场景脚本那一路扩展表全 0、不置 `mirror_flag_by_caller`，那里行列式为负的副本（`Kind::Instanced`）、网格与模型实例照旧在建场景时平铺、换绕序（含姿态模型里预先换过绕序的节点），不走共用网格，库测试 `instanced_objects_share_one_mesh` 两种都守着。共用网格以后交点在模型空间求（与 Cycles 不烘变换的物体一样），t 的舍入与平铺版不同：03B 全机与平铺版逐像素比，编号层与命中逐位相同，深度不逐位相同的像素全在镜像件上（见 [README.md](README.md)「03B 全机：打包秒数」）。不取反画面量得出来：03B 全机第 0 帧（1280×720、16 采样）平均亮度低约 8%，左右对称的小包左右两半分得开（`../chassis/scenepack.test.mjs` 的显卡负对照）。
 
+**图案节点**（1.2.5 加）
+
+56. 分支版取数 `path_branched_rng_2D`（`shaders/sample.wgsl`）的点的 Owen 打乱只用维度的种子、不含像素种子；下标照旧按像素打乱。Cycles 在 Sobol-Burley 图案下两处都含像素种子，标准答案机用的是蓝噪声图案（`kernel/sample/pattern.h` 的 `blue_noise_indexing`：所有像素共用一条序列，种子只是维度的哈希）。倒角把一次求值里 4 个分支点的结果归一化之后求和，遮蔽的份额再过平滑阶梯，期望值都取决于一次求值里那几个点的联合分布：点按像素打乱时每个像素的联合分布各不相同，像素之间、种子之间的差 1024 个采样也平均不掉。【实测】第 4 级 `l4-bevel` 倒角带状区里降噪法线的种子间方差（苹果显卡，4 个种子）：按像素打乱点 5.1e-4，参考 2.2e-5，改后 2.3e-5；该取值点的整帧 HDR-FLIP 由 1.75e-3 降到 5.4e-4（地板 5.1e-4）。【推断，CPU 模拟】立方体棱边旁 1 mm 处的倒角法线，32 个像素、各 1024 个采样：按像素打乱点时种子间方差 8.8e-4、平均偏角 16.5°；只用维度的种子 2.6e-7、17.2°；Cycles 蓝噪声的取法（同一条序列错开）6.2e-7、17.2°；独立随机数 2.3e-4、21.5°。不分支的取数照旧按像素打乱：它们的估计是线性的，图案只改噪声的分布。
+57. 硬件求交下的 `trace_local` 在 `trace` 上步进拼（求交一节），不是 Cycles 的一次局部遍历；软件求交是一次遍历。两条路收命中的次序不同，命中多于 4 个时蓄水池留下的子集不同（期望相同）。
+58. 图案节点在 `shader_eval_inputs` 里求值，混合换的是贴图、物体颜色、顶点色乘过之后的底色（场景包没有这三样，与 Cycles 的节点图相同）。倒角的法线输入没接时 Cycles 自动接着色法线，`normalize(sd->N + (bevel_N − sd->N))` 与 `bevel_N` 只差舍入，这里直接取 `bevel_N`。
+59. 遮蔽节点 `onlyLocal` 为假时打阴影的问法（`trace` 的 `TRACE_SHADOW`：不投影的物体不挡，带镂空的三角形照旧做透明度测试），对应 Cycles 的 `scene_intersect_shadow(…, PATH_RAY_VISIBILITY_SHADOW_OPAQUE)`；射线起点是没挪动的着色点、跳过自己的图元（`trace_self`），同 Cycles 的 `ray.self`。
+
 ## 编号登记表
 
 **要新号向核心帧源的负责人要；改登记表不算变更。** 拿到号之后：在这里登记，在着色器（与 Rust 一侧）加常数，运行 `freeze.mjs --update` 把新常数补进冻结标记。
@@ -701,8 +709,8 @@ Cycles 里「材质」是两层：每个材质一份的输入参数，和每个�
 | 1 | `PRNG_LIGHT` | 已占，已定义 | 做灯 |
 | 2 | `PRNG_LIGHT_TERMINATE` | 已占，已定义 | 做灯 |
 | 3 | `PRNG_SURFACE_BSDF` | 已占，已落地 | 表面散射 |
-| 4 | `PRNG_SURFACE_AO` | 已占，已定义 | 图案节点 |
-| 5 | `PRNG_SURFACE_BEVEL` | 已占，已定义 | 图案节点 |
+| 4 | `PRNG_SURFACE_AO` | 已占，已落地 | 图案节点 |
+| 5 | `PRNG_SURFACE_BEVEL` | 已占，已落地 | 图案节点 |
 | 6 | | 不许用 | Cycles 给了路径引导，这里不做，也不另作他用 |
 | 7、8、9 | | 空闲，取用须登记 | |
 | 10、11 | | 不许用 | 同第 6 个 |
@@ -748,7 +756,7 @@ Cycles 的体积散射与表面复用 3 到 9 这一段（同一次弹射要么�
 | 格 | 去向 | 状态 |
 |---|---|---|
 | `[0].x` | 物体扩展表 | 已落地（表全 0） |
-| `[0].y` | 图案节点表 | 已定义，0 |
+| `[0].y` | 图案节点表 | 已落地（1.2.5，见「材质记录」） |
 | `[0].z`、`[0].w` | 广义 Schlick 的两张反照率表（`table_ggx_gen_schlick_ior_s`、`table_ggx_gen_schlick_s`） | 已落地（`lookup_table_read_3D` 读） |
 | `[1].x` 到 `[1].w` | | 空闲 |
 
@@ -785,7 +793,7 @@ Cycles 的体积散射与表面复用 3 到 9 这一段（同一次弹射要么�
 
 ### 场景特性位
 
-内核按场景用到的功能编出不同的变体（上游的办法，`FEAT` 的各位）。北冥加的一位：`F_SPECULAR_TINT`（第 28 位），见「材质记录」。两侧同名，库测试 `feature_bits_are_distinct` 查各位互不相同、两侧同值。
+内核按场景用到的功能编出不同的变体（上游的办法，`FEAT` 的各位）。北冥加的两位：`F_SPECULAR_TINT`（第 28 位），见「材质记录」；`F_PATTERN`（第 29 位，1.2.5）：有材质带图案节点（`pattern_count` 不为 0）时打开，材质求值走图案节点的解释器，别的场景里那一段编译期去掉。两侧同名，库测试 `feature_bits_are_distinct` 查各位互不相同、两侧同值。
 
 ### 不靠机器、靠人复核的
 
@@ -903,12 +911,12 @@ node beiming/sources/core/chassis/level2.mjs            # 对 Cycles 的读数�
 | `state.visibility` 的读者；`ObjectExt` 的 `lightgroup`（发光网格的灯组） | 已写未读或已定义 | 做灯（发光网格） |
 | `film_add_light` 的 `bounce` 参数 | 已定义，没人读 | 降噪与采样（分直接光、间接光的夹取上限） |
 | 上游的灯光函数（上游顶替的闭包、多于 `RIS_EXACT` 盏的本地灯、发光三角、体积还走它们）、`surface_shader_bsdf_eval_legacy`、各 `D_*` 槽位 | 上游顶替 | 移植闭包与体积之后删 |
-| `trace_local`；着色点的 `lcg_state`、`object_flag`、`prim`、`u`、`v`、`N`、`ray_length` 的读者；`Ray` 的 `self_object`、`self_prim`、`tmin` 的读者 | 已定义、无调用者，或已写未读 | 图案节点（倒角、遮蔽） |
-| `PRNG_SURFACE_AO`、`PRNG_SURFACE_BEVEL`、`path_branched_rng_2D`、`path_rng_2D` | 已定义、无调用者 | 图案节点 |
-| `Material` 的 `pattern_first`、`pattern_count`；`MATERIAL_FLAG_NO_LEGACY_FUNCTION`；`table_first_ext` 的图案节点表一格；倒角一侧对 `ObjectExt.object_flag` 镜像位的读法（几何法线一侧 1.2.5 已读） | 已定义 | 图案节点 |
+| 着色点的 `lcg_state`、`object_flag`、`u`、`v`、`ray_length` 的读者；`Ray` 的 `self_object`、`self_prim` 的读者（`trace_local` 与着色点的 `prim`、`N`、`Ray.tmin` 1.2.5 起有读者：图案节点） | 已定义，或已写未读 | 用到的人 |
+| `path_rng_2D`（`PRNG_SURFACE_AO`、`PRNG_SURFACE_BEVEL`、`path_branched_rng_2D` 1.2.5 起有调用者） | 已定义、无调用者 | 用到的人 |
+| `MATERIAL_FLAG_NO_LEGACY_FUNCTION`；倒角一侧对 `ObjectExt.object_flag` 镜像位的读法（几何法线一侧 1.2.5 已读；倒角里 Cycles 拿它翻 `hit_Ng`，只进绝对值，这里不读）（材质记录的 `pattern_first`、`pattern_count` 与图案节点表 1.2.5 落地） | 已定义 | 节点图编译器 |
+| 图案节点在过程几何上（Cycles 里没有这种几何）；遮蔽节点在带镂空的场景里打阴影射线时上游的 `shadow_hole` 标志不存不还；图案节点只认场景包的四种，three.js 场景描述的入口没有 | 没做 | 用到的人 |
 | `AuxSample.motion`、`FILM_AUX_DATA` 的 zw（运动矢量） | 已定义，恒 0：快门角为 0 的 motion 层已经由宿主从 `FILM_AUX_HIT` 求（见「输出通道」）；快门角大于 0 要快门窗口里的状态，内核没有运动模糊 | 运动模糊 |
 | 请求灯组的任务描述字段（命令行 `render-pack --passes` 已出全部组） | 没有 | 帧源接口 |
-| 场景包里解析过、校验过、还没生效的：图案节点（`pack::Node`）；`pack-info` 的统计列在 `notApplied`（灯光链接与分灯组 1.2.2 起生效） | 已读未生效 | 图案节点 |
 | `FILM_DENOISE_NORMAL` 换成 Cycles 的口径；降噪反照率的「跟反射」与按粗糙度加权；`FILM_LEGACY_VARIANCE`；`denoising_feature_throughput`；`PATH_RAY_DENOISING_FEATURES` | 只取相机首次命中那一点。反照率已照 Cycles 取漫反射类闭包的 `bsdf_albedo` 之和（上游顶替取底色，只发光的面取归一化的发光色），法线是闭包用的法线（含法线贴图）。Cycles（`kernel/film/denoising_passes.h`）开着「跟反射」时沿光滑的反射、透射一直跟到够粗糙的面才写，乘降噪特征的通量，法线是全部闭包按权重的平均。只有法线的坐标系出层时换成了 Cycles 的（见「输出通道」的「降噪特征的规则」）；两侧的差由第 6 级（`chassis/level6.mjs` 的 features）逐个参考包记读数，只记不判 | 降噪与采样 |
 | `sobol_index_mask` 的算法、`sampling_pattern`、分支版取数的有效样本数 | 上游写死的值 | 降噪与采样 |
 | 着色点与光线的 `time` | 已定义，恒 0 | 运动模糊 |
@@ -937,4 +945,4 @@ node beiming/sources/core/chassis/level2.mjs            # 对 Cycles 的读数�
 3. **破坏性的**（改已有字段的名字、含义、位置；改进缓冲的格式的长度；改已有函数的参数表；改已有编号的数值）：先经核心帧源的负责人同意。
 4. 凡是动到冻结标记钉住的东西（第 1 条里的加字段、第 2 条、第 3 条都会）：改这份条文里对应的字段表或登记表，升 [FREEZE.json](FREEZE.json) 里的版本号（不算破坏的升末位，破坏性的升首位），运行 `node beiming/sources/core/chassis/freeze.mjs --update`，把标记的差异与改动放在同一个提交里。
 5. 每一步：`cargo test --locked`、`freeze.mjs`、两台机器上的 `regress.mjs --check`。有意改变渲染结果的改动过后，两台机器各重记一次基线。
-6. **五个没有调用者的函数，签名是暂定的**：`surface_shader_transparency`、`shader_eval_shadow`、`trace_local`、`path_rng_2D`、`path_branched_rng_2D`。（`film_write_aux`、`object_ext_at` 已经有调用者，并在两台机器上过了回归，签名定下来了；`surface_shader_bsdf_eval`、`shader_eval_emission` 在 1.2.0 有了调用者，在两台机器上过了第 2 级，签名定下来了。）它们只过了校验与两个后端的代码生成，没有在显卡上跑过；按值传大结构这类问题只有真跑才暴露。第一个调用者落地、并在两台机器上过了回归之后，签名才算定下来（那时把它从这张名单里划掉）。在这之前改它们的参数表不算破坏性的改动，不用先经同意：改条文与冻结标记（第 4 条）就行。
+6. **三个没有调用者的函数，签名是暂定的**：`surface_shader_transparency`、`shader_eval_shadow`、`path_rng_2D`。（`trace_local`、`path_branched_rng_2D` 1.2.5 有了调用者，在两台机器上跑过第 4 级，签名定下来了；`film_write_aux`、`object_ext_at` 已经有调用者，并在两台机器上过了回归，签名定下来了；`surface_shader_bsdf_eval`、`shader_eval_emission` 在 1.2.0 有了调用者，在两台机器上过了第 2 级，签名定下来了。）它们只过了校验与两个后端的代码生成，没有在显卡上跑过；按值传大结构这类问题只有真跑才暴露。第一个调用者落地、并在两台机器上过了回归之后，签名才算定下来（那时把它从这张名单里划掉）。在这之前改它们的参数表不算破坏性的改动，不用先经同意：改条文与冻结标记（第 4 条）就行。

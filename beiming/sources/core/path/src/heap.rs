@@ -60,14 +60,16 @@ pub enum Table {
     GgxGenSchlickIorS,
     /// 北冥：Cycles 的 table_ggx_gen_schlick_s（后一半），首地址在 `table_first_ext[0].w`。
     GgxGenSchlickS,
+    /// 北冥：图案节点表（`scene::Scene::patterns`），首地址在 `table_first_ext[0].y`。
+    Patterns,
 }
 
 /// 北冥加的表（`Table` 第 12 张起）各占 `Params::table_first_ext` 的哪一格（0 到 7，`[k / 4][k % 4]`），照 STRUCTURES.md
-/// 的登记表：`[0].y` 留给图案节点表，还没有这张表，那一格是 0。
-pub const EXT_SLOTS: [usize; 3] = [0, 2, 3];
+/// 的登记表：物体扩展表 `[0].x`，广义 Schlick 的两张表 `[0].z`、`[0].w`，图案节点表 `[0].y`。
+pub const EXT_SLOTS: [usize; 4] = [0, 2, 3, 1];
 
 impl Section for Table {
-    const COUNT: usize = 15;
+    const COUNT: usize = 16;
     const UNIT: u64 = 16;
     const LABEL: &'static str = "tables";
     fn index(self) -> usize {

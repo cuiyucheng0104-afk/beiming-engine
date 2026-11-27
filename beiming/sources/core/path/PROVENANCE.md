@@ -21,13 +21,13 @@ Cycles 是 Blender v5.2.3 的（提交 `e13b728c6880d3084d9d57c30031ed5df8b39dee
 
 | 本目录的文件 | 许可 | 照 Cycles 取了什么 | Cycles 的文件（许可） |
 |---|---|---|---|
-| `shaders/hash.wgsl`、`src/cycles_hash.rs` | Apache-2.0 | 像素种子的哈希函数 `hash_iqnt2d`，逐行移植 | `util/hash.h`（Apache-2.0） |
+| `shaders/hash.wgsl`、`src/cycles_hash.rs` | Apache-2.0 | 像素种子的哈希函数 `hash_iqnt2d`，逐行移植；`hash_uint3`（`lookup3` 的收尾混合）与线性同余发生器 `lcg_step_uint`、`lcg_state_init`，逐行移植（只在着色器里） | `util/hash.h`、`kernel/sample/lcg.h`（都是 Apache-2.0） |
 | `shaders/integrator.wgsl` | MIT 与 Apache-2.0 | 路径标志位 `PATH_RAY_*`、可见类 `PATH_RAY_VISIBILITY_*`、`PRNG_BOUNCE_NUM`、`LABEL_VOLUME_SCATTER` 的名字与数值，光线的字段名；路径状态的字段名；`path_state_next` 的骨架 | `kernel/types.h`、`kernel/integrator/state_template.h`、`kernel/integrator/path_state.h`（都是 Apache-2.0） |
-| `shaders/sample.wgsl` | MIT 与 Apache-2.0 | 随机维度的枚举 `PRNG_*` 的名字与数值；取数接口 `path_rng_1D`、`path_rng_2D`、`path_rng_3D`、`path_branched_rng_2D`；像素种子的式子 | `kernel/types.h`、`kernel/integrator/path_state.h`、`kernel/sample/pattern.h`（都是 Apache-2.0） |
-| `shaders/shader.wgsl` | MIT、Apache-2.0 与 BSD-3-Clause | 着色点标志 `SD_BACKFACING` 的名字与数值，着色点与闭包的字段名；闭包种类 `CLOSURE_*` 的名字（数值是这里自己的）；菲涅耳种类 `FRESNEL_*` 的名字与次序；`shader_setup_closures` 里原理化 BSDF 建金属、电介质高光、漫反射三个闭包的次序与权重的算法，金属与电介质高光取 `valid_reflection_N`（`kernel/svm/closure.h` 的 `svm_node_closure_bsdf` 原理化分支，照原式重写） | `kernel/types.h`、`kernel/svm/types.h`（Apache-2.0）；菲涅耳种类来自 `kernel/closure/bsdf_microfacet.h`（BSD-3-Clause，版权人 Sony Pictures Imageworks Inc. 等与 Blender Foundation） |
+| `shaders/sample.wgsl` | MIT 与 Apache-2.0 | 随机维度的枚举 `PRNG_*` 的名字与数值；取数接口 `path_rng_1D`、`path_rng_2D`、`path_rng_3D`、`path_branched_rng_2D`；像素种子的式子；分支版取数里点的打乱只用维度的种子（蓝噪声图案的取法） | `kernel/types.h`、`kernel/integrator/path_state.h`、`kernel/sample/pattern.h`、`kernel/sample/sobol_burley.h`（都是 Apache-2.0） |
+| `shaders/shader.wgsl` | MIT、Apache-2.0 与 BSD-3-Clause | 着色点标志 `SD_BACKFACING` 的名字与数值，着色点与闭包的字段名；闭包种类 `CLOSURE_*` 的名字（数值是这里自己的）；菲涅耳种类 `FRESNEL_*` 的名字与次序；`shader_setup_closures` 里原理化 BSDF 建金属、电介质高光、漫反射三个闭包的次序与权重的算法，金属与电介质高光取 `valid_reflection_N`（`kernel/svm/closure.h` 的 `svm_node_closure_bsdf` 原理化分支，照原式重写）；图案节点的求值：倒角 `svm_bevel` 与它的三次 BSSRDF 采样 `svm_bevel_cubic_*`、环境光遮蔽 `svm_ao`、平滑阶梯与混合的插值，照原式重写 | `kernel/types.h`、`kernel/svm/types.h`、`kernel/svm/bevel.h`、`kernel/svm/ao.h`、`kernel/svm/map_range.h`、`kernel/svm/mix.h`、`util/math_base.h`（Apache-2.0）；菲涅耳种类来自 `kernel/closure/bsdf_microfacet.h`（BSD-3-Clause，版权人 Sony Pictures Imageworks Inc. 等与 Blender Foundation） |
 | `shaders/closure.wgsl` | MIT 与 Apache-2.0 | 采样标签 `LABEL_TRANSMIT` 的名字与数值；`surface_shader_*` 这一组函数的名字与分工，多个闭包之间的选择、求值求和与按 `sample_weight` 加权的概率密度（`surface_shader_bsdf_bssrdf_pick`、`_surface_shader_bsdf_eval_mis`、`surface_shader_bsdf_sample_closure`）、滤光泽与发光，逐函数照原式移植；`bsdf_eval`、`bsdf_sample` 按闭包种类分发、两处调凹凸阴影项的位置、`bsdf_albedo`；求值的漫反射与光泽两份（`bsdf_eval_accum`）；闭包的取样权重（`closure_sample_weight`）；降噪反照率取哪些闭包 | `kernel/types.h`、`kernel/integrator/surface_shader.h`、`kernel/closure/bsdf.h`、`kernel/film/light_passes.h`、`kernel/closure/alloc.h`、`kernel/film/denoising_passes.h`（都是 Apache-2.0） |
 | `shaders/pathtrace.wgsl` | MIT 与 Apache-2.0 | 物体标志 `SD_OBJECT_NEGATIVE_SCALE` 的名字与数值；积分器参数块 `KernelIntegrator` 的字段名；物体扩展表 `ObjectExt` 的四个字段名（`receiver_light_set`、`lightgroup`、两个阴影终止偏移） | `kernel/types.h`、`kernel/data_template.h`（都是 Apache-2.0） |
-| `shaders/intersect.wgsl` | MIT 与 Apache-2.0 | `LOCAL_MAX_HITS` 的名字与数值、`LocalIntersection` 的字段名；`trace_local` 这个问法 | `kernel/types.h`、`kernel/bvh/bvh.h`（都是 Apache-2.0） |
+| `shaders/intersect.wgsl` | MIT 与 Apache-2.0 | `LOCAL_MAX_HITS` 的名字与数值、`LocalIntersection` 的字段名；`trace_local` 这个问法；收局部命中的规则（同距离不重复收、满了按蓄水池抽样替换、`max_hits` 为 0 只问有没有命中），照原式重写 | `kernel/types.h`、`kernel/bvh/bvh.h`、`kernel/device/cpu/bvh.h`（都是 Apache-2.0） |
 | `src/gpu.rs` | MIT 与 Apache-2.0 | 积分器参数块 `KernelIntegrator` 的字段名（着色器里那一份在 CPU 上的镜像） | `kernel/data_template.h`（Apache-2.0） |
 | `src/sample.rs` | MIT 与 Apache-2.0 | `PRNG_BOUNCE_NUM` 的名字与数值；像素种子的式子 `rng_pixel` | `kernel/types.h`、`kernel/sample/pattern.h`（都是 Apache-2.0） |
 | `src/pixel_filter.rs` | Apache-2.0 | 像素滤波的三个滤波函数与建重要性采样表（`filter_func_box`、`filter_func_gaussian`、`filter_func_blackman_harris`、`filter_table`），与它用的累积分布求值、反函数（对称的一支），逐行移植 | `scene/film.cpp`、`util/math_cdf.h`、`util/math_cdf.cpp`（都是 Apache-2.0） |
@@ -312,6 +312,17 @@ Cycles 的原理化 BSDF 给金属与电介质高光的闭包用的是 `valid_re
 - `shaders/shader.wgsl`：读边向量的三处（`shader_setup_from_hit`、`mat_in_at`、`surface`）现算 v1 − v0、v2 − v0（实例的三角形先在模型空间里减，再变换，与原来的次序相同）。
 
 苹果显卡的硬件求交器本身在公共边上也漏，改不了，记在 [STRUCTURES.md](STRUCTURES.md)「与 Cycles、与上游不一样的地方」第 47 条。
+
+### 图案节点：倒角、环境光遮蔽、平滑阶梯、混合
+
+场景包的四种图案节点原来只读只校验、不生效，现在照 Cycles（Blender v5.2.3）求值。只有带图案节点的场景包会走到这段代码（场景特性位 `F_PATTERN`，别的场景编译期去掉），其余场景渲染结果不变。
+
+- `src/pack.rs`：`pattern_table` 把每个材质的节点编成图案节点表（每个节点 2 个 vec4，格式见 `STRUCTURES.md`「材质记录」），`build` 填材质记录的 `pattern_first`、`pattern_count`；`pack-info` 的 `notApplied.pattern` 变成空表、另列 `patternMaterials`。`src/heap.rs` 加第 16 张表 `Patterns`，首地址在 `table_first_ext[0].y`；`src/gpu.rs` 加场景特性位 `F_PATTERN`（第 29 位）。
+- `shaders/shader.wgsl`：`shader_eval_inputs` 在贴图与材质函数之后、闭包之前调 `shader_eval_pattern` 依次求值。倒角照 `kernel/svm/bevel.h` 的 `svm_bevel`（三轴取盘、三次 BSSRDF 采样、只查同一个物体、按三轴幂启发式与距离的概率密度比加权、模糊的间接光线上早退），输出换闭包用的法线；遮蔽照 `kernel/svm/ao.h` 的 `svm_ao`（余弦半球、`onlyLocal` 为真只查同一个物体、为假打阴影的问法），法线输入是着色法线；平滑阶梯照 `smoothstep`（经 `map_range.h` 的 SMOOTHSTEP 一支），混合的底色照 MixRGB 的 MIX、金属度与粗糙度照 MapRange 的 LINEAR（标准答案机把场景包接成的 Blender 节点图）。
+- `shaders/intersect.wgsl`：`trace_local` 从空壳变成实现（软件求交一次遍历按物体号过滤，硬件求交在 `trace` 上逐次步进），收命中照 Cycles 处理器一侧的规则；`LocalHit` 加 `inst`，`num_hits` 改成照 Cycles 的命中总数。
+- `shaders/hash.wgsl`：加 `hash_uint3` 与线性同余发生器，倒角的 `lcg_state_init` 用。
+- `shaders/sample.wgsl`：`path_branched_rng_2D` 的点的打乱只用维度的种子（蓝噪声图案的取法，理由与读数见 `STRUCTURES.md`「与 Cycles、与上游不一样的地方」第 56 条）。这个函数之前没有调用者，改它不动别的场景。
+- 第 4 级（`../chassis/level4.mjs`）把 l4/d（倒角、遮蔽）、l4/e（镜面地面）改成判，加形状量具（`../../../verify/gauges.mjs`，线在阈值文件 `floor-gate.json` 的 `level4` 一段）与两项负对照（倒角不起作用、遮蔽恒为 1）；倒角、遮蔽、镜面地面与 03B 零件另记降噪前后的差距与地板。硬件求交下局部多命中的不一致率用 `../chassis/localhits.mjs` 量。
 
 ### 四样内部结构的冻结
 

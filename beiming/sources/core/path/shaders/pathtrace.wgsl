@@ -41,9 +41,9 @@
 // 北冥：这个文件原来是内核的全部主体，现在按阶段分成了几个文件，只搬了位置。这里留下的是开头的一段：编译开关、常数、
 // 全局参数、各张表的绑定与读法，外加各阶段共用的小函数。别处写着「pathtrace.wgsl 的某某函数」的，按下表去找：
 //   intersect.wgsl   求交：命中记录、过程几何、软件 BVH（trace）、阴影射线与穿玻璃（shadow_tr、glass_tr、glass_at）；
-//                    「只查同一个物体」的问法（trace_local，现在是空壳）
+//                    「只查同一个物体」的问法（trace_local）
 //   shader.wgsl      材质求值：着色点与闭包的结构、求值的三步（shader_setup_from_hit、shader_eval_inputs、
-//                    shader_setup_closures）；上游的 Surface、贴图、材质函数、镂空测试（alpha_pass）、surface 与 surface_proc
+//                    shader_setup_closures）；图案节点的解释器（shader_eval_pattern、svm_bevel、svm_ao）；上游的 Surface、贴图、材质函数、镂空测试（alpha_pass）、surface 与 surface_proc
 //   closure.wgsl     闭包：积分器碰材质的那一组函数（surface_shader_*）；上游的 Lobes、玻璃、求值与采样（eval_bsdf_k、
 //                    pdf_bsdf、sample_bsdf）
 //   light.wgsl       灯光：发光体表与灯光树、环境、天空与发光体的权重、直接光（direct_light、local_lights 等）
@@ -123,6 +123,7 @@ const F_BACKGROUND: u32 = 2097152u; // scene.background (`sky_mis`)
 const F_VCOLOR: u32 = 4194304u; // vertex colours (`vcolor`)
 const F_GRID: u32 = 33554432u; // density grids (`vgrid`)
 const F_LISTS: u32 = 134217728u; // light tiles (`lt_list_start`): a scene whose shadow-casting local lights are resampled
+const F_PATTERN: u32 = 536870912u; // 北冥：有材质带图案节点（Material.pattern_count 不为 0）：材质求值走图案节点的解释器（shader_eval_pattern）
 const F_SPECULAR_TINT: u32 = 268435456u; // 北冥：有材质的边缘色（Material.specular_tint）不是白：材质求值从材质记录读它
 fn has(f: u32) -> bool { return (FEAT & f) != 0u; }
 
@@ -212,7 +213,7 @@ struct Params {
     film: KernelFilm,             // 北冥：输出缓冲的形状
     // 北冥：新表在 `tables` 里的首地址（heap.rs `Table` 里排在上游 12 张之后的）。上游的 table_first 已经占满，新表
     // 只许用这里的 8 格，取用前要登记。现在登记的四个去向：
-    //   [0].x 物体扩展表（object_ext_at，已落地，全 0）   [0].y 图案节点表（已定义，0）
+    //   [0].x 物体扩展表（object_ext_at，已落地，全 0）   [0].y 图案节点表（pattern_node_at，已落地）
     //   [0].z、[0].w 广义 Schlick 的两张能量表（已定义，0）   [1] 的四格空闲
     table_first_ext: array<vec4<u32>, 2>,
     filter_table: KernelFilterTable, // 北冥：像素滤波的表（成像一路）
@@ -237,7 +238,7 @@ struct Material {
     specular_ior_level: f32,        // 高光等级，默认 0.5。已写未读
     diffuse_roughness: f32,         // 第 19 格。漫反射粗糙度，0 是朗伯。已写未读
     flags: u32,                     // MATERIAL_FLAG_*，见下
-    pattern_first: u32,             // 这个材质的图案节点在节点表里的起点与个数。已定义，恒 0
+    pattern_first: u32,             // 这个材质的图案节点在节点表里的起点与个数（以节点计）。已落地（F_PATTERN 的内核读）
     pattern_count: u32,
     reserved: array<vec4<f32>, 6>,  // 第 20 到 25 格，预留，全 0（各向异性、清漆、绒面、透射、薄膜、次表面的参数用到时在这里起名）
 };
@@ -324,6 +325,19 @@ struct ObjectExt {
 };
 const OBJECT_EXT_VEC4: u32 = 2u;
 const SD_OBJECT_NEGATIVE_SCALE: u32 = 1u << 3u;
+// 北冥：图案节点表。每个节点 PATTERN_NODE_VEC4 个 vec4，首地址在 P.table_first_ext[0].y；材质记录的 pattern_first、
+// pattern_count 以节点计。格式见 Rust 一侧 pack.rs 的 PATTERN_*（第一个 vec4 按 u32：种类与整数参数；第二个按 f32）。
+struct PatternNode { a: vec4<u32>, b: vec4<f32> };
+const PATTERN_NODE_VEC4: u32 = 2u;
+const PATTERN_BEVEL: u32 = 1u;
+const PATTERN_AO: u32 = 2u;
+const PATTERN_SMOOTHSTEP: u32 = 3u;
+const PATTERN_MIX: u32 = 4u;
+const PATTERN_VALUES: u32 = 8u;
+fn pattern_node_at(i: u32) -> PatternNode {
+    let b = P.table_first_ext[0].y + i * PATTERN_NODE_VEC4;
+    return PatternNode(tables[b], bitcast<vec4<f32>>(tables[b + 1u]));
+}
 fn object_ext_at(object: u32) -> ObjectExt {
     let b = P.table_first_ext[0].x + object * OBJECT_EXT_VEC4;
     let r0 = tables[b];

@@ -408,7 +408,7 @@ pub struct GpuMaterial {
     pub diffuse_roughness: f32,
     /// `MATERIAL_FLAG_*`。能量补偿那一位不在各构造处填：上传前由 `with_energy_compensation` 统一写。
     pub flags: u32,
-    /// 这个材质的图案节点在节点表里的起点与个数（现在没有节点表：0）。
+    /// 这个材质的图案节点在节点表（`Scene::patterns`）里的起点与个数；没有图案节点的是 0、0。
     pub pattern_first: u32,
     pub pattern_count: u32,
     /// 第 20 到 25 格，预留，全 0。
@@ -597,6 +597,9 @@ pub struct Scene {
     pub tri_instances: Vec<(u32, u32, u32)>,
     /// 北冥：物体扩展表（`GpuObjectExt`），与 `objects` 同下标。空的时候上传全 0；场景包读入器（pack.rs）填实体编号与镜像位。
     pub object_ext: Vec<GpuObjectExt>,
+    /// 北冥：图案节点表（pathtrace.wgsl `pattern_node_at`），每个节点 `PATTERN_NODE_VEC4` 个 vec4，材质记录的
+    /// `pattern_first`、`pattern_count` 指进来。只有场景包读入器（pack.rs `pattern_table`）填；别的入口是空的。
+    pub patterns: Vec<[u32; 4]>,
     /// Some object has instance colours (`InstanceTable::colors`): the kernel's F_TINT, 4 vec4s an object
     /// (`object_stride`).
     pub tinted: bool,
@@ -1947,6 +1950,7 @@ pub fn build(w: &World, assets: &Path, presets_dir: &Path, overrides: Option<&se
         tri_nodes,
         tri_instances,
         object_ext: vec![],
+        patterns: vec![],
         tinted,
         retained,
         media,

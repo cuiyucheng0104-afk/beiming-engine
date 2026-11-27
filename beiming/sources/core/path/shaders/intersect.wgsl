@@ -7,31 +7,146 @@
 // （许可全文见仓库根的 LICENSES/Apache-2.0.txt）：
 //   LOCAL_MAX_HITS 的名字与数值、LocalIntersection 的字段名：kernel/types.h
 //   trace_local 这个问法（只查同一个物体、返回至多几个命中）：kernel/bvh/bvh.h（scene_intersect_local）
+//   local_record 收命中的规则（同距离不重复收、满了按蓄水池抽样替换、max_hits 为 0 只问有没有命中）：
+//   kernel/device/cpu/bvh.h（kernel_embree_filter_occluded_local_func_impl），照原式重写
 // ------------------------------------------------------------------------------------------------
 // Intersection
 
 // `inst`: the model instance whose model-space triangle `tri` is (F_INST), NO_INST for world-space triangles.
 struct Hit { t: f32, tri: u32, u: f32, v: f32, inst: u32 };
 
-// 北冥：「只查同一个物体」的问法（倒角、遮蔽这类图案节点用），照 Cycles 的 scene_intersect_local。现在只定了签名与
-// 返回的结构，函数体是空壳，恒返回没有命中；归做图案节点的人实现。
-//   ray         光线（integrator.wgsl 的 Ray）：只在 [tmin, tmax] 这一段里找
+// 北冥：「只查同一个物体」的问法（倒角、遮蔽这类图案节点用），照 Cycles 的 scene_intersect_local（kernel/bvh/bvh.h）
+// 与它在处理器上的实现（kernel/device/cpu/bvh.h 的 kernel_embree_filter_occluded_local_func_impl）：
+//   ray         光线（integrator.wgsl 的 Ray）：只收 tmin < t < tmax 的命中
 //   object      物体表的下标（着色点的 object）：只收这个物体上的命中，别的物体当不存在
-//   lcg_state   命中多于 max_hits 时随机留下哪几个用的小随机数状态；用过之后的状态在返回值里带回
-//   max_hits    最多留几个，不超过 LOCAL_MAX_HITS
-// 实现时的限制：硬件求交下不许新增光线查询的源码位置，只能在现有的 `trace` 之上逐次步进（每次从上一个命中稍后一点
-// 重新出发）、按物体号过滤来拼，不用候选循环（上游记录过候选循环在 Metal 上丢命中）。这样拼出来的多命中在硬件求交下
-// 是否可靠、代价多大还没有量过；不可靠的话只在软件求交上保证。阴影类的问法只许判断挡没挡住，不许读返回的三角号。
+//   lcg_state   命中多于 max_hits 时随机留下哪几个（蓄水池抽样）用的小随机数状态；用过之后的状态在返回值里带回
+//   max_hits    最多留几个，不超过 LOCAL_MAX_HITS；0：只问有没有命中（找到第一个就返回，num_hits 记 1，不留命中）
+// 跳过的图元同 trace：模块级的 trace_self（遮蔽节点设它，Cycles 的 ray.self.prim）。
+// num_hits 照 Cycles 是找到的命中总数，可以大于 max_hits；hits 里前 min(num_hits, max_hits) 个有效，不保证按距离排序。
+// 两条求交路上做法不同：软件求交在 BVH 遍历里按物体号过滤、收齐区间里的全部命中；硬件求交下不新增光线查询的源码位置，
+// 在现有的 trace 上逐次步进（每次从上一个命中处出发、跳过刚命中的三角形，最多 LOCAL_STEPS 步）、按物体号过滤来拼，
+// 不用候选循环（上游记录过候选循环在 Metal 上丢命中）。步进的漏命中率两台显卡上的实测见 ../STRUCTURES.md「求交」。
+// 阴影类的问法只许判断挡没挡住，不许读返回的三角号。
 const LOCAL_MAX_HITS: u32 = 4u;
-struct LocalHit { t: f32, tri: u32, u: f32, v: f32 };
+const LOCAL_STEPS: u32 = 16u;
+struct LocalHit { t: f32, tri: u32, u: f32, v: f32, inst: u32 };
 struct LocalIntersection {
-    num_hits: u32,                          // 命中的个数，0 到 max_hits
-    hits: array<LocalHit, LOCAL_MAX_HITS>,  // 前 num_hits 个有效，不保证按距离排序
+    num_hits: u32,                          // 找到的命中总数（照 Cycles，可以大于 max_hits）
+    hits: array<LocalHit, LOCAL_MAX_HITS>,  // 前 min(num_hits, max_hits) 个有效，不保证按距离排序
     lcg_state: u32,                         // 用过之后的小随机数状态
 };
-fn trace_local(ray: Ray, object: u32, lcg_state: u32, max_hits: u32) -> LocalIntersection {
+
+// 收一个命中，照 Cycles 的 kernel_embree_filter_occluded_local_func_impl 里带 lcg_state 的那一支：与已留下的命中距离相同的
+// 不算（同一点打在两个三角形的公共边上）；满了之后按蓄水池抽样随机替换。max_hits 为 0 的调用方不经这里
+fn local_record(r: ptr<function, LocalIntersection>, h: LocalHit, max_hits: u32) {
+    let kept = min(max_hits, (*r).num_hits);
+    for (var i = 0u; i < kept; i++) {
+        if ((*r).hits[i].t == h.t) { return; }
+    }
+    (*r).num_hits += 1u;
+    var idx = (*r).num_hits - 1u;
+    if ((*r).num_hits > max_hits) {
+        (*r).lcg_state = lcg_step_uint((*r).lcg_state);
+        idx = (*r).lcg_state % (*r).num_hits;
+        if (idx >= max_hits) { return; }
+    }
+    (*r).hits[idx] = h;
+}
+
+// 一个命中落在哪个物体上（着色点的 object 的取法，shader_setup_from_hit）
+fn hit_object(h: Hit) -> u32 {
+    if (is_proc(h)) { return instance_at(h.inst).info.y; }
+    var a = attrs[h.tri];
+    if (has(F_INST) && h.inst != NO_INST) { a = inst_attr(instance_at(h.inst), a); }
+    return object_of(a);
+}
+
+@if(!hwrt) fn trace_local(ray: Ray, object: u32, lcg_state: u32, max_hits: u32) -> LocalIntersection {
     var r = LocalIntersection();
     r.lcg_state = lcg_state;
+    let o = ray.P;
+    let d = ray.D;
+    let inv_d = 1.0 / select(d, vec3<f32>(1e-20), abs(d) < vec3<f32>(1e-20));
+    var stack: array<u32, 48>;
+    var sp = 0u;
+    var node = 0u;
+    loop {
+        let n = nodes[node];
+        if (n.count > 0u) {
+            for (var k = 0u; k < n.count; k++) {
+                let ti = n.left_or_first + k;
+                if (hit_self(ti, NO_INST) || object_of(attrs[ti]) != object) { continue; }
+                let x = intersect_tri(o, d, ti, ray.tmax);
+                if (!(x.x > ray.tmin && x.x < ray.tmax)) { continue; }
+                if (max_hits == 0u) {
+                    r.num_hits = 1u;
+                    return r;
+                }
+                var lh = LocalHit();
+                lh.t = x.x;
+                lh.tri = ti;
+                lh.u = x.y;
+                lh.v = x.z;
+                lh.inst = NO_INST;
+                local_record(&r, lh, max_hits);
+            }
+            if (sp == 0u) { break; }
+            sp--;
+            node = stack[sp];
+            continue;
+        }
+        let l = n.left_or_first;
+        let tl = ray_aabb(o, inv_d, nodes[l].bmin, nodes[l].bmax, ray.tmax);
+        let tr = ray_aabb(o, inv_d, nodes[l + 1u].bmin, nodes[l + 1u].bmax, ray.tmax);
+        if (tl == INF && tr == INF) {
+            if (sp == 0u) { break; }
+            sp--;
+            node = stack[sp];
+            continue;
+        }
+        if (tl == INF) {
+            node = l + 1u;
+        } else {
+            node = l;
+            if (tr != INF && sp < 48u) {
+                stack[sp] = l + 1u;
+                sp++;
+            }
+        }
+    }
+    return r;
+}
+
+@if(hwrt) fn trace_local(ray: Ray, object: u32, lcg_state: u32, max_hits: u32) -> LocalIntersection {
+    var r = LocalIntersection();
+    r.lcg_state = lcg_state;
+    let self_in = trace_self;
+    var o = ray.P;
+    var base = 0.0;
+    for (var k = 0u; k < LOCAL_STEPS; k++) {
+        let h = trace(o, ray.D, ray.tmax - base, TRACE_CLOSEST);
+        if (h.tri == 0xffffffffu) { break; }
+        let t = base + h.t;
+        if (t >= ray.tmax) { break; }
+        if (!is_proc(h) && t > ray.tmin && hit_object(h) == object) {
+            if (max_hits == 0u) {
+                r.num_hits = 1u;
+                break;
+            }
+            var lh = LocalHit();
+            lh.t = t;
+            lh.tri = h.tri;
+            lh.u = h.u;
+            lh.v = h.v;
+            lh.inst = h.inst;
+            local_record(&r, lh, max_hits);
+        }
+        // 下一步从这个命中处出发，跳过刚命中的三角形
+        o = o + ray.D * h.t;
+        base = t;
+        trace_self = vec2<u32>(h.tri, h.inst);
+    }
+    trace_self = self_in;
     return r;
 }
 const NO_INST: u32 = 0xffffffffu;
