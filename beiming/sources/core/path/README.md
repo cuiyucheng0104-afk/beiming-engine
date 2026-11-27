@@ -143,7 +143,7 @@ core-render denoise --width W --height H --color c.f32 --albedo a.f32 --normal n
 node beiming/sources/core/chassis/oidn-parity.mjs [--device cpu|cuda|metal] [--prefilter accurate|fast|none] [--spp 16] [--width 320 --height 240] [--build oidn|oidn23]
 ```
 
-本机的 Blender 现搭一个小场景（脚本在 `../chassis/oidn-parity.mjs` 的 `SCENE`：地面、漫反射方块、金属球、面光、弱环境光，16 采样、不自适应、种子 0），Cycles 用 OIDN、质量 `HIGH`、给定的预过滤与设备（`cpu` 关「在 GPU 上降噪」；`cuda`、`metal` 用那块显卡渲并在上面降噪），存多部件的多层 EXR（32 位、不压缩），取 `Noisy Image`、`Denoising Albedo`、`Denoising Normal` 与降噪后的 `Combined`。前三层按 Cycles 的行序翻过来喂给带 OIDN 的 `core-render denoise`（同设备、同预过滤、`HIGH`），结果翻回来和 `Combined` 逐分量比。判据：每个分量 |差| ≤ 1e-3 × max(1, |Combined|)。EXR 与场景都在临时目录里，不进仓库；记录写 `../chassis/oidn-parity/<平台>-<设备>-<预过滤>.json`（`--build oidn23` 写 `<平台>-oidn23-<设备>-<预过滤>.json`；Blender 与 OIDN 的版本、库的 sha256、程序摘要、EXR 的 sha256、读数）。脚本先过 `verifyOidnLibs`：Blender 降噪用的库就是这边链接的那一份。`--build oidn23` 对 Blender 4.5 与 OIDN 2.3：`BEIMING_BLENDER` 指向 Blender 4.5 的可执行文件（参考由它渲、库从它的 `lib/` 找），渲参考的 Blender 报的版本与锁文件这一项不同就不比，退出码 3。
+本机的 Blender 现搭一个小场景（脚本在 `../chassis/oidn-parity.mjs` 的 `SCENE`：地面、漫反射方块、金属球、面光、弱环境光，16 采样、不自适应、种子 0），Cycles 用 OIDN、质量 `HIGH`、给定的预过滤与设备（`cpu` 关「在 GPU 上降噪」；`cuda`、`metal` 用那块显卡渲并在上面降噪），存多层 EXR（32 位、不压缩；Blender 5 是多部件，4.5 是单部件），取 `Noisy Image`、`Denoising Albedo`、`Denoising Normal` 与降噪后的 `Combined`。前三层按 Cycles 的行序翻过来喂给带 OIDN 的 `core-render denoise`（同设备、同预过滤、`HIGH`），结果翻回来和 `Combined` 逐分量比。判据：每个分量 |差| ≤ 1e-3 × max(1, |Combined|)。EXR 与场景都在临时目录里，不进仓库；记录写 `../chassis/oidn-parity/<平台>-<设备>-<预过滤>.json`（`--build oidn23` 写 `<平台>-oidn23-<设备>-<预过滤>.json`；Blender 与 OIDN 的版本、库的 sha256、程序摘要、EXR 的 sha256、读数）。脚本先过 `verifyOidnLibs`：Blender 降噪用的库就是这边链接的那一份。`--build oidn23` 对 Blender 4.5 与 OIDN 2.3：`BEIMING_BLENDER` 指向 Blender 4.5 的可执行文件（参考由它渲、库从它的 `lib/` 找），渲参考的 Blender 报的版本与锁文件这一项不同就不比，退出码 3。
 
 | 机器 | Blender | 设备 | 预过滤 | 最大绝对差 | 最大相对差 | 判据 |
 |---|---|---|---|---|---|---|
@@ -155,8 +155,12 @@ node beiming/sources/core/chassis/oidn-parity.mjs [--device cpu|cuda|metal] [--p
 | RTX 5090（Linux） | 5.2.3 | CPU | `FAST` | 1.91e-4 | 6.09e-6 | 过 |
 | RTX 5090（Linux） | 5.2.3 | CPU | `NONE` | 1.49e-4 | 5.85e-6 | 过 |
 | RTX 5090（Linux） | 5.2.3 | CUDA | `ACCURATE` | 0（逐位相同） | 0 | 过 |
+| RTX 5090（Linux），2.3 档 | 4.5.16 | CPU | `ACCURATE` | 1.68e-4 | 5.06e-6 | 过 |
+| RTX 5090（Linux），2.3 档 | 4.5.16 | CPU | `FAST` | 1.72e-4 | 4.99e-6 | 过 |
+| RTX 5090（Linux），2.3 档 | 4.5.16 | CPU | `NONE` | 1.87e-4 | 5.67e-6 | 过 |
+| RTX 5090（Linux），2.3 档 | 4.5.16 | CUDA | `ACCURATE` | 0（逐位相同） | 0 | 过 |
 
-上表都是 OIDN 2.5 档。OIDN 2.3 档（`--build oidn23`，RTX 5090 上 Blender 4.5.16 渲参考）的对拍还没跑出读数：5090 的显卡槽位一直被占着，没有记录入库；2.3 档在 5090 上编出、链接成功也还没验证过（Mac 上只做过 `cargo check --features oidn23`）。
+前八行是 OIDN 2.5 档；后四行是 OIDN 2.3 档（`--build oidn23`，链接 Blender 4.5.16 自带的 OIDN 2.3.3，参考也由它渲），记录是 `linux-x64-oidn23-*.json`。Blender 4.5 存的多层 EXR 是单部件，读法同样支持。Mac 上没有 Blender 4.5，2.3 档只在 Linux 上编过、对拍过。
 
 同一份带噪输入，降噪前后最大绝对差约 8.7（`ACCURATE`），所以这一帧的降噪确实动了画面。5090 上 `render-pack` 同包同帧（`part_03B` 第 12 帧）默认档与 OIDN 档的出层逐位相同，stats 的 `denoise` 分别是 `atrous` 与 `oidn`。CPU 上留下的那点差（两台机器都约是判据的 0.5%）没再追：Metal 与 CUDA 都逐位相同，说明参数与输入的取法一致；CPU 一侧的差可能来自 Cycles 读渲染缓冲时乘 1/采样数与 EXR 里存的均值在末位上的不同，没有验证。
 
