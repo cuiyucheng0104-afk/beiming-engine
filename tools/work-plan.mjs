@@ -28,6 +28,7 @@ import { loadRegistry } from './lib/routes.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const PLAN_PATH = 'docs/routes/work-plan.json';
+const ARCHIVE_DATE = Date.parse('2026-11-27T00:00:00Z');
 export const CARDS_DOC = 'docs/routes/work-breakdown.md';
 export const STATES = Object.freeze(['planned', 'in-progress', 'blocked', 'done', 'superseded']);
 export const EVIDENCE_KINDS = Object.freeze(['file', 'result', 'command', 'commit']);
@@ -437,7 +438,7 @@ async function run(ctx) {
   const action = actions[0] ?? 'check';
   if (opts.base !== null && action !== 'verify-diff') throw new CliError('usage.conflict', '--base 只和 --verify-diff 一起用', null);
   if (opts.route !== null && !['check', 'ready'].includes(action)) throw new CliError('usage.conflict', '--route 只和 --check / --ready 一起用', null);
-  let now = Date.now();
+  let now = opts.file === null ? ARCHIVE_DATE : Date.now();
   if (opts.now !== null) {
     now = Date.parse(opts.now);
     if (!ISO_DATE.test(opts.now) || Number.isNaN(now)) throw new CliError('usage.bad-value', `--now 要是 ISO 日期（如 2026-11-10），收到「${opts.now}」`, null);

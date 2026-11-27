@@ -249,6 +249,33 @@ test('任务卡生成能抓住漂移：范围、状态、证据、指引任一�
   for (const v of variants) assert.notEqual(formatCards(plan2([{ ...t, ...v }])), base, JSON.stringify(v));
 });
 
+test('2027 年查询归档仍按冻结日审计；自定义计划采用当前时间，--now 可覆盖冻结日', t => {
+  const dir = tmp('work-plan-clock-');
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const clock = join(dir, 'clock.cjs');
+  const future = '2027-01-01T00:00:00.000Z';
+  writeFileSync(clock, `Date.now = () => Date.parse('${future}');\n`);
+  const custom = join(dir, 'custom.json');
+  writeFileSync(custom, JSON.stringify(canonicalPlan()));
+  const query = (...args) => {
+    const r = spawnSync(process.execPath, ['--require', clock, CLI, '--json', ...args], { cwd: ROOT, encoding: 'utf8' });
+    const result = JSON.parse(r.stdout);
+    assert.equal(result.exitCode, r.status);
+    return result;
+  };
+  for (const action of ['--check', '--ready']) {
+    const result = query(action);
+    assert.equal(result.exitCode, 0);
+    assert.equal(result.data.now, '2026-11-27T00:00:00.000Z');
+  }
+  for (const args of [['--check', '--now', future], ['--check', '--file', custom]]) {
+    const result = query(...args);
+    assert.equal(result.exitCode, 4);
+    assert.equal(result.data.now, future);
+    assert.ok(result.data.claims.some(c => c.stale));
+  }
+});
+
 // ───── 命令行 ─────
 
 test('命令行：--help 退出 0 不读计划；未知参数退出 2；--json 只输出一个对象；动作互斥', () => {
