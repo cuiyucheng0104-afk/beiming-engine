@@ -36,7 +36,7 @@ test('两条路线的项目模板都能通过契约校验，且 RAEA 不被强�
 
 test('checkFiles 模式能核对真实入口文件存在', () => {
   assert.equal(validateProjectSpec(beimingTemplate(), { root: repoRoot, checkFiles: true }).ok, true);
-  // RAEA 模板的资产清单是 npm run raea:prepare 生成的（不入库）：有就通过，没有就只报清单缺失
+  // 原生模板资产清单由 npm run b:prepare -- examples/raea 生成。清单存在就通过，否则只报告缺少清单。
   const raeaManifest = existsSync(join(repoRoot, raeaTemplate().assets.manifest));
   assert.deepEqual(codes(validateProjectSpec(raeaTemplate(), { root: repoRoot, checkFiles: true })), raeaManifest ? [] : ['assets-manifest-missing']);
   const missing = clone(beimingTemplate());
