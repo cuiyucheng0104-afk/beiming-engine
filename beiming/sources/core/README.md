@@ -14,7 +14,7 @@
 
 ```js
 import { startSource } from './beiming/sources/core/source.mjs';
-const src = await startSource();            // 渲染程序：bin 参数 → 环境变量 BEIMING_CORE_RENDER → chassis/build.mjs 现编（要 cargo）
+const src = await startSource();            // 渲染程序：bin 参数 → 环境变量 BEIMING_CORE_RENDER → chassis/build.mjs 现编（要 cargo）；maxWallMs 见「作业准入与预算」
 const s = await src.open(input, { lock: null, tier: 'draft', workspace, filmDir });
 s.manifest();                               // { frames, entities: [{ id, name, class }] }，编号照场景包实例表
 const { meta, layers } = await s.render(0, { samples: 64, scale: 1 }, ['meta', 'color', 'depth', 'objectId', 'normal']);
@@ -22,6 +22,7 @@ await s.query(0, { kind: 'bbox3d', of: ['kit.*'] });
 await s.close(); await src.stop();
 ```
 
+- 出片链：`beiming/api/pipeline.mjs` 的帧源池按镜头条目的 `source: core` 起这个帧源，渲染程序只用编好的那份（`findRenderer()`：环境变量 `BEIMING_CORE_RENDER`，再没有就取 `chassis/build.mjs` 按这份内核源码编好、放在 `out/chassis/bin/` 下的那份），都没有报 `env.missing-tool`，作业里不现编。只开草稿档（看板用）；终渲档照下面「拒绝的请求」一表在 `open` 时拒，错误码不变。核对：`beiming/api/core-source.test.mjs`（一个场景包经队列里的作业出一帧，和直接调 `core-render render-pack` 出的颜色层、编号层逐字节相同；设 `BEIMING_CHASSIS_E2E=1` 又有编好的程序才跑）。
 - 镜头条目：`source: core`、`host: offscreen`、`mode: build-script`，`entry` 是场景包（`scene-pack/0.1`）的目录或它的 `pack.json`，相对片子描述所在的目录。场景包第 f 帧就是镜头局部第 f 帧，包的帧数要不少于镜头的 `out − in`。片子描述里怎么写一个镜头用了场景包，帧源接口契约没定（第 6 节），这是这里的写法。
 - 装载之前的判定（宿主、作者模式、锁、卡、资产、叠加层）与 three 帧源共用 `../three/plan.mjs` 的 `planOpen`；卡、资产、叠加层这个帧源都没接，带着来报 `contract.unsupported-input`。
 - 层写在 `env.workspace/r<会话内序号>-f<帧号>/` 下，文件名与格式见 [path/README.md](path/README.md)「读场景包」；同目录另有一张 `preview.png`。
@@ -50,9 +51,28 @@ await s.close(); await src.stop();
 
 成片档的拒绝与帧源契约的 F25 冲突：F25 不看档位，宿主与作者模式都声明过时 `open` 就该成功；错误码表里 `contract.unsupported-mode` 也只指宿主或作者模式。所以帧源核对记录里只记 draft 档的 `open`，这一条待契约改（给只进看板的帧源留出 `final` 的例外，或者登记专用码）。
 
+## 作业准入与预算
+
+经服务端提交的渲染作业，要渲的镜头里有 `source: core` 的（草稿档；终渲档照上表在 `open` 时拒），请求体要带 `budget: { maxTriangles, spp, maxWallMs }`，入队之前由 `admitBudget` 判，不过就不进队列：
+
+| 不过的情形 | 错误码 |
+|---|---|
+| 没带 `budget`、少一项或多一项、值不是正整数（`maxWallMs` 不超过 2³¹−1） | `usage.budget-required` |
+| 声明的 `spp` 超过这一档的上限 `SPP_MAX`（草稿档是终稿档的默认采样数 64） | `contract.over-budget` |
+| 声明的 `maxWallMs` 超过这一档的上限 `WALL_MAX`（草稿档 10 分钟：核心作业不被终渲抢占，这个数就是终渲最多被一个核心作业挡住的时间；渲不完的拆成几个作业排队） | `contract.over-budget` |
+| 镜头生效的每像素采样数（取值次序同 `planRender`）超过声明的 `spp` | `contract.over-budget` |
+| 场景包在要渲的某一帧上画出来的三角形数（`core-render pack-info --frame k` 那一行统计的 `triangles`）超过 `maxTriangles` | `contract.over-budget` |
+| 一次准入里全部 `pack-info` 加起来超过 `ADMIT_MS`（5 秒：准入在 HTTP 处理里同步跑，这就是一次提交最多挡住服务端多久；`pack-info` 只读清单与网格计数、不碰显卡，小包几毫秒） | `contract.over-budget` |
+
+草稿档的核验作业（`verify`）片子里有核心镜头时也进 `core` 道，但不要求声明预算、不过上表的准入：墙钟取这一档的上限 `WALL_MAX`，由服务端填进作业记录。终渲档的核验作业片子里有核心镜头时，在入队之前就拒（`contract.unsupported-mode`），不进 `core` 道：这一档没有墙钟上限，进了不被抢占的 `core` 道就可能没有时限地挡住同卡的终渲（[调度器的道](../../jobs/DETAILS.md#调度器的道)）。
+
+作业跑起来以后，帧源起的每个 `core-render` 进程（`pack-info`、`render-pack`）都由 `beiming/jobs` 的 `runWithWatchdog` 管：独立进程组、受管进程树。出片链起帧源时带上作业声明的 `maxWallMs`（`startSource({ bin, maxWallMs })`，从起帧源算起），到点先 SIGTERM、过 150 ms 宽限 SIGKILL 整棵进程树，报 `timeout.budget`；只杀这个作业名下的进程，同一块卡上别的作业不受影响。显卡租约由作业拿：走调度器的 `core` 道（[调度器的道](../../jobs/DETAILS.md#调度器的道)），同一块卡上同时只跑一个核心作业，第二个排队，前一个被杀、还了租约才开跑。核对：`beiming/api/core-source.test.mjs` 用一个收到 SIGTERM 不退出、还起了孙进程的假渲染程序，声明 1 秒（把「声明 10 秒、到 10 秒被杀」按 1/10 缩放），到点被杀、两个进程都不在了，排队的核心作业和并发的草稿照常完成。
+
+`usage.budget-required`、`contract.over-budget`、`timeout.budget` 已登记进错误码表（`errors.json`），由帧源接口契约 5.15 点名（两份契约因此升到 `0.2.0-draft`）：服务端的失败信封、诊断和作业结论里报的就是码本身。同一节还登记了 `env.lib-mismatch`（本机动态库的 sha256 和钉住的不同），原生那一路接上之前它暂时报 `env.missing-tool`。
+
 ## 元数据
 
-- `source.renderer` 是 `core`，`host` 是 `offscreen`，`version` 是内核源码的内容摘要（`chassis/build.mjs` 的 `sourceKey`，编好的程序按它命名）。帧源契约 3.4 的表里 core 的 `version` 写的是锁文件锁定的提交号，两者对不上：带锁文件 `open` 会被拒，待契约定用哪一个。
+- `source.renderer` 是 `core`，`host` 是 `offscreen`，`version` 是内核源码的内容摘要（`chassis/build.mjs` 的 `sourceKey`，编好的程序按它命名）。服务端签的锁（`api/runtime.mjs` 的 `lockContext`）里 `sources.core.version` 记的就是这个摘要，`scenePacks` 记每个核心镜头的场景包哈希（场景包契约 5.7；镜头写了 `renderer` 时取它的 `entry`，包里有符号链接就不签，报 `env.lock-required`），带这份锁 `open` 照常。帧源契约 3.4 的表里 core 的 `version` 写的是锁文件锁定的提交号，和这个摘要不是一种东西，待契约定用哪一个。
 - 相机：`world` 是场景包相机表的 `mat16`，`proj` 照每帧元数据契约 5.1 从 `fovY`、清单的 `near`、`far` 和输出尺寸算；相机表带景深两列时带 `focusDist`、`fstop`、`sensorHeightM`。
 - 实体：这一帧画出来的实体（实例矩阵左上 3×3 行列式不为 0）逐顶点投影，算 `bbox2d`、`bbox3d`、`pxArea`、`depth`（算式与页面宿主共用 `../../host/page/measure.js`，同样不做近裁剪面的裁剪：跨到相机后面的实体 `bbox2d` 不对）。`visible` 写 `null`（场景包里没有角色）。
 - `lights`、`stats.noise` 写 `null`，在能力声明的 `metaNull` 里；`texts` 是空数组。

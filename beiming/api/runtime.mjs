@@ -1,12 +1,15 @@
 // 服务端的运行环境：卡库、外部工具（Blender、FFmpeg、无头浏览器）在不在、agx-mhc 查找表、签锁要的资源目录。
 // 这里只认识环境，不认识请求。找不到的工具交回 null，由调用方报 env.missing-tool / env.ffmpeg-missing。
+import { Buffer } from 'node:buffer';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative, resolve, sep } from 'node:path';
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tools as compTools, bakeAgxLut, SHAPER } from '../comp/index.mjs';
 import { findBlender } from '../sources/blender/host.mjs';
+import { sourceKey as coreKey } from '../sources/core/chassis/build.mjs';
+import { packDir } from '../sources/core/source.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const BEIMING = join(HERE, '..');
@@ -256,6 +259,26 @@ export function blenderImage(version, opts = {}) {
   return `sha256:${sha256(Buffer.from(`blender\0${version}\0${base}\0${code}\0`))}`;
 }
 
+/** 核心帧源的内核源码摘要与引擎代码摘要（锁里 sources.core.image） */
+export function coreImage(version, opts = {}) {
+  const code = engineCodeDigest('core', { root: opts?.root ?? REPO, effective: Boolean(opts?.effective) });
+  return `sha256:${sha256(Buffer.from(`core\0${version}\0${code}\0`))}`;
+}
+
+/** 场景包契约 5.7 要算哈希的那段文本：包目录里每个文件一行「sha256、两个空格、相对路径」，按路径的 UTF-8 字节序排。
+ *  包里有符号链接就拒、不跟随：5.7 和 SP6 要包哈希只由包里各文件的路径和内容定，跟随链接会把包外的东西算进来，跳过又会漏掉读入方读得到的文件。
+ *  包目录本身是符号链接也一样拒：readdirSync 会跟着它读到别处 */
+export function packHashText(dir) {
+  if (lstatSync(dir).isSymbolicLink()) throw new Error(`场景包目录 ${basename(dir)} 本身是符号链接：包哈希只由包里的文件算（场景包契约 5.7），不跟随链接`);
+  const entries = readdirSync(dir, { withFileTypes: true, recursive: true });
+  const rel = (e) => relative(dir, join(e.parentPath, e.name)).split(sep).join('/');
+  const link = entries.find((e) => e.isSymbolicLink());
+  if (link) throw new Error(`场景包里有符号链接 ${rel(link)}：包哈希只由包里的文件算（场景包契约 5.7），不跟随链接`);
+  const files = entries.filter((e) => e.isFile()).map(rel)
+    .sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b)));
+  return Buffer.from(files.map((f) => `${sha256(readFileSync(join(dir, f)))}  ${f}\n`).join(''));
+}
+
 /** 纯 JS 确定性解析式 AgX 对数整形三维查找表（无 Blender 裸机环境兜底，输入已在 SHAPER 对数域 [0, 1]）。 */
 export function analyticAgxCube(gridSize = 33) {
   const curve = (t) => {
@@ -313,13 +336,27 @@ export function ensureLut(dataDir) {
 /**
  * 签锁要的资源目录（kernel/lock-gen.mjs 的 context）。缺 Blender 时 blender 帧源不进目录，片子用到它签锁会失败。
  * lut 是 ensureLut 的结果（可以是 null：没有查找表签不了锁）。
+ * film、filmDir 给了、片子里又有核心镜头时，core 帧源进目录：版本是内核源码摘要（和核心帧源能力声明的 version 同一个），
+ * scenePacks 是每个核心镜头的场景包（相对 filmDir）照场景包契约 5.7 拼的那段文本，锁生成器对它算 sha256 就是包哈希。
  */
-export function lockContext({ rev, library, lut, assets, machine = { class: 'local', driver: process.platform }, root }) {
+export function lockContext({ rev, library, lut, assets, machine = { class: 'local', driver: process.platform }, root, film, filmDir }) {
   // 现网进程签锁与 deliver 核锁同口径（effective: true），确保锁精确锚定本进程实际执行的代码/字体组合；传入外部 root 时仍全盘实时读盘
   const opts = root ? { root } : { effective: true };
   const sources = { three: { version: THREE_VERSION, host: 'page', image: threeImage(opts) } };
   const b = blenderInfo();
   if (b) sources.blender = { version: b.version, host: 'cycles', image: blenderImage(b.version, opts) };
+  const coreShots = (film?.shots ?? []).flatMap((shot) => {
+    // 写了 renderer 时出帧的是它那一套（片子描述契约 3.3），场景包取它的 entry；它不是 core、镜头顶层是 core 时，锁生成器照样要顶层这一份
+    const p = [shot.renderer, shot].find((x) => x?.source === 'core');
+    // 没写 entry 的核心镜头不进 scenePacks：锁生成器照缺了这个镜头的场景包报错
+    return typeof p?.entry === 'string' ? [[shot.id, p.entry]] : [];
+  });
+  if (coreShots.length && filmDir) {
+    sources.core = {
+      version: coreKey(), host: 'offscreen', image: coreImage(coreKey(), opts),
+      scenePacks: Object.fromEntries(coreShots.map(([id, entry]) => [id, packHashText(packDir(filmDir, entry))])),
+    };
+  }
   const compVer = library['comp.display']?.card?.status?.find((s) => s.host === 'node')?.source ?? process.versions.node;
   const sameMinor = (a, c) => typeof a === 'string' && typeof c === 'string' && a.split('.').slice(0, 2).join('.') === c.split('.').slice(0, 2).join('.');
   return {

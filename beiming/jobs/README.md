@@ -17,7 +17,7 @@
 | 模块 | 导出 | 用途 |
 |---|---|---|
 | `workspace.mjs` | `openWorkspace` | 修订提交、内容寻址快照、中间产物回收 |
-| `scheduler.mjs` | `Scheduler` | 显存预算调度与抢占 |
+| `scheduler.mjs` | `Scheduler` | 显存预算调度与抢占（[道](DETAILS.md#调度器的道)） |
 | `queue.mjs` | `loadQueue`、`replayJob` | 持久化作业队列，到终态自动记账 |
 | `ledger.mjs` | `appendJobLedger`、`readJobLedger`、`normalizeLedgerEntry`、`summarizeJobLedger`、`quoteFromDraft`、`measureDiskBytes` | 六维成本账本与草稿报价 |
 | `cache.mjs` | `computeFrameCacheKey`、`canonicalJson`、`openShotCache`、`renderShotsWithCache`、`checkCacheSeams` | 镜头帧缓存（A16） |

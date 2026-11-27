@@ -9,6 +9,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { loadQueue, openShotCache } from '../jobs/index.mjs';
+import { renderingOf } from '../kernel/eval/index.mjs';
+import { NOT_YET, WALL_MAX, admitBudget } from '../sources/core/source.mjs';
 import { audioLoudness, blackFreezeDup, buildContactSheet, buildCutStrips, cutScene, cutYdif, deliverSpec, pngSize, query, videoAliasEdge, videoNoiseResidual } from '../observe/index.mjs';
 import { artifactUrl } from './client.mjs';
 import { ROUTES } from './contract.mjs';
@@ -313,7 +315,7 @@ export function createWork({ store, library, reviewer, scheduler }) {
     // frames 只数真调了帧源的帧，cachedFrames 数缓存命中的帧
     const acc = { gpuSeconds: 0, frames: 0, cachedFrames: 0, tokens: 0, start: monotonicMs() };
     progress.set(job.id, acc);
-    const pool = sourcePool({ library: typeof library === 'function' ? library() : library, workspace: snapshot.dir, blenderBin: blenderInfo()?.bin });
+    const pool = sourcePool({ library: typeof library === 'function' ? library() : library, workspace: snapshot.dir, blenderBin: blenderInfo()?.bin, budget: job.payload.budget });
     let outcome, crash;
     try {
       const film = JSON.parse(readFileSync(join(snapshot.dir, 'film.json'), 'utf8'));
@@ -362,7 +364,10 @@ export function createWork({ store, library, reviewer, scheduler }) {
         || (code === 'contract.delivery-mismatch' && /母带不达标|响度|真峰值/.test(detail)
           ? '声轨响度/真峰值未达标：调整片长、音频事件，或设 audio/mode 为 none 后重试'
           : undefined);
-      const next = Array.isArray(e?.next) ? e.next : code.startsWith('contract.') ? [{ verb: `PUT /v1/films/${id}/film`, why: '按失败原因调整片子或规格后重试' }] : [];
+      // 核心作业用完墙钟预算被杀：不是片子写错了，提示拆小或加预算重新提交，不叫人改片子
+      const next = Array.isArray(e?.next) ? e.next
+        : e?.code === 'timeout.budget' ? [{ verb: `POST /v1/films/${id}/${name}`, why: '墙钟预算用完被杀：少渲几个镜头或几帧再提交；渲染作业也可以在草稿档上限内加大 budget.maxWallMs' }]
+          : code.startsWith('contract.') ? [{ verb: `PUT /v1/films/${id}/film`, why: '按失败原因调整片子或规格后重试' }] : [];
       outcome = {
         ok: false, crashed: true, code, message,
         ...(hint ? { hint } : {}),
@@ -556,10 +561,41 @@ export function createWork({ store, library, reviewer, scheduler }) {
     }),
   };
 
-  /** 提交作业并开跑：kind 是 render | verify | deliver，payload 进作业记录。交回作业号 */
+  /** 提交作业并开跑：kind 是 render | verify | deliver，payload 进作业记录。交回作业号。
+   *  草稿档的渲染作业里有核心帧源的镜头、片子里有核心镜头的草稿档核验作业，走 core 道：同一个调度器（一块卡）上同时只跑一个，第二个排队 */
   function submit(id, kind, payload) {
     const tier = payload.tier;
-    const lane = kind === 'verify' ? 'verify' : tier === 'final' ? 'final' : 'draft';
+    const film = store.readFilm(id);
+    // 写了 renderer 时出帧的是它那一套（片子描述契约 3.3）：和签锁、出片链同一口径
+    const isCore = (shot) => Boolean(shot) && renderingOf(shot).source === 'core';
+    // 终渲档的核验作业要补渲、核对核心镜头，核心帧源在终渲档不出帧：入队之前就拒，不占 core 道（那一道不被抢占，终渲档又没有墙钟上限）
+    if (kind === 'verify' && tier === 'final') {
+      const shot = film.shots.find(isCore);
+      if (shot) {
+        const message = `${NOT_YET}：片子里有核心镜头 ${shot.id}，终渲档的核验作业不收`;
+        const at = shot.renderer ? `shots/${shot.id}/renderer/source` : `shots/${shot.id}/source`;
+        throw new ApiError('contract.unsupported-mode', message, { diagnostics: [diagnostic({ code: 'contract.unsupported-mode', message, at })] });
+      }
+    }
+    // 核验作业给没渲过的镜头补渲，再对核心镜头起 core-render 跑 L2：片子里有核心镜头就算核心作业
+    const core = kind === 'render' ? tier !== 'final' && (payload.plan ?? []).some((p) => isCore(film.shots.find((s) => s.id === p.shot)))
+      : kind === 'verify' && film.shots.some(isCore);
+    const lane = core ? 'core' : kind === 'verify' ? 'verify' : tier === 'final' ? 'final' : 'draft';
+    // 核验作业不要求声明预算：墙钟取这一档的上限，由服务端填进作业记录，执行器照它收 core-render
+    if (core && kind === 'verify' && WALL_MAX[tier] !== undefined) payload = { ...payload, budget: { maxWallMs: WALL_MAX[tier] } };
+    // 核心作业入队之前过准入：没声明预算、声明的采样超档位上限、场景包的三角形数超声明，都不进队列（帧源接口契约 5.15 的码）
+    if (lane === 'core' && kind === 'render') {
+      const shots = payload.plan.flatMap((p) => {
+        const shot = film.shots.find((s) => s.id === p.shot);
+        return isCore(shot) ? [{ shot, frames: p.frames.map((f) => f - shot.in) }] : [];
+      });
+      try {
+        admitBudget({ budget: payload.budget, tier, filmDir: store.filmDir(id), shots });
+      } catch (e) {
+        if (typeof e?.code !== 'string') throw e;
+        throw new ApiError(e.code, e.message, { diagnostics: [diagnostic({ code: e.code, message: e.message })] });
+      }
+    }
     const jobId = store.nextJobId(id);
     const q = queue(id);
     q.enqueue({ id: jobId, kind: lane, handler: kind, payload: { film: id, ...payload }, rev: payload.rev });

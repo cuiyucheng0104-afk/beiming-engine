@@ -16,6 +16,9 @@ const looseObj = (properties = {}, required = []) => ({ type: 'object', properti
 const TIER = str({ enum: ['draft', 'final'] });
 const SHOT_IDS = arr(str({ pattern: '^[a-z][a-z0-9_-]*$' }), { maxItems: 16 });
 const FRAMES = arr(int({ minimum: 0 }), { maxItems: 64 });
+// 核心帧源作业的预算：要渲的镜头里有 source: core 的必须给，入队之前判（sources/core/source.mjs 的 admitBudget）
+const CORE_BUDGET = obj({ maxTriangles: int({ minimum: 1, maximum: Number.MAX_SAFE_INTEGER }), spp: int({ minimum: 1, maximum: 2 ** 32 - 1 }), maxWallMs: int({ minimum: 1, maximum: 2 ** 31 - 1 }) },
+  ['maxTriangles', 'spp', 'maxWallMs'], { description: '核心帧源作业的预算：场景包每帧画出来的三角形数上限、每像素采样数上限、整个作业的墙钟上限（毫秒）' });
 const WAIT = int({ minimum: 0, maximum: 30, description: '同步等待作业结束的秒数，超时就先交回作业号' });
 const COUNTED = (items) => looseObj({ expectedCount: int({ minimum: 0 }), actualCount: int({ minimum: 0 }), items }, ['expectedCount', 'actualCount']);
 const JOB_DATA = looseObj({ job: str(), status: str({ enum: ['queued', 'running', 'succeeded', 'failed', 'canceled', 'stopped'] }), stage: { type: ['string', 'null'] } }, ['job', 'status']);
@@ -54,7 +57,7 @@ export const ROUTES = Object.freeze([
   { id: 'explain', method: 'GET', path: '/v1/films/{id}/explain', auth: 'workspace', tokens: 300, summary: '一个参数的值从哪来：四层值、耦合、影响范围',
     params: { id: str() }, query: { path: str() }, requiredQuery: ['path'], response: looseObj() },
   { id: 'render', method: 'POST', path: '/v1/films/{id}/render', auth: 'workspace', tokens: 600, summary: '渲指定镜头和帧：进作业队列，完成后交每帧摘要',
-    params: { id: str() }, query: { wait: WAIT }, request: obj({ shots: SHOT_IDS, frames: FRAMES, tier: TIER, wait: WAIT }), response: JOB_DATA },
+    params: { id: str() }, query: { wait: WAIT }, request: obj({ shots: SHOT_IDS, frames: FRAMES, tier: TIER, wait: WAIT, budget: CORE_BUDGET }), response: JOB_DATA },
   { id: 'observe-query', method: 'POST', path: '/v1/films/{id}/observe/query', auth: 'workspace', tokens: 400, summary: '空间查询：entities、framing、texts、stats',
     params: { id: str() }, bodyRequired: true, request: obj({ type: str({ enum: ['entities', 'framing', 'texts', 'stats'] }), target: str({ minLength: 1 }), frame: int({ minimum: 0 }), tier: TIER }, ['type']), response: looseObj() },
   { id: 'observe-sheet', method: 'POST', path: '/v1/films/{id}/observe/sheet', auth: 'workspace', tokens: 300, summary: '联系表与切点条带',

@@ -1,5 +1,5 @@
 // 渲染、核验、交付三类作业真正干活的地方。全部经各组件的公共入口：
-//   帧源 sources/blender（原生 cards-data 资产镜头）和 host/page 上的 three（cards-data 镜头）；
+//   帧源 sources/blender（原生 cards-data 资产镜头）、host/page 上的 three（cards-data 镜头）和 sources/core（场景包镜头，只出草稿档）；
 //   kernel/eval 的事件表与镜头输入；verify 的 L1、L2（纯函数门、包围盒核对门）、L3（谓词求值、防削弱）；
 //   comp 的分流拼接、混音、编码、六件套；observe 的成片量测、联系表与切点条带。
 // 帧落盘的布局（每个作业一个目录，在工作区 deliver/ 下，不进修订快照）：
@@ -25,6 +25,9 @@ import { canonicalJson, checkCacheSeams, computeFrameCacheKey, seamSignature } f
 import { eventsTable, renderingOf, shotInput, shutterSubs } from '../kernel/eval/index.mjs';
 import { audioLoudness, blackFreezeDup, buildContactSheet, buildCutStrips, cutYdif, deliverSpec, videoAliasEdge, videoNoiseResidual } from '../observe/index.mjs';
 import { caps as blenderCaps } from '../sources/blender/caps.mjs';
+import { caps as coreCaps } from '../sources/core/caps.mjs';
+import { sourceKey as coreKey } from '../sources/core/chassis/build.mjs';
+import { findRenderer, planRender as planCore, startSource as startCore } from '../sources/core/source.mjs';
 import { planRender as planBlender, startSource as startBlender } from '../sources/blender/host.mjs';
 import { caps as threeCaps } from '../sources/three/caps.mjs';
 import { planRender as planThree } from '../sources/three/plan.mjs';
@@ -46,11 +49,12 @@ const coded = (code, message) => Object.assign(new Error(message), { code });
 /**
  * 一个作业里用到的帧源：按需起，作业结束 stop。
  * renders 是 { 镜头: 次数 }：这个池开出的会话的 render 每调一次记一次（终渲、补渲、L2 的探针都算），一次没调的镜头不出现。
+ * budget 是核心作业声明的预算（api/work.mjs 准入过的）：核心帧源照它的 maxWallMs 收 core-render 的进程，不给不限时。
  */
-export function sourcePool({ library, blenderBin, workspace }) {
+export function sourcePool({ library, blenderBin, workspace, budget }) {
   const blenders = new Map();
   const renders = {};
-  let page = null;
+  let page = null, core = null;
   const counted = (src) => ({
     async open(input, env) {
       const session = await src.open(input, env);
@@ -76,15 +80,18 @@ export function sourcePool({ library, blenderBin, workspace }) {
       page ??= await startPage({ cards: threeCardDirs(lib) }).catch((e) => { throw coded('env.missing-tool', `起不了无头浏览器：${String(e.message).split('\n')[0]}`); });
       return page;
     }
+    // 核心帧源只用编好的渲染程序（findRenderer），没有报 env.missing-tool，不在作业里现编；终渲档在 open 时由帧源拒
+    if (source === 'core') return (core ??= await startCore({ bin: findRenderer(), maxWallMs: budget?.maxWallMs }));
     throw coded('contract.unsupported-mode', `帧源 ${source} 这台服务器没接`);
   }
   return {
     renders,
     get: async (source, device = 'auto') => counted(await start(source, device)),
     async stop() {
-      await Promise.allSettled([...Array.from(blenders.values(), b => b.stop()), page?.stop()]);
+      await Promise.allSettled([...Array.from(blenders.values(), b => b.stop()), page?.stop(), core?.stop()]);
       blenders.clear();
       page = null;
+      core = null;
     },
   };
 }
@@ -165,8 +172,8 @@ function convertShot(records, shot, { dir, fps, lutPath, paperLinear, embed = []
 /* ---------------- 镜头帧缓存的键（A16，设计文档「缓存键」的六项） ---------------- */
 
 // 不起帧源也拿得到的能力声明：确定性分档和两个档位的默认采样数（Blender 的版本号不影响这几项）
-const SOURCE_CAPS = { three: () => threeCaps(), blender: () => blenderCaps('') };
-const SOURCE_PLAN = { three: planThree, blender: planBlender };
+const SOURCE_CAPS = { three: () => threeCaps(), blender: () => blenderCaps(''), core: () => coreCaps(coreKey()) };
+const SOURCE_PLAN = { three: planThree, blender: planBlender, core: planCore };
 const hexOf = (digest) => String(digest).replace(/^sha256:/, '');
 
 /**
@@ -528,7 +535,8 @@ export function shotSources(film, filmDir) {
   const out = {};
   for (const s of film.shots ?? []) {
     const r = s.renderer ?? s;
-    if (typeof r.entry === 'string' && existsSync(join(filmDir, r.entry))) out[s.id] = { [r.entry]: readFileSync(join(filmDir, r.entry), 'utf8') };
+    // 核心镜头的 entry 可以是场景包目录：目录不是镜头代码，不读（读了是 EISDIR，核验作业在 L1 就崩）
+    if (typeof r.entry === 'string' && statSync(join(filmDir, r.entry), { throwIfNoEntry: false })?.isFile()) out[s.id] = { [r.entry]: readFileSync(join(filmDir, r.entry), 'utf8') };
   }
   return out;
 }

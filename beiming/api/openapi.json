@@ -1840,6 +1840,33 @@
                     "minimum": 0,
                     "maximum": 30,
                     "description": "同步等待作业结束的秒数，超时就先交回作业号"
+                  },
+                  "budget": {
+                    "type": "object",
+                    "properties": {
+                      "maxTriangles": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 9007199254740991
+                      },
+                      "spp": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 4294967295
+                      },
+                      "maxWallMs": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 2147483647
+                      }
+                    },
+                    "required": [
+                      "maxTriangles",
+                      "spp",
+                      "maxWallMs"
+                    ],
+                    "additionalProperties": false,
+                    "description": "核心帧源作业的预算：场景包每帧画出来的三角形数上限、每像素采样数上限、整个作业的墙钟上限（毫秒）"
                   }
                 },
                 "additionalProperties": false

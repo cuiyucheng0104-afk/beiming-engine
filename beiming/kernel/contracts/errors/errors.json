@@ -71,6 +71,10 @@
       "meaning": "开着原生运动模糊时要了和它冲突的输出"
     },
     {
+      "code": "contract.over-budget",
+      "meaning": "作业声明的预算超过这一档的上限，或者镜头、场景包要的超过声明的预算（准入本身到了时限也报这个码）"
+    },
+    {
       "code": "contract.patch-not-applicable",
       "meaning": "补丁里有一个操作不可作用"
     },
@@ -123,6 +127,10 @@
       "meaning": "找不到 FFmpeg 可执行文件"
     },
     {
+      "code": "env.lib-mismatch",
+      "meaning": "本机要加载的动态库的 sha256 和锁文件里钉住的不同；这里的锁文件是帧源钉库的那份，不是锁文件契约（LK）的锁"
+    },
+    {
       "code": "env.lock-required",
       "meaning": "没有锁文件，镜头却要用只有锁文件里才有的东西"
     },
@@ -135,12 +143,20 @@
       "meaning": "FFmpeg 进程执行失败"
     },
     {
+      "code": "timeout.budget",
+      "meaning": "作业用完了声明的墙钟预算，起的进程树被杀"
+    },
+    {
       "code": "timeout.ffmpeg",
       "meaning": "FFmpeg 进程超过调用时限"
     },
     {
       "code": "usage.bad-argument",
       "meaning": "调用的参数出了值域"
+    },
+    {
+      "code": "usage.budget-required",
+      "meaning": "要求声明预算的作业没带预算，或者预算少一项、多一项、值出了值域"
     }
   ]
 }
