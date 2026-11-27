@@ -225,6 +225,40 @@
     "yawPitchOf"
    ]
   },
+  "engine/stage/deck-audio.js": {
+   "stability": "experimental",
+   "exports": [
+    "createDeckAudio",
+    "cueStartArgs",
+    "stemStartArgs"
+   ]
+  },
+  "engine/stage/deck-synth.js": {
+   "stability": "experimental",
+   "exports": [
+    "renderDeckStems",
+    "renderVoChime"
+   ]
+  },
+  "engine/stage/deck-ui.js": {
+   "stability": "experimental",
+   "exports": [
+    "createDeckUI"
+   ]
+  },
+  "engine/stage/deck.js": {
+   "stability": "experimental",
+   "exports": [
+    "FPS_WINDOW_SIZE",
+    "LOW_FPS_STREAK",
+    "LOW_FPS_THRESHOLD",
+    "TIERS",
+    "TIER_CONFIGS",
+    "createDeck",
+    "createDeckModel",
+    "createGovernor"
+   ]
+  },
   "engine/stage/dome.js": {
    "stability": "stable",
    "exports": [
@@ -334,7 +368,8 @@
     "grainCellOf",
     "grainSeedOf",
     "lookDefaults",
-    "lookParams"
+    "lookParams",
+    "volLight"
    ]
   },
   "engine/look/ink.js": {
@@ -382,6 +417,17 @@
     "FS_VERT",
     "createFullscreen",
     "renderTarget"
+   ]
+  },
+  "engine/look/stage.js": {
+   "stability": "experimental",
+   "exports": [
+    "DARK_STAGE",
+    "STAGE_BASE",
+    "createStageLight",
+    "dofParams",
+    "shaftParams",
+    "stageParams"
    ]
   },
   "engine/paint/affine.js": {

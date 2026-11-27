@@ -1,0 +1,459 @@
+{
+  "schemaVersion": 2,
+  "id": "wonderx-m0",
+  "title": "告别幻灯片 · 万物有戏",
+  "route": "a",
+  "backend": "three",
+  "output": {
+    "profile": "web-1080p24",
+    "width": 1920,
+    "height": 1080,
+    "fps": 24,
+    "frameCount": 8640
+  },
+  "shots": [
+    {
+      "id": "A01",
+      "name": "2027 年度核心战略汇报",
+      "module": "world.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "（平静停顿 2 秒，让台下以为你真要念 48 页 PPT。）最讽刺的是：AI 来了之后，大家干的第一件事，是用 10 秒钟批量制造更多没人看的 PPT。",
+      "in": 0,
+      "out": 960
+    },
+    {
+      "id": "A02",
+      "name": "1987 年的盒子",
+      "module": "world.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "PowerPoint 诞生于 1987 年。四十年里世界换了三次纪元，只有用来传递最重要想法的容器，还停在 1987 年。今天，我们把它撕了。",
+      "in": 960,
+      "out": 1680
+    },
+    {
+      "id": "A03",
+      "name": "被压扁的维度",
+      "module": "world.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "你的产品有空间、有质感、有三年打磨的细节。可一旦打开 PPT，不管多鲜活的故事，都得先被压成 0.1 毫米的纸片。",
+      "in": 1680,
+      "out": 2880
+    },
+    {
+      "id": "A04",
+      "name": "纸起成戏",
+      "module": "world.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "我们不给 PPT 换皮肤，我们要把维度还给故事。（缓慢移动鼠标让光扫过建筑）它正跟着我的手，在这一秒实时算给你看。",
+      "in": 2880,
+      "out": 3456
+    },
+    {
+      "id": "A05",
+      "name": "四步成戏 · 导演台",
+      "module": "world.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "立骨、投光、落笔、入景。（随手点关“笔”和“光”再打开）每一层都是活的，随时可调。",
+      "in": 3456,
+      "out": 4032
+    },
+    {
+      "id": "A06",
+      "name": "一戏千面，各有知音",
+      "module": "world.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "文旅、能源、汽车、科技——每个行业都有自己的语境。换一套光影与笔触规则，同一出戏就长成一座新宇宙。",
+      "in": 4032,
+      "out": 4608
+    },
+    {
+      "id": "A07",
+      "name": "字会呼吸",
+      "module": "world.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "海外工具一碰中文就断行乱跳；北冥专门为中文写了独立排版引擎，在好作品里，文字自己就是演员。",
+      "in": 4608,
+      "out": 5136
+    },
+    {
+      "id": "A08",
+      "name": "空间即叙事 · 一镜穿云",
+      "module": "world.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "传统 PPT 每翻一页观众就得重新理解空间。未来的演示像电影运镜——（轻拉焦段滑杆）全局、结构、细节在同一空间一镜直达。",
+      "in": 5136,
+      "out": 5808
+    },
+    {
+      "id": "A09",
+      "name": "让数字自己站出来",
+      "module": "world.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "别再拿激光笔指着密密麻麻的表格求观众找重点了——把趋势修成一座山，结论一眼钉进心里。",
+      "in": 5808,
+      "out": 6360
+    },
+    {
+      "id": "A10",
+      "name": "同一页提案，两种命运",
+      "module": "world.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "（慢慢左右拉动红线）左边和右边一个字没多，一个数没少。三十分钟后，客户会记住哪一边？",
+      "in": 6360,
+      "out": 7224,
+      "split": true
+    },
+    {
+      "id": "A11",
+      "name": "一镜掀牌：代码即影片",
+      "module": "world.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "刚才的一切，不是死视频，也不是一次性网页特效。同一份北冥代码：上台你是活剧场，会后直接出 4K 成片。",
+      "in": 7224,
+      "out": 8040
+    },
+    {
+      "id": "A12",
+      "name": "有问题吗？",
+      "module": "world.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "（白底停两秒微笑）大家有问题吗？（等全场微顿，按下最后一下 →）你的下一个重要故事，值得一场真正的演出。谢谢大家。",
+      "in": 8040,
+      "out": 8640
+    }
+  ],
+  "events": [
+    {
+      "id": "A01-in",
+      "frame": 0,
+      "shot": "A01",
+      "visual": "共谋"
+    },
+    {
+      "id": "A02-in",
+      "frame": 960,
+      "shot": "A02",
+      "visual": "破壁"
+    },
+    {
+      "id": "A03-in",
+      "frame": 1680,
+      "shot": "A03",
+      "visual": "刺痛"
+    },
+    {
+      "id": "A04-in",
+      "frame": 2880,
+      "shot": "A04",
+      "visual": "魔法"
+    },
+    {
+      "id": "A05-in",
+      "frame": 3456,
+      "shot": "A05",
+      "visual": "拆解"
+    },
+    {
+      "id": "A06-in",
+      "frame": 4032,
+      "shot": "A06",
+      "visual": "商战"
+    },
+    {
+      "id": "A07-in",
+      "frame": 4608,
+      "shot": "A07",
+      "visual": "留白"
+    },
+    {
+      "id": "A08-in",
+      "frame": 5136,
+      "shot": "A08",
+      "visual": "宏观全局"
+    },
+    {
+      "id": "A08-5352",
+      "frame": 5352,
+      "shot": "A08",
+      "visual": "结构剖面"
+    },
+    {
+      "id": "A08-5568",
+      "frame": 5568,
+      "shot": "A08",
+      "visual": "微观材质"
+    },
+    {
+      "id": "A08-5736",
+      "frame": 5736,
+      "shot": "A08",
+      "visual": "互动拉焦"
+    },
+    {
+      "id": "A09-in",
+      "frame": 5808,
+      "shot": "A09",
+      "visual": "数据表格"
+    },
+    {
+      "id": "A09-5928",
+      "frame": 5928,
+      "shot": "A09",
+      "visual": "体素山峰"
+    },
+    {
+      "id": "A09-6048",
+      "frame": 6048,
+      "shot": "A09",
+      "visual": "峰值折线"
+    },
+    {
+      "id": "A09-6240",
+      "frame": 6240,
+      "shot": "A09",
+      "visual": "一眼看懂"
+    },
+    {
+      "id": "A10-in",
+      "frame": 6360,
+      "shot": "A10",
+      "visual": "高潮"
+    },
+    {
+      "id": "A11-in",
+      "frame": 7224,
+      "shot": "A11",
+      "visual": "掀牌"
+    },
+    {
+      "id": "A12-in",
+      "frame": 8040,
+      "shot": "A12",
+      "visual": "回扣"
+    }
+  ],
+  "texts": [
+    {
+      "id": "A01-title",
+      "text": "2027 年度核心战略汇报",
+      "font": "WX Serif"
+    },
+    {
+      "id": "A01-quote",
+      "text": "2027 年度核心战略汇报（概览）",
+      "font": "WX Text"
+    },
+    {
+      "id": "A02-title",
+      "text": "1987 年的盒子",
+      "font": "WX Serif"
+    },
+    {
+      "id": "A02-quote",
+      "text": "你的故事，该上台了。",
+      "font": "WX Text"
+    },
+    {
+      "id": "A03-title",
+      "text": "被压扁的维度",
+      "font": "WX Serif"
+    },
+    {
+      "id": "A03-quote",
+      "text": "不是你的想法不够好。是 16:9 的白框，杀死了它的维度。",
+      "font": "WX Text"
+    },
+    {
+      "id": "A04-title",
+      "text": "纸起成戏",
+      "font": "WX Serif"
+    },
+    {
+      "id": "A04-quote",
+      "text": "这束光不是视频——它正跟着你的手，在这一秒实时算出来。",
+      "font": "WX Text"
+    },
+    {
+      "id": "A05-title",
+      "text": "四步成戏 · 导演台",
+      "font": "WX Serif"
+    },
+    {
+      "id": "A05-quote",
+      "text": "风格不是滤镜贴上去的，是像电影片场一样一层层建出来的。",
+      "font": "WX Text"
+    },
+    {
+      "id": "A06-title",
+      "text": "一戏千面，各有知音",
+      "font": "WX Serif"
+    },
+    {
+      "id": "A06-quote",
+      "text": "同一套故事，讲给不同行业的知音听，不必重做一帧。",
+      "font": "WX Text"
+    },
+    {
+      "id": "A07-title",
+      "text": "字会呼吸",
+      "font": "WX Serif"
+    },
+    {
+      "id": "A07-quote",
+      "text": "不堆字 · 立住场 · 有呼吸 · 记得住。",
+      "font": "WX Text"
+    },
+    {
+      "id": "A08-title",
+      "text": "空间即叙事 · 一镜穿云",
+      "font": "WX Serif"
+    },
+    {
+      "id": "A08-quote",
+      "text": "未来的演示不再翻页——镜头带你在同一座空间里，从全局直抵细节。",
+      "font": "WX Text"
+    },
+    {
+      "id": "A09-title",
+      "text": "让数字自己站出来",
+      "font": "WX Serif"
+    },
+    {
+      "id": "A09-quote",
+      "text": "数据不该让人找，应该自己站出来。",
+      "font": "WX Text"
+    },
+    {
+      "id": "A10-title",
+      "text": "同一页提案，两种命运",
+      "font": "WX Serif"
+    },
+    {
+      "id": "A10-quote",
+      "text": "同样的信息。三十分钟后，你只会记住一边。",
+      "font": "WX Text"
+    },
+    {
+      "id": "A11-title",
+      "text": "一镜掀牌：代码即影片",
+      "font": "WX Serif"
+    },
+    {
+      "id": "A11-quote",
+      "text": "不是网页特效，不是死视频——代码即影片。",
+      "font": "WX Text"
+    },
+    {
+      "id": "A12-title",
+      "text": "有问题吗？",
+      "font": "WX Serif"
+    },
+    {
+      "id": "A12-quote",
+      "text": "万物有戏，各有知音。",
+      "font": "WX Text"
+    },
+    {
+      "id": "act-label",
+      "text": "ACT 0123456789",
+      "font": "WX Display"
+    },
+    {
+      "id": "studio",
+      "text": "WONDERX / LIVE STAGE · 0123456789",
+      "font": "WX Sans"
+    },
+    {
+      "id": "split-data",
+      "text": "产品升级汇报 研发周期 交付质量 服务覆盖 18周 96% 32城",
+      "font": "WX Text"
+    }
+  ],
+  "fonts": [
+    {
+      "family": "WX Display",
+      "source": "barlow-condensed-black",
+      "weight": 900
+    },
+    {
+      "family": "WX Sans",
+      "source": "manrope",
+      "weight": 500
+    },
+    {
+      "family": "WX Serif",
+      "source": "noto-serif-cjk-sc",
+      "weight": 700
+    },
+    {
+      "family": "WX Text",
+      "source": "noto-sans-cjk-sc",
+      "weight": 400,
+      "extra": " #&+,-./0123456789:ABCDEFHIKLMPQSTVWX_acdefhilmnopqrstuwxy·×–—“”→、。《》「」一万三上下不与专世业东丝两严个中为主之乐也书乱了事二于云互产人今从代令以们件份企休众会传伪伴位低住体作你侧修俯值假停像元先光克入全共关具内再写冥冰冲冷出击刃分切划则刚利别到制刺刻前剖剧劈力加动势勾化北十千半卡印卷压参叉双反发取变叠口古句只可台右号各合同名后向吗听启吸员呼和品响哪唯商啪器嚓四回图土在地场块坟塔境墨壁声壳备复外多大天央失头奏套好字学它宇安完宏宙定实客宣家容密对导少尘就尺局层屏展山峰工左己布带帧幕干平年并幻广底废度座廊建开引张弱弹归当彩影往待得微心快念态性总息悬想意感慢懂戏成我或战截戳户所扁手才打托扣扫批找技把抓投折拆拉拍拐拒拔拖拟拢拦拨拱拽拿持指按挤捏换据掀排掠接控推揉提摆撕播操擎支放故效数文斜断新方旅旋无旦时明是显普景暖暗暴曜曲更最有望未本朱机杆材束条来板极构枚柄标核格框档桥模次正此死段每比毛毫气水求汽沉没沸沿法波注活浮海消涨深清源滑满演潮激灯灰炸点烁焦然照片版牌物特状独猛环现玻理璃生用电男画界留痕痛登白的皮盏目直相看真眼着睛码破砸确碎碰磨示神离科秒积移稳空穿窒窗立章笑笔符第等筑简算管米精素繁红级纪纯纸纹线组细终绒结给绝统续维缓缝缩网美翻翼者而聆聚肤背能脆脸腾自色艺节落蓝蛋蜕行表衬被裂装要观规视览觉角解触言认让记讲论讽词话诞该语说读调谋谢负质贯贴费赋走起趋跟跳车轨转轰轴轻载边达过运近还这进远连追退选透逐递通速造逼道部都配醒里重量金针钉钟锁锋键镜长门闪闭问间阴降随雕零雾静面音韵页顶项顿频颗题风骗骨高魔鲜麻黑默鼠齐（），：；？"
+    }
+  ],
+  "audio": {
+    "mode": "none",
+    "note": "交互版三轨由声卡播放。"
+  },
+  "deliveries": [
+    "web-1080p24"
+  ],
+  "style": {
+    "id": "beiming-original",
+    "version": 1,
+    "lock": "../../engine/style/beiming-original.v1.json",
+    "baseline": "../../media/shot_1.6.jpg",
+    "note": "沿用登记画风的宽景预设。现有三张 WebP 仅作 M0 性能样例，视觉方向待参考。"
+  },
+  "assets": [
+    "local:plates/make_plates.py"
+  ],
+  "credits": [
+    {
+      "what": "WX Display",
+      "owner": "Copyright 2017 The Barlow Project Authors (https://github.com/jpt/barlow)",
+      "license": "OFL-1.1",
+      "source": "fonts/fonts.lock.json"
+    },
+    {
+      "what": "WX Sans",
+      "owner": "Copyright 2019 The Manrope Project Authors (https://github.com/googlefonts/manrope)",
+      "license": "OFL-1.1",
+      "source": "fonts/fonts.lock.json"
+    },
+    {
+      "what": "WX Serif",
+      "owner": "© 2017-2024 Adobe (http://www.adobe.com/).",
+      "license": "OFL-1.1",
+      "source": "fonts/fonts.lock.json"
+    },
+    {
+      "what": "WX Text",
+      "owner": "© 2014-2021 Adobe (http://www.adobe.com/).",
+      "license": "OFL-1.1",
+      "source": "fonts/fonts.lock.json"
+    }
+  ],
+  "aigc": {
+    "contains": false,
+    "note": "程序几何、纸雕底板与合成占位音轨。"
+  },
+  "gates": {
+    "look": "required",
+    "animatic": "required",
+    "final": "required"
+  }
+}

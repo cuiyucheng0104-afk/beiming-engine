@@ -81,12 +81,13 @@ test('两秒合成 MP4 的规格、响度、冻结和切点', async t => {
     const audio = await audioLoudness(file);
     assert.ok(Math.abs(audio.value - (-21.1)) <= 0.2, `${audio.value} LUFS`);
     assert.ok(Math.abs(audio.details.truePeakDbtp - (-18.1)) <= 0.1, `${audio.details.truePeakDbtp} dBTP`);
-    const stats = await blackFreezeDup(file, { blackLevel: 32, blackPercent: 98, freezeFrames: 5, duplicateDiff: 0 });
+    const stats = await blackFreezeDup(file, { blackLevel: 32, blackPercent: 98, freezeFrames: 5, duplicateDiff: 0, cutThreshold: 40 });
     assert.deepEqual(stats.value, { blackFrames: 5, freezeSegments: 3, duplicateFrames: 17 });
     assert.deepEqual(stats.details.black, [0, 1, 2, 3, 4]);
     assert.deepEqual(stats.details.freezes, [[0, 4], [5, 14], [15, 19]]);
     assert.deepEqual(stats.details.duplicates, Array.from({ length: 20 }, (_, i) => i).filter(n => ![0, 5, 15].includes(n)));
     const ydif = await cutYdif(file, 40), scene = await cutScene(file, 0.15);
+    assert.deepEqual(stats.details.cuts, ydif.value);
     assert.deepEqual(ydif.value, [5, 15]); assert.deepEqual(scene.value, [5, 15]);
     assert.deepEqual((await cutYdif(file, 40, { x: 0, y: 0, width: 64, height: 24 })).value, []);
     const slowFile = join(dir, 'slow-push.mp4');

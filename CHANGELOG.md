@@ -12,6 +12,8 @@
 这一段汇总从 v1.0 到工业级交付升级完成前的全部变更，按合入顺序归类。升级以 [docs/decisions/2026-11-10-industrial-baseline.md](docs/decisions/2026-11-10-industrial-baseline.md) 的 D01–D13 为准，拆成多个工作包推进，目标是让仓库成为按 A、B、C、D 四条路线组织的技术模版仓库：agent 读完入口文档就能选对路线，按模版建作品，用统一的命令出片；成片先过机器 QA 与人工创作闸门，才标为交付；每个 PR 都有测试、无显卡冒烟出片与 Windows 路径检查把关。各工作包合入时，在下面的分类里追加自己的条目。
 
 ### Added
+
+- A 路线新增可选的暗场舞台光、体积光与景深。WonderX M0 提供离线 WebGL2 单文件、演示控制与三轨调音台。
 - 题库新增 M4 B19 第 4 级整镜公开题 `42-1`（峡谷吐息整镜）、离线评分器 `evaluate-b19.mjs`、标准答案工程 `solutions/level-4/42-1/film.json` 与 `run-b19.mjs` 9 项逐卡关闭负对照，接入 `exam.mjs`（19 道公开题核验）与 `suite.mjs full-4`（全卷四精确 28 次计分调度），并完成 FX15 M4 技术卡跨题复用涨分实证。
 - 完成峡谷吐息 `film.lock` 全部 25 张技术卡逐张负对照全红验收（公开脱敏清单 `fire-breath/v15-controls.json`），独立复核将 22 张锁内未晋升卡升级为 `measured`（全库 `measured` 达 39 张）并重签 `film.lock`，同步修复生物材质同渲染器切换 `atmo.height-fog` 时的着色器缓存键串扰，附 `m4-v15-promotion.test.mjs`。
 - 题库新增 M4 B18 三道四级垫脚题（`41-1` 线性 HDR 后期链对拍、`41-2` 多段扫掠脊线运动学、`41-3` 指数阻尼吐息粒子闭式重放）、单一公开锁定阈值源 `gates-m4.json`、离线评分器 `evaluate-b18.mjs` 及真实调用 T17–T20 技术卡的标准答案与逐卡负对照，并接入 `exam.mjs`（18 道公开题核验）与 `suite.mjs full-3`（全卷三 26 次计分调度）。
@@ -239,6 +241,8 @@
 - 旧作品站的生成物 `showcase/`（由 `site/` 与 `tools/build-showcase.py` 取代）。
 
 ### Fixed
+- WonderX 手动到拍时，音频与画面在同一次刷新停到目标帧。A 路线舞台景深按 1080 参考画高采样，4K 折回后保留相近的焦外边缘宽度。
+- `tests-rest` 在干净检出中生成 WonderX 字体清单。B20 同时检查全画面切点与冻结时复用每帧的 FFmpeg 读数，CI 保存 B20-5 三路检查和媒体子进程计时。
 - 修复 Metal 离屏分段计时读数全为零的问题。时间戳标记会提交一个不读写资源的计算工作组，从而保留 GPU 计时记录。
 
 - 修复 `beiming/cards/m3-card-promotion.test.mjs` 把全库技术卡总数硬编码为 30 导致合入新增 M3 卡（如 T11）后回归失败的问题：改为动态校验全库卡数不低于 30 且 ID 唯一、指定的 17 张 B20+B7 实证卡均为 `measured`、看板总数与当前卡库一致，以及 D14 窗口后可见升级卡检索正常。

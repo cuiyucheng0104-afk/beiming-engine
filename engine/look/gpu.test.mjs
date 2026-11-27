@@ -516,3 +516,145 @@ window.RESULT = { shaderErrors, zeroDiff, anisoMeanDiff: anisoDiff / (W * H * 4)
   assert.ok(r.anisoMeanDiff > 0.2, `开启各向异性后在斜细条边缘应有椭圆定向笔触差异：${r.anisoMeanDiff}`);
   assert.ok(r.centerAniso[0] > 180, `细斜条中心颜色未被法向背景吞蚀：${r.centerAniso}`);
 });
+
+// 暗场舞台光（engine/look/stage.js）：默认关时像素与以前逐字节相同；局部暖光只亮受光面、作用距离外不变；分层雾只落在高度带与视距窗里；确定性
+const STAGE_PROBE = `
+import * as THREE from 'three';
+import { createLook } from '/engine/look/index.js';
+const W = 240, H = 180, renderer = new THREE.WebGLRenderer({ antialias: false }); renderer.setPixelRatio(1); renderer.setSize(W, H);
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#101018');
+const mk = (w, h, pos, rot) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: '#303030' })); m.position.set(...pos); m.rotation.set(...rot); scene.add(m); return m; };
+mk(60, 60, [0, 0, 0], [-Math.PI / 2, 0, 0]);   // 地面（法线朝上）
+mk(60, 8, [0, 4, -8], [0, 0, 0]);              // 背墙：y 0..8，法线朝相机
+const cam = new THREE.PerspectiveCamera(40, W / H, .1, 200); cam.position.set(0, 4, 12); cam.lookAt(0, 2, -4); cam.updateMatrixWorld();
+const rt = new THREE.WebGLRenderTarget(W, H), buf = new Uint8Array(W * H * 4);
+const look = createLook(renderer, W, H, { ss: 1, msaa: 0 }); await look.ready;
+const OFF = { t: 0, outline: false, kuwahara: false, bloom: false, grade: false, vignette: 0, paper: false, grain: 0 };
+function grab(stage, t = 0) { look.render(scene, cam, { ...OFF, t, stage, target: rt }); renderer.readRenderTargetPixels(rt, 0, 0, W, H, buf); return buf.slice(); }
+const lum = (img, x, y) => { const i = ((H - 1 - y) * W + x) * 4; return .2126 * img[i] + .7152 * img[i + 1] + .0722 * img[i + 2]; };
+const px = p => { const v = new THREE.Vector3(...p).project(cam); return [Math.floor((v.x * .5 + .5) * W), Math.floor((-v.y * .5 + .5) * H)]; };
+const same = (a, b) => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false; return true; };
+const A = grab(undefined), B = grab({ lights: [], haze: [] });
+const L = { lights: [{ pos: [0, 1.5, 0], range: 6, intensity: 2, color: '#ffffff' }] };
+const C = grab(L), C2 = grab(L), mid = grab({ ...L, lights: [{ ...L.lights[0], step1: .95 }] });
+const at = (img, p) => lum(img, ...px(p));
+const near = [0, 0, 0], side = [2, 0, 0], far = [0, 0, -7], wallIn = [0, 1, -8.01], wallOut = [0, 5, -8.01], groundNear = [0, 0, 4];
+const Z = grab({ haze: [{ y: 1, thick: .5, density: 1, color: '#ffffff', start: 10, end: 60, noise: 0 }] });
+const Z2 = grab({ haze: [{ y: 1, thick: .5, density: 1, color: '#ffffff', start: 10, end: 60, noise: .8, drift: .3, seed: 3 }] }), Z3 = grab({ haze: [{ y: 1, thick: .5, density: 1, color: '#ffffff', start: 10, end: 60, noise: .8, drift: .3, seed: 3 }] }, 2);
+window.RESULT = { off: same(A, B), det: same(C, C2), a: [at(A, near), at(A, side), at(A, far)], c: [at(C, near), at(C, side), at(C, far)], mid: at(mid, side) / at(A, side),
+  haze: [at(A, wallIn), at(Z, wallIn), at(A, wallOut), at(Z, wallOut), at(A, groundNear), at(Z, groundNear)], noisy: !same(Z, Z2), drift: !same(Z2, Z3), logs: [] };
+scene.clear();
+const wall = mk(8, 8, [0,0,0], [0,0,0]); wall.material.side = THREE.DoubleSide;
+window.RESULT.facing = [1,-1].map(sign => {
+  cam.position.set(2*sign, 0, 8*sign); cam.lookAt(0,0,0); cam.updateMatrixWorld();
+  return [sign,-sign].map(z => at(grab({lights:[{pos:[0,0,2*z],range:6,color:'#ffffff',intensity:2}]}), [0,0,0]));
+});`;
+gpuTest('R65 暗场舞台光：默认关时逐字节不变；局部暖光只亮受光面、距离外不变；分层雾只落在高度带与视距窗里；结果确定', async t => {
+  const r = await run('r65', STAGE_PROBE, { w: 64, h: 64 });
+  t.diagnostic(`R65 亮度 不开舞台光 ${r.a.map(v => v.toFixed(1))} / 开 ${r.c.map(v => v.toFixed(1))}（近、侧、远）；step1 .95 时侧点 ${r.mid.toFixed(2)}×；雾 墙带内 ${r.haze[0].toFixed(1)}→${r.haze[1].toFixed(1)}、带外 ${r.haze[2].toFixed(1)}→${r.haze[3].toFixed(1)}、视距窗内近处 ${r.haze[4].toFixed(1)}→${r.haze[5].toFixed(1)}`);
+  const bad = r.logs.filter(l => !/GL Driver Message/.test(l));   // 读回像素的性能提示不算
+  assert.ok(r.off && bad.length === 0, `stage 不写与写空表逐字节相同，且没有着色器告警 ${JSON.stringify(bad)}`);
+  assert.ok(r.det, '同一帧渲两次逐字节相同');
+  assert.ok(r.c[0] > r.a[0] * 1.4, `灯正下方的受光面要明显提亮（${r.a[0].toFixed(1)} → ${r.c[0].toFixed(1)}）`);
+  assert.ok(r.c[1] > r.a[1] * 1.1, `斜下方仍在亮档里的点要提亮（${r.a[1].toFixed(1)} → ${r.c[1].toFixed(1)}）`);
+  assert.ok(Math.abs(r.c[2] - r.a[2]) <= 1, `作用距离外的点不变（${r.a[2].toFixed(1)} → ${r.c[2].toFixed(1)}）`);
+  assert.ok(r.mid < r.c[1] / r.a[1] - 0.2, `step1 抬到 .95：侧点掉出亮档只剩半档，提亮量变小（${(r.c[1] / r.a[1]).toFixed(2)}× → ${r.mid.toFixed(2)}×）`);
+  assert.ok(r.haze[1] > r.haze[0] + 20, `高度带里的墙面被雾提亮（${r.haze[0].toFixed(1)} → ${r.haze[1].toFixed(1)}）`);
+  assert.ok(Math.abs(r.haze[3] - r.haze[2]) <= 1, `高度带外的墙面不变（${r.haze[2].toFixed(1)} → ${r.haze[3].toFixed(1)}）`);
+  assert.ok(Math.abs(r.haze[5] - r.haze[4]) <= 1, `视距近于 start 的点不加雾（${r.haze[4].toFixed(1)} → ${r.haze[5].toFixed(1)}）`);
+  t.diagnostic(`正反机位（灯在相机侧 / 背面）：${JSON.stringify(r.facing)}`);
+  for (const [front, back] of r.facing) assert.ok(front > back + 10, `相机侧要更亮：${front} / ${back}`);
+  assert.ok(r.noisy && r.drift, '带噪声的雾与不带的不同；t 变了雾会漂');
+});
+
+// 取同一机位的中央竖带，保留两种原生像素密度。
+const DOF_EDGE_PROBE = `
+import * as THREE from 'three';
+import { createFullscreen, renderTarget } from '/engine/look/pass.js';
+import { createStageLight } from '/engine/look/stage.js';
+const renderer = new THREE.WebGLRenderer({ antialias: false });
+const fx = createFullscreen(renderer), stage = createStageLight(fx);
+const cam = new THREE.PerspectiveCamera(40, 16 / 9, .1, 100);
+const scene = new THREE.Scene();
+for (const [x, color] of [[-20, 0x000000], [20, 0xffffff]]) {
+  const wall = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshBasicMaterial({ color }));
+  wall.position.set(x, 0, -20); scene.add(wall);
+}
+const widths = [];
+for (const scale of [1, 2]) {
+  const W = 128 * scale, H = 1080 * scale, fullWidth = 1920 * scale;
+  cam.setViewOffset(fullWidth, H, (fullWidth - W) / 2, 0, W, H);
+  const source = renderTarget(W, H, { depthBuffer: true, depthTexture: new THREE.DepthTexture(W, H) });
+  const target = renderTarget(W, H, { type: THREE.UnsignedByteType });
+  renderer.setRenderTarget(source); renderer.render(scene, cam);
+  const results = [];
+  for (const focus of [10, 15, 20]) {
+    stage.render({ src: source.texture, depth: source.depthTexture, camera: cam, p: { dof: { focus, far: 10 } } }, target);
+    const pixels = new Uint8Array(W * scale * 4);
+    renderer.readRenderTargetPixels(target, 0, H / 2 - scale, W, scale, pixels);
+    const row = [];
+    for (let x = 0; x < W; x += scale) {
+      let sum = 0;
+      for (let y = 0; y < scale; y++) for (let dx = 0; dx < scale; dx++) sum += pixels[(y * W + x + dx) * 4];
+      row.push(sum / (scale * scale));
+    }
+    function crossing(level) {
+      const x = row.findIndex(value => value >= level);
+      return x - 1 + (level - row[x - 1]) / (row[x] - row[x - 1]);
+    }
+    results.push(crossing(229.5) - crossing(25.5));
+  }
+  widths.push(results); source.dispose(); target.dispose();
+}
+window.RESULT = { widths };`;
+gpuTest('景深在 1080p 与 2160p 折回后的焦外、过渡与焦内边缘宽度一致', async t => {
+  const { widths } = await run('dof-edge', DOF_EDGE_PROBE);
+  t.diagnostic(`10%–90% 边缘宽度（1080p 像素）：${JSON.stringify(widths)}`);
+  for (const [far, mid, sharp] of widths) assert.ok(far > mid && mid > sharp && sharp < 1.5);
+  widths[0].forEach((w, i) => assert.ok(Math.abs(w - widths[1][i]) < 1, `第 ${i} 条边缘相差须小于一个参考像素`));
+});
+
+// 暗场舞台光 · 体积光与景深（engine/look/stage.js）：体积光只在「雾层 × 灯的锥角 × 没被挡」的那段视线上加光，遮挡物背后的雾不加；
+// 景深把焦外的墙顶边缘抹软，焦平面挪到墙上就恢复清晰；两样都确定，且不开时逐字节不变
+const STAGE2_PROBE = `
+import * as THREE from 'three';
+import { createLook } from '/engine/look/index.js';
+const W = 240, H = 180, renderer = new THREE.WebGLRenderer({ antialias: false }); renderer.setPixelRatio(1); renderer.setSize(W, H); renderer.shadowMap.enabled = true;
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#101018');
+const mk = (w, h, pos, rot, color = '#303030') => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color })); m.position.set(...pos); m.rotation.set(...rot); scene.add(m); return m; };
+mk(60, 60, [0, 0, 0], [-Math.PI / 2, 0, 0]);
+mk(60, 8, [0, 4, -8], [0, 0, 0]);
+mk(2, 8, [0, 4, -7.9], [0, 0, 0], '#c0c0c0');   // 墙上一道亮竖条：景深看它的边缘
+const spot = new THREE.SpotLight('#ffffff', 1, 60, .35, .1); spot.position.set(0, 14, 8); spot.target.position.set(0, 0, -8);
+spot.castShadow = true; spot.shadow.mapSize.set(512, 512); spot.userData.stageLight = true; scene.add(spot, spot.target);
+const slab = new THREE.Mesh(new THREE.BoxGeometry(12, .4, 12), new THREE.MeshBasicMaterial({ color: '#303030' }));   // 右半边的百叶：挡住右半锥角
+slab.position.set(6, 8.4, -1.6); slab.castShadow = true; scene.add(slab);
+const cam = new THREE.PerspectiveCamera(40, W / H, .1, 200); cam.position.set(0, 4, 12); cam.lookAt(0, 2, -4); cam.updateMatrixWorld();
+const rt = new THREE.WebGLRenderTarget(W, H), buf = new Uint8Array(W * H * 4);
+const look = createLook(renderer, W, H, { ss: 1, msaa: 0 }); await look.ready;
+const OFF = { t: 0, outline: false, kuwahara: false, bloom: false, grade: false, vignette: 0, paper: false, grain: 0 };
+function grab(stage, t = 0) { look.render(scene, cam, { ...OFF, t, stage, target: rt }); renderer.readRenderTargetPixels(rt, 0, 0, W, H, buf); return buf.slice(); }
+const lum = (img, x, y) => { const i = ((H - 1 - y) * W + x) * 4; return .2126 * img[i] + .7152 * img[i + 1] + .0722 * img[i + 2]; };
+const px = p => { const v = new THREE.Vector3(...p).project(cam); return [Math.floor((v.x * .5 + .5) * W), Math.floor((-v.y * .5 + .5) * H)]; };
+const same = (a, b) => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false; return true; };
+const HZ = { haze: [{ y: 3, thick: 6, density: .03, color: '#ffffff', start: 0, end: 60, noise: 0 }] };
+const A = grab(undefined), Z = grab(HZ), V = grab({ ...HZ, shaft: { strength: .5, steps: 32 } }), V2 = grab({ ...HZ, shaft: { strength: .5, steps: 32 } });
+const at = (img, p) => lum(img, ...px(p));
+const lit = [-4, 3, -8.01], shadowed = [4, 3, -8.01];
+// 景深：在亮竖条的右边缘（x = 1）横着扫一行，记相邻两列的最大亮度跳变；边缘被抹软后跳变变小
+const [x0, row] = px([1, 4, -7.9]);
+const jump = img => { let m = 0; for (let x = x0 - 8; x < x0 + 8; x++) m = Math.max(m, Math.abs(lum(img, x + 1, row) - lum(img, x, row))); return m; };
+const D = grab({ dof: { focus: 12, far: 6 } }), D2 = grab({ dof: { focus: 12, far: 6 } }), D3 = grab({ dof: { focus: 20, near: 4, far: 30 } });   // 焦平面挪到竖条上
+const B = grab({ lights: [], haze: [], dof: false, shaft: false });
+window.RESULT = { off: same(A, B), z: [at(Z, lit), at(Z, shadowed)], v: [at(V, lit), at(V, shadowed)], det: same(V, V2) && same(D, D2), jump: [jump(A), jump(D), jump(D3)], logs: [] };`;
+gpuTest('R66 暗场体积光与景深：光只加在没被挡的雾上、遮挡物背后不变；焦外边缘变软、对焦后恢复；关闭时逐字节不变；结果确定', async t => {
+  const r = await run('r66', STAGE2_PROBE, { w: 64, h: 64 });
+  t.diagnostic(`R66 亮度 只开雾 ${r.z.map(v => v.toFixed(1))} / 加体积光 ${r.v.map(v => v.toFixed(1))}（被照亮的墙、被百叶挡住的墙）；竖条边缘的亮度跳变 清晰 ${r.jump[0].toFixed(1)} / 焦平面在近处 ${r.jump[1].toFixed(1)} / 焦平面在竖条上 ${r.jump[2].toFixed(1)}`);
+  const bad = r.logs.filter(l => !/GL Driver Message/.test(l));
+  assert.ok(r.off && bad.length === 0, `stage.dof / shaft 写 false 与不写逐字节相同，且没有着色器告警 ${JSON.stringify(bad)}`);
+  assert.ok(r.det, '同一帧渲两次逐字节相同');
+  assert.ok(r.v[0] > r.z[0] + 8, `视线穿过被灯照亮的雾时，墙面要被体积光提亮（${r.z[0].toFixed(1)} → ${r.v[0].toFixed(1)}）`);
+  assert.ok(r.v[1] - r.z[1] <= Math.max(1.5, (r.v[0] - r.z[0]) * 0.12), `视线只穿过被百叶挡住的雾时基本不变（${r.z[1].toFixed(1)} → ${r.v[1].toFixed(1)}）`);
+  assert.ok(r.jump[1] < r.jump[0] * 0.6, `焦平面在近处时，远处的墙顶边缘要变软（跳变 ${r.jump[0].toFixed(1)} → ${r.jump[1].toFixed(1)}）`);
+  assert.ok(r.jump[2] > r.jump[0] * 0.85, `焦平面挪到竖条上时边缘恢复清晰（${r.jump[2].toFixed(1)} / ${r.jump[0].toFixed(1)}）`);
+});

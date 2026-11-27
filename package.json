@@ -9,6 +9,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "standalone:build": "node tools/standalone/build.mjs",
     "build": "node tools/film/beiming.mjs",
     "stills": "node engine/render/still.mjs films/beiming-10s --range 0:9.5:0.5 --out out/stills",
     "video": "node engine/render/video.mjs films/beiming-10s --out out/video.mp4",
@@ -123,7 +124,9 @@
     "@eslint/js": "10.0.1",
     "ajv": "8.20.0",
     "eslint": "10.14.0",
-    "globals": "17.14.0"
+    "globals": "17.14.0",
+    "vite": "8.4.0",
+    "vite-plugin-singlefile": "2.3.4"
   },
   "optionalDependencies": {
     "@napi-rs/canvas": "1.1.1",
