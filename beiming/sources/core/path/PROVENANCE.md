@@ -324,10 +324,11 @@ Cycles 的原理化 BSDF 给金属与电介质高光的闭包用的是 `valid_re
 - [../chassis/freeze.test.mjs](../chassis/freeze.test.mjs)：仓库里的标记与代码一致；检查认得出该认的改动；条文提到了标记钉住的每个名字；照 Cycles 取值的常数（路径标志位与可见类、随机维度的枚举与每次弹射的个数、菲涅耳种类、着色点与物体的标志、采样标签）与 Cycles 头文件里的同名枚举逐个相等。最后一项要本机有函数级比对用的 Cycles 源码缓存，没有就跳过。
 - 两处着色器只改了注释：`shaders/shader.wgsl` 开头指向条文；`shaders/closure.wgsl` 的例外清单补上灯光一侧直接读材质记录的几个上游函数。
 
-### 规模：分段计时、镜像共用网格
+### 规模：分段计时、镜像共用网格、BLAS 跨帧复用
 
 - `src/main.rs`：`pack-info` 加 `--upload N`：同一个进程里从第 k 帧起逐帧建场景、整理三角形、传上显卡（含加速结构），不渲，stdout 多一段 `upload`，每帧一行分段秒数。
 - `src/gpu.rs`：`upload` 多报展开三角形（`blas_verts_ms`）；`Gpu::time_tlas` 开着时（只有 `pack-info --upload` 开）建完加速结构之后单独把 TLAS 再建一遍、量它，报 `tlas_build_ms` 与 `blas_build_ms`（一次建完减去这一遍）。不拆成两次提交来量：拆开之后苹果显卡上 BLAS 那一次慢了约 60 毫秒。
+- `src/gpu.rs`：三角形 BLAS 跨上传复用（`Gpu::tri_blases`）：键是分组号（网格另记一个号）、建法、各段三角形数与是否不透明、各段顶点字节的 SHA-256，键相同就用上一次建好的，只建新的；每次上传之后只留这一次用到的。`upload` 多报 `blas_key_ms`、`blas_built`、`blas_reused`。库测试 `blases_are_reused_across_uploads`：再传一次全部复用、画面逐位相同；挪动一块之后那一组重建，画面与新开一个 `Gpu` 渲的逐位相同。
 - `src/scene.rs`：`Kind::Instanced` 的镜像副本不再平铺，与原件共用网格；加 `swap_corners`。`src/lib.rs` 的 `flatten_instances`（软件求交）对带镜像位的实例换绕序。`shaders/shader.wgsl` 的 `shader_setup_from_hit` 与 `surface`：命中实例、物体扩展表带镜像位时几何法线取反。`src/pack.rs` 的核对记录照内核的做法对调镜像实例的顶点次序。条文见 [STRUCTURES.md](STRUCTURES.md)「与 Cycles、与上游不一样的地方」第 56 条。
 
 ## 沿用上游名字的地方
