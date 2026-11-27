@@ -46,8 +46,8 @@ test('单像素 ZIPS 原行回退与缺失通道', () => {
 
 test('双端通道名与契约分量一致', () => {
   const valid = ['color.A', 'depth.Z', 'objectId.id', 'objectId.coverage', 'normal.Z', 'motion.Y',
-    'denoiseAlbedo.B', 'denoiseNormal.X', 'lightgroup:rim-1.G'];
-  const invalid = ['depth.R', 'motion.Z', 'objectId.ID', 'lightgroup:-bad.R', 'color.R.X', 'constructor.R'];
+    'denoiseAlbedo.B', 'denoiseNormal.X', 'diffuseDirect.R', 'environment.B', 'lightgroup:rim-1.G'];
+  const invalid = ['depth.R', 'motion.Z', 'objectId.ID', 'lightgroup:-bad.R', 'color.R.X', 'constructor.R', 'emission.A', 'diffuseDirekt.R'];
   const names = [...valid, ...invalid];
   const expected = names.map(n => valid.includes(n));
   assert.deepEqual(names.map(isPassChannel), expected);

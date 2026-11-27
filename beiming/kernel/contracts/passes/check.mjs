@@ -20,8 +20,10 @@ const REGISTRY = {
 };
 const LIGHTGROUP = row(RGB, ['f32'], 'scene-linear-rec709', 'accumulate');
 const FIXED = Object.keys(REGISTRY);
+// 3.1 的八个光路通道：可选，不算固定通道，属性和分灯组的那一行相同
+const LIGHT_PATHS = ['diffuseDirect', 'diffuseIndirect', 'glossyDirect', 'glossyIndirect', 'transmissionDirect', 'transmissionIndirect', 'emission', 'environment'];
 const isLightgroup = (name) => /^lightgroup:[a-z0-9][a-z0-9-]*$/.test(name);
-const registryRow = (name) => (Object.hasOwn(REGISTRY, name) ? REGISTRY[name] : isLightgroup(name) ? LIGHTGROUP : null);
+const registryRow = (name) => (Object.hasOwn(REGISTRY, name) ? REGISTRY[name] : isLightgroup(name) || LIGHT_PATHS.includes(name) ? LIGHTGROUP : null);
 
 const sameComponents = (a, b) => a.length === b.length && a.every((c, i) => c.name === b[i].name && c.type === b[i].type);
 /** 两项通道的四个属性逐个比，返回不相等的字段名 */

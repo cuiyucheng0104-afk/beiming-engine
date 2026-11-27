@@ -568,6 +568,9 @@ test('D 3.x 值域逐项拒绝并指出原因', () => {
   assert.equal(checkL1(film).ok, true);
   film.output.fps = '9007199254740996/2';
   assert.equal(checkL1(film).ok, false);
+  const lit = makeFilm();
+  lit.delivery.layers = ['color', 'diffuseDirect', 'transmissionIndirect', 'environment', 'lightgroup:key'];
+  assert.equal(checkL1(lit).ok, true, '输出通道契约 3.1 的光路通道名照收');
 });
 
 test('纯函数门拒绝单帧、非法容差、无颜色与渲染异常', async () => {

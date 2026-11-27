@@ -168,7 +168,7 @@ const SHOT = obj({
   renderer: O(obj({ source: R(SOURCE), host: R(NONEMPTY), mode: R(oneOf(...MODES)), entry: O(ENTRY) })),
 });
 
-const channelName = /^(?:color|depth|objectId|normal|motion|denoiseAlbedo|denoiseNormal|lightgroup:[a-z0-9][a-z0-9-]*)$/;
+const channelName = /^(?:color|depth|objectId|normal|motion|denoiseAlbedo|denoiseNormal|diffuseDirect|diffuseIndirect|glossyDirect|glossyIndirect|transmissionDirect|transmissionIndirect|emission|environment|lightgroup:[a-z0-9][a-z0-9-]*)$/;
 const FILM = obj({
   format: R(oneOf('film/3.0')), id: R(str(/^[a-z][a-z0-9_-]*$/, '片子的标识')), seed: O(seed), title: O(NONEMPTY), exam: O(str(/^[1-9]\d*-[1-9]\d*$/, '题号 <套>-<题>')),
   output: R(obj({

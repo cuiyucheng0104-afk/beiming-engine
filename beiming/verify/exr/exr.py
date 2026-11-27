@@ -8,6 +8,9 @@ _COMPONENTS = {
     'color': ('R', 'G', 'B', 'A'), 'depth': ('Z',), 'objectId': ('id', 'coverage'),
     'normal': ('X', 'Y', 'Z'), 'motion': ('X', 'Y'), 'denoiseAlbedo': ('R', 'G', 'B'),
     'denoiseNormal': ('X', 'Y', 'Z'),
+    # 输出通道契约 3.1 的八个光路通道（可选）
+    **{n: ('R', 'G', 'B') for n in ('diffuseDirect', 'diffuseIndirect', 'glossyDirect', 'glossyIndirect',
+                                    'transmissionDirect', 'transmissionIndirect', 'emission', 'environment')},
 }
 
 

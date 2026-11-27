@@ -139,8 +139,10 @@
 | `baseColor` | 数组 | 无 | `[r, g, b]`，每个在 `[0, 1]` | 底色，反射率；场景线性，Rec.709 原色 |
 | `metallic` | 双精度 | 无 | `[0, 1]` | 金属度 |
 | `roughness` | 双精度 | 无 | `[0, 1]` | 粗糙度 |
+| `emissionColor` | 数组 | 无 | `[r, g, b]`，每个 ≥ 0 | 自发光的颜色，乘在 `emissionStrength` 上的系数；场景线性，Rec.709 原色。可选，不写时是 `[1, 1, 1]` |
+| `emissionStrength` | 双精度 | 无 | ≥ 0 | 自发光的强度。可选，不写时是 0，表示不发光 |
 
-`closure` 是 `surface` 时这三个参数都必填。另外三种闭包各用哪些参数：`待定：材质参数登记`。
+`closure` 是 `surface` 时 `baseColor`、`metallic`、`roughness` 都必填。`emissionColor`、`emissionStrength` 是可选的：表面自己发出的辐亮度 = `emissionColor` × `emissionStrength`，逐个分量乘，口径同 `world.color`（3.6）。另外三种闭包各用哪些参数：`待定：材质参数登记`；`emission` 闭包仍在这一项里，不因为有了这两个参数而定下来。
 
 节点登记表。每个节点是一个对象，`node` 是节点名，其余字段见表，不得有别的字段。词汇照 Cycles 的节点：
 
@@ -400,7 +402,7 @@
 
 - 一个材质的图案节点照数组次序依次求值，每个着色点各算一遍。
 - `smoothstep`：输入记作 x，`t = (x − e0) ÷ (e1 − e0)` 再夹到 `[0, 1]`，输出是 `t × t × (3 − 2 × t)`。
-- `mix`：`set` 里列的每个参数，结果等于 `(1 − by) × params 里的值 + by × set 里的值`；`set` 里没列的参数不动。
+- `mix`：`set` 里列的每个参数，结果等于 `(1 − by) × params 里的值 + by × set 里的值`；`set` 里没列的参数不动。数组参数（`baseColor`、`emissionColor`）逐项照这个式子插值。`emissionColor`、`emissionStrength` 在 `params` 里没写时，`params 里的值` 取 3.5 的缺省值。
 - 读入方不认识的节点名照 SP17 报错。节点名认识、字段不对的，是结构非法。
 
 ### 5.7 包哈希
@@ -443,7 +445,7 @@
 |---|---|---|
 | 每帧状态表的行和时间键的对应，`frames.count`，`reads[].frame`、`tables.frameInstances[].frame`、`normalProbes[].frame` | 第 k 行是 `{ frame: k, sub: 0 }` 的状态；`sub` 不是 0 的时刻怎么得到（在两行之间插值，还是另加行）不定 | 按倾向定，合作者不同意时再改 |
 | 功率换算之后两个帧源的亮度差 | 留空 | `待探针：同一盏矩形面光、同一个功率下核心帧源和 Cycles 的画面亮度比` |
-| `toon`、`emission`、`transparent` 三种闭包用哪些参数 | 参数登记表只有 `baseColor`、`metallic`、`roughness` 三个，这三种闭包现在写不全 | `待定：材质参数登记` |
+| `toon`、`emission`、`transparent` 三种闭包用哪些参数 | 参数登记表有 `baseColor`、`metallic`、`roughness`，加上可选的 `emissionColor`、`emissionStrength`；这三种闭包现在写不全，`emission` 闭包的参数也还没定 | `待定：材质参数登记` |
 | `frames.materials` 的列 | 字段留着，列的词汇空着，形状也不定 | `待定：材质逐帧表的列` |
 | `dynamic[].files` 的写法，动态网格用哪个材质、属于哪个实体，带 `dynamic` 的包 SP1 的文件集合怎么数 | 字段留着，写法空着 | `待定：动态网格的文件命名` |
 | 场景包清单的文件名 | 【起草者补】`pack.json` | 集成负责人确认 |
@@ -493,3 +495,4 @@
 | 2026-11-19 | 3.4 `names` 和 3.6 `link` 的值域，SP12 的「怎么查」，新加 SP19，第 6 节「`id` 的写法」「包哈希的算法」两行 | 实体名是跨帧源对编号的钥匙，原来写法不对的名字在场景包这一层放得过去，要到帧源的实体清单才被拒；写法不对的链接项归新条，SP12 只判写对了的项。两行待定等的锁文件契约早已写完，它按镜头的 `id` 记包哈希，不用包的 `id` |
 | 2026-11-19 | 3.11 `loads[].code` | 报了错却没带错误码时 `code` 不出现，不再强制必填，免得测试工具编一个码 |
 | 2026-11-19 | SP10 的「怎么查」和判定函数，SP8 加反例 `SP8-observed-rows-extra.json`；16 个反例里描棱线的材质对调了 `params` 和 `set` 里的底色和粗糙度。SP10 的条文没动 | 解出来的实例表比 `names` 多一行时，多出来的行配不到名字，SP10 跟着 SP8 一起报；SP8「行数多了」那一支原来没有反例；反例里的材质原来还是 5.6 算式反过来的旧写法，和例子不一致 |
+| 2026-11-27 | 3.5 参数登记表加可选的 `emissionColor`、`emissionStrength` 和表后一段；5.6 的 `mix` 写明数组参数逐项插值、没写的取缺省值；第 6 节「三种闭包用哪些参数」一行；结构定义 `params` 加这两个键；例子 `head.json` 的 `lens` 材质写上自发光。不变量、判定函数、格式标识没动，版本不升 | 表面要能自己发光（输出通道契约 5.11 的 `emission` 取它）；照契约写法约定第 6 节，加可选字段不算破坏，当天生效。负的强度、负的颜色分量是结构非法，由结构定义拒，没有对应的不变量 |
