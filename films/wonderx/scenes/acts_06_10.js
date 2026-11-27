@@ -412,20 +412,66 @@ function buildAct07() {
   }
 
   function update(progress, t, pointer, input = {}) {
-    // Beat 1 (0..0.33): 暗色科技发布 -> 蓝图
-    // Beat 2 (0.33..0.67): 2×2 四宇宙同屏矩阵（对位 H5b）
-    // Beat 3 (0.67..1.0): 朱红激光扫描波自动切 4 种宇宙
-    const autoQuad = progress >= 0.32 && progress < 0.68;
-    const quadMode = typeof input.quad === 'boolean' ? input.quad : autoQuad;
+    // Beat 1 (0..0.30): 暗色科技发布 -> 激光横扫蓝图
+    // Beat 2 (0.30..0.70): 平滑斜向展开 2×2 四宇宙同屏矩阵 -> 展开回单画（对位 H5b）
+    // Beat 3 (0.70..1.0): 朱红激光扫描波顺次实时横扫 4 种宇宙（零单帧跳变）
+    const manualQuad = typeof input.quad === 'boolean';
+    const manualStyle = typeof input.styleIndex === 'number';
+    let quadMode = false;
+    let quadBlend = 0;
+    let quadAnchor = 1; // 1=由右上蓝图格切入四格，0=由左上黑曜格展开回单画
     let styleIndex = 0;
-    if (typeof input.styleIndex === 'number') {
-      styleIndex = ((input.styleIndex % 4) + 4) % 4;
-    } else if (progress < 0.22) {
+    let wipe = null;
+
+    if (manualQuad || manualStyle) {
+      quadMode = manualQuad ? input.quad : false;
+      quadBlend = quadMode ? 1 : 0;
+      styleIndex = manualStyle ? (((input.styleIndex % 4) + 4) % 4) : 0;
+    } else if (progress < 0.295) {
+      if (progress < 0.17) {
+        styleIndex = 0;
+      } else if (progress < 0.24) {
+        const x = easeInOutCubic((progress - 0.17) / 0.07);
+        wipe = { from: 0, to: 1, x };
+        styleIndex = x >= 0.5 ? 1 : 0;
+      } else {
+        styleIndex = 1;
+      }
+    } else if (progress < 0.705) {
+      quadMode = true;
+      if (progress < 0.355) {
+        quadAnchor = 1;
+        quadBlend = easeInOutCubic((progress - 0.295) / 0.06);
+        styleIndex = 1;
+      } else if (progress < 0.645) {
+        quadAnchor = 1;
+        quadBlend = 1;
+        styleIndex = 0;
+      } else {
+        quadAnchor = 0;
+        quadBlend = 1 - easeInOutCubic((progress - 0.645) / 0.06);
+        styleIndex = 0;
+      }
+    } else if (progress < 0.73) {
       styleIndex = 0;
-    } else if (progress < 0.32) {
+    } else if (progress < 0.80) {
+      const x = easeInOutCubic((progress - 0.73) / 0.07);
+      wipe = { from: 0, to: 1, x };
+      styleIndex = x >= 0.5 ? 1 : 0;
+    } else if (progress < 0.82) {
       styleIndex = 1;
+    } else if (progress < 0.89) {
+      const x = easeInOutCubic((progress - 0.82) / 0.07);
+      wipe = { from: 1, to: 2, x };
+      styleIndex = x >= 0.5 ? 2 : 1;
+    } else if (progress < 0.91) {
+      styleIndex = 2;
+    } else if (progress < 0.98) {
+      const x = easeInOutCubic((progress - 0.91) / 0.07);
+      wipe = { from: 2, to: 3, x };
+      styleIndex = x >= 0.5 ? 3 : 2;
     } else {
-      styleIndex = Math.floor(clamp((progress - 0.68) / 0.32) * 4) % 4;
+      styleIndex = 3;
     }
 
     syncPose(t, pointer);
@@ -436,6 +482,9 @@ function buildAct07() {
       cameraLook: [0, 0.12, 0],
       fov: 40,
       quadMode,
+      quadBlend,
+      quadAnchor,
+      wipe,
       styleIndex,
       bgHex: ACT07_STYLES[styleIndex].bg,
       stageLights: { keyPos: [4, 6, 6], keyColor: 0xffffff, rimColor: 0x4ce0f5, fillColor: 0xd2452c },
@@ -613,13 +662,13 @@ function buildAct10() {
   ];
   const landmarkItems = shapes.map((geo, idx) => {
     const seg = new THREE.LineSegments(new THREE.EdgesGeometry(geo), idx % 3 === 0 ? vermWire : cyanWire);
-    seg.position.set((idx % 2 === 0 ? -1 : 1) * 1.95, Math.sin(idx * 1.1) * 0.35, -idx * 3.1);
+    seg.position.set((idx % 2 === 0 ? -1 : 1) * 1.95, Math.sin(idx * 1.1) * 0.35, -idx * 2.35);
     landmarks.add(seg);
     return seg;
   });
   group.add(landmarks);
 
-  // 2. 终章背后呼吸运转的北冥三维引擎点阵（3,600 个实时呼吸量子点，穿透 12° 倾斜玻璃板可见）
+  // 2. 终章背后呼吸运转的北冥三维引擎点阵（3,600 个实时呼吸量子点，贯通时间长河深处并穿透 12° 倾斜玻璃板可见）
   const PCOUNT = 3600;
   const rng = createRng(101010);
   const pPos = new Float32Array(PCOUNT * 3);
@@ -630,9 +679,9 @@ function buildAct10() {
   for (let i = 0; i < PCOUNT; i++) {
     const gx = (i % 60) - 30;
     const gz = Math.floor(i / 60) - 30;
-    pPos[i * 3] = gx * 0.42;
-    pPos[i * 3 + 1] = -1.6 + Math.sin(gx * 0.28) * Math.cos(gz * 0.28) * 1.1;
-    pPos[i * 3 + 2] = gz * 0.42 - 6.0;
+    pPos[i * 3] = gx * 0.44;
+    pPos[i * 3 + 1] = -1.75 + Math.sin(gx * 0.28) * Math.cos(gz * 0.28) * 0.95;
+    pPos[i * 3 + 2] = gz * 0.56 - 10.0;
     const r = rng();
     const c = r > 0.90 ? c3 : (r > 0.68 ? c2 : c1);
     pCol[i * 3] = c.r;
@@ -646,14 +695,53 @@ function buildAct10() {
     size: 0.085,
     vertexColors: true,
     transparent: true,
-    opacity: 0.85,
+    opacity: 0.86,
   });
   const lattice = new THREE.Points(latticeGeo, latticeMat);
   group.add(lattice);
 
+  // 3. 深空黑曜微光地平幕（线性空间严格控制在低亮度深靛黑，保证 Beat 1->2 可见暗渡不落纯黑，同时保持中央白字 >10:1 高对比）
+  const horizonMat = new THREE.ShaderMaterial({
+    depthWrite: false,
+    transparent: true,
+    uniforms: {
+      uTime: { value: 0 },
+      uBoost: { value: 0 },
+    },
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform float uTime;
+      uniform float uBoost;
+      varying vec2 vUv;
+      void main() {
+        vec2 p = (vUv - 0.5) * vec2(1.78, 1.0);
+        float d = length(p);
+        float horizon = exp(-abs(p.y + 0.24) * 6.5) * exp(-abs(p.x) * 0.85);
+        float ring = exp(-abs(d - (0.38 + 0.03 * sin(uTime * 0.9))) * 26.0);
+        float mist = exp(-d * d * 1.6);
+        vec3 deep = vec3(0.0030, 0.0052, 0.0102);
+        vec3 cyan = vec3(0.011, 0.038, 0.058);
+        vec3 verm = vec3(0.045, 0.011, 0.007);
+        vec3 col = deep * (0.72 + mist * 0.45)
+          + cyan * (horizon * (0.45 + uBoost * 0.35) + ring * (0.26 + uBoost * 0.24))
+          + verm * exp(-abs(p.y + 0.24) * 20.0) * (0.22 + uBoost * 0.20);
+        gl_FragColor = vec4(col, 0.94);
+      }
+    `,
+  });
+  const horizonPlane = new THREE.Mesh(new THREE.PlaneGeometry(46, 26), horizonMat);
+  horizonPlane.position.set(0, 0.2, -26.5);
+  group.add(horizonPlane);
+
   function update(progress, t, pointer) {
     // Beat 1 (0..0.34): 高速回掠 Act 02–09 微缩全息地标
-    // Beat 2 (0.34..0.67): 收束至极简品牌落版（告别静态幻灯片 · 万物有戏 × 北冥引擎）
+    // Beat 2 (0.34..0.67): 可见暗渡收束至极简品牌落版（告别静态幻灯片 · 万物有戏 × 北冥引擎）
     // Beat 3 (0.67..1.0): 平静回到「有任何问题吗？」+ 12° 光学玻璃倾斜透出背后呼吸三维点阵
     const fly = easeInOutCubic(clamp(progress / 0.36));
     const settle = smoothstep(0.32, 0.56, progress);
@@ -667,8 +755,13 @@ function buildAct10() {
     lattice.rotation.x = 0.22 + (pointer[1] - 0.5) * -0.18;
     lattice.position.y = Math.sin(t * 0.9) * 0.14;
 
-    const camZ = lerp(4.2, -21.5, fly);
+    const camZ = lerp(4.2, -15.5, fly);
     const finalZ = lerp(camZ, 5.2, settle);
+    const transBoost = smoothstep(0.24, 0.34, progress) * (1 - smoothstep(0.38, 0.50, progress));
+    horizonMat.uniforms.uTime.value = t;
+    horizonMat.uniforms.uBoost.value = transBoost;
+    horizonPlane.position.set((pointer[0] - 0.5) * 0.8, lerp(0.5, 0.9, settle), finalZ - 14.5);
+
     return {
       cameraPos: [(pointer[0] - 0.5) * 1.4, lerp(0.8, 1.3, settle) + (pointer[1] - 0.5) * -0.6, finalZ],
       cameraLook: [0, 0, finalZ - 7.5],

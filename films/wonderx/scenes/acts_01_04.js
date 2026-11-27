@@ -64,7 +64,7 @@ function buildAct01(brushedTex) {
   pptTex.minFilter = THREE.LinearFilter;
   pptTex.magFilter = THREE.LinearFilter;
 
-  function drawSlideCanvas(hijack, deleteCount, typedChars) {
+  function drawSlideCanvas(progress, hijack, delProg, typedChars, t) {
     pctx.fillStyle = '#F5F6F8';
     pctx.fillRect(0, 0, 1280, 720);
     // 顶部灰蓝条
@@ -73,9 +73,37 @@ function buildAct01(brushedTex) {
     pctx.fillStyle = '#6B7485';
     pctx.font = '400 18px "WX Text", sans-serif';
     pctx.fillText('2027 年度核心产品战略规划 · 内部汇报稿', 44, 36);
+    const secStr = `${String(Math.floor(t / 60)).padStart(2, '0')}:${(t % 60).toFixed(1).padStart(4, '0')}`;
+    pctx.fillStyle = hijack > 0.02 ? '#D2452C' : '#6B7485';
+    pctx.font = '600 15px "WX Sans", "WX Text", sans-serif';
+    pctx.fillText(hijack > 0.02 ? `OVERRIDE  ${secStr}` : `LIVE DECK  ${secStr}`, 884, 35);
+    pctx.fillStyle = '#6B7485';
+    pctx.font = '400 18px "WX Text", sans-serif';
     pctx.fillText('CONFIDENTIAL', 1104, 36);
 
-    // 主标题区（第 2 拍被朱红选框锁死并改写）
+    // 叙事审计扫描带（开场 ~10s 持续扫描传统 PPT，接管阶段加速锁定；循环卷绕保持总亮度恒定、无闪无冻）
+    pctx.save();
+    pctx.beginPath();
+    pctx.rect(0, 58, 1280, 622);
+    pctx.clip();
+    const scanSpan = 622;
+    const scanSpeed = hijack > 0.02 ? 235 : 190;
+    const scanOffset = (t * scanSpeed) % scanSpan;
+    const bandH = 44;
+    for (const shift of [0, -scanSpan]) {
+      const sy = 58 + scanOffset + shift;
+      const g = pctx.createLinearGradient(0, sy - bandH, 0, sy + 4);
+      g.addColorStop(0, 'rgba(210, 69, 44, 0)');
+      g.addColorStop(0.75, hijack > 0.02 ? 'rgba(210, 69, 44, 0.19)' : 'rgba(210, 69, 44, 0.14)');
+      g.addColorStop(1, hijack > 0.02 ? 'rgba(210, 69, 44, 0.78)' : 'rgba(210, 69, 44, 0.56)');
+      pctx.fillStyle = g;
+      pctx.fillRect(0, sy - bandH, 1280, bandH + 4);
+      pctx.fillStyle = hijack > 0.02 ? '#D2452C' : 'rgba(210, 69, 44, 0.78)';
+      pctx.fillRect(0, sy, 1280, 2.5);
+    }
+    pctx.restore();
+
+    // 主标题区（第 1 拍光标待机审计，第 2 拍被朱红选框锁死并改写）
     const origTitle = '季度业务增长与平台架构规划汇报';
     const newTitle = '这页 PPT，配不上你的产品。';
     const titleText = hijack < 0.05
@@ -85,7 +113,8 @@ function buildAct01(brushedTex) {
         : newTitle.slice(0, Math.min(newTitle.length, Math.floor(typedChars))));
 
     if (hijack > 0.02) {
-      pctx.strokeStyle = '#D2452C';
+      const pulse = 0.75 + 0.25 * Math.sin(t * 9.0);
+      pctx.strokeStyle = `rgba(210, 69, 44, ${pulse.toFixed(3)})`;
       pctx.lineWidth = 4;
       pctx.strokeRect(42, 86, 860, 82);
       pctx.fillStyle = '#D2452C';
@@ -96,9 +125,10 @@ function buildAct01(brushedTex) {
     }
     pctx.fillStyle = hijack >= 0.42 ? '#D2452C' : '#1E2430';
     pctx.font = '700 46px "WX Serif", "WX Text", sans-serif';
-    pctx.fillText(titleText + (hijack > 0.04 && hijack < 0.96 ? '▎' : ''), 56, 144);
+    const showCaret = hijack > 0.04 ? (hijack < 0.96 || Math.sin(t * 8.0) > 0) : (Math.sin(t * 5.2) > 0);
+    pctx.fillText(titleText + (showCaret ? '▎' : ''), 56, 144);
 
-    // 5 条枯燥要点（被逐条划红删除）
+    // 5 条枯燥要点（第 1 拍演讲光标逐行审计高亮；第 2 拍平滑逐条划红删除）
     const bullets = [
       '• 持续深化多部门协同机制，稳步推进季度关键指标落地',
       '• 聚焦核心技术架构迭代升级，全面赋能生态业务高质量发展',
@@ -106,23 +136,32 @@ function buildAct01(brushedTex) {
       '• 构建端到端闭环治理体系，保障核心系统高可用平稳运行',
       '• 探索新一代智能化应用场景，打造差异化长期增长飞轮',
     ];
+    if (hijack <= 0.02) {
+      const focusIdx = clamp((progress / 0.32) * 5.0, 0, 4.99);
+      const focusY = 216 + focusIdx * 58;
+      pctx.fillStyle = 'rgba(130, 146, 174, 0.14)';
+      pctx.fillRect(44, focusY, 720, 38);
+      pctx.fillStyle = '#D2452C';
+      pctx.fillRect(44, focusY, 4, 38);
+    }
     pctx.font = '400 22px "WX Text", "WX Sans", sans-serif';
     bullets.forEach((line, idx) => {
       const y = 242 + idx * 58;
-      const struck = idx < deleteCount;
-      pctx.fillStyle = struck ? '#AAB2C0' : '#3C4556';
+      const strikeFrac = clamp(delProg - idx, 0, 1);
+      const struck = strikeFrac > 0.01;
+      pctx.fillStyle = strikeFrac > 0.5 ? '#AAB2C0' : '#3C4556';
       pctx.fillText(line, 60, y);
       if (struck) {
         pctx.strokeStyle = '#D2452C';
         pctx.lineWidth = 3;
         pctx.beginPath();
         pctx.moveTo(54, y - 8);
-        pctx.lineTo(742, y - 8);
+        pctx.lineTo(54 + 688 * strikeFrac, y - 8);
         pctx.stroke();
       }
     });
 
-    // 右侧扁平灰柱图
+    // 右侧扁平灰柱图 + 实时基准探针（柱图保持死板灰调，仅探针线平滑扫描准备升维）
     pctx.fillStyle = '#FFFFFF';
     pctx.strokeStyle = '#D2D8E2';
     pctx.lineWidth = 2;
@@ -132,15 +171,39 @@ function buildAct01(brushedTex) {
     pctx.font = '600 18px "WX Text", "WX Sans", sans-serif';
     pctx.fillText('传统季度指标（静态柱图）', 834, 246);
     const bars = [0.26, 0.34, 0.41, 0.49, 0.56, 0.64];
+    const probeX = 834 + ((t * 92) % 368);
     bars.forEach((b, i) => {
       const bx = 842 + i * 60;
       const bh = Math.round(b * 260);
-      pctx.fillStyle = i === 5 ? '#7E8796' : '#B7C0CE';
+      const underProbe = Math.abs(probeX - (bx + 19)) < 26;
+      pctx.fillStyle = underProbe ? '#9AA5B8' : (i === 5 ? '#7E8796' : '#B7C0CE');
       pctx.fillRect(bx, 540 - bh, 38, bh);
       pctx.fillStyle = '#737D8F';
       pctx.font = '500 14px "WX Sans", "WX Text", sans-serif';
       pctx.fillText(`Q${i + 1}`, bx + 8, 566);
     });
+    pctx.strokeStyle = hijack > 0.02 ? 'rgba(210, 69, 44, 0.65)' : 'rgba(110, 126, 152, 0.55)';
+    pctx.lineWidth = 1.5;
+    pctx.beginPath();
+    pctx.moveTo(probeX, 266);
+    pctx.lineTo(probeX, 548);
+    pctx.stroke();
+
+    // 底部接管进度条与页码（贯穿第 1-2 拍平滑推进至 100%，自然衔接第 3 拍 GLSL 扫屏）
+    const armPct = clamp(progress / 0.65, 0, 1);
+    pctx.fillStyle = '#DCE2EB';
+    pctx.fillRect(56, 666, 686, 6);
+    pctx.fillStyle = hijack > 0.02 ? '#D2452C' : '#7E8A9E';
+    pctx.fillRect(56, 666, Math.round(686 * armPct), 6);
+    pctx.fillStyle = hijack > 0.02 ? '#D2452C' : '#6B7485';
+    pctx.font = '600 13px "WX Sans", "WX Text", sans-serif';
+    pctx.fillText(
+      hijack > 0.02
+        ? `BEIMING ENGINE OVERRIDE  ·  ${Math.round(armPct * 100)}%`
+        : `STATIC DECK AUDIT  ·  ${Math.round(armPct * 100)}%`,
+      56,
+      654
+    );
 
     // 页底传统页码
     pctx.fillStyle = '#8B95A5';
@@ -148,16 +211,16 @@ function buildAct01(brushedTex) {
     pctx.fillText('SLIDE 1 / 48', 1126, 686);
     pptTex.needsUpdate = true;
   }
-  drawSlideCanvas(0, 0, 0);
+  drawSlideCanvas(0, 0, 0, 0, 0);
 
-  // 8 模态 GLSL 滤镜 + 朱红斜切剖屏材质（零外部图，单着色器跑满 8 种科技滤镜）
+  // 8 模态 GLSL 滤镜 + 朱红斜切剖屏材质（零外部图，单着色器平滑扫过 8 种科技滤镜）
   const planeMat = new THREE.ShaderMaterial({
     transparent: true,
     side: THREE.DoubleSide,
     uniforms: {
       uTex: { value: pptTex },
       uTime: { value: 0 },
-      uFilterPhase: { value: 0 }, // 0=原白页，0..8 扫过 8 种科技滤镜
+      uFilterPhase: { value: 0 }, // 0=原白页，0..8 连续扫过 8 种科技滤镜
       uCut: { value: 0 },         // 0..1 朱红激光斜向剖屏并拉开裂缝
       uPointer: { value: new THREE.Vector2(0.5, 0.5) },
     },
@@ -182,14 +245,58 @@ function buildAct01(brushedTex) {
         return fract(p.x * p.y);
       }
 
+      vec3 evalFilterMode(int mode, vec2 uv, vec3 base, float luma, float edgeVal, float diag) {
+        if (mode < 0) return base;
+        if (mode == 0) {
+          // 1. 深普鲁士蓝 CAD 蓝图
+          float grid = step(0.95, fract(uv.x * 28.0)) + step(0.95, fract(uv.y * 16.0));
+          return mix(vec3(0.043, 0.137, 0.275), vec3(0.30, 0.88, 0.96), clamp(edgeVal * 1.4 + grid * 0.22 + (1.0 - luma) * 0.55, 0.0, 1.0));
+        } else if (mode == 1) {
+          // 2. 精密线框拓扑
+          float tri = abs(fract((uv.x + uv.y) * 18.0) - 0.5);
+          float wf = smoothstep(0.46, 0.49, tri);
+          return vec3(0.04, 0.06, 0.09) + vec3(0.30, 0.88, 0.96) * (edgeVal * 1.3 + wf * 0.28);
+        } else if (mode == 2) {
+          // 3. 冰青 LiDAR 点云
+          vec2 cell = fract(uv * vec2(110.0, 62.0)) - 0.5;
+          float dotM = smoothstep(0.32, 0.16, length(cell));
+          return vec3(0.02, 0.05, 0.08) + vec3(0.30, 0.88, 0.96) * dotM * (0.25 + (1.0 - luma) * 1.2);
+        } else if (mode == 3) {
+          // 4. 红外热力矩阵
+          float h = clamp(1.0 - luma + edgeVal * 0.5, 0.0, 1.0);
+          return mix(vec3(0.06, 0.08, 0.22), mix(vec3(0.824, 0.271, 0.173), vec3(1.0, 0.72, 0.36), h), smoothstep(0.15, 0.9, h));
+        } else if (mode == 4) {
+          // 5. 光学色散折射（压稳亮部避免与前后暗态反差过激）
+          float r = texture2D(uTex, uv + vec2(0.008, 0.002)).r;
+          float g = texture2D(uTex, uv).g;
+          float b = texture2D(uTex, uv - vec2(0.008, 0.002)).b;
+          return vec3(r, g, b) * vec3(0.58, 0.66, 0.80);
+        } else if (mode == 5) {
+          // 6. 黑曜暗场反相金属
+          return mix(vec3(0.045, 0.052, 0.070), vec3(0.88, 0.92, 0.97), clamp((1.0 - luma) * 1.15 + edgeVal * 0.5, 0.0, 1.0));
+        } else if (mode == 6) {
+          // 7. 晶格碎裂偏移（连续相位位移，消除离散跳格）
+          vec2 blk = floor(uv * vec2(16.0, 9.0));
+          float rnd = hash21(blk + 1.3);
+          float drift = sin(uTime * 3.0 + blk.y * 1.7 + rnd * 6.2831);
+          vec2 suv = clamp(uv + vec2(drift * 0.022, (hash21(blk + 3.1) - 0.5) * 0.014), 0.0, 1.0);
+          return mix(texture2D(uTex, suv).rgb, vec3(0.06, 0.08, 0.11), 0.58) + vec3(0.824, 0.271, 0.173) * step(0.84, rnd) * 0.36;
+        }
+        // 8. 激光校准暗场锁死
+        float scan = smoothstep(0.025, 0.0, abs(diag));
+        vec3 fx = mix(base * 0.86, vec3(0.06, 0.07, 0.10), smoothstep(-0.02, 0.02, diag));
+        fx += vec3(0.824, 0.271, 0.173) * scan * 1.6;
+        return fx;
+      }
+
       void main() {
         // 对角激光线：从左下偏中斜切至右上，与 H1 构图一致
         float diag = (vUv.x - 0.52) * 0.88 - (vUv.y - 0.46) * 0.54;
         float side = diag >= 0.0 ? 1.0 : -1.0;
 
-        // 激光拉开裂缝的错位与裂隙透明度
-        float gap = uCut * 0.24;
-        if (uCut > 0.08 && abs(diag) < gap) {
+        // 激光拉开裂缝的错位与裂隙透明度（从 uCut=0.08 处连续归零起拉，避免单帧跳缝）
+        float gap = max(0.0, uCut - 0.08) * 0.26;
+        if (gap > 0.0005 && abs(diag) < gap) {
           // 激光核心光焰 + 炽热朱红边缘
           float edge = abs(abs(diag) - gap);
           float glow = exp(-edge * 68.0) * smoothstep(0.08, 0.25, uCut);
@@ -201,7 +308,7 @@ function buildAct01(brushedTex) {
 
         // 左右两片随剖开错动
         vec2 uv = vUv;
-        if (uCut > 0.08) {
+        if (gap > 0.0005) {
           uv += vec2(0.88, -0.54) * (-side * gap * 0.65);
         }
         if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) discard;
@@ -215,53 +322,20 @@ function buildAct01(brushedTex) {
         float edgeVal = clamp(length(vec2(luma - lx, luma - ly)) * 7.5, 0.0, 1.0);
 
         vec3 col = base;
-        if (uFilterPhase > 0.01) {
+        if (uFilterPhase > 0.0) {
+          // C0 连续横扫：每一模态边界左端从 prev 平滑扫至 curr，零单帧整屏跳变
           float band = clamp(uFilterPhase, 0.0, 8.0);
-          float sweepX = fract(band);
-          int mode = int(floor(min(band, 7.999)));
-          float mask = smoothstep(sweepX - 0.14, sweepX + 0.02, uv.x + 0.08 * sin(uv.y * 6.0));
-          vec3 fx = base;
-          if (mode == 0) {
-            // 1. 深普鲁士蓝 CAD 蓝图
-            float grid = step(0.95, fract(uv.x * 28.0)) + step(0.95, fract(uv.y * 16.0));
-            fx = mix(vec3(0.043, 0.137, 0.275), vec3(0.30, 0.88, 0.96), clamp(edgeVal * 1.4 + grid * 0.22 + (1.0 - luma) * 0.55, 0.0, 1.0));
-          } else if (mode == 1) {
-            // 2. 精密线框拓扑
-            float tri = abs(fract((uv.x + uv.y) * 18.0) - 0.5);
-            float wf = smoothstep(0.46, 0.49, tri);
-            fx = vec3(0.04, 0.06, 0.09) + vec3(0.30, 0.88, 0.96) * (edgeVal * 1.3 + wf * 0.28);
-          } else if (mode == 2) {
-            // 3. 冰青 LiDAR 点云
-            vec2 cell = fract(uv * vec2(110.0, 62.0)) - 0.5;
-            float dotM = smoothstep(0.32, 0.16, length(cell));
-            fx = vec3(0.02, 0.05, 0.08) + vec3(0.30, 0.88, 0.96) * dotM * (0.25 + (1.0 - luma) * 1.2);
-          } else if (mode == 3) {
-            // 4. 红外热力矩阵
-            float h = clamp(1.0 - luma + edgeVal * 0.5, 0.0, 1.0);
-            fx = mix(vec3(0.06, 0.08, 0.22), mix(vec3(0.824, 0.271, 0.173), vec3(1.0, 0.72, 0.36), h), smoothstep(0.15, 0.9, h));
-          } else if (mode == 4) {
-            // 5. 光学色散折射
-            float r = texture2D(uTex, uv + vec2(0.008, 0.002)).r;
-            float g = texture2D(uTex, uv).g;
-            float b = texture2D(uTex, uv - vec2(0.008, 0.002)).b;
-            fx = vec3(r, g, b) * vec3(0.88, 0.94, 1.08);
-          } else if (mode == 5) {
-            // 6. 黑曜暗场反相金属
-            fx = mix(vec3(0.045, 0.052, 0.070), vec3(0.88, 0.92, 0.97), clamp((1.0 - luma) * 1.15 + edgeVal * 0.5, 0.0, 1.0));
-          } else if (mode == 6) {
-            // 7. 晶格碎裂偏移
-            vec2 blk = floor(uv * vec2(16.0, 9.0));
-            float rnd = hash21(blk + floor(uTime * 6.0));
-            vec2 suv = clamp(uv + vec2((rnd - 0.5) * 0.045, (hash21(blk + 3.1) - 0.5) * 0.02), 0.0, 1.0);
-            fx = mix(texture2D(uTex, suv).rgb, vec3(0.06, 0.08, 0.11), 0.45) + vec3(0.824, 0.271, 0.173) * step(0.86, rnd) * 0.4;
-          } else {
-            // 8. 激光校准暗场锁死
-            float scan = smoothstep(0.025, 0.0, abs(diag));
-            fx = mix(base * 0.88, vec3(0.06, 0.07, 0.10), smoothstep(-0.02, 0.02, diag));
-            fx += vec3(0.824, 0.271, 0.173) * scan * 1.8;
-          }
-          // 高频扫过效果，未剖开前混回原白页形成强冲击
-          col = mix(fx, base, mask * 0.32);
+          int curr = int(floor(min(band, 7.999)));
+          float sweepX = band >= 7.999 ? 1.0 : fract(band);
+          int prev = curr - 1;
+          float wipePos = mix(-0.22, 1.22, sweepX);
+          float coord = uv.x + 0.05 * sin(uv.y * 5.0);
+          float wMask = smoothstep(wipePos - 0.16, wipePos + 0.16, coord);
+          vec3 prevCol = evalFilterMode(prev, uv, base, luma, edgeVal, diag);
+          vec3 currCol = evalFilterMode(curr, uv, base, luma, edgeVal, diag);
+          col = mix(currCol, prevCol, wMask);
+          float front = exp(-abs(coord - wipePos) * 34.0) * sin(sweepX * 3.14159265);
+          col += vec3(0.95, 0.34, 0.20) * front * 0.52;
         }
 
         // 激光剖屏前的预热切线与剖屏后的热熔朱红边缘
@@ -291,26 +365,27 @@ function buildAct01(brushedTex) {
 
   let lastSig = '';
   function update(progress, t, pointer) {
-    // Beat 1 (0..0.33): 死板白底 PPT；Beat 2 (0.33..0.67): 朱红锁定改写 + 删 5 行；Beat 3 (0.67..1.0): 8 模态 GLSL 扫屏 + 激光斜切剖开
+    // Beat 1 (0..0.33): 传统白底 PPT 实时审计扫描；Beat 2 (0.33..0.66): 朱红锁定改写 + 逐行划删 + 接管蓄能；Beat 3 (0.64..1.0): 8 模态平滑 GLSL 扫屏 + 激光斜切剖开
     const hijack = smoothstep(0.32, 0.56, progress);
-    const delCount = progress < 0.42 ? 0 : Math.min(5, Math.floor(clamp((progress - 0.42) / 0.20) * 5.2));
+    const delProg = progress < 0.39 ? 0 : clamp((progress - 0.39) / 0.24) * 5.0;
     const typed = hijack < 0.42 ? 0 : Math.ceil(clamp((hijack - 0.42) / 0.52) * 14);
-    const sig = `${Math.round(hijack * 20)}:${delCount}:${typed}`;
+    const sig = `${Math.round(t * 24)}:${Math.round(progress * 1000)}`;
     if (sig !== lastSig) {
-      drawSlideCanvas(hijack, delCount, typed);
+      drawSlideCanvas(progress, hijack, delProg, typed, t);
       lastSig = sig;
     }
 
-    const filterPhase = progress < 0.66 ? 0 : clamp((progress - 0.66) / 0.22) * 8.0;
+    const filterPhase = progress < 0.64 ? 0 : clamp((progress - 0.64) / 0.26) * 8.0;
     const cut = smoothstep(0.76, 0.99, progress);
     planeMat.uniforms.uTime.value = t;
     planeMat.uniforms.uFilterPhase.value = filterPhase;
     planeMat.uniforms.uCut.value = cut;
     planeMat.uniforms.uPointer.value.set(pointer[0], pointer[1]);
 
-    // 剖屏后板面略微后退旋转，露出深邃三维世界
+    // 剖屏前轻微推镜与透视呼吸，剖屏后板面后退旋转露出深邃三维世界
+    const prePush = smoothstep(0.0, 0.64, progress);
     slidePlane.position.z = lerp(1.2, 0.4 + cut * 0.9, cut);
-    slidePlane.rotation.y = (pointer[0] - 0.5) * 0.08 * (0.2 + cut);
+    slidePlane.rotation.y = (pointer[0] - 0.5) * 0.08 * (0.2 + cut) + Math.sin(t * 0.42) * 0.012 * (1 - cut);
     slidePlane.rotation.x = (pointer[1] - 0.5) * -0.05 * (0.2 + cut);
 
     laserMesh.visible = cut > 0.02 && cut < 0.94;
@@ -320,7 +395,7 @@ function buildAct01(brushedTex) {
     behind.rotation.y = (pointer[0] - 0.5) * 0.14;
 
     return {
-      cameraPos: [lerp(0, (pointer[0] - 0.5) * 0.9, cut), lerp(0.2, 0.35 + (pointer[1] - 0.5) * -0.4, cut), lerp(8.3, 6.2, cut)],
+      cameraPos: [lerp(0, (pointer[0] - 0.5) * 0.9, cut), lerp(0.2, 0.35 + (pointer[1] - 0.5) * -0.4, cut), lerp(lerp(8.35, 7.9, prePush), 6.2, cut)],
       cameraLook: [0, 0.2, 0],
       fov: lerp(39, 44, cut),
       stageLights: { keyPos: [4.5, 5.5, 6.5], keyColor: 0xeef5ff, rimColor: 0xd2452c, fillColor: 0x4ce0f5 },

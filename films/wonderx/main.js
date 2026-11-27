@@ -153,34 +153,92 @@ async function boot() {
     lastH = h;
   }
 
-  // Act 07 2×2 四宇宙同屏视口渲染（同一份 BufferGeometry + 4 套 GLSL）
-  function renderAct07Quad() {
+  // Act 07 统一渲染（单画风 / 0.0 px 同源激光扫屏 / 平滑斜向 2×2 四宇宙同屏矩阵，零后处理色差跳变）
+  function renderAct07(st) {
     const buf = new THREE.Vector2();
     renderer.getDrawingBufferSize(buf);
     const rw = buf.x;
     const rh = buf.y;
     const hw = Math.floor(rw / 2);
     const hh = Math.floor(rh / 2);
+    const q = clamp(st.quadBlend ?? (st.quadMode ? 1 : 0), 0, 1);
 
-    const cells = [
-      { idx: 0, x: 0, y: hh, w: hw, h: rh - hh },
-      { idx: 1, x: hw, y: hh, w: rw - hw, h: rh - hh },
-      { idx: 2, x: 0, y: 0, w: hw, h: hh },
-      { idx: 3, x: hw, y: 0, w: rw - hw, h: hh },
-    ];
     renderer.setRenderTarget(null);
     renderer.setScissorTest(true);
-    camera.aspect = (hw / Math.max(1, hh));
-    camera.updateProjectionMatrix();
 
-    for (const c of cells) {
-      renderer.setViewport(c.x, c.y, c.w, c.h);
-      renderer.setScissor(c.x, c.y, c.w, c.h);
-      renderer.setClearColor(ACT07_STYLES[c.idx].bg, 1);
+    if (q > 0.001) {
+      let cells;
+      if (q >= 0.999) {
+        cells = [
+          { idx: 0, sx: 0, sy: hh, sw: hw, sh: rh - hh, vx: 0, vy: hh, vw: hw, vh: rh - hh },
+          { idx: 1, sx: hw, sy: hh, sw: rw - hw, sh: rh - hh, vx: hw, vy: hh, vw: rw - hw, vh: rh - hh },
+          { idx: 2, sx: 0, sy: 0, sw: hw, sh: hh, vx: 0, vy: 0, vw: hw, vh: hh },
+          { idx: 3, sx: hw, sy: 0, sw: rw - hw, sh: hh, vx: hw, vy: 0, vw: rw - hw, vh: hh },
+        ];
+      } else if (st.quadAnchor === 0) {
+        // 退出四格：左上黑曜格（0）顺滑扩至全屏，其余三格保持 16:9 视口无拉伸收出
+        const sx = Math.round(rw - (rw - hw) * q);
+        const sy = Math.round(hh * q);
+        cells = [
+          { idx: 0, sx: 0, sy, sw: sx, sh: rh - sy, vx: 0, vy: sy, vw: sx, vh: rh - sy },
+          { idx: 1, sx, sy, sw: rw - sx, sh: rh - sy, vx: hw, vy: hh, vw: rw - hw, vh: rh - hh },
+          { idx: 2, sx: 0, sy: 0, sw: sx, sh: sy, vx: 0, vy: 0, vw: hw, vh: hh },
+          { idx: 3, sx, sy: 0, sw: rw - sx, sh: sy, vx: sx, vy: 0, vw: rw - sx, vh: sy },
+        ];
+      } else {
+        // 切入四格：右上蓝图格（1）由全屏顺滑缩至右上象限，其余三格保持 16:9 视口无拉伸展开
+        const sx = Math.round(hw * q);
+        const sy = Math.round(hh * q);
+        cells = [
+          { idx: 0, sx: 0, sy, sw: sx, sh: rh - sy, vx: 0, vy: hh, vw: hw, vh: rh - hh },
+          { idx: 1, sx, sy, sw: rw - sx, sh: rh - sy, vx: sx, vy: sy, vw: rw - sx, vh: rh - sy },
+          { idx: 2, sx: 0, sy: 0, sw: sx, sh: sy, vx: 0, vy: 0, vw: sx, vh: sy },
+          { idx: 3, sx, sy: 0, sw: rw - sx, sh: sy, vx: hw, vy: 0, vw: rw - hw, vh: hh },
+        ];
+      }
+      for (const c of cells) {
+        if (c.sw <= 0 || c.sh <= 0 || c.vw <= 0 || c.vh <= 0) continue;
+        camera.aspect = c.vw / Math.max(1, c.vh);
+        camera.updateProjectionMatrix();
+        renderer.setViewport(c.vx, c.vy, c.vw, c.vh);
+        renderer.setScissor(c.sx, c.sy, c.sw, c.sh);
+        renderer.setClearColor(ACT07_STYLES[c.idx].bg, 1);
+        renderer.clear(true, true, true);
+        acts0610.A07.quadMesh.material = acts0610.A07.materials[c.idx];
+        renderer.render(acts0610.A07.quadScene, camera);
+      }
+    } else if (st.wipe) {
+      // 同一全屏视口下按激光扫线左右剪裁，利用 invariant 0.0 px 同源配准实现零错位原地换画风
+      const sx = Math.round(rw * clamp(st.wipe.x, 0, 1));
+      camera.aspect = rw / Math.max(1, rh);
+      camera.updateProjectionMatrix();
+      renderer.setViewport(0, 0, rw, rh);
+      if (sx > 0) {
+        renderer.setScissor(0, 0, sx, rh);
+        renderer.setClearColor(ACT07_STYLES[st.wipe.to].bg, 1);
+        renderer.clear(true, true, true);
+        acts0610.A07.quadMesh.material = acts0610.A07.materials[st.wipe.to];
+        renderer.render(acts0610.A07.quadScene, camera);
+      }
+      if (rw - sx > 0) {
+        renderer.setScissor(sx, 0, rw - sx, rh);
+        renderer.setClearColor(ACT07_STYLES[st.wipe.from].bg, 1);
+        renderer.clear(true, true, true);
+        acts0610.A07.quadMesh.material = acts0610.A07.materials[st.wipe.from];
+        renderer.render(acts0610.A07.quadScene, camera);
+      }
+    } else {
+      const idx = st.styleIndex ?? 0;
+      camera.aspect = rw / Math.max(1, rh);
+      camera.updateProjectionMatrix();
+      renderer.setViewport(0, 0, rw, rh);
+      renderer.setScissor(0, 0, rw, rh);
+      renderer.setClearColor(ACT07_STYLES[idx].bg, 1);
       renderer.clear(true, true, true);
-      acts0610.A07.quadMesh.material = acts0610.A07.materials[c.idx];
+      acts0610.A07.quadMesh.material = acts0610.A07.materials[idx];
       renderer.render(acts0610.A07.quadScene, camera);
     }
+
     renderer.setScissorTest(false);
     renderer.setViewport(0, 0, rw, rh);
     camera.aspect = 16 / 9;
@@ -235,12 +293,11 @@ async function boot() {
       fillLight.color.setHex(st.stageLights.fillColor);
     }
 
-    if (id === 'A07' && st.quadMode) {
-      renderAct07Quad();
+    if (id === 'A07') {
+      renderAct07(st);
     } else {
-      const bgHex = (id === 'A07' && st.bgHex != null) ? st.bgHex : 0x07080b;
-      scene.background.setHex(bgHex);
-      if (scene.fog) scene.fog.color.setHex(bgHex);
+      scene.background.setHex(0x07080b);
+      if (scene.fog) scene.fog.color.setHex(0x07080b);
       // 严禁旧纸纹与油画糊边：paper: false, kuwahara: false, outline: false
       const params = {
         ...preset.params,

@@ -177,13 +177,15 @@ export function drawHud(ctx, overlay, state) {
     }
   }
 
-  // ── 通用大厂暗场标题区块（Act 01 Beat 1-2 保持纯白 PPT 不叠字，Beat 3 起切入高对比暗场标题） ──
-  const showTitleBlock = !(id === 'A01' && progress < 0.68);
-  if (showTitleBlock) {
+  // ── 通用大厂暗场标题区块（Act 01 Beat 1-2 保持纯白 PPT 不叠字，Beat 3 起平滑渐入高对比暗场标题） ──
+  const titleAlpha = id === 'A01' ? smoothstep(0.66, 0.74, progress) : 1;
+  if (titleAlpha > 0.01) {
     const isTopLeft = id === 'A04'; // H3 棱光：左上留足干净标题负空间
     const x = 104;
     const baseY = isTopLeft ? 156 : 756;
 
+    ctx.save();
+    ctx.globalAlpha = titleAlpha;
     if (!isTopLeft) {
       const scrim = ctx.createLinearGradient(0, 640, 0, 1080);
       scrim.addColorStop(0, 'rgba(7, 8, 11, 0)');
@@ -193,7 +195,6 @@ export function drawHud(ctx, overlay, state) {
       ctx.fillRect(0, 640, 1920, 440);
     }
 
-    ctx.save();
     ctx.shadowColor = 'rgba(4, 6, 10, 0.92)';
     ctx.shadowBlur = 16;
     ctx.fillStyle = PALETTE.vermilion;
@@ -274,56 +275,82 @@ function drawAct03Cad(ctx, anchors, explode, write, writeMono) {
   ctx.restore();
 }
 
-// ── Act 07 四宇宙画风 HUD（对位 H5b 4px 十字分隔 + 四角徽章 + 0.0px 同源配准） ──
+// ── Act 07 四宇宙画风 HUD（对位 H5b 4px 十字分隔 + 四角徽章 + 0.0px 同源配准 + 同步激光扫线） ──
 function drawAct07Hud(ctx, progress, sceneState, copy, write, writeMono) {
-  const quad = Boolean(sceneState?.quadMode);
+  const q = clamp(sceneState?.quadBlend ?? (sceneState?.quadMode ? 1 : 0), 0, 1);
   const styleIdx = sceneState?.styleIndex ?? 0;
+  const wipe = sceneState?.wipe ?? null;
 
-  if (quad) {
-    // 4px 十字分隔线
+  if (q > 0.001) {
+    // 跟随斜向视口展开的 4px 十字分隔线
+    const splitX = sceneState?.quadAnchor === 0
+      ? Math.round(1920 - 960 * q)
+      : Math.round(960 * q);
+    const splitY = Math.round(1080 - 540 * q);
+    const lineAlpha = smoothstep(0.05, 0.35, q);
+    ctx.save();
+    ctx.globalAlpha = lineAlpha;
     ctx.fillStyle = '#07080B';
-    ctx.fillRect(958, 0, 4, 1080);
-    ctx.fillRect(0, 538, 1920, 4);
+    ctx.fillRect(splitX - 2, 0, 4, 1080);
+    ctx.fillRect(0, splitY - 2, 1920, 4);
     ctx.fillStyle = PALETTE.vermilion;
-    ctx.fillRect(944, 538, 32, 4);
-    ctx.fillRect(958, 524, 4, 32);
+    ctx.fillRect(splitX - 16, splitY - 2, 32, 4);
+    ctx.fillRect(splitX - 2, splitY - 16, 4, 32);
+    ctx.restore();
 
-    const cells = [
-      { x: 96, y: 78, style: ACT07_STYLES[0], badge: '01' },
-      { x: 1000, y: 78, style: ACT07_STYLES[1], badge: '02' },
-      { x: 96, y: 586, style: ACT07_STYLES[2], badge: '03' },
-      { x: 1000, y: 586, style: ACT07_STYLES[3], badge: '04' },
-    ];
-    cells.forEach(c => {
-      roundRect(ctx, c.x, c.y, 286, 62, 8);
-      ctx.fillStyle = 'rgba(7, 8, 11, 0.72)';
+    const badgeAlpha = smoothstep(0.58, 0.94, q);
+    if (badgeAlpha > 0.02) {
+      ctx.save();
+      ctx.globalAlpha = badgeAlpha;
+      const cells = [
+        { x: 96, y: 78, style: ACT07_STYLES[0], badge: '01' },
+        { x: 1000, y: 78, style: ACT07_STYLES[1], badge: '02' },
+        { x: 96, y: 586, style: ACT07_STYLES[2], badge: '03' },
+        { x: 1000, y: 586, style: ACT07_STYLES[3], badge: '04' },
+      ];
+      cells.forEach(c => {
+        roundRect(ctx, c.x, c.y, 286, 62, 8);
+        ctx.fillStyle = 'rgba(7, 8, 11, 0.72)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(242, 244, 248, 0.24)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        writeMono(`${c.badge} · ${c.style.en}`, c.x + 16, c.y + 24, 12, PALETTE.iceCyan, 700);
+        write(c.style.name, c.x + 16, c.y + 50, 20, 'WX Sans', PALETTE.porcelain, 600, `h5b-${c.badge}`);
+      });
+
+      // 底部中央 0.0 px 配准标识（位于控制栏上方，不重叠）
+      roundRect(ctx, 646, 876, 628, 48, 24);
+      ctx.fillStyle = 'rgba(7, 8, 11, 0.86)';
       ctx.fill();
-      ctx.strokeStyle = 'rgba(242, 244, 248, 0.24)';
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(210, 69, 44, 0.78)';
+      ctx.lineWidth = 1.5;
       ctx.stroke();
-      writeMono(`${c.badge} · ${c.style.en}`, c.x + 16, c.y + 24, 12, PALETTE.iceCyan, 700);
-      write(c.style.name, c.x + 16, c.y + 50, 20, 'WX Sans', PALETTE.porcelain, 600, `h5b-${c.badge}`);
-    });
+      write('单一几何体 × 四套 GLSL 实时热切 · 轮廓配准 0.0 px', 960, 908, 21, 'WX Sans', PALETTE.porcelain, 600, 'h5b-banner', 'center');
+      ctx.restore();
+    }
+  }
 
-    // 底部中央 0.0 px 配准标识（位于控制栏上方，不重叠）
-    roundRect(ctx, 646, 876, 628, 48, 24);
-    ctx.fillStyle = 'rgba(7, 8, 11, 0.86)';
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(210, 69, 44, 0.78)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    write('单一几何体 × 四套 GLSL 实时热切 · 轮廓配准 0.0 px', 960, 908, 21, 'WX Sans', PALETTE.porcelain, 600, 'h5b-banner', 'center');
-  } else {
+  const singleAlpha = 1 - smoothstep(0.05, 0.45, q);
+  if (singleAlpha > 0.02) {
     const st = ACT07_STYLES[styleIdx] ?? ACT07_STYLES[0];
-    // Beat 3 激光扫描线动画
-    if (progress >= 0.68) {
-      const sweepX = (((progress - 0.68) / 0.32) * 4 % 1) * 1920;
-      const grad = ctx.createLinearGradient(sweepX - 70, 0, sweepX + 10, 0);
-      grad.addColorStop(0, 'rgba(210, 69, 44, 0)');
-      grad.addColorStop(0.85, 'rgba(210, 69, 44, 0.35)');
-      grad.addColorStop(1, 'rgba(255, 110, 74, 0.95)');
-      ctx.fillStyle = grad;
-      ctx.fillRect(sweepX - 70, 0, 80, 1080);
+    ctx.save();
+    ctx.globalAlpha = singleAlpha;
+    // 严格对位 3D 剪裁面的朱红激光扫描线
+    if (wipe) {
+      const sweepX = clamp(wipe.x, 0, 1) * 1920;
+      const edgeFade = Math.sin(clamp(wipe.x, 0, 1) * Math.PI);
+      if (edgeFade > 0.01) {
+        ctx.save();
+        ctx.globalAlpha = singleAlpha * edgeFade;
+        const grad = ctx.createLinearGradient(sweepX - 70, 0, sweepX + 10, 0);
+        grad.addColorStop(0, 'rgba(210, 69, 44, 0)');
+        grad.addColorStop(0.85, 'rgba(210, 69, 44, 0.35)');
+        grad.addColorStop(1, 'rgba(255, 110, 74, 0.95)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(sweepX - 70, 0, 80, 1080);
+        ctx.restore();
+      }
     }
     const scrim = ctx.createLinearGradient(0, 670, 0, 1080);
     scrim.addColorStop(0, 'rgba(7, 8, 11, 0)');
@@ -332,7 +359,6 @@ function drawAct07Hud(ctx, progress, sceneState, copy, write, writeMono) {
     ctx.fillStyle = scrim;
     ctx.fillRect(0, 670, 1920, 410);
     const x = 104;
-    ctx.save();
     ctx.shadowColor = 'rgba(4, 6, 10, 0.92)';
     ctx.shadowBlur = 16;
     ctx.fillStyle = PALETTE.vermilion;
@@ -663,11 +689,14 @@ function drawAct10Finale(ctx, progress, t, pointer, interactive, copy, write, wr
     return;
   }
 
-  // Beat 3: 交互态由 DOM/CSS 12° 光学玻璃板承接；无头视频导出/bench 态同时绘制到 2D 画布确保画面完整
+  // Beat 3: 交互态由 DOM/CSS 12° 光学玻璃板承接；无头视频导出/bench 态平滑渐入确保画面自然衔接
   if (!interactive) {
+    const cardAlpha = smoothstep(0.68, 0.75, progress);
+    if (cardAlpha < 0.01) return;
     const tilt = (pointer[0] - 0.5) * 18;
     ctx.save();
-    ctx.translate(960, 520);
+    ctx.globalAlpha = cardAlpha;
+    ctx.translate(960, 520 + (1 - cardAlpha) * 20);
     ctx.transform(1, tilt * 0.004, -tilt * 0.006, 1, 0, 0);
     roundRect(ctx, -430, -210, 860, 420, 22);
     ctx.fillStyle = 'rgba(242, 244, 248, 0.88)';

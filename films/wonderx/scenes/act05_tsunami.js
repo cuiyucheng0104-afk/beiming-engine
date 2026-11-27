@@ -155,11 +155,11 @@ export function createAct05Tsunami() {
 
         // 单个微体素高度随能量脉冲拉伸
         float isoWave = exp(-pow((target.x - uWaveX) * 0.65, 2.0));
-        float energy = clamp(isoWave * 0.95 + shockRing * 1.2 + abs(emRipple) * 0.75 + aSeed.z * 0.38, 0.0, 1.4);
+        float energy = clamp(isoWave * 0.78 + shockRing * 1.05 + abs(emRipple) * 0.65 + aSeed.z * 0.34, 0.0, 1.25);
 
         vec3 local = position;
-        local.y *= (0.75 + aSeed.y * (0.65 + energy * 0.95)) * mix(0.35, 1.0, uBurst);
-        local.xz *= mix(0.65, 1.0 + energy * 0.22, uBurst);
+        local.y *= (0.75 + aSeed.y * (0.65 + energy * 0.85)) * mix(0.35, 1.0, uBurst);
+        local.xz *= mix(0.65, 1.0 + energy * 0.18, uBurst);
 
         vec3 worldPos = center + local;
         vNormal = normalize(normalMatrix * normal);
@@ -184,20 +184,20 @@ export function createAct05Tsunami() {
 
         // 黑曜拉丝深钛基底 -> 高处过渡至冰青 / 暖金 -> 朱红等高能量波主脊
         vec3 darkTi = vec3(0.11, 0.135, 0.185);
-        vec3 brightTi = vec3(0.38, 0.45, 0.56);
-        vec3 cyanCol = vec3(0.30, 0.88, 0.96);
-        vec3 goldCol = vec3(1.00, 0.72, 0.36);
-        vec3 vermCol = vec3(0.88, 0.28, 0.18);
+        vec3 brightTi = vec3(0.36, 0.42, 0.52);
+        vec3 cyanCol = vec3(0.28, 0.82, 0.92);
+        vec3 goldCol = vec3(0.95, 0.68, 0.34);
+        vec3 vermCol = vec3(0.86, 0.27, 0.17);
 
         vec3 base = mix(darkTi, brightTi, d1 * 0.75 + d2 * 0.25);
         vec3 accent = mix(cyanCol, goldCol, smoothstep(0.68, 0.95, vCyan));
-        vec3 col = mix(base, accent, smoothstep(0.35, 0.85, vHeight) * 0.72);
+        vec3 col = mix(base, accent, smoothstep(0.35, 0.88, vHeight) * 0.58);
 
-        // 朱红等高能量峰线与脉冲
+        // 朱红等高能量峰线与脉冲（压稳高光峰值避免形变期大面积过曝突闪）
         float vermMask = smoothstep(0.55, 1.15, vEnergy);
-        col = mix(col, vermCol * 1.45, vermMask * 0.92);
+        col = mix(col, vermCol * 1.22, vermMask * 0.86);
         // 顶面高光
-        col += vec3(0.85, 0.95, 1.0) * pow(max(N.y, 0.0), 4.0) * 0.22;
+        col += vec3(0.82, 0.92, 0.98) * pow(max(N.y, 0.0), 4.0) * 0.14;
 
         gl_FragColor = vec4(col, 1.0);
       }
@@ -257,8 +257,11 @@ export function createAct05Tsunami() {
     mat.uniforms.uShock.value = clamp(input.shock ?? 0, 0, 1);
     mat.uniforms.uWaveX.value = ((t * 4.4) % 28.0) - 14.0;
 
-    // 球体形态缓缓自转，山海/矩阵低机位宏大广角巡航
-    mesh.rotation.y = w1 * t * 0.22 + (pointer[0] - 0.5) * 0.28;
+    // 球体形态缓缓自转（时间轴用局部进度平滑积分，避免 w1*t 放大绝对时间导致形变期高速甩转突闪）
+    const sphereSpin = typeof input.formation === 'number'
+      ? (w1 * t * 0.22)
+      : (smoothstep(0.30, 0.80, progress) * 2.6);
+    mesh.rotation.y = sphereSpin + (pointer[0] - 0.5) * 0.28;
 
     const camY = 3.2 * (1 - w1 * 0.55) + (pointer[1] - 0.5) * -1.4;
     const camZ = 12.6 + w1 * 1.4;
