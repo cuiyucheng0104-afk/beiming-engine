@@ -127,6 +127,8 @@ core-render render-pack <包目录> -o out.png [--frame k] [--spp N] [--width W 
 
 `oidn` crate 2.5.1（源码在 cargo 缓存里，已读）的 `RayTracing` 不够用：它的 `clean_aux()` 设的参数名是 `clean_aux`，OIDN 2.5 只认 `cleanAux`（Blender 自带库里只有这个字串），设了等于没设；它也没有单独降噪辅助层的接口。所以 `oidn()` 只用 crate 的设备与缓冲（`Device::cpu()` 等、`create_buffer`、`read`），过滤器全走它带的 C 绑定 `oidn::sys`（`oidnNewFilter`、`oidnSetFilterImage`、`oidnSetFilterBool`、`oidnSetFilterInt`、`oidnCommitFilter`、`oidnExecuteFilter`），参数名照 OIDN：`hdr`、`srgb`、`cleanAux`、`quality`。
 
+OIDN 2.3 那一档（特性 `oidn23`，`oidn` crate 2.3.3，源码在 cargo 缓存里，已读）用同一段：C 绑定里这几个函数的参数一样，`OIDN_FORMAT_FLOAT3` 与 `OIDN_QUALITY_HIGH`（6）的值一样，过滤器名 `RT`，设备枚举 CPU、SYCL、CUDA、HIP、METAL 的编号一样（2.5.1 的绑定把枚举类型从无符号改成了有符号，值没变）；Blender 4.5.16 自带的 OIDN 2.3.3 库里同样只有 `cleanAux`、`quality`、`srgb`、`inputScale` 这些字串，而 crate 2.3.3 的 `RayTracing` 同样把它写成 `clean_aux`。差别只在 crate 的安全接口：2.3.3 的 `Device::cpu()`、`new()` 直接返回设备（不查空句柄，所以建完先查一次错），`cuda()`、`metal()` 返回 `Option`，`create_buffer` 返回 `Option`，`read` 直接返回数据，`get_error` 的错是（错误码，库的说明）；2.5.1 这些都返回 `Result`。`denoise.rs` 把这几处收进按特性二选一的 `api` 模块；两个特性同开是编译错误。
+
 现成的三张图也能直接降噪，给对拍用（编进了 OIDN 才有，否则报错退出）：
 
 ```sh
@@ -138,10 +140,10 @@ core-render denoise --width W --height H --color c.f32 --albedo a.f32 --normal n
 ### 和 Blender 对拍
 
 ```sh
-node beiming/sources/core/chassis/oidn-parity.mjs [--device cpu|cuda|metal] [--prefilter accurate|fast|none] [--spp 16] [--width 320 --height 240]
+node beiming/sources/core/chassis/oidn-parity.mjs [--device cpu|cuda|metal] [--prefilter accurate|fast|none] [--spp 16] [--width 320 --height 240] [--build oidn|oidn23]
 ```
 
-本机的 Blender 现搭一个小场景（脚本在 `../chassis/oidn-parity.mjs` 的 `SCENE`：地面、漫反射方块、金属球、面光、弱环境光，16 采样、不自适应、种子 0），Cycles 用 OIDN、质量 `HIGH`、给定的预过滤与设备（`cpu` 关「在 GPU 上降噪」；`cuda`、`metal` 用那块显卡渲并在上面降噪），存多部件的多层 EXR（32 位、不压缩），取 `Noisy Image`、`Denoising Albedo`、`Denoising Normal` 与降噪后的 `Combined`。前三层按 Cycles 的行序翻过来喂给带 OIDN 的 `core-render denoise`（同设备、同预过滤、`HIGH`），结果翻回来和 `Combined` 逐分量比。判据：每个分量 |差| ≤ 1e-3 × max(1, |Combined|)。EXR 与场景都在临时目录里，不进仓库；记录写 `../chassis/oidn-parity/<平台>-<设备>-<预过滤>.json`（Blender 与 OIDN 的版本、库的 sha256、程序摘要、EXR 的 sha256、读数）。脚本先过 `verifyOidnLibs`：Blender 降噪用的库就是这边链接的那一份。
+本机的 Blender 现搭一个小场景（脚本在 `../chassis/oidn-parity.mjs` 的 `SCENE`：地面、漫反射方块、金属球、面光、弱环境光，16 采样、不自适应、种子 0），Cycles 用 OIDN、质量 `HIGH`、给定的预过滤与设备（`cpu` 关「在 GPU 上降噪」；`cuda`、`metal` 用那块显卡渲并在上面降噪），存多部件的多层 EXR（32 位、不压缩），取 `Noisy Image`、`Denoising Albedo`、`Denoising Normal` 与降噪后的 `Combined`。前三层按 Cycles 的行序翻过来喂给带 OIDN 的 `core-render denoise`（同设备、同预过滤、`HIGH`），结果翻回来和 `Combined` 逐分量比。判据：每个分量 |差| ≤ 1e-3 × max(1, |Combined|)。EXR 与场景都在临时目录里，不进仓库；记录写 `../chassis/oidn-parity/<平台>-<设备>-<预过滤>.json`（`--build oidn23` 写 `<平台>-oidn23-<设备>-<预过滤>.json`；Blender 与 OIDN 的版本、库的 sha256、程序摘要、EXR 的 sha256、读数）。脚本先过 `verifyOidnLibs`：Blender 降噪用的库就是这边链接的那一份。`--build oidn23` 对 Blender 4.5 与 OIDN 2.3：`BEIMING_BLENDER` 指向 Blender 4.5 的可执行文件（参考由它渲、库从它的 `lib/` 找），渲参考的 Blender 报的版本与锁文件这一项不同就不比，退出码 3。
 
 | 机器 | Blender | 设备 | 预过滤 | 最大绝对差 | 最大相对差 | 判据 |
 |---|---|---|---|---|---|---|
@@ -154,6 +156,8 @@ node beiming/sources/core/chassis/oidn-parity.mjs [--device cpu|cuda|metal] [--p
 | RTX 5090（Linux） | 5.2.3 | CPU | `NONE` | 1.49e-4 | 5.85e-6 | 过 |
 | RTX 5090（Linux） | 5.2.3 | CUDA | `ACCURATE` | 0（逐位相同） | 0 | 过 |
 
+上表都是 OIDN 2.5 档。OIDN 2.3 档（`--build oidn23`，RTX 5090 上 Blender 4.5.16 渲参考）的对拍还没跑出读数：5090 的显卡槽位一直被占着，没有记录入库；2.3 档在 5090 上编出、链接成功也还没验证过（Mac 上只做过 `cargo check --features oidn23`）。
+
 同一份带噪输入，降噪前后最大绝对差约 8.7（`ACCURATE`），所以这一帧的降噪确实动了画面。5090 上 `render-pack` 同包同帧（`part_03B` 第 12 帧）默认档与 OIDN 档的出层逐位相同，stats 的 `denoise` 分别是 `atrous` 与 `oidn`。CPU 上留下的那点差（两台机器都约是判据的 0.5%）没再追：Metal 与 CUDA 都逐位相同，说明参数与输入的取法一致；CPU 一侧的差可能来自 Cycles 读渲染缓冲时乘 1/采样数与 EXR 里存的均值在末位上的不同，没有验证。
 
 ### 链接 Blender 自带的 OIDN：带 OIDN 的构建档
@@ -162,25 +166,29 @@ node beiming/sources/core/chassis/oidn-parity.mjs [--device cpu|cuda|metal] [--p
 
 ```sh
 node -e "import('./beiming/sources/core/chassis/build.mjs').then(m => console.log(m.buildOidnRenderer().bin))"
+# OIDN 2.3 那一档（只在有 Blender 4.5 的 linux-x64 上）：
+BEIMING_BLENDER=<Blender 4.5 的可执行文件> node -e "import('./beiming/sources/core/chassis/build.mjs').then(m => console.log(m.buildOidnRenderer(process.env, 'oidn23').bin))"
 ```
 
 - 找库：环境变量 `BEIMING_OIDN_LIB`（Blender 的 lib 目录）；没设时找 Blender（`BEIMING_BLENDER`、macOS 的 `/Applications/Blender.app`、PATH 里的 `blender`），取它真实路径旁的库目录：macOS 是 `Contents/Resources/lib/`，Linux 官方包是可执行文件同级的 `lib/`（PATH 里的 `blender` 是链接时先解开）。
-- 核对：[../chassis/oidn-lock.json](../chassis/oidn-lock.json) 按平台（`darwin-arm64`、`linux-x64`）列出库目录里全部 `libOpenImageDenoise*` 与 `libtbb*`（链接照它指向的内容）的 sha256，`build.mjs` 的 `verifyOidnLibs` 逐个比：多一个、少一个、对不上都拒绝，抛 env 类的错（退出码 3）：sha256 对不上或多出锁文件里没有的库报 `env.lib-mismatch`（帧源接口契约 5.15），缺库、缺平台报 `env.missing-tool`。构建前核一次；跑带 OIDN 的程序之前（对拍脚本）再核一次。
-- 链接：`oidn` crate 2.5.1 的构建脚本（`build.rs`，已读）没开 `bundled` 时，设了 `OIDN_DIR` 就把 `$OIDN_DIR/lib` 加进链接路径、链接 `OpenImageDenoise`，不走 pkg-config；C 接口的绑定是 crate 里写好的，不要头文件。所以 `OIDN_DIR` 设成库目录的上一级（库目录必须叫 `lib`），`cargo rustc --locked --release --features oidn --bin core-render -- -C link-arg=-Wl,-rpath,<库目录>`；不开 `bundled`（它会在构建时下载）。构建目录另用 `out/chassis/target-oidn`；程序名的摘要把锁文件这个平台的一项算进去，与默认档分开存。
+- 核对：[../chassis/oidn-lock.json](../chassis/oidn-lock.json) 按平台（`darwin-arm64`、`linux-x64`；OIDN 2.3 档在它的 `oidn23` 一项里，只有 `linux-x64`）列出库目录里全部 `libOpenImageDenoise*` 与 `libtbb*`（链接照它指向的内容）的 sha256，`build.mjs` 的 `verifyOidnLibs` 逐个比：多一个、少一个、对不上都拒绝，抛 env 类的错（退出码 3）：sha256 对不上或多出锁文件里没有的库报 `env.lib-mismatch`（帧源接口契约 5.15），缺库、缺平台报 `env.missing-tool`。构建前核一次；跑带 OIDN 的程序之前（对拍脚本）再核一次。
+- 链接：`oidn` crate 2.5.1 的构建脚本（`build.rs`，已读）没开 `bundled` 时，设了 `OIDN_DIR` 就把 `$OIDN_DIR/lib` 加进链接路径、链接 `OpenImageDenoise`，不走 pkg-config；C 接口的绑定是 crate 里写好的，不要头文件。所以 `OIDN_DIR` 设成库目录的上一级（库目录必须叫 `lib`），`cargo rustc --locked --release --features oidn --bin core-render -- -C link-arg=-Wl,-rpath,<库目录>`；不开 `bundled`（它会在构建时下载）。构建目录另用 `out/chassis/target-oidn`；程序名的摘要把构建档与锁文件这个平台的一项算进去，与默认档分开存。
+- OIDN 2.3 那一档（`buildOidnRenderer(env, 'oidn23')`）：`oidn` crate 2.3.3 与 2.5.1 在 Cargo 看来是兼容的两个版本（同一个大版本 2），又都声明 `links = "OpenImageDenoise"`，所以不能在本目录的 `Cargo.toml` 里写成两个可选依赖（试过：解析报 `failed to select a version for oidn`）。`build.mjs` 把进构建的文件拷到 `out/chassis/oidn23/`，在拷过去的清单里把 `oidn` 依赖改成 `=2.3.3`、特性 `oidn` 改名 `oidn23`，用本目录的 `Cargo-oidn23.lock` 换掉 `Cargo.lock`，`cargo rustc --locked --release --features oidn23`，构建目录 `out/chassis/target-oidn23`；工作树不动。crate 2.3.3 的构建脚本（已读）同样认 `OIDN_DIR`（有它就不走 pkg-config），链接与 rpath 同上。`Cargo-oidn23.lock` 与 `Cargo.lock` 只差 `oidn` 这一个包（2.3.3 不依赖 `bitflags`），`oidn-parity.test.mjs` 核这一点：改了 `Cargo.lock` 之后照它重新生成（拷到 `out/` 下改清单、`cargo update -p oidn --precise 2.3.3 --offline`）。
 - 运行时找库：只靠编进程序的 rpath（`LC_RPATH` / `RUNPATH`，指向上面的库目录），不用 `DYLD_LIBRARY_PATH` / `LD_LIBRARY_PATH`。OIDN 的主库再按它自己的 rpath（macOS `@loader_path`、Linux `$ORIGIN`）从同一目录装核心库与设备库（macOS 有 CPU 与 Metal，Linux 有 CPU、CUDA、HIP、SYCL）。所以 Blender 升级或挪走之后这个程序就装不上库了，要重编；锁文件对不上时先改锁文件（换了 Blender 就是换了库，要重新对拍）。
 
 | 平台 | 库目录 | Blender | OIDN |
 |---|---|---|---|
 | `darwin-arm64`（苹果 M5 Pro） | `Blender.app/Contents/Resources/lib/` | 5.2.0 | 2.5.0 |
 | `linux-x64`（RTX 5090） | 官方 Linux 包的 `lib/` | 5.2.3 | 2.5.0 |
+| `linux-x64`（RTX 5090），`oidn23` 档 | Blender 4.5.16 官方 Linux 包的 `lib/` | 4.5.16 | 2.3.3（oneTBB 2021.13） |
 
-各文件的 sha256 只写在锁文件里。三处 Blender 都只有动态库：没有头文件、没有 pkg-config 的 `.pc`、没有 CMake 的配置文件（用不着）。5090 上另有 Blender 4.5.16 自带的 OIDN 2.3.3（`libOpenImageDenoise.so.2.3.3` `9a220453d6a7ea32a036559e6579768a312653c9da12b819282f91bf8b2acc11`），对它另编一份要把 `Cargo.lock` 里的 `oidn` 降到 2.3.3（缓存里没有，要取），还没做。
+各文件的 sha256 只写在锁文件里。几处 Blender 都只有动态库：没有头文件、没有 pkg-config 的 `.pc`、没有 CMake 的配置文件（用不着）。苹果 M5 Pro 上没有 Blender 4.5，所以没有 `oidn23` 档的库，那里只编默认档与 OIDN 2.5 档。
 
-许可：只从本机已装的 Blender 动态链接，库不进仓库、不随仓库分发。OIDN 2.5.0（Apache-2.0）、它装载的 oneTBB（Apache-2.0）与 `oidn` crate（MIT）登记在 `docs/rights/register.md` 的 R17 与 [THIRD-PARTY.md](../../../../THIRD-PARTY.md) 第 14 节；以后要对外分发带 OIDN 的程序，随附两份 Apache-2.0 许可（OIDN、oneTBB 各一份）与各自的 NOTICE，并保留 `oidn` crate 的 MIT 声明。
+许可：只从本机已装的 Blender 动态链接，库不进仓库、不随仓库分发。OIDN 2.5.0 与 2.3.3（Apache-2.0）、它们装载的 oneTBB（Apache-2.0）与 `oidn` crate 2.5.1、2.3.3（MIT）登记在 `docs/rights/register.md` 的 R17 与 [THIRD-PARTY.md](../../../../THIRD-PARTY.md) 第 14 节；以后要对外分发带 OIDN 的程序，随附两份 Apache-2.0 许可（OIDN、oneTBB 各一份）与各自的 NOTICE，并保留 `oidn` crate 的 MIT 声明。
 
 把 OIDN 档接进出片链时（宿主或作业起带 OIDN 的 `core-render` 之前），先照 `oidn-lock.json` 核一遍库的 sha256（`verifyOidnLibs`），对不上就不起程序：编好之后库目录里的文件被换掉、程序照样装得上，运行时自己不核。
 
-`oidn` 2.5.1 与它的依赖（`num_enum`、`num_enum_derive` 0.7.6，`proc-macro-crate` 3.5.0，`toml_edit` 0.25.17+spec-1.1.0）已按 `Cargo.lock` 的校验和取进两台机器的 cargo 缓存，之后的构建一律不联网。
+`oidn` 2.5.1 与它的依赖（`num_enum`、`num_enum_derive` 0.7.6，`proc-macro-crate` 3.5.0，`toml_edit` 0.25.17+spec-1.1.0）已按 `Cargo.lock` 的校验和取进两台机器的 cargo 缓存；`oidn` 2.3.3 按 `Cargo-oidn23.lock` 的校验和取进两台机器的缓存（只有它一个包，20388 字节：它的依赖 `num_enum` 0.7.6 与构建依赖 `pkg-config` 已在缓存里）。之后的构建一律不联网。
 
 ## 03C 的显存估算
 

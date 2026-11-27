@@ -136,13 +136,16 @@ Skia Canvas 仅在仓库外做过 C 模版对照实验（MIT），没有加入�
 
 ## 14. 核心帧源 OIDN 档的运行时库（不入仓、不分发）
 
-核心帧源的渲染程序有一个可选的构建档（`beiming/sources/core/chassis/build.mjs` 的 `buildOidnRenderer`，Cargo 特性 `oidn`），默认档不带它。这一档在运行时动态链接本机 Blender 安装自带的那一份 Intel Open Image Denoise，由它再装载 oneTBB；库文件按 sha256 钉在 `beiming/sources/core/chassis/oidn-lock.json`，构建前与运行前核对。库不进仓库、不随仓库分发，编出的程序也不进 git。登记见 [docs/rights/register.md](docs/rights/register.md) R17。
+核心帧源的渲染程序有两个可选的构建档（`beiming/sources/core/chassis/build.mjs` 的 `buildOidnRenderer`，Cargo 特性 `oidn` 对 Blender 5.2 自带的 OIDN 2.5，`oidn23` 对 Blender 4.5 自带的 OIDN 2.3），默认档不带它们。这两档在运行时动态链接本机 Blender 安装自带的那一份 Intel Open Image Denoise，由它再装载 oneTBB；库文件按 sha256 钉在 `beiming/sources/core/chassis/oidn-lock.json`，构建前与运行前核对。库不进仓库、不随仓库分发，编出的程序也不进 git。登记见 [docs/rights/register.md](docs/rights/register.md) R17。
 
 | 依赖 | 锁定版本 | 实际许可 | 用途与义务 |
 |---|---|---|---|
 | [Intel Open Image Denoise](https://www.openimagedenoise.org/)（OIDN） | 2.5.0（苹果 M5 Pro 的 Blender 5.2.0 与 RTX 5090 的 Blender 5.2.3 自带的同一版本；逐文件 sha256 见 `oidn-lock.json`） | Apache-2.0，Copyright 2018-2026 Intel Corporation（据 Blender 安装里的第三方许可说明 `text/license/license.md`） | OIDN 档的降噪，与 Cycles 用同一个库。只在本机动态链接，不复制、不分发库文件。以后要对外分发带 OIDN 的程序或库，随附 Apache-2.0 许可全文（`LICENSES/Apache-2.0.txt`）与 OIDN 的 NOTICE |
 | [oneTBB](https://github.com/uxlfoundation/oneTBB)（`libtbb`、`libtbbmalloc`、`libtbbmalloc_proxy`） | Blender 自带的那一份（Blender 的第三方许可说明写 v2022.3.0；逐文件 sha256 见 `oidn-lock.json`） | Apache-2.0，Copyright (c) 2005-2020 Intel Corporation（同上） | OIDN 运行时装载的线程库。义务同上：分发时随附 Apache-2.0 许可全文与 oneTBB 的 NOTICE |
 | [oidn](https://github.com/Twinklebear/oidn-rs)（Rust 绑定 crate） | `2.5.1`（锁在 `beiming/sources/core/path/Cargo.lock`） | MIT，Copyright (c) 2019 Will Usher | 只在 OIDN 档编进渲染程序（Rust 一侧的调用接口）。分发编出的程序时保留它的 MIT 版权与许可声明 |
+| Intel Open Image Denoise（OIDN 2.3 档 `oidn23`） | 2.3.3（RTX 5090 的 Blender 4.5.16 自带；逐文件 sha256 见 `oidn-lock.json` 的 `oidn23` 一项；苹果 M5 Pro 上没有 Blender 4.5，没有这一档） | Apache-2.0，Copyright 2009-2025 Intel Corporation（据 Blender 4.5.16 安装里的第三方许可说明 `license/license.md`） | 同上一行的 OIDN：只在本机动态链接，不复制、不分发库文件 |
+| oneTBB（OIDN 2.3 档装载的那一份） | Blender 4.5.16 自带的那一份（它的第三方许可说明写 v2021.13.0；逐文件 sha256 见 `oidn-lock.json` 的 `oidn23` 一项） | Apache-2.0，Copyright (c) 2005-2020 Intel Corporation（同上） | 义务同上 |
+| oidn（Rust 绑定 crate，OIDN 2.3 档） | `2.3.3`（锁在 `beiming/sources/core/path/Cargo-oidn23.lock`） | MIT，Copyright (c) 2019 Will Usher（crate 包内 `LICENSE.md`） | 只在 `oidn23` 档编进渲染程序。义务同上 |
 
 - 对外分发带 OIDN 的程序时，要附两份 Apache-2.0 许可（OIDN、oneTBB 各一份，各带自己的 NOTICE）和 oidn crate 的 MIT 许可；现在只在本机与 5090 上做对拍，没有分发。
 - 把 OIDN 档接进出片链时，起渲染程序之前要先核库的 sha256（`build.mjs` 的 `verifyOidnLibs`，对 `oidn-lock.json`），见 [beiming/sources/core/path/README.md](beiming/sources/core/path/README.md)「链接 Blender 自带的 OIDN」。
