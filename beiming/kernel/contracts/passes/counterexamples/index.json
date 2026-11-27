@@ -96,5 +96,19 @@
       "PS6"
     ],
     "why": "sides 里只有 core，pixels 的第 2 项却写着是 oracle 渲的"
+  },
+  {
+    "file": "PS1-lightpath-misspelled.json",
+    "violates": [
+      "PS1"
+    ],
+    "why": "单独一份通道声明里有一项叫 diffuseIndirekt：光路通道名拼错，不在登记表里"
+  },
+  {
+    "file": "PS2-lightpath-with-alpha.json",
+    "violates": [
+      "PS2"
+    ],
+    "why": "core 的 emission 分量写成 R、G、B、A，登记表里光路通道只有 R、G、B"
   }
 ]
