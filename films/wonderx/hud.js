@@ -13,7 +13,7 @@ const ACT_GAGS = {
   A03: 'PARTS: 428 LIVE',
   A04: 'OPTICS: 420–680nm',
   A05: 'NODES: 30,000 GPU',
-  A06: 'SCALE: 10⁶→10⁻³m',
+  A06: 'SCALE: 10^6→10^-3m',
   A07: 'STYLES: 66+ ENGINE',
   A08: 'OUT: HTML + 4K MP4',
   A09: 'LIVE SPLIT 0–100%',
@@ -42,6 +42,20 @@ export function drawHud(ctx, overlay, state) {
   ctx.clearRect(0, 0, 1920, 1080);
   rows.length = 0;
 
+  // 按当前 Canvas 2D 变换矩阵投影四角，保证平移/倾斜文字的包围盒与真实渲染像素一致
+  function transformedBox(x0, y0, x1, y1) {
+    const tm = ctx.getTransform();
+    const xA = tm.a * x0 + tm.c * y0 + tm.e, yA = tm.b * x0 + tm.d * y0 + tm.f;
+    const xB = tm.a * x1 + tm.c * y0 + tm.e, yB = tm.b * x1 + tm.d * y0 + tm.f;
+    const xC = tm.a * x0 + tm.c * y1 + tm.e, yC = tm.b * x0 + tm.d * y1 + tm.f;
+    const xD = tm.a * x1 + tm.c * y1 + tm.e, yD = tm.b * x1 + tm.d * y1 + tm.f;
+    const minX = Math.min(xA, xB, xC, xD);
+    const minY = Math.min(yA, yB, yC, yD);
+    const maxX = Math.max(xA, xB, xC, xD);
+    const maxY = Math.max(yA, yB, yC, yD);
+    return [minX, minY, maxX - minX, maxY - minY];
+  }
+
   function write(text, x, y, px, font, color = PALETTE.porcelain, weight = 400, tag = 'hud', align = 'left') {
     const resolvedFont = font === 'WX Display' ? 'WX Serif' : (font === 'WX Sans' ? 'WX Text' : font);
     ctx.font = `${weight} ${px}px "${resolvedFont}", "WX Text", sans-serif`;
@@ -50,14 +64,20 @@ export function drawHud(ctx, overlay, state) {
     ctx.fillText(text, x, y);
     const w = ctx.measureText(text).width;
     const x0 = align === 'center' ? x - w / 2 : (align === 'right' ? x - w : x);
-    const box = [x0 * scaleX, (y - px) * scaleY, w * scaleX, px * 1.24 * scaleY];
-    rows.push({ id: tag, text, font: resolvedFont, box, x0: box[0], y0: box[1], x1: box[0] + box[2], y1: box[1] + box[3], alpha: 1 });
+    const box = transformedBox(x0, y - px, x0 + w, y + px * 0.24);
+    rows.push({
+      id: tag, text, font: ctx.font, box,
+      x0: box[0], y0: box[1], x1: box[0] + box[2], y1: box[1] + box[3],
+      alpha: ctx.globalAlpha,
+    });
     ctx.textAlign = 'left';
     return w;
   }
 
   function writeMono(text, x, y, px, color = PALETTE.titaniumLight, weight = 600, align = 'left', tag = null) {
-    const fam = px >= 28 ? '"WX Display", "WX Sans", ui-monospace, monospace' : '"WX Sans", ui-monospace, "SF Mono", Menlo, monospace';
+    const fam = px >= 28
+      ? '"WX Display", "WX Sans", "WX Text", ui-monospace, monospace'
+      : '"WX Sans", "WX Text", ui-monospace, "SF Mono", Menlo, monospace';
     ctx.font = `${weight} ${px}px ${fam}`;
     ctx.fillStyle = color;
     ctx.textAlign = align;
@@ -65,8 +85,12 @@ export function drawHud(ctx, overlay, state) {
     if (tag) {
       const w = ctx.measureText(text).width;
       const x0 = align === 'center' ? x - w / 2 : (align === 'right' ? x - w : x);
-      const box = [x0 * scaleX, (y - px) * scaleY, w * scaleX, px * 1.24 * scaleY];
-      rows.push({ id: tag, text, font: 'WX Sans', box, x0: box[0], y0: box[1], x1: box[0] + box[2], y1: box[1] + box[3], alpha: 1 });
+      const box = transformedBox(x0, y - px, x0 + w, y + px * 0.24);
+      rows.push({
+        id: tag, text, font: ctx.font, box,
+        x0: box[0], y0: box[1], x1: box[0] + box[2], y1: box[1] + box[3],
+        alpha: ctx.globalAlpha,
+      });
     }
     ctx.textAlign = 'left';
   }
@@ -109,28 +133,28 @@ export function drawHud(ctx, overlay, state) {
     const count = sceneState?.instanceCount ?? 30000;
     const fIdx = sceneState?.activeFormation ?? 0;
     const fObj = ACT05_FORMATIONS[fIdx] ?? ACT05_FORMATIONS[0];
-    roundRect(ctx, 1460, 84, 380, 108, 10);
+    roundRect(ctx, 1444, 84, 380, 108, 10);
     ctx.fillStyle = 'rgba(7, 8, 11, 0.72)';
     ctx.fill();
     ctx.strokeStyle = 'rgba(76, 224, 245, 0.35)';
     ctx.lineWidth = 1.5;
     ctx.stroke();
-    writeMono('LIVE GPU INSTANCED MESH', 1484, 114, 13, PALETTE.iceCyan, 700);
-    writeMono(`${count.toLocaleString('en-US')} NODES · ${tier.toUpperCase()}`, 1484, 146, 22, PALETTE.porcelain, 700);
-    write(`当前形态：${fObj.name}`, 1484, 176, 17, 'WX Sans', PALETTE.warmTungsten, 500, 'act05-form');
+    writeMono('LIVE GPU INSTANCED MESH', 1468, 114, 13, PALETTE.iceCyan, 700);
+    writeMono(`${count.toLocaleString('en-US')} NODES · ${tier.toUpperCase()}`, 1468, 146, 22, PALETTE.porcelain, 700);
+    write(`当前形态：${fObj.name}`, 1468, 176, 17, 'WX Sans', PALETTE.warmTungsten, 500, 'act05-form');
   }
 
   // ── Act 06（H5a）：尺度标尺 + Beat 3 微距锁死核心传感器准星 ──
   if (id === 'A06') {
     const scalePow = 6 - progress * 9; // 10^6m -> 10^-3m
-    roundRect(ctx, 1510, 84, 330, 82, 10);
+    roundRect(ctx, 1494, 84, 330, 82, 10);
     ctx.fillStyle = 'rgba(7, 8, 11, 0.72)';
     ctx.fill();
     ctx.strokeStyle = 'rgba(76, 224, 245, 0.35)';
     ctx.lineWidth = 1.5;
     ctx.stroke();
-    writeMono('CONTINUOUS OPTICAL DIVE', 1532, 112, 13, PALETTE.iceCyan, 700);
-    writeMono(`SCALE  10^(${scalePow.toFixed(1)}) m`, 1532, 146, 22, PALETTE.porcelain, 700);
+    writeMono('CONTINUOUS OPTICAL DIVE', 1516, 112, 13, PALETTE.iceCyan, 700);
+    writeMono(`SCALE  10^(${scalePow.toFixed(1)}) m`, 1516, 146, 22, PALETTE.porcelain, 700);
 
     const lock = smoothstep(0.68, 0.92, progress);
     if (lock > 0.04) {
@@ -157,16 +181,16 @@ export function drawHud(ctx, overlay, state) {
   const showTitleBlock = !(id === 'A01' && progress < 0.68);
   if (showTitleBlock) {
     const isTopLeft = id === 'A04'; // H3 棱光：左上留足干净标题负空间
-    const x = 86;
+    const x = 104;
     const baseY = isTopLeft ? 156 : 756;
 
     if (!isTopLeft) {
-      const scrim = ctx.createLinearGradient(0, 660, 0, 1080);
+      const scrim = ctx.createLinearGradient(0, 640, 0, 1080);
       scrim.addColorStop(0, 'rgba(7, 8, 11, 0)');
-      scrim.addColorStop(0.55, 'rgba(7, 8, 11, 0.68)');
-      scrim.addColorStop(1, 'rgba(7, 8, 11, 0.88)');
+      scrim.addColorStop(0.32, 'rgba(7, 8, 11, 0.74)');
+      scrim.addColorStop(1, 'rgba(7, 8, 11, 0.90)');
       ctx.fillStyle = scrim;
-      ctx.fillRect(0, 660, 1920, 420);
+      ctx.fillRect(0, 640, 1920, 440);
     }
 
     ctx.save();
@@ -186,26 +210,53 @@ export function drawHud(ctx, overlay, state) {
   drawPageCounter(ctx, id, progress, writeMono, false);
 }
 
-// ── Act 03 CAD 引线标注（对位 H2 极细白线工程标注） ──
+// ── Act 03 CAD 引线标注（对位 H2 极细白线工程标注，按实测字宽内收至 5% 安全区并防重叠） ──
 function drawAct03Cad(ctx, anchors, explode, write, writeMono) {
   const vis = smoothstep(0.10, 0.32, explode);
   if (vis < 0.02) return;
+  const SAFE_L = 104;
+  const SAFE_R = 1816;
+  const placed = [];
   ctx.save();
   ctx.globalAlpha = vis;
   anchors.forEach((a, idx) => {
     const sx = clamp(a.sx, 140, 1780);
-    const sy = clamp(a.sy, 140, 920);
+    const sy = clamp(a.sy, 140, 860);
     const isTop = a.side === 'top';
-    const ex = clamp(sx + (idx < 3 ? 68 : -68), 160, 1760);
-    const ey = isTop ? Math.max(115, sy - 115 - (idx % 2) * 32) : Math.min(720, sy + 105 + (idx % 2) * 28);
-    const dir = ex >= sx ? 1 : -1;
+    const dir = idx < 3 ? 1 : -1;
+    let ey = isTop
+      ? Math.max(110, sy - 115 - (idx % 2) * 32)
+      : Math.min(668, sy + 105 + (idx % 2) * 28);
+
+    ctx.font = '600 18px "WX Text", sans-serif';
+    const wLabel = ctx.measureText(a.label).width;
+    ctx.font = '600 13px "WX Sans", "WX Text", ui-monospace, "SF Mono", Menlo, monospace';
+    const wSpec = ctx.measureText(a.spec).width;
+    const labelW = Math.ceil(Math.max(wLabel, wSpec));
+
+    const rawEx = clamp(sx + dir * 68, SAFE_L, SAFE_R);
+    const rawTx = dir > 0 ? rawEx + 10 : rawEx - labelW - 10;
+    const tx = clamp(rawTx, SAFE_L, SAFE_R - labelW);
+
+    // 防止推近镜头时同侧标签在安全区边界堆叠重叠
+    for (let tries = 0; tries < 6; tries++) {
+      const hit = placed.some(p => tx < p.x1 + 12 && tx + labelW > p.x0 - 12 && Math.abs(ey - p.ey) < 56);
+      if (!hit) break;
+      ey = isTop ? Math.min(668, ey + 60) : Math.max(110, ey - 60);
+    }
+    placed.push({ x0: tx, x1: tx + labelW, ey });
+
+    const shelfL = Math.max(SAFE_L - 4, tx - 6);
+    const shelfR = Math.min(SAFE_R + 4, tx + labelW + 6);
+    const elbowX = clamp(rawEx, shelfL, shelfR);
 
     ctx.strokeStyle = idx === 3 ? PALETTE.vermilion : 'rgba(242, 244, 248, 0.72)';
     ctx.lineWidth = idx === 3 ? 2 : 1.25;
     ctx.beginPath();
     ctx.moveTo(sx, sy);
-    ctx.lineTo(ex, ey);
-    ctx.lineTo(ex + dir * 188, ey);
+    ctx.lineTo(elbowX, ey);
+    ctx.moveTo(shelfL, ey);
+    ctx.lineTo(shelfR, ey);
     ctx.stroke();
 
     ctx.fillStyle = idx === 3 ? PALETTE.vermilion : PALETTE.iceCyan;
@@ -213,9 +264,12 @@ function drawAct03Cad(ctx, anchors, explode, write, writeMono) {
     ctx.arc(sx, sy, 4.5, 0, Math.PI * 2);
     ctx.fill();
 
-    const tx = dir > 0 ? ex + 10 : ex - 186;
+    ctx.save();
+    ctx.shadowColor = 'rgba(4, 6, 10, 0.92)';
+    ctx.shadowBlur = 10;
     write(a.label, tx, ey - 10, 18, 'WX Sans', PALETTE.porcelain, 600, `cad-${a.id}`);
     writeMono(a.spec, tx, ey + 17, 13, idx === 3 ? '#FF8B73' : PALETTE.titaniumLight, 600);
+    ctx.restore();
   });
   ctx.restore();
 }
@@ -235,9 +289,9 @@ function drawAct07Hud(ctx, progress, sceneState, copy, write, writeMono) {
     ctx.fillRect(958, 524, 4, 32);
 
     const cells = [
-      { x: 40, y: 78, style: ACT07_STYLES[0], badge: '01' },
+      { x: 96, y: 78, style: ACT07_STYLES[0], badge: '01' },
       { x: 1000, y: 78, style: ACT07_STYLES[1], badge: '02' },
-      { x: 40, y: 586, style: ACT07_STYLES[2], badge: '03' },
+      { x: 96, y: 586, style: ACT07_STYLES[2], badge: '03' },
       { x: 1000, y: 586, style: ACT07_STYLES[3], badge: '04' },
     ];
     cells.forEach(c => {
@@ -277,7 +331,7 @@ function drawAct07Hud(ctx, progress, sceneState, copy, write, writeMono) {
     scrim.addColorStop(1, 'rgba(7, 8, 11, 0.88)');
     ctx.fillStyle = scrim;
     ctx.fillRect(0, 670, 1920, 410);
-    const x = 86;
+    const x = 104;
     ctx.save();
     ctx.shadowColor = 'rgba(4, 6, 10, 0.92)';
     ctx.shadowBlur = 16;
@@ -311,14 +365,14 @@ function drawAct08Workbench(ctx, progress, sceneState, copy, write, writeMono) {
   writeMono(`TC 00:03:${String(Math.floor(48 + scrub * 30)).padStart(2, '0')}:${String(Math.floor((scrub * 720) % 24)).padStart(2, '0')}`, 1468, 140, 14, PALETTE.titaniumLight, 600, 'right');
 
   // 左面板：现场交互控场
-  roundRect(ctx, 56, 120, 344, 564, 12);
+  roundRect(ctx, 84, 120, 326, 564, 12);
   ctx.fillStyle = 'rgba(10, 13, 20, 0.84)';
   ctx.fill();
   ctx.strokeStyle = 'rgba(76, 224, 245, 0.38)';
   ctx.lineWidth = 1.5;
   ctx.stroke();
-  writeMono('OUTPUT A · INTERACTIVE', 82, 162, 13, PALETTE.iceCyan, 700);
-  write('现场交互控场', 82, 212, 34, 'WX Display', PALETTE.porcelain, 700, 'a08-left-title');
+  writeMono('OUTPUT A · INTERACTIVE', 104, 162, 13, PALETTE.iceCyan, 700);
+  write('现场交互控场', 104, 212, 34, 'WX Display', PALETTE.porcelain, 700, 'a08-left-title');
   const leftItems = [
     ['单文件离线打包', '零外链双击即开，不依赖云端'],
     ['实时响应观众', '指针、滑杆、画风热切零等待'],
@@ -328,20 +382,20 @@ function drawAct08Workbench(ctx, progress, sceneState, copy, write, writeMono) {
   leftItems.forEach(([k, v], i) => {
     const y = 278 + i * 96;
     ctx.fillStyle = 'rgba(76, 224, 245, 0.14)';
-    ctx.fillRect(82, y - 22, 4, 54);
-    write(k, 100, y, 22, 'WX Sans', PALETTE.porcelain, 600, `a08-l-${i}`);
-    write(v, 100, y + 30, 17, 'WX Text', PALETTE.titaniumLight, 400, `a08-ld-${i}`);
+    ctx.fillRect(104, y - 22, 4, 54);
+    write(k, 120, y, 22, 'WX Sans', PALETTE.porcelain, 600, `a08-l-${i}`);
+    write(v, 120, y + 30, 17, 'WX Text', PALETTE.titaniumLight, 400, `a08-ld-${i}`);
   });
 
   // 右面板：同源直出 4K 成片
-  roundRect(ctx, 1520, 120, 344, 564, 12);
+  roundRect(ctx, 1510, 120, 326, 564, 12);
   ctx.fillStyle = 'rgba(10, 13, 20, 0.84)';
   ctx.fill();
   ctx.strokeStyle = 'rgba(210, 69, 44, 0.52)';
   ctx.lineWidth = 1.5;
   ctx.stroke();
-  writeMono('OUTPUT B · BROADCAST 4K', 1546, 162, 13, PALETTE.vermilion, 700);
-  write('同源直出 4K 成片', 1546, 212, 34, 'WX Display', PALETTE.porcelain, 700, 'a08-right-title');
+  writeMono('OUTPUT B · BROADCAST 4K', 1530, 162, 13, '#F06449', 700);
+  write('同源直出 4K 成片', 1530, 212, 34, 'WX Display', PALETTE.porcelain, 700, 'a08-right-title');
   const rightItems = [
     ['严格确定性时钟', 'window.render(t) 逐帧可复现'],
     ['广播级色彩标准', 'BT.709 管线 · 1080p / 4K 直出'],
@@ -351,9 +405,9 @@ function drawAct08Workbench(ctx, progress, sceneState, copy, write, writeMono) {
   rightItems.forEach(([k, v], i) => {
     const y = 278 + i * 96;
     ctx.fillStyle = 'rgba(210, 69, 44, 0.55)';
-    ctx.fillRect(1546, y - 22, 4, 54);
-    write(k, 1564, y, 22, 'WX Sans', PALETTE.porcelain, 600, `a08-r-${i}`);
-    write(v, 1564, y + 30, 17, 'WX Text', PALETTE.titaniumLight, 400, `a08-rd-${i}`);
+    ctx.fillRect(1530, y - 22, 4, 54);
+    write(k, 1546, y, 22, 'WX Sans', PALETTE.porcelain, 600, `a08-r-${i}`);
+    write(v, 1546, y + 30, 17, 'WX Text', PALETTE.titaniumLight, 400, `a08-rd-${i}`);
   });
 
   // 中央中文排版落版宣言（clreq 节奏）
@@ -367,17 +421,17 @@ function drawAct08Workbench(ctx, progress, sceneState, copy, write, writeMono) {
   }
 
   // 底部电影时间轴面板（关键帧曲线 + 29 拍刻度 + 确定性音频波形，底部留出控制栏空隙）
-  roundRect(ctx, 56, 718, 1808, 198, 12);
+  roundRect(ctx, 84, 718, 1752, 198, 12);
   ctx.fillStyle = 'rgba(10, 13, 20, 0.88)';
   ctx.fill();
   ctx.strokeStyle = 'rgba(138, 148, 166, 0.28)';
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
-  writeMono('BEIMING TIMELINE · 10 ACTS / 29 BEATS · CAMERA SPLINE & AUDIO WAVEFORM', 84, 746, 13, PALETTE.titaniumLight, 600);
+  writeMono('BEIMING TIMELINE · 10 ACTS / 29 BEATS · CAMERA SPLINE & AUDIO WAVEFORM', 104, 746, 13, PALETTE.titaniumLight, 600);
   // 29 拍刻度
   for (let i = 0; i < 29; i++) {
-    const tx = 84 + (i / 28) * 1752;
+    const tx = 104 + (i / 28) * 1712;
     ctx.strokeStyle = i % 3 === 0 ? 'rgba(210, 69, 44, 0.8)' : 'rgba(138, 148, 166, 0.35)';
     ctx.lineWidth = i % 3 === 0 ? 2 : 1;
     ctx.beginPath();
@@ -391,7 +445,7 @@ function drawAct08Workbench(ctx, progress, sceneState, copy, write, writeMono) {
   ctx.beginPath();
   for (let i = 0; i <= 80; i++) {
     const u = i / 80;
-    const x = 84 + u * 1752;
+    const x = 104 + u * 1712;
     const y = 820 + Math.sin(u * Math.PI * 3.5) * 22 * Math.cos(u * Math.PI * 1.2);
     if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
   }
@@ -399,13 +453,13 @@ function drawAct08Workbench(ctx, progress, sceneState, copy, write, writeMono) {
   // 确定性声画波形条
   for (let i = 0; i < 140; i++) {
     const u = i / 139;
-    const x = 84 + u * 1752;
+    const x = 104 + u * 1712;
     const amp = 6 + Math.abs(Math.sin(i * 0.73) * Math.cos(i * 0.29)) * 26;
     ctx.fillStyle = u <= scrub ? 'rgba(255, 184, 92, 0.82)' : 'rgba(138, 148, 166, 0.28)';
     ctx.fillRect(x, 878 - amp * 0.5, 6, amp);
   }
   // 朱红时间游标
-  const headX = 84 + scrub * 1752;
+  const headX = 104 + scrub * 1712;
   ctx.strokeStyle = PALETTE.vermilion;
   ctx.lineWidth = 3;
   ctx.beginPath();
@@ -434,24 +488,24 @@ function drawAct09Split(ctx, split, write, writeMono) {
   ctx.fillRect(0, 0, 1920, 92);
   ctx.fillStyle = '#E1E6EE';
   ctx.fillRect(0, 92, 1920, 48);
-  write('传统幻灯片 · 静态汇报模板（2027 内部评审版）', 58, 123, 19, 'WX Sans', '#5E6778', 600, 'h6-l-hdr');
+  write('传统幻灯片 · 静态汇报模板（2027 内部评审版）', 104, 123, 19, 'WX Sans', '#454E5F', 600, 'h6-l-hdr');
 
   // 标题 + 同源 3 个 KPI
-  write(H6_PLATFORM_DATA.title, 58, 196, 38, 'WX Display', '#1D2330', 700, 'h6-l-title');
+  write(H6_PLATFORM_DATA.title, 104, 196, 38, 'WX Display', '#1D2330', 700, 'h6-l-title');
   H6_PLATFORM_DATA.kpis.forEach((k, i) => {
-    const x = 58 + i * 282;
+    const x = 104 + i * 268;
     ctx.fillStyle = '#FFFFFF';
     ctx.strokeStyle = '#CFD6E2';
     ctx.lineWidth = 2;
-    ctx.fillRect(x, 222, 264, 118);
-    ctx.strokeRect(x, 222, 264, 118);
-    write(k.label, x + 20, 254, 17, 'WX Sans', '#667084', 500, `h6-lk-${i}`);
-    writeMono(k.value, x + 20, 298, 34, '#1E2533', 700, 'left', `h6-lv-${i}`);
-    write(k.sub, x + 20, 326, 15, 'WX Text', '#838D9F', 400, `h6-ls-${i}`);
+    ctx.fillRect(x, 222, 254, 118);
+    ctx.strokeRect(x, 222, 254, 118);
+    write(k.label, x + 16, 254, 17, 'WX Sans', '#414A5C', 500, `h6-lk-${i}`);
+    writeMono(k.value, x + 16, 298, 34, '#1E2533', 700, 'left', `h6-lv-${i}`);
+    write(k.sub, x + 16, 326, 15, 'WX Text', '#4D5668', 400, `h6-ls-${i}`);
   });
 
   // 死板扁平饼图（42% / 28% / 19% / 11%）
-  const cx = 224, cy = 502, r = 112;
+  const cx = 248, cy = 502, r = 108;
   const flatColors = ['#6D7687', '#949EAE', '#B5BECB', '#D3DAE4'];
   let a0 = -Math.PI / 2;
   H6_PLATFORM_DATA.breakdown.forEach((b, i) => {
@@ -471,28 +525,28 @@ function drawAct09Split(ctx, split, write, writeMono) {
   H6_PLATFORM_DATA.breakdown.forEach((b, i) => {
     const ly = 434 + i * 42;
     ctx.fillStyle = flatColors[i];
-    ctx.fillRect(394, ly - 16, 18, 18);
-    write(`${b.name}  ${b.pct}%`, 424, ly, 19, 'WX Sans', '#3D4656', 500, `h6-lp-${i}`);
+    ctx.fillRect(414, ly - 16, 18, 18);
+    write(`${b.name}  ${b.pct}%`, 444, ly, 19, 'WX Sans', '#3D4656', 500, `h6-lp-${i}`);
   });
 
   // 密密麻麻传统表格
   const ty = 656;
   ctx.fillStyle = '#DDE3EC';
-  ctx.fillRect(58, ty, 826, 38);
+  ctx.fillRect(104, ty, 790, 38);
   ['核心模块', '算力占比', '实测算力', '互连带宽'].forEach((h, i) => {
-    write(h, 76 + i * 204, ty + 26, 17, 'WX Sans', '#262E3D', 700, `h6-th-${i}`);
+    write(h, 120 + i * 194, ty + 26, 17, 'WX Sans', '#262E3D', 700, `h6-th-${i}`);
   });
   H6_PLATFORM_DATA.tableRows.forEach((row, rIdx) => {
     const ry = ty + 38 + rIdx * 42;
     ctx.fillStyle = rIdx % 2 === 0 ? '#FFFFFF' : '#F8FAFC';
-    ctx.fillRect(58, ry, 826, 42);
+    ctx.fillRect(104, ry, 790, 42);
     ctx.strokeStyle = '#DCE2EB';
-    ctx.strokeRect(58, ry, 826, 42);
+    ctx.strokeRect(104, ry, 790, 42);
     row.forEach((cell, cIdx) => {
-      write(cell, 76 + cIdx * 204, ry + 28, 17, 'WX Text', '#3C4557', 400, `h6-td-${rIdx}-${cIdx}`);
+      write(cell, 120 + cIdx * 194, ry + 28, 17, 'WX Text', '#3C4557', 400, `h6-td-${rIdx}-${cIdx}`);
     });
   });
-  write('示例数据 · 仅用于演示对比（传统扁平版）', 58, 902, 14, 'WX Text', '#8A94A6', 400, 'h6-l-foot');
+  write('示例数据 · 仅用于演示对比（传统扁平版）', 104, 902, 14, 'WX Text', '#4D5668', 400, 'h6-l-foot');
   ctx.restore();
 
   // ── 右半屏：北冥引擎暗场 3D 太空级 HUD 浮层（严格 clip 到 splitX..1920，完全同源 7 项数据） ──
@@ -501,41 +555,41 @@ function drawAct09Split(ctx, split, write, writeMono) {
   ctx.rect(splitX, 0, 1920 - splitX, 1080);
   ctx.clip();
 
-  writeMono('BEIMING LIVE 3D ENGINE · SAME DATASET', 1846, 108, 14, PALETTE.iceCyan, 700, 'right');
-  write(H6_PLATFORM_DATA.title, 1846, 158, 36, 'WX Display', PALETTE.porcelain, 700, 'h6-r-title', 'right');
+  writeMono('BEIMING LIVE 3D ENGINE · SAME DATASET', 1816, 108, 14, PALETTE.iceCyan, 700, 'right');
+  write(H6_PLATFORM_DATA.title, 1816, 158, 36, 'WX Display', PALETTE.porcelain, 700, 'h6-r-title', 'right');
 
   // 3 枚右侧悬浮暗玻璃 KPI 遥测卡
   H6_PLATFORM_DATA.kpis.forEach((k, i) => {
     const y = 200 + i * 126;
-    roundRect(ctx, 1476, y, 370, 110, 12);
+    roundRect(ctx, 1446, y, 370, 110, 12);
     ctx.fillStyle = 'rgba(10, 13, 20, 0.82)';
     ctx.fill();
     ctx.strokeStyle = i === 0 ? 'rgba(210, 69, 44, 0.72)' : 'rgba(76, 224, 245, 0.42)';
     ctx.lineWidth = 1.5;
     ctx.stroke();
-    write(k.label, 1502, y + 32, 17, 'WX Sans', '#B8C4D8', 500, `h6-rk-${i}`);
-    writeMono(k.value, 1502, y + 74, 35, i === 0 ? '#FF6B4D' : PALETTE.iceCyan, 700, 'left', `h6-rv-${i}`);
-    write(k.sub, 1502, y + 98, 14, 'WX Text', PALETTE.titaniumLight, 400, `h6-rs-${i}`);
+    write(k.label, 1472, y + 32, 17, 'WX Sans', '#B8C4D8', 500, `h6-rk-${i}`);
+    writeMono(k.value, 1472, y + 74, 35, i === 0 ? '#FF6B4D' : PALETTE.iceCyan, 700, 'left', `h6-rv-${i}`);
+    write(k.sub, 1472, y + 98, 14, 'WX Text', PALETTE.titaniumLight, 400, `h6-rs-${i}`);
   });
 
   // 底部同源 4 项占比条（42% / 28% / 19% / 11%，底部留出控制栏空隙）
-  roundRect(ctx, 1072, 698, 774, 198, 12);
+  roundRect(ctx, 1042, 698, 774, 198, 12);
   ctx.fillStyle = 'rgba(10, 13, 20, 0.84)';
   ctx.fill();
   ctx.strokeStyle = 'rgba(138, 148, 166, 0.34)';
   ctx.lineWidth = 1.5;
   ctx.stroke();
-  writeMono('LIVE TELEMETRY BREAKDOWN · 1:1 ALIGNED WITH LEFT SLIDE', 1098, 728, 13, PALETTE.titaniumLight, 600);
+  writeMono('LIVE TELEMETRY BREAKDOWN · 1:1 ALIGNED WITH LEFT SLIDE', 1068, 728, 13, PALETTE.titaniumLight, 600);
   H6_PLATFORM_DATA.breakdown.forEach((b, i) => {
     const y = 764 + i * 32;
-    write(b.name, 1098, y, 17, 'WX Sans', PALETTE.porcelain, 500, `h6-rb-${i}`);
+    write(b.name, 1068, y, 17, 'WX Sans', PALETTE.porcelain, 500, `h6-rb-${i}`);
     ctx.fillStyle = 'rgba(255,255,255,0.08)';
-    ctx.fillRect(1276, y - 13, 420, 13);
+    ctx.fillRect(1246, y - 13, 420, 13);
     ctx.fillStyle = b.color;
-    ctx.fillRect(1276, y - 13, 420 * (b.pct / 50), 13);
-    writeMono(`${b.pct}%`, 1820, y, 17, b.color, 700, 'right', `h6-rp-${i}`);
+    ctx.fillRect(1246, y - 13, 420 * (b.pct / 50), 13);
+    writeMono(`${b.pct}%`, 1790, y, 17, i === 0 ? '#FF6B4D' : b.color, 700, 'right', `h6-rp-${i}`);
   });
-  write('示例数据 · 左右 7 项指标 100% 同源', 1846, 922, 14, 'WX Text', PALETTE.titaniumLight, 400, 'h6-r-foot', 'right');
+  write('示例数据 · 左右 7 项指标 100% 同源', 1816, 922, 14, 'WX Text', PALETTE.titaniumLight, 400, 'h6-r-foot', 'right');
   ctx.restore();
 
   // ── 中央发光朱红激光垂直分屏线 + 精密圆环手柄 ──
@@ -637,11 +691,11 @@ function drawPageCounter(ctx, id, progress, writeMono, lightLeft) {
     if (progress < 0.66) {
       label = 'SLIDE 1 / 48';
       sub = 'STATIC DECK';
-      accent = '#737D8F';
+      accent = '#454F61';
     } else {
       label = '01 / 10';
       sub = 'HIJACKED · LIVE 3D';
-      accent = PALETTE.vermilion;
+      accent = '#F06449';
     }
   } else if (id === 'A10' && progress >= 0.66) {
     label = 'SLIDE 10 / 10';
@@ -649,16 +703,16 @@ function drawPageCounter(ctx, id, progress, writeMono, lightLeft) {
     accent = PALETTE.porcelain;
   } else {
     label = `ACT ${id.slice(1)} / 10`;
-    accent = id === 'A09' ? PALETTE.vermilion : PALETTE.iceCyan;
+    accent = id === 'A09' ? '#F06449' : PALETTE.iceCyan;
   }
 
-  roundRect(ctx, 1598, 958, 256, 56, 8);
+  roundRect(ctx, 1578, 958, 256, 56, 8);
   ctx.fillStyle = (id === 'A01' && progress < 0.66) ? 'rgba(232, 236, 242, 0.9)' : 'rgba(7, 8, 11, 0.78)';
   ctx.fill();
   ctx.strokeStyle = lightLeft ? 'rgba(210, 69, 44, 0.5)' : 'rgba(138, 148, 166, 0.34)';
   ctx.lineWidth = 1.25;
   ctx.stroke();
 
-  writeMono(label, 1834, 983, 17, (id === 'A01' && progress < 0.66) ? '#252D3A' : PALETTE.porcelain, 700, 'right', 'page-counter');
-  writeMono(sub, 1834, 1004, 11.5, accent, 700, 'right', 'page-counter-sub');
+  writeMono(label, 1814, 983, 17, (id === 'A01' && progress < 0.66) ? '#252D3A' : PALETTE.porcelain, 700, 'right', 'page-counter');
+  writeMono(sub, 1814, 1004, 11.5, accent, 700, 'right', 'page-counter-sub');
 }

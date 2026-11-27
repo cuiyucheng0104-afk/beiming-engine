@@ -65,7 +65,16 @@ npm run standalone:build -- films/wonderx
 ```sh
 node films/wonderx/audio/fetch.mjs
 npm run film -- build films/wonderx --final --profile web-1080p24
-# 4K 档位入口示例（整片或片段）：
-node engine/render/video.mjs films/wonderx --profile uhd-2160p24 --frames 708:780 --out <clip.mp4>
+
+# 4K 整片带声导出：
+# npm run film -- build films/wonderx --final --profile uhd-2160p24
+
+# 4K 短段带声复现示例（F708–F779，共 72 帧 = 3.0 s，对应 29.5 s 起）：
+OUT=/tmp/wonderx-4k-clip
+mkdir -p "$OUT"
+node engine/render/video.mjs films/wonderx --profile uhd-2160p24 --frames 708:780 --out "$OUT/video.mp4"
+node tools/env/py.mjs films/wonderx/sound.py films/wonderx --out "$OUT/mix.wav"
+ffmpeg -y -ss 29.5 -t 3 -i "$OUT/mix.wav" -c:a pcm_s24le "$OUT/clip_audio.wav"
+node engine/render/lib/mux.mjs "$OUT/video.mp4" "$OUT/clip_audio.wav" "$OUT/master_4k_clip.mp4" 24 0 --frames 72 --profile uhd-2160p24 --film films/wonderx
 ```
 

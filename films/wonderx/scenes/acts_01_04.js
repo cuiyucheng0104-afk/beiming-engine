@@ -91,7 +91,7 @@ function buildAct01(brushedTex) {
       pctx.fillStyle = '#D2452C';
       pctx.fillRect(42, 62, 170, 24);
       pctx.fillStyle = '#FFFFFF';
-      pctx.font = '700 13px "WX Sans", monospace';
+      pctx.font = '700 13px "WX Sans", "WX Text", sans-serif';
       pctx.fillText('LOCKED · HIJACK', 52, 79);
     }
     pctx.fillStyle = hijack >= 0.42 ? '#D2452C' : '#1E2430';
@@ -129,7 +129,7 @@ function buildAct01(brushedTex) {
     pctx.fillRect(806, 206, 424, 386);
     pctx.strokeRect(806, 206, 424, 386);
     pctx.fillStyle = '#5B6475';
-    pctx.font = '600 18px "WX Sans", sans-serif';
+    pctx.font = '600 18px "WX Text", "WX Sans", sans-serif';
     pctx.fillText('传统季度指标（静态柱图）', 834, 246);
     const bars = [0.26, 0.34, 0.41, 0.49, 0.56, 0.64];
     bars.forEach((b, i) => {
@@ -138,13 +138,13 @@ function buildAct01(brushedTex) {
       pctx.fillStyle = i === 5 ? '#7E8796' : '#B7C0CE';
       pctx.fillRect(bx, 540 - bh, 38, bh);
       pctx.fillStyle = '#737D8F';
-      pctx.font = '500 14px monospace';
+      pctx.font = '500 14px "WX Sans", "WX Text", sans-serif';
       pctx.fillText(`Q${i + 1}`, bx + 8, 566);
     });
 
     // 页底传统页码
     pctx.fillStyle = '#8B95A5';
-    pctx.font = '500 16px monospace';
+    pctx.font = '500 16px "WX Sans", "WX Text", sans-serif';
     pctx.fillText('SLIDE 1 / 48', 1126, 686);
     pptTex.needsUpdate = true;
   }
