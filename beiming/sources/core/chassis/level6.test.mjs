@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { THRESHOLDS } from '../../../verify/floorgate.mjs';
 import { findBlender } from './build.mjs';
-import { LIMITS, POST_INJECT, colorPass, colorSamples, compareColor, featureDiff, runColor, runIsolation } from './level6.mjs';
+import { DELIVERED, LIMITS, POST_INJECT, colorPass, colorSamples, colorStatus, compareColor, featureDiff, runColor, runIsolation } from './level6.mjs';
 import { TOLERANCE } from './oidn-parity.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -45,6 +45,13 @@ test('色彩读数：浮点最大绝对差、8 位先截再取整的级差；门
   assert.equal(colorPass({ ...ok, b: { floatMaxAbs: 0, levels8: 2 } }), false);
 });
 
+test('色彩一半判交付链的那一种：交付链不过、候选过是 blocked-on-contract，不算过', () => {
+  assert.equal(DELIVERED, 'lut65');
+  assert.equal(colorStatus({ lut65: { pass: true }, chain: { pass: false } }), 'pass');
+  assert.equal(colorStatus({ lut65: { pass: false }, chain: { pass: true } }), 'blocked-on-contract');
+  assert.equal(colorStatus({ lut65: { pass: false }, chain: { pass: false } }), 'fail');
+});
+
 test('特征层的差：平均、99 分位、最大，与任一分量差超过 0.01 的像素占比；大小不同拒收', () => {
   const ref = new Float32Array(300);
   const core = new Float32Array(300);
@@ -74,13 +81,15 @@ test('帧源出片链的写法：render-pack 带 --no-denoise 与 --passes，层
 test('实跑：色彩一半，65³ 表与 Blender 自带算子链各对 Blender 直出', { skip: findBlender() ? false : '本机没有 Blender', timeout: 600000 }, async (t) => {
   const r = await runColor({ blenderBin: findBlender() });
   for (const [name, m] of Object.entries(r.methods)) t.diagnostic(`${name}：${Object.entries(m.sets).map(([k, s]) => `${k} 浮点 ${s.floatMaxAbs.toExponential(3)}、8 位 ${s.levels8} 级`).join('；')}`);
-  t.diagnostic(`OCIO 直算对 16 位 PNG ${r.ocioVs16.toExponential(3)}；照用 ${r.adopted}`);
+  t.diagnostic(`OCIO 直算对 16 位 PNG ${r.ocioVs16.toExponential(3)}；交付链 ${r.delivered}，结论 ${r.status}`);
   // OCIO 直算就是 Blender 存图的那一条：差只在 16 位量化（一级 1.5e-5）与存图的舍入
   assert.ok(r.ocioVs16 <= 1e-4, `OCIO 直算对 Blender 存的 16 位 PNG 差 ${r.ocioVs16}`);
   assert.match(r.methods.lut65.lock, /^sha256:[0-9a-f]{64}$/);
   assert.deepEqual(r.methods.chain.lock.map((f) => f.file).sort(), ['AgX_Base_sRGB.cube', 'config.ocio', 'luminance_compensation_bt2020.cube']);
   assert.equal(r.methods.chain.pass, true, '算子链照做应当过门');
-  assert.equal(r.pass, true);
+  assert.equal(r.delivered, 'lut65');
+  assert.equal(r.status, colorStatus(r.methods));
+  assert.equal(r.pass, r.methods.lut65.pass, '判的是交付链的那一种，不按候选算');
 });
 
 test('负对照：post::finish 改坏，帧源出片链的 color 层逐字节不变、预览 PNG 变了', { skip: E2E ? false : '要另编一份程序（设 BEIMING_CHASSIS_E2E=1）', timeout: 3600000 }, async () => {

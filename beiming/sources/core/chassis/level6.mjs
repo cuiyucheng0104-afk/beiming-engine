@@ -15,7 +15,9 @@
 //                 chain  Blender 自带的 AgX 表加它的分配变换：OCIO 处理器（默认优化之后）的算子逐个照做，三维表读 Blender 自带的 .cube
 //               浮点对 OCIO 处理器直算（另记它对 Blender 存的 16 位 PNG 差多少，说明直算就是 Blender 存图的那一条），8 位对 Blender 存的
 //               8 位 PNG（关抖动）。样本：灰阶 0 到 16 每 1/8 档；三原色与三种二次色跨八档亮度，加三个混色；黄色折点一带每 1/4 档。
-//               门：浮点最大绝对差 ≤ colorFloat，8 位最大级差 ≤ color8bit。65³ 表达到就照用，达不到用算子链；判的是照用的那一种，两种都记。
+//               门：浮点最大绝对差 ≤ colorFloat，8 位最大级差 ≤ color8bit。判的是交付链真在用的那一种（DELIVERED，现在是 65³ 表）；
+//               算子链只是候选，两种都记。交付链换不了算子链：锁契约的 lock.view 一个视图只钉一个哈希，算子链要钉三样文件，
+//               要先改锁契约。所以 65³ 表不过、算子链过时报 blocked-on-contract，不算过。
 //     isolation 判（负对照）。帧源出片链永不经 post.rs 的调色：在 out/ 下的源码副本里把 post::finish 的曝光乘 0.25 另编，
 //               同一个场景包经 source.mjs 出一帧：color 层必须逐字节不变，预览 PNG 必须变（变了才说明改动生效）。
 //   node beiming/sources/core/chassis/level6.mjs [--only denoise,features,color,isolation（几项用逗号连）] [--devices cpu,metal] [--root <参考包根目录>]
@@ -41,6 +43,10 @@ import { platesPack, writePack } from './scenepack.mjs';
 const WORK = path.join(OUT, 'level6');
 export const LIMITS = THRESHOLDS.math.level6;
 export const PARTS = ['denoise', 'features', 'color', 'isolation'];
+/** 交付链（comp/deliver.mjs 读 lock.view 的一张 .cube）现在用的色彩做法；换了交付链才改这里 */
+export const DELIVERED = 'lut65';
+/** 交付链的做法不过、候选过：卡在锁契约，不算过 */
+export const colorStatus = (methods) => (methods[DELIVERED].pass ? 'pass' : Object.values(methods).some((m) => m.pass) ? 'blocked-on-contract' : 'fail');
 /** 本机显卡对应的 OIDN 设备 */
 export const GPU_DEVICE = { darwin: 'metal', linux: 'cuda' };
 /** 特征层差的「明显」线：反照率与法线分量都在 0 到 1 上下，0.01 是 8 位里两三级 */
@@ -113,8 +119,8 @@ export async function runColor({ blenderBin, log = () => {} }) {
       return { sets: out, pass: colorPass(out) };
     };
     const methods = { lut65: { ...judge((v) => applyShaperAndLut(v, lut)), lock: lutSha256 }, chain: { ...judge((v) => applyAgxChain(v, chain)), lock: chain.files } };
-    const adopted = methods.lut65.pass ? 'lut65' : methods.chain.pass ? 'chain' : null;
-    return { blender: chain.blender, ocio: chain.ocio, view: { display: chain.display, view: chain.view, look: chain.look }, limits: { float: LIMITS.colorFloat, levels8: LIMITS.color8bit }, ocioVs16, methods, adopted, pass: adopted !== null };
+    const status = colorStatus(methods);
+    return { blender: chain.blender, ocio: chain.ocio, view: { display: chain.display, view: chain.view, look: chain.look }, limits: { float: LIMITS.colorFloat, levels8: LIMITS.color8bit }, ocioVs16, methods, delivered: DELIVERED, candidate: 'chain', status, pass: status === 'pass' };
   } finally { fs.rmSync(work, { recursive: true, force: true }); }
 }
 
@@ -219,7 +225,7 @@ export async function runLevel6({ only, devices, root, featureSpp = 64, log = ()
   if (want('color')) report.color = await runColor({ blenderBin: findBlender(), log });
   if (want('isolation')) report.isolation = await runIsolation({ log });
   report.denoiseHalf = report.denoise ? { pass: report.denoise.every((r) => r.pass) } : null;
-  report.colorHalf = report.color || report.isolation ? { pass: (report.color?.pass ?? true) && (report.isolation?.pass ?? true) } : null;
+  report.colorHalf = report.color || report.isolation ? { status: report.color?.status ?? null, pass: (report.color?.pass ?? true) && (report.isolation?.pass ?? true) } : null;
   report.ok = [report.denoiseHalf, report.colorHalf].every((h) => h === null || h.pass);
   return report;
 }
@@ -260,12 +266,12 @@ export const command = defineCommand({
     if (report.color) {
       for (const [name, m] of Object.entries(report.color.methods)) {
         const sets = Object.entries(m.sets).map(([k, r]) => `${k} 浮点 ${e3(r.floatMaxAbs)}、8 位 ${r.levels8} 级`).join('；');
-        ctx.out(`${m.pass ? '✓' : '✗'} 色彩 ${name}${report.color.adopted === name ? '（照用）' : ''}：${sets}（门 浮点 ${LIMITS.colorFloat}、8 位 ${LIMITS.color8bit} 级）`);
+        ctx.out(`${m.pass ? '✓' : '✗'} 色彩 ${name}${report.color.delivered === name ? '（交付链）' : '（候选，交付链没接）'}：${sets}（门 浮点 ${LIMITS.colorFloat}、8 位 ${LIMITS.color8bit} 级）`);
       }
       ctx.out(`· OCIO 直算对 Blender 存的 16 位 PNG：最大差 ${e3(report.color.ocioVs16)}（Blender ${report.color.blender}，OCIO ${report.color.ocio}）`);
     }
     if (report.isolation) ctx.out(`${report.isolation.pass ? '✓' : '✗'} 负对照 帧源出片链不经 post.rs：color 层${report.isolation.colorSame ? '逐字节不变' : '变了'}，预览 PNG ${report.isolation.previewChanged ? '变了' : '没变（改动没生效）'}`);
-    ctx.out(`降噪一半：${report.denoiseHalf ? (report.denoiseHalf.pass ? '过' : '不过') : '没跑'}；色彩一半：${report.colorHalf ? (report.colorHalf.pass ? '过' : '不过') : '没跑'}`);
+    ctx.out(`降噪一半：${report.denoiseHalf ? (report.denoiseHalf.pass ? '过' : '不过') : '没跑'}；色彩一半：${report.colorHalf ? (report.colorHalf.pass ? '过' : report.colorHalf.status === 'blocked-on-contract' ? '不过（交付链的 65³ 表不过门，候选的算子链过，换链要先改锁契约）' : '不过') : '没跑'}`);
     ctx.out(`报告：${file}`);
     return { data: report, outputs: [{ path: file, kind: 'report' }], ...(!report.ok && { error: { code: 'contract.chassis-level6', message: '第 6 级有不过的项', hint: `明细见 ${file}` } }) };
   },

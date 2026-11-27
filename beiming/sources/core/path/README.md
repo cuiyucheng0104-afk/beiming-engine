@@ -164,9 +164,9 @@ node beiming/sources/core/chassis/level6.mjs [--only denoise,features,color,isol
 
 第 6 级是成品图的降噪接法与色彩链，两半各自判，门在阈值文件 `beiming/verify/floor-gate.json` 的 `math.level6`（`denoise` 1e-3、`colorFloat` 1e-4、`color8bit` 1；上面的 `oidn-parity.mjs` 也读 `denoise` 这一格）。
 
-- 降噪一半（`denoise`，判）：就是上一节的对拍，预过滤 `ACCURATE`，设备默认 CPU 加本机显卡（macOS Metal，Linux CUDA），两台机器各跑一遍；读数不写进 `oidn-parity/`，写进第 6 级的报告。
+- 降噪一半（`denoise`，判）：就是上一节的对拍，预过滤 `ACCURATE`，设备默认 CPU 加本机显卡（macOS Metal，Linux CUDA），两台机器各跑一遍；读数不写进 `oidn-parity/`，写进第 6 级的报告 `out/chassis/level6/report.json`。`out/` 不提交，所以两台的报告原文（含提交号、Blender、OIDN 与内核版本）抄进合入这一级的 PR 正文，留档以那里为准。
 - 特征层（`features`，只记不判）：核心自己渲参考包的每个（场景包, 帧），出层的 `denoiseAlbedo`、`denoiseNormal` 对参考包收敛图里 Cycles 的 `Denoising Albedo`、`Denoising Normal`，记平均、99 分位、最大绝对差与差超过 0.01 的像素占比。差在哪里、为什么，见 [STRUCTURES.md](STRUCTURES.md)「降噪特征的规则」。它说明「核心自己出的引导图和 Cycles 的不一样」，所以降噪一半只证明接法，不证明核心降噪后的画面和 Cycles 降噪后的一样。
-- 色彩一半（`color`，判）：见 [`beiming/comp/lut/README.md`](../../../comp/lut/README.md)，Blender 只在本机后台跑。
+- 色彩一半（`color`，判）：见 [`beiming/comp/lut/README.md`](../../../comp/lut/README.md)，Blender 只在本机后台跑。判的是交付链真在用的 65³ 表（`level6.mjs` 的 `DELIVERED`）；Blender 自带表加分配变换的算子链只是候选，照记读数、不拿它判过。65³ 表现在判不过、算子链过，报告的结论是 `blocked-on-contract`，色彩一半记为不过：交付链要换成算子链，锁契约的 `lock.view` 得能钉三样文件，要先改锁契约。
 - 负对照（`isolation`，判，色彩一半）：帧源出片链（`../source.mjs`）调 `render-pack --passes --no-denoise`，层直接从内核读回的输出缓冲写，不经降噪、不经 `src/post.rs` 的调色（曝光、泛光、局部曝光、色调映射、sRGB 编码只给 `-o` 的 PNG）。负对照在 `out/` 下的源码副本里把 `post::finish` 的曝光乘 0.25 另编，同一个场景包经帧源出一帧：color 层必须逐字节不变，预览 PNG 必须变。`level6.test.mjs` 另有一条不要显卡的检查：帧源的调用带 `--no-denoise` 与 `--passes`、不带 `--hdr`，层文件都是 `.f32`、`.u32`。
 - 帧源出片链里降噪后的颜色不进出层（输出通道契约第 1 节），要降噪后的线性颜色从 `--hdr` 出，见上面「降噪的口径」。
 - 采样图案不照搬 Cycles 的表式 Sobol 与蓝噪声，理由见 [STRUCTURES.md](STRUCTURES.md)「随机维度」。
