@@ -22,7 +22,7 @@ export const caps = (version) => ({
     objectId: { type: 'u32', note: '辅助样本打到的实体编号，0 表示没打到；覆盖率另放在同目录的 objectId.coverage.f32（形状相同，f32），层引用只带 id 一个分量' },
     normal: { type: 'f32', note: '相机空间（看 −Z、Y 向上）的着色法线，背对相机的翻向相机；辅助样本；什么都没打到写 (0, 0, 0)' },
     motion: false,
-    denoiseAlbedo: { type: 'f32', note: '上游口径的反照率样本均值（相机首次命中的底色），还不是 Cycles 降噪特征的口径' },
+    denoiseAlbedo: { type: 'f32', note: 'Cycles 降噪特征的反照率：相机首次命中处漫反射类闭包的反照率之和，样本均值；不跟反射、不按粗糙度加权（Cycles 默认两样都开），上游顶替的闭包取底色' },
     denoiseNormal: { type: 'f32', note: 'Cycles 降噪特征的相机空间（看 +Z、Y 向上），世界法线样本均值换过去，不归一' },
     'lightgroup:*': false,
   },

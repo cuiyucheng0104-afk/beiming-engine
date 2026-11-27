@@ -4,7 +4,7 @@
 // 这里的 applyShaperAndLut 和 ffmpegFilter 给出的滤镜链是同一条算式：整形 → lut3d（四面体插值）。
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, rename, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rename, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -48,8 +48,8 @@ export function parseCube(text) {
   return { size, data: Float64Array.from(values) };
 }
 
-/** 在 [0, 1]³ 上查三维表，四面体插值（和 FFmpeg lut3d 的 interp=tetrahedral 同一种）。 */
-function lookup(lut, rgb) {
+/** 在 [0, 1]³ 上查三维表，四面体插值（和 FFmpeg lut3d 的 interp=tetrahedral、OCIO 的 INTERP_TETRAHEDRAL 同一种）。 */
+export function lookup(lut, rgb) {
   const n = lut.size, base = [0, 0, 0], frac = [0, 0, 0];
   for (let i = 0; i < 3; i++) {
     const s = clamp01(rgb[i]) * (n - 1);
@@ -131,4 +131,92 @@ export async function bakeAgxLut({ blenderBin, gridSize = 65, outPath, limitMs }
     await rename(staged, outPath);
     return `sha256:${hash}`;
   } finally { await rm(dir, { recursive: true, force: true }); }
+}
+
+const FLT_MIN = 2 ** -126;
+const sha256Hex = (bytes) => createHash('sha256').update(bytes).digest('hex');
+const bad = (why) => new Error(`AgX 算子链：${why}`);
+
+/**
+ * 从 Blender 自带的色彩配置取 AgX Medium High Contrast 的算子链（bake_agx.py 的 chain：OCIO 默认优化之后的处理器，逐个算子），
+ * 三维表从 Blender 自带的 .cube 读（按格数加指纹格点认是哪一张）。返回 { blender, ocio, ops, files }：files 是配置与用到的表的
+ * 文件名与 sha256（sha256: 加 64 位十六进制），进锁用；ops 里的 lut3d 带 parseCube 读出的表。
+ */
+export async function agxChain({ blenderBin, workDir, limitMs }) {
+  const out = join(workDir, 'agx-chain.json');
+  await runBlenderJob(blenderBin, { mode: 'chain', outPath: out }, limitMs);
+  const desc = JSON.parse(await readFile(out, 'utf8'));
+  const cubes = (await readdir(desc.luts)).filter((f) => f.endsWith('.cube')).sort();
+  const files = [{ file: 'config.ocio', sha256: `sha256:${sha256Hex(await readFile(desc.config))}` }];
+  const cache = new Map();
+  for (const op of desc.ops) {
+    if (op.op !== 'lut3d') continue;
+    let hit = null;
+    for (const f of cubes) {
+      if (!cache.has(f)) {
+        const bytes = await readFile(join(desc.luts, f));
+        try { cache.set(f, { lut: parseCube(bytes.toString('utf8')), sha256: `sha256:${sha256Hex(bytes)}` }); } catch { cache.set(f, null); }
+      }
+      const c = cache.get(f);
+      if (!c || c.lut.size !== op.size) continue;
+      const at = (i, j, k) => [0, 1, 2].map((ch) => c.lut.data[(i + op.size * (j + op.size * k)) * 3 + ch]);
+      if (op.probe.every(([i, j, k, v]) => at(i, j, k).every((x, ch) => Math.abs(x - v[ch]) <= 1e-6))) { hit = f; break; }
+    }
+    if (!hit) throw bad(`${desc.luts} 里找不到 ${op.size}³、格点对得上的 .cube`);
+    op.file = hit;
+    op.lut = cache.get(hit).lut;
+    if (!files.some((x) => x.file === hit)) files.push({ file: hit, sha256: cache.get(hit).sha256 });
+  }
+  return { blender: desc.blender, ocio: desc.ocio, display: desc.display, view: desc.view, look: desc.look, ops: desc.ops, files };
+}
+
+/** 照 OCIO 的 ExponentWithLinear（moncurve）：编码值 e > o / (g − 1) 时 l = ((e + o) / (1 + o))^g，以下是过原点的切线 */
+function moncurveSlope(g, o) {
+  const eb = o / (g - 1);
+  return ((eb + o) / (1 + o)) ** g / eb;
+}
+
+/** 场景线性光 [r, g, b] 走 agxChain 给的算子链，得显示空间的 sRGB 编码值（不截；表与指数已把值压在 0 到 1） */
+export function applyAgxChain(rgb, chain) {
+  let v = [...rgb];
+  for (const op of chain.ops) {
+    switch (op.op) {
+      case 'matrix': {
+        if (!op.forward) throw bad('矩阵只认正向');
+        const m = op.m;
+        v = [0, 1, 2].map((i) => m[4 * i] * v[0] + m[4 * i + 1] * v[1] + m[4 * i + 2] * v[2] + op.offset[i]);
+        break;
+      }
+      case 'log':
+        // OCIO 的对数先把输入夹到单精度最小正规数以上；反向是 base^x
+        v = v.map((x) => (op.forward ? Math.log(Math.max(x, FLT_MIN)) / Math.log(op.base) : op.base ** x));
+        break;
+      case 'lut3d':
+        v = lookup(op.lut, v);
+        break;
+      case 'grading-primary': {
+        // 只认 log 式、除对比度外都是恒等的一档（AgX 外观只用到对比度）；对比度绕枢轴 0.5 + 0.5 × pivot
+        const id = (a, x) => a.every((y) => y === x);
+        if (op.style !== 'GRADING_LOG' || !op.forward || !id(op.brightness, 0) || !id(op.gamma, 1) || !id(op.offset, 0) || !id(op.exposure, 0)
+          || !id(op.lift, 0) || !id(op.gain, 1) || op.saturation !== 1) throw bad('分级只认 log 式、正向、只调对比度的一档');
+        const pivot = 0.5 + 0.5 * op.pivot;
+        v = v.map((x, i) => Math.min(op.clampWhite, Math.max(op.clampBlack, (x - pivot) * op.contrast[i] * op.contrast[3] + pivot)));
+        break;
+      }
+      case 'exponent':
+        if (!op.forward || op.negative !== 'NEGATIVE_CLAMP') throw bad('指数只认正向、负数夹到 0');
+        v = v.map((x, i) => Math.max(x, 0) ** op.value[i]);
+        break;
+      case 'moncurve':
+        if (op.forward || op.negative !== 'NEGATIVE_LINEAR') throw bad('sRGB 编码只认反向（线性到编码）、负数走直线段');
+        v = v.map((x, i) => {
+          const g = op.gamma[i], o = op.offset[i], k = moncurveSlope(g, o);
+          return x > k * (o / (g - 1)) ? (1 + o) * x ** (1 / g) - o : x / k;
+        });
+        break;
+      default:
+        throw bad(`不认识的算子 ${op.op}`);
+    }
+  }
+  return v;
 }
