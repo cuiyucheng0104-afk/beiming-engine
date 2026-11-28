@@ -1,0 +1,65 @@
+{
+  "format": "card/0.1",
+  "id": "mechanism.craft-gl-limits",
+  "version": "1.0.0",
+  "kind": "mechanism",
+  "title": "预检 WebGL 纹理与渲染缓冲区上限",
+  "intent": "查阅预检 WebGL 纹理与渲染缓冲区上限的工艺出处",
+  "visibleToAgent": false,
+  "livesIn": [
+    "data"
+  ],
+  "impl": [
+    {
+      "livesIn": "data",
+      "entry": "cards/mechanism/craft-gl-limits/evaluate.mjs",
+      "shape": "evaluate",
+      "hosts": [],
+      "selftest": "cards/c14-craft.test.mjs"
+    }
+  ],
+  "params": {},
+  "ports": {
+    "in": [],
+    "out": [
+      {
+        "name": "reference",
+        "type": "tracks.craftReference"
+      }
+    ],
+    "order": {
+      "before": [],
+      "after": []
+    },
+    "requires": []
+  },
+  "conditions": {
+    "appliesWhen": [
+      "查阅工艺手册中的技术说明"
+    ],
+    "notWhen": [
+      "需要执行该技术时"
+    ]
+  },
+  "calibration": "probe-moving-cube",
+  "verify": {
+    "selftest": "核对只读状态、注册表可见性与数据回读",
+    "predicates": []
+  },
+  "provenance": {
+    "cases": [],
+    "note": "490e76dba0e4fb29c39f3c932392a100f9e92e2a routes/directing/craft/threejs.md:379,508"
+  },
+  "status": [
+    {
+      "level": "read",
+      "host": "node",
+      "source": "craft-manual",
+      "gpu": "none",
+      "date": "2026-11-28"
+    }
+  ],
+  "exams": [
+    "cal:mechanism.craft-gl-limits"
+  ]
+}

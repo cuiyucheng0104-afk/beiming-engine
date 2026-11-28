@@ -1,0 +1,65 @@
+{
+  "format": "card/0.1",
+  "id": "post.craft-paper-scale",
+  "version": "1.0.0",
+  "kind": "post",
+  "title": "按分辨率调整纸纹尺度",
+  "intent": "查阅按分辨率调整纸纹尺度的工艺出处",
+  "visibleToAgent": false,
+  "livesIn": [
+    "data"
+  ],
+  "impl": [
+    {
+      "livesIn": "data",
+      "entry": "cards/post/craft-paper-scale/evaluate.mjs",
+      "shape": "evaluate",
+      "hosts": [],
+      "selftest": "cards/c14-craft.test.mjs"
+    }
+  ],
+  "params": {},
+  "ports": {
+    "in": [],
+    "out": [
+      {
+        "name": "reference",
+        "type": "tracks.craftReference"
+      }
+    ],
+    "order": {
+      "before": [],
+      "after": []
+    },
+    "requires": []
+  },
+  "conditions": {
+    "appliesWhen": [
+      "查阅工艺手册中的技术说明"
+    ],
+    "notWhen": [
+      "需要执行该技术时"
+    ]
+  },
+  "calibration": "probe-gray-chart",
+  "verify": {
+    "selftest": "核对只读状态、注册表可见性与数据回读",
+    "predicates": []
+  },
+  "provenance": {
+    "cases": [],
+    "note": "490e76dba0e4fb29c39f3c932392a100f9e92e2a routes/directing/craft/two-five-d.md:523"
+  },
+  "status": [
+    {
+      "level": "read",
+      "host": "node",
+      "source": "craft-manual",
+      "gpu": "none",
+      "date": "2026-11-28"
+    }
+  ],
+  "exams": [
+    "cal:post.craft-paper-scale"
+  ]
+}
