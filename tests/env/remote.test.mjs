@@ -1,6 +1,6 @@
 // 控制机 ↔ 工作站（tools/remote）：参数编码、机器档案校验，以及用本机目录传输（local）走完整流程——
 // 按提交建工作树、整机槽位锁、运行、取回并核对 sha256、清理；远端失败的退出码透传；槽位被占 exit 5；中断时远端清理干净。
-// 端到端部分在临时目录里建一个只含 tools/remote 与 tools/env/lib/cli.mjs 的小仓库，代码包只有几 KB。
+// 端到端部分在临时目录里建一个只含 tools/remote 及其 CLI 依赖的小仓库，代码包只有几 KB。
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -49,7 +49,7 @@ function miniRepo() {
   // 取真实长路径：Windows runner 的临时目录是 8.3 短名（带 ~，例如 RUNNER~1），而机器档案的 root 不许出现 ~
   const base = fs.mkdtempSync(path.join(fs.realpathSync.native(os.tmpdir()), 'beiming-remote-test-'));
   const repo = path.join(base, 'repo');
-  for (const rel of ['tools/remote/cli.mjs', 'tools/remote/agent.mjs', 'tools/remote/lib/compare.mjs', 'tools/remote/lib/profiles.mjs', 'tools/remote/lib/shell.mjs', 'tools/remote/lib/transport.mjs', 'tools/env/lib/cli.mjs']) {
+  for (const rel of ['tools/remote/cli.mjs', 'tools/remote/agent.mjs', 'tools/remote/lib/compare.mjs', 'tools/remote/lib/profiles.mjs', 'tools/remote/lib/shell.mjs', 'tools/remote/lib/transport.mjs', 'tools/env/lib/cli.mjs', 'tools/lib/cli.mjs']) {
     fs.mkdirSync(path.dirname(path.join(repo, rel)), { recursive: true });
     fs.copyFileSync(path.join(ROOT, rel), path.join(repo, rel));
   }

@@ -5,10 +5,12 @@
 //       usage.missing-value、usage.bad-value、usage.extra-argument；
 //       envelope({ command, exitCode, error, outputs, warnings, result }) → 附录 C2 的对象（schemaVersion 1）；
 //       runMain(command, fn, { json }) 统一收尾：--json 时 stdout 只输出一个对象，人读日志走 stderr。
-// P02 的 tools/lib/cli.mjs 合入后可以改为转调它；这里只依赖 Node 自带模块，保证本目录能独立运行。
 // SPDX-License-Identifier: MIT
 // SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
 import { parseArgs } from 'node:util';
+import { describeNodeParseArgsError } from '../../lib/cli.mjs';
+
+export { wantsLiteralHelp as wantsHelp } from '../../lib/cli.mjs';
 
 export const EXIT = Object.freeze({
   OK: 0,          // 成功
@@ -48,13 +50,8 @@ export function parseCli(argv, spec) {
   } catch (e) {
     const known = Object.keys(spec.options).map(k => `--${k}`).join(' ');
     const hint = `可用参数：${known}；加 --help 查看用法`;
-    const flag = /'(-{1,2}[^' ]+)/.exec(e.message)?.[1] ?? '';
-    if (e.code === 'ERR_PARSE_ARGS_UNKNOWN_OPTION') throw new UsageError(`不认识的选项 ${flag || e.message}`, hint, 'usage.unknown-option');
-    if (e.code === 'ERR_PARSE_ARGS_INVALID_OPTION_VALUE') {
-      if (/does not take an argument/.test(e.message)) throw new UsageError(`${flag} 是开关，不带值`, hint, 'usage.bad-value');
-      throw new UsageError(`${flag} 后面要跟一个值`, hint, 'usage.missing-value');
-    }
-    if (e.code === 'ERR_PARSE_ARGS_UNEXPECTED_POSITIONAL') throw new UsageError(`不接受位置参数：${/'([^']*)'/.exec(e.message)?.[1] ?? ''}`, hint, 'usage.extra-argument');
+    const issue = describeNodeParseArgsError(e);
+    if (issue) throw new UsageError(issue.message, hint, issue.code);
     throw new UsageError(`参数不对：${e.message}`, hint);
   }
   if (spec.maxPositionals != null && parsed.positionals.length > spec.maxPositionals) {
@@ -101,9 +98,4 @@ export async function runMain(command, fn, { json = false } = {}) {
     process.stdout.write(out.text.endsWith('\n') ? out.text : out.text + '\n');
   }
   process.exitCode = out.exitCode;
-}
-
-// 只要 argv 里有 -h / --help 就只打印用法：在解析其余参数之前判断，保证 --help 无副作用。
-export function wantsHelp(argv) {
-  return argv.includes('--help') || argv.includes('-h');
 }
