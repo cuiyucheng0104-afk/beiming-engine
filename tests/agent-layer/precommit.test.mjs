@@ -29,10 +29,7 @@ const HAS_GIT = spawnSync('git', ['--version'], { encoding: 'utf8' }).status ===
 const NEEDED = ['.githooks/pre-commit', '.githooks/pre-commit.mjs', 'tools/lib/cli.mjs',
   'tools/repo-check/rules/agent/instruction-files.json', '.claude/hooks/lib/policy.mjs'];
 const TOOL_DIRS = ['tools/env', 'tools/compliance'];                       // P10 大文件闸门与 env 规则的库、P01 合规扫描
-const TOOL_FILES = [
-  'tools/repo-check/rules/env/index.mjs', // P10 env 规则的命令行入口（env.eol）
-  'tools/lib/node-argv.mjs',             // P10 与 P01 命令共用的参数诊断
-];
+const TOOL_FILES = ['tools/repo-check/rules/env/index.mjs'];              // P10 env 规则的命令行入口（env.eol）
 const OWN_AND_INDEX = 'vendor,source,films-out,instructions,bridge,conflict,large,eol';
 const GIT_ENV = { GIT_CONFIG_NOSYSTEM: '1', GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@example.invalid', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@example.invalid',
   BEIMING_PRECOMMIT_ALLOW: '', CLAUDECODE: '', BEIMING_PRECOMMIT_GIT_TIMEOUT_MS: '' };

@@ -18,7 +18,7 @@
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { describeParseArgsError, wantsHelp } from '../../lib/node-argv.mjs';
+import { describeNodeParseArgsError, wantsLiteralHelp } from '../../lib/cli.mjs';
 
 export const EXIT = Object.freeze({ OK: 0, FAIL: 1, USAGE: 2, ENV: 3, CONTRACT: 4, BUSY: 5, TIMEOUT: 124, SIGINT: 130, SIGTERM: 143 });
 
@@ -38,7 +38,7 @@ export function envelope({ command, exitCode, error = null, outputs = [], runJso
 }
 
 function parseError(e) {
-  const issue = describeParseArgsError(e);
+  const issue = describeNodeParseArgsError(e);
   if (!issue) return usageError(e.message);
 
   const { code, message, flag } = issue;
@@ -86,7 +86,7 @@ function errorObject(e) {
 
 export async function runCli({ command, argv = process.argv.slice(2), help, options = {}, maxPositionals = 0, run }) {
   const json = argv.includes('--json');
-  if (wantsHelp(argv)) return writeAndExit(help.trimEnd(), EXIT.OK);
+  if (wantsLiteralHelp(argv)) return writeAndExit(help.trimEnd(), EXIT.OK);
 
   let finished = false;
   const finish = async (exitCode, { error = null, warnings = [], outputs = [], extra = {}, human = '' } = {}) => {

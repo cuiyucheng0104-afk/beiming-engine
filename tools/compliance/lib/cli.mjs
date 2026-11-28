@@ -8,9 +8,9 @@
 // SPDX-License-Identifier: MIT
 // SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
 import { parseArgs } from 'node:util';
-import { describeParseArgsError } from '../../lib/node-argv.mjs';
+import { describeNodeParseArgsError } from '../../lib/cli.mjs';
 
-export { wantsHelp } from '../../lib/node-argv.mjs';
+export { wantsLiteralHelp as wantsHelp } from '../../lib/cli.mjs';
 
 export const EXIT = Object.freeze({
   OK: 0,          // 成功
@@ -50,7 +50,7 @@ export function parseCli(argv, spec) {
   } catch (e) {
     const known = Object.keys(spec.options).map(k => `--${k}`).join(' ');
     const hint = `可用参数：${known}；加 --help 查看用法`;
-    const issue = describeParseArgsError(e);
+    const issue = describeNodeParseArgsError(e);
     if (issue) throw new UsageError(issue.message, hint, issue.code);
     throw new UsageError(`参数不对：${e.message}`, hint);
   }
