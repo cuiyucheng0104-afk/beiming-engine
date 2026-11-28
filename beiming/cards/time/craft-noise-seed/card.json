@@ -1,0 +1,65 @@
+{
+  "format": "card/0.1",
+  "id": "time.craft-noise-seed",
+  "version": "1.0.0",
+  "kind": "time",
+  "title": "噪声工厂显式种子",
+  "intent": "查阅噪声工厂显式种子的工艺出处",
+  "visibleToAgent": false,
+  "livesIn": [
+    "data"
+  ],
+  "impl": [
+    {
+      "livesIn": "data",
+      "entry": "cards/time/craft-noise-seed/evaluate.mjs",
+      "shape": "evaluate",
+      "hosts": [],
+      "selftest": "cards/c14-craft.test.mjs"
+    }
+  ],
+  "params": {},
+  "ports": {
+    "in": [],
+    "out": [
+      {
+        "name": "reference",
+        "type": "tracks.craftReference"
+      }
+    ],
+    "order": {
+      "before": [],
+      "after": []
+    },
+    "requires": []
+  },
+  "conditions": {
+    "appliesWhen": [
+      "查阅工艺手册中的技术说明"
+    ],
+    "notWhen": [
+      "需要执行该技术时"
+    ]
+  },
+  "calibration": "probe-moving-cube",
+  "verify": {
+    "selftest": "核对只读状态、注册表可见性与数据回读",
+    "predicates": []
+  },
+  "provenance": {
+    "cases": [],
+    "note": "routes/directing/craft/video.md:455"
+  },
+  "status": [
+    {
+      "level": "read",
+      "host": "node",
+      "source": "craft-manual",
+      "gpu": "none",
+      "date": "2026-11-28"
+    }
+  ],
+  "exams": [
+    "cal:time.craft-noise-seed"
+  ]
+}

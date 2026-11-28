@@ -1,0 +1,65 @@
+{
+  "format": "card/0.1",
+  "id": "delivery.craft-render-resume",
+  "version": "1.0.0",
+  "kind": "delivery",
+  "title": "渲染检查点与断点续跑",
+  "intent": "查阅渲染检查点与断点续跑的工艺出处",
+  "visibleToAgent": false,
+  "livesIn": [
+    "data"
+  ],
+  "impl": [
+    {
+      "livesIn": "data",
+      "entry": "cards/delivery/craft-render-resume/evaluate.mjs",
+      "shape": "evaluate",
+      "hosts": [],
+      "selftest": "cards/c14-craft.test.mjs"
+    }
+  ],
+  "params": {},
+  "ports": {
+    "in": [],
+    "out": [
+      {
+        "name": "reference",
+        "type": "tracks.craftReference"
+      }
+    ],
+    "order": {
+      "before": [],
+      "after": []
+    },
+    "requires": []
+  },
+  "conditions": {
+    "appliesWhen": [
+      "查阅工艺手册中的技术说明"
+    ],
+    "notWhen": [
+      "需要执行该技术时"
+    ]
+  },
+  "calibration": "probe-moving-cube",
+  "verify": {
+    "selftest": "核对只读状态、注册表可见性与数据回读",
+    "predicates": []
+  },
+  "provenance": {
+    "cases": [],
+    "note": "routes/directing/craft/video.md:265,451"
+  },
+  "status": [
+    {
+      "level": "read",
+      "host": "node",
+      "source": "craft-manual",
+      "gpu": "none",
+      "date": "2026-11-28"
+    }
+  ],
+  "exams": [
+    "cal:delivery.craft-render-resume"
+  ]
+}
