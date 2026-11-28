@@ -1,14 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import manifest from './c14-craft-manifest.json' with { type: 'json' };
 import { loadCardLibrary } from '../api/runtime.mjs';
 import { createCardRegistry, validateCard } from './index.mjs';
 
 const library = loadCardLibrary();
 const registry = createCardRegistry(Object.values(library).map(({ card }) => card));
-const craft = Object.values(library).filter(({ card }) => card.id.includes('.craft-'));
+const craft = manifest.ids.map(id => {
+  assert.ok(library[id], id);
+  return library[id];
+});
 
 test('每项占位工艺可按主版本读取，只有独立的参考资料输出', async () => {
-  assert.ok(craft.length > 0);
+  assert.equal(new Set(manifest.ids).size, 122);
   for (const { card, files, dir } of craft) {
     assert.deepEqual(registry.getCard(card.id + '@1'), card);
     const validation = validateCard(card);
@@ -29,6 +33,7 @@ test('每项占位工艺可按主版本读取，只有独立的参考资料输�
     assert.deepEqual(Object.keys(files).sort(), ['card.json', 'evaluate.mjs']);
     const { evaluate } = await import(new URL('../' + card.impl[0].entry, import.meta.url));
     const expected = { reference: { title: card.title, source: card.provenance.note } };
+    assert.ok(card.provenance.note.startsWith(manifest.baseline + ' '));
     const first = evaluate({}, {}, 0, 0);
     assert.deepEqual(first, expected);
     first.reference.source = '';
